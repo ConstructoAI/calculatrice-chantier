@@ -36,6 +36,10 @@ impl Erreur {
 pub enum Information {
     ToutEfface,
     MemoireEffacee,
+    /// Un champ d'un outil de métier vient d'être vidé (section 23).
+    ChampVide,
+    /// Les champs d'un outil de métier ont repris leurs valeurs de départ.
+    OutilRecommence,
 }
 
 impl Information {
@@ -43,8 +47,25 @@ impl Information {
         match self {
             Information::ToutEfface => "TOUT EFFACÉ",
             Information::MemoireEffacee => "MÉMOIRE EFFACÉE",
+            Information::ChampVide => "CHAMP VIDÉ",
+            Information::OutilRecommence => "CHAMPS REMIS AU DÉPART",
         }
     }
+}
+
+/// Message d'un outil de métier (section 23.5) : il manque une valeur.
+/// Le libellé d'un champ peut tenir sur deux lignes : il s'écrit ici sur une seule.
+pub fn valeur_manquante(libelle: &str) -> String {
+    format!("IL MANQUE : {}", en_capitales(libelle))
+}
+
+/// Message d'un outil de métier : un champ contient une saisie refusée.
+pub fn valeur_a_corriger(libelle: &str) -> String {
+    format!("À CORRIGER : {}", en_capitales(libelle))
+}
+
+fn en_capitales(libelle: &str) -> String {
+    libelle.replace('\n', " ").to_uppercase()
 }
 
 /// Avertissement attaché à une sortie de fonction (escalier).

@@ -9,9 +9,11 @@
 use super::{Calcul, Calculateur, Champ, Lues, Metier, Quantite, Resultat};
 
 const ADMINISTRATION: Champ = Champ::nombre("Administration", "%")
+    .court("Admin.")
     .defaut("3")
     .nul_permis();
 const IMPREVUS: Champ = Champ::nombre("Imprévus (contingences)", "%")
+    .court("Imprévus")
     .defaut("12")
     .nul_permis();
 const PROFIT: Champ = Champ::nombre("Profit", "%").defaut("15").nul_permis();
@@ -31,7 +33,7 @@ pub const CALCULATEURS: &[Calculateur] = &[
         nom: "Prix d'une soumission",
         resume: "Du coût des travaux au prix à soumettre : administration, imprévus, profit et taxes.",
         champs: &[
-            Champ::nombre("Coût de base des travaux", "$"),
+            Champ::nombre("Coût de base des travaux", "$").court("Coût\nde base"),
             ADMINISTRATION,
             IMPREVUS,
             PROFIT,
@@ -47,10 +49,14 @@ pub const CALCULATEURS: &[Calculateur] = &[
         nom: "Budget au pied carré",
         resume: "L'ordre de grandeur du prix d'un projet, d'après sa superficie et un coût au pied carré.",
         champs: &[
-            Champ::nombre("Superficie habitable", "pi²"),
-            Champ::nombre("Coût de base", "$/pi²"),
-            Champ::nombre("Superficie du garage", "pi²").facultatif(),
-            Champ::nombre("Coût de base du garage", "$/pi²").facultatif(),
+            Champ::nombre("Superficie habitable", "pi²").court("Superficie"),
+            Champ::nombre("Coût de base", "$/pi²").court("Coût\nde base"),
+            Champ::nombre("Superficie du garage", "pi²")
+                .court("Garage")
+                .facultatif(),
+            Champ::nombre("Coût de base du garage", "$/pi²")
+                .court("Coût\ngarage")
+                .facultatif(),
             ADMINISTRATION,
             IMPREVUS,
             PROFIT,
@@ -66,10 +72,13 @@ pub const CALCULATEURS: &[Calculateur] = &[
         nom: "Coût de la main-d'œuvre",
         resume: "Le coût d'une équipe, d'après ses heures, son taux horaire et les charges de l'employeur.",
         champs: &[
-            Champ::entier("Nombre d'ouvriers", "").defaut("1"),
-            Champ::nombre("Heures par ouvrier", "h"),
-            Champ::nombre("Taux horaire", "$/h"),
+            Champ::entier("Nombre d'ouvriers", "")
+                .court("Ouvriers")
+                .defaut("1"),
+            Champ::nombre("Heures par ouvrier", "h").court("Heures"),
+            Champ::nombre("Taux horaire", "$/h").court("Taux\nhoraire"),
             Champ::nombre("Charges et avantages sociaux", "%")
+                .court("Charges")
                 .defaut("0")
                 .nul_permis(),
         ],
@@ -83,7 +92,7 @@ pub const CALCULATEURS: &[Calculateur] = &[
         resume: "La TPS et la TVQ d'un montant, ou le montant avant taxes d'un total.",
         champs: &[
             Champ::nombre("Montant", "$"),
-            Champ::choix("Ce montant est", SENS_DES_TAXES),
+            Champ::choix("Ce montant est", SENS_DES_TAXES).court("Montant\ndonné"),
             TPS,
             TVQ,
         ],
@@ -97,10 +106,49 @@ pub const CALCULATEURS: &[Calculateur] = &[
         resume: "Le prix de vente d'après le coût et la majoration, et la marge qui en résulte.",
         champs: &[
             Champ::nombre("Coût", "$"),
-            Champ::nombre("Majoration sur le coût", "%").nul_permis(),
+            Champ::nombre("Majoration sur le coût", "%")
+                .court("Majoration")
+                .nul_permis(),
         ],
         note: "La majoration se mesure sur le coût, la marge sur le prix de vente : 25 % de majoration donnent 20 % de marge.",
         calcul: majoration_et_marge,
+    },
+    Calculateur {
+        id: "facturation-progressive",
+        metier: Metier::Estimation,
+        nom: "Facture d'étape",
+        resume: "Le montant d'une facture d'étape, d'après l'avancement des travaux et la retenue.",
+        champs: &[
+            Champ::nombre("Montant du contrat, avant taxes", "$").court("Contrat"),
+            Champ::nombre("Avancement des travaux", "%").court("Avancement"),
+            Champ::nombre("Retenue", "%").defaut("10").nul_permis(),
+            Champ::nombre("Déjà facturé, avant taxes", "$")
+                .defaut("0")
+                .nul_permis()
+                .court("Déjà\nfacturé"),
+            TPS,
+            TVQ,
+        ],
+        note: "Le montant déjà facturé est celui des factures précédentes, avant taxes et retenue déduite.",
+        calcul: facturation_progressive,
+    },
+    Calculateur {
+        id: "duree-des-travaux",
+        metier: Metier::Estimation,
+        nom: "Durée des travaux",
+        resume: "Les heures et les jours de travail, d'après la quantité à réaliser et le rendement de l'équipe.",
+        champs: &[
+            Champ::nombre("Quantité à réaliser", "").court("Quantité"),
+            Champ::nombre("Rendement d'un ouvrier, à l'heure", "").court("Rendement"),
+            Champ::entier("Nombre d'ouvriers", "")
+                .defaut("1")
+                .court("Ouvriers"),
+            Champ::nombre("Heures par jour", "h")
+                .defaut("8")
+                .court("Heures\npar jour"),
+        ],
+        note: "La quantité et le rendement s'expriment dans la même unité : des pieds carrés et des pieds carrés à l'heure, par exemple.",
+        calcul: duree_des_travaux,
     },
 ];
 
@@ -248,6 +296,54 @@ fn majoration_et_marge(e: &Lues) -> Calcul {
         Resultat::nouveau(
             "Marge sur le prix de vente",
             Quantite::Fixe(profit / prix * 100.0, 2, "%"),
+        ),
+    ])
+}
+
+fn facturation_progressive(e: &Lues) -> Calcul {
+    let avancement = e.nombre(1);
+    if avancement > 100.0 {
+        return Err("L'avancement ne dépasse pas 100 %.");
+    }
+    if e.nombre(2) >= 100.0 {
+        return Err("La retenue doit être inférieure à 100 %.");
+    }
+    let executes = au_cent(e.nombre(0) * avancement / 100.0);
+    let retenue = au_cent(executes * e.nombre(2) / 100.0);
+    let facture = au_cent(executes - retenue - au_cent(e.nombre(3)));
+    if facture < 0.0 {
+        return Err("Le montant déjà facturé dépasse les travaux exécutés, retenue déduite.");
+    }
+    let tps = au_cent(facture * e.nombre(4) / 100.0);
+    let tvq = au_cent(facture * e.nombre(5) / 100.0);
+    Ok(vec![
+        dollars("Travaux exécutés à ce jour", executes),
+        dollars("Retenue", retenue),
+        dollars("Cette facture, avant taxes", facture),
+        dollars("TPS", tps),
+        dollars("TVQ", tvq),
+        dollars(
+            "Cette facture, taxes comprises",
+            au_cent(facture + tps + tvq),
+        ),
+    ])
+}
+
+fn duree_des_travaux(e: &Lues) -> Calcul {
+    if e.nombre(3) > 24.0 {
+        return Err("Une journée compte 24 heures.");
+    }
+    let heures_de_travail = e.nombre(0) / e.nombre(1);
+    let duree = heures_de_travail / e.nombre(2);
+    Ok(vec![
+        Resultat::nouveau(
+            "Heures de travail, en tout",
+            Quantite::Fixe(heures_de_travail, 1, "h"),
+        ),
+        Resultat::nouveau("Durée, à cette équipe", Quantite::Fixe(duree, 1, "h")),
+        Resultat::nouveau(
+            "Jours de travail",
+            Quantite::Fixe(duree / e.nombre(3), 1, "jours"),
         ),
     ])
 }

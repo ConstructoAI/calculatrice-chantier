@@ -139,26 +139,34 @@ pub type Saisies = BTreeMap<String, Vec<String>>;
 struct FichierSaisies {
     version: u32,
     saisies: Saisies,
+    /// Identifiant du calculateur branché sur le clavier (section 23).
+    outil: Option<String>,
 }
 
 /// Lit les dernières saisies; aucune si la donnée est absente, illisible ou
 /// d'une autre version (ce ne sont que des commodités : rien n'est mis de côté).
-pub fn charger_saisies(depot: &Depot) -> Saisies {
+/// Retourne aussi l'identifiant du calculateur branché sur le clavier.
+pub fn charger_saisies(depot: &Depot) -> (Saisies, Option<String>) {
     match depot.lire(FICHIER_SAISIES) {
         Lecture::Texte(texte) => serde_json::from_str::<FichierSaisies>(&texte)
             .ok()
             .filter(|fichier| fichier.version == VERSION_SAISIES)
-            .map(|fichier| fichier.saisies)
+            .map(|fichier| (fichier.saisies, fichier.outil))
             .unwrap_or_default(),
-        Lecture::Absent | Lecture::Illisible => Saisies::new(),
+        Lecture::Absent | Lecture::Illisible => (Saisies::new(), None),
     }
 }
 
-/// Enregistre les dernières saisies.
-pub fn enregistrer_saisies(depot: &Depot, saisies: &Saisies) -> io::Result<()> {
+/// Enregistre les dernières saisies et l'outil branché sur le clavier.
+pub fn enregistrer_saisies(
+    depot: &Depot,
+    saisies: &Saisies,
+    outil: Option<&str>,
+) -> io::Result<()> {
     let fichier = FichierSaisies {
         version: VERSION_SAISIES,
         saisies: saisies.clone(),
+        outil: outil.map(str::to_string),
     };
     depot.ecrire(FICHIER_SAISIES, &en_json(&fichier)?)
 }
@@ -368,17 +376,22 @@ mod tests {
     #[test]
     fn aller_retour_des_saisies() {
         let d = DossierTemporaire::nouveau("saisies");
-        assert!(charger_saisies(&d.depot()).is_empty());
+        assert_eq!(charger_saisies(&d.depot()), (Saisies::new(), None));
         let mut saisies = Saisies::new();
         saisies.insert(
             "dalle".to_string(),
             vec!["24".to_string(), "20".to_string(), "4".to_string()],
         );
-        enregistrer_saisies(&d.depot(), &saisies).unwrap();
-        assert_eq!(charger_saisies(&d.depot()), saisies);
+        enregistrer_saisies(&d.depot(), &saisies, Some("dalle")).unwrap();
+        assert_eq!(
+            charger_saisies(&d.depot()),
+            (saisies.clone(), Some("dalle".to_string()))
+        );
+        enregistrer_saisies(&d.depot(), &saisies, None).unwrap();
+        assert_eq!(charger_saisies(&d.depot()), (saisies, None));
         // Une donnée illisible est simplement ignorée.
         fs::write(d.0.join("metiers.json"), "pas du JSON").unwrap();
-        assert!(charger_saisies(&d.depot()).is_empty());
+        assert_eq!(charger_saisies(&d.depot()), (Saisies::new(), None));
     }
 
     #[test]

@@ -250,6 +250,11 @@ pub fn symbole(format: Format) -> &'static str {
     }
 }
 
+/// Rang d'un résultat ou d'une option parmi plusieurs : « 2 de 3 » (section 23).
+pub fn rang_parmi(rang: usize, nombre: usize) -> String {
+    format!("{rang} de {nombre}")
+}
+
 /// Symbole d'une unité de masse volumique.
 pub fn symbole_masse_volumique(unite: UniteMasseVolumique) -> &'static str {
     match unite {

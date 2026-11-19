@@ -8,9 +8,11 @@ chantier :
   noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets
   composés, quantités de matériaux (blocs, béton de semelle, gypse, bardeaux, montants,
   bois en pmp), conversions et coûts;
-- **par formulaires**, dans l'onglet *Métiers* : 30 calculateurs pour l'estimation, le
-  béton et les fondations, la plomberie, l'électricité, la finition, la ventilation et le
-  terrassement.
+- **au clavier de votre métier** : touchez « Plomberie », « Électricité » ou « Béton »
+  au-dessus du clavier, et les touches du haut deviennent celles de vos outils —
+  76 calculateurs pour onze corps de métier;
+- **par formulaires**, dans l'onglet *Métiers* : les mêmes calculateurs, à remplir d'un
+  coup d'œil.
 
 Le même programme existe en deux versions :
 
@@ -41,27 +43,54 @@ décrit dans `CAHIER_DES_CHARGES.md`.
   les unités. Un clic sur la petite étiquette fait la même chose.
 - Appuyez de nouveau sur une touche de fonction pour faire défiler tous ses résultats.
 - Clic droit ou appui long sur une touche : sa fiche d'aide.
+- Votre métier n'est pas la charpente? Touchez son nom dans la barre au-dessus du
+  clavier (voir ci-dessous).
 
-## Calculateurs par métier
+## Le clavier de votre métier
 
-L'onglet *Métiers* réunit des formulaires à remplir. Une mesure s'y tape comme partout
-ailleurs (`12 pi 6 po`, `30 po`, `3,8 m`); les résultats sortent dans les deux systèmes
-et s'ajoutent au ruban d'un clic.
+Au-dessus du clavier, une barre montre les métiers. Touchez le vôtre : les touches du
+haut deviennent celles de ses outils, et la barre vous les présente — un toucher pour
+passer de l'un à l'autre.
 
-| Métier | Calculateurs |
+Exemple, pour une dalle de béton de 24 pi sur 20 pi, épaisse de 4 po : touchez *Béton*,
+puis
+
+`24` `Pieds` `Longueur` · `20` `Pieds` `Largeur` · `4` `Pouces` `Épaisseur` · `Résultat`
+
+L'afficheur donne la surface; `Résultat` de nouveau, le volume (`5,93 vg³ (4,53 m³)`),
+puis le volume à commander, pertes comprises. Le calcul complet s'inscrit au ruban.
+
+- **Une touche de champ** range la valeur tapée; la valeur s'écrit au-dessus de la
+  touche. Sans rien taper, la touche rappelle sa valeur.
+- **Une touche foncée** fait défiler les options d'une liste (l'angle d'un raccord, le
+  calibre d'un conducteur).
+- **`Résultat`** calcule, puis fait défiler les résultats. Un résultat affiché sert à la
+  suite : `×` `2` `=`, `M+`… et vous suit quand vous changez d'outil.
+- **`Conv` puis une touche de champ** la remet à sa valeur de départ; l'étiquette
+  *Recommencer*, au-dessus de `Résultat`, remet tous les champs au départ.
+- **Appui long** sur une touche de l'outil : son mode d'emploi.
+
+L'onglet *Métiers* offre les mêmes calculateurs en formulaires : tous les résultats d'un
+coup d'œil, et le bouton *Au clavier* pour brancher un calculateur sur les touches.
+
+| Métier | Outils |
 |---|---|
-| Estimation et soumission | prix d'une soumission (administration, imprévus, profit, TPS et TVQ), budget au pied carré, coût de la main-d'œuvre, taxes du Québec, majoration et marge |
-| Béton et fondations | dalle, semelle filante, mur de fondation, colonnes et pieux ronds (volume et sacs), armature d'une dalle |
-| Plomberie | pente d'un drain, déport de tuyauterie, déport roulé, contenance d'un tuyau, pression d'une colonne d'eau, réservoir cylindrique |
-| Électricité | loi d'Ohm et puissance, chute de tension, puissance d'un circuit (monophasé ou triphasé), cintrage d'un conduit, coût d'utilisation |
-| Finition | peinture d'une pièce, céramique et tuiles, revêtement de sol en boîtes |
-| Ventilation et chauffage | débit d'un conduit rond ou rectangulaire, conversion BTU/h, kW et tonnes |
-| Terrassement et aménagement | excavation et remblai, pierre, gravier et sable, clôture |
+| Estimation et soumission | prix d'une soumission (administration, imprévus, profit, TPS et TVQ), budget au pied carré, coût de la main-d'œuvre, taxes du Québec, majoration et marge, facture d'étape (avancement et retenue), durée des travaux |
+| Terrassement et aménagement | excavation et remblai, tranchée, pierre, gravier et sable, voyages de camion, pente et dénivelé, clôture, terrasse (planches et vis), tourbe, béton des poteaux |
+| Béton et fondations | dalle, semelle filante, mur de fondation, colonnes et pieux ronds, armature d'une dalle, treillis métallique, béton en sacs, escalier de béton |
+| Maçonnerie et pavage | briques et blocs, rangs de maçonnerie, muret de blocs, pavés et dalles |
+| Toiture et revêtement | bardeaux d'asphalte, pente d'un toit (sur 12, degrés, pour cent), panneaux de contreplaqué ou d'OSB, revêtement extérieur, membrane et papier en rouleaux |
+| Gypse et isolation | panneaux de gypse d'une pièce, montants d'une cloison, isolant, valeur R et valeur RSI, plafond suspendu |
+| Finition | peinture d'une pièce, peinture d'une surface, céramique et tuiles, revêtement de sol en boîtes, plinthes et moulures |
+| Plomberie | pente d'un drain, déport, déport roulé, déports parallèles, longueur de coupe d'un tuyau, débit et vitesse de l'eau, dilatation d'un tuyau, contenance d'un tuyau, pression d'une colonne d'eau, réservoir cylindrique, chauffage de l'eau |
+| Électricité | loi d'Ohm et puissance, chute de tension, calibre selon la chute de tension, puissance d'un circuit, courants d'un transformateur, courant d'un moteur, résistances en série et en parallèle, remplissage d'un conduit, cintrage d'un conduit, éclairage (nombre de luminaires), coût d'utilisation |
+| Ventilation et chauffage | débit d'un conduit rond ou rectangulaire, conduit rond pour un débit, changements d'air à l'heure, chaleur transportée par l'air, conversion BTU/h, kW et tonnes, tuyau de plancher chauffant |
+| Acier et soudure | masse d'une plaque, d'une barre ou d'un tube rond, d'une barre plate ou d'un tube rectangulaire, cordon de soudure d'angle |
 
-Ces calculateurs font de la géométrie, de la physique et de l'arithmétique. Ils ne
-reproduisent aucune table de code (intensités admissibles, calibres, pentes minimales), ne
-contiennent aucun prix (chacun saisit ses coûts et ses taux) et ne remplacent ni les plans
-ni les codes en vigueur.
+Ces outils font de la géométrie, de la physique et de l'arithmétique. Ils ne reproduisent
+aucune table de code (intensités admissibles, calibres minimaux, pentes minimales,
+remplissage permis), ne contiennent aucun prix (chacun saisit ses coûts et ses taux) et ne
+remplacent ni les plans ni les codes en vigueur.
 
 ## Installer sur un téléphone ou une tablette
 
@@ -164,7 +193,9 @@ cargo fmt --all --check
 
 Les tests du noyau rejouent, touche par touche, tous les exemples chiffrés de la
 section 19 du cahier des charges, et vérifient chaque calculateur par métier contre des
-valeurs calculées à part (section 22.10).
+valeurs calculées à part (section 22.14). Ils rejouent aussi les outils de métier au
+clavier (section 23.9) et soumettent chacun des 76 outils à des milliers de touches au
+hasard.
 
 ## Publication automatique
 
@@ -186,7 +217,7 @@ jour :
 
 | Dossier | Rôle |
 |---|---|
-| `noyau/` | Bibliothèque de calcul (`calculatrice-noyau`) : unités, saisie, formatage, moteur, fonctions de construction, calculateurs par métier (`noyau/src/metiers/`). Aucune dépendance graphique; entièrement testée sans écran. |
+| `noyau/` | Bibliothèque de calcul (`calculatrice-noyau`) : unités, saisie, formatage, moteur, fonctions de construction, calculateurs par métier (`noyau/src/metiers/`) et leur branchement sur le clavier (`noyau/src/moteur/outils.rs`). Aucune dépendance graphique; entièrement testée sans écran. |
 | `app/` | Interface graphique (`calculatrice-chantier`) avec eframe/egui : clavier, afficheur, préférences, rubans, aide. Ne contient aucune formule. |
 | `app/src/plateforme/` | Tout ce qui diffère entre le bureau (`bureau.rs`) et le navigateur (`web.rs`) : stockage, export, plein écran, démarrage. |
 | `app/index.html` | Page hôte de la version Web. |

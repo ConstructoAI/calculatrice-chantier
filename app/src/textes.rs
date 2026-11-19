@@ -4,6 +4,7 @@
 //! ce fichier et dans `aide.rs` (R-52).
 
 use noyau::Touche;
+use noyau::moteur::TOUCHE_RESULTAT;
 use noyau::prefs::{
     AffichageAires, AffichageVolumes, EmpannonsIrreguliers, ModeFractions, MurCintre, Ordre,
     SeparateurDecimal, Theme,
@@ -25,6 +26,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Libellé principal d'une touche. Un saut de ligne sépare les libellés sur deux lignes.
 pub fn libelle(touche: Touche, trigo: bool, point_decimal: bool) -> String {
     let fixe = match touche {
+        // Les touches des champs d'un outil de métier tiennent leur libellé
+        // de l'outil (section 23).
+        Touche::Outil(TOUCHE_RESULTAT) => RESULTAT,
+        Touche::Outil(_) => "",
         Touche::Pente => "Pente",
         Touche::Montee => "Montée",
         Touche::Course => "Course",
@@ -69,6 +74,7 @@ pub fn libelle(touche: Touche, trigo: bool, point_decimal: bool) -> String {
 /// Étiquette secondaire (fonction obtenue avec `Conv`); vide s'il n'y en a pas.
 pub fn libelle_secondaire(touche: Touche, trigo: bool) -> &'static str {
     match touche {
+        Touche::Outil(TOUCHE_RESULTAT) => RECOMMENCER,
         Touche::Pente => "Ratio",
         Touche::Montee => "Mur en pente",
         Touche::Course => "Polygone",
@@ -113,6 +119,8 @@ pub fn libelle_secondaire(touche: Touche, trigo: bool) -> &'static str {
 /// Nom complet de la fonction principale (infobulles et accessibilité).
 pub fn nom(touche: Touche, trigo: bool) -> String {
     let fixe = match touche {
+        Touche::Outil(TOUCHE_RESULTAT) => RESULTAT,
+        Touche::Outil(_) => "",
         Touche::Pente => "Pente",
         Touche::Montee => "Montée",
         Touche::Course => "Course",
@@ -156,6 +164,7 @@ pub fn nom(touche: Touche, trigo: bool) -> String {
 /// Nom complet de la fonction secondaire; vide s'il n'y en a pas.
 pub fn nom_secondaire(touche: Touche, trigo: bool) -> &'static str {
     match touche {
+        Touche::Outil(TOUCHE_RESULTAT) => "Remettre les champs à leur valeur de départ",
         Touche::Pente => "Ratio de pente",
         Touche::Montee => "Mur en pente",
         Touche::Course => "Polygone",
@@ -199,6 +208,9 @@ pub fn nom_secondaire(touche: Touche, trigo: bool) -> &'static str {
 
 /// Infobulle d'une touche : « Montée — avec Conv : Mur en pente — raccourci : T ».
 pub fn infobulle(touche: Touche, trigo: bool, raccourci: Option<&str>) -> String {
+    if touche == Touche::Outil(TOUCHE_RESULTAT) {
+        return INFOBULLE_RESULTAT.to_string();
+    }
     let mut texte = nom(touche, trigo);
     let secondaire = nom_secondaire(touche, trigo);
     if !secondaire.is_empty() {
@@ -565,8 +577,8 @@ pub const BIENVENUE_POINTS: [(&str, &str); 5] = [
         "Maintenez une touche enfoncée, ou faites un clic droit, pour afficher sa fiche.",
     ),
     (
-        "Plombier, électricien, cimentier?",
-        "L'onglet Métiers réunit des calculateurs à remplir, par corps de métier, et de quoi préparer une soumission.",
+        "Plombier, électricien, maçon, couvreur?",
+        "Touchez le nom du métier, au-dessus du clavier : les touches du haut deviennent celles de vos outils. L'onglet Métiers offre les mêmes calculateurs en formulaires.",
     ),
 ];
 
@@ -575,8 +587,7 @@ pub const BIENVENUE_POINTS: [(&str, &str); 5] = [
 // ----------------------------------------------------------------------
 
 pub const METIERS: &str = "Métiers";
-pub const METIERS_INTRODUCTION: &str =
-    "Des calculateurs à remplir, par corps de métier. Les résultats s'ajoutent au ruban.";
+pub const METIERS_INTRODUCTION: &str = "Des calculateurs à remplir, par corps de métier. Le bouton «\u{a0}Au clavier\u{a0}» d'un calculateur le branche sur les touches de l'accueil.";
 pub const METIERS_CHARPENTE: &str = "Charpente, toiture et escaliers";
 pub const METIERS_CHARPENTE_RESUME: &str =
     "Pentes, chevrons, arêtiers, escaliers, arcs, matériaux : au clavier principal.";
@@ -586,6 +597,64 @@ pub const RESULTATS: &str = "Résultats";
 pub const AJOUTER_AU_RUBAN: &str = "Ajouter au ruban";
 pub const RECOMMENCER: &str = "Recommencer";
 pub const AVIS_AJOUTE_AU_RUBAN: &str = "Ajouté au ruban.";
+
+// Outils de métier au clavier (section 23).
+/// Barre des métiers : le clavier de base.
+pub const METIER_CHARPENTE: &str = "Charpente";
+pub const CHARPENTE_NOM: &str = "Charpente, toiture et escaliers";
+pub const CHARPENTE_RESUME: &str =
+    "Le clavier de base : pentes, chevrons, escaliers, arcs, surfaces et volumes";
+pub const INFOBULLE_METIER: &str = "Changer de métier : le clavier s'adapte";
+pub const TITRE_CHOISIR_METIER: &str = "Votre métier";
+pub const CHOISIR_METIER_EXPLICATION: &str = "Le clavier s'adapte au métier choisi : ses outils s'ouvrent d'un toucher, et leurs champs deviennent les touches du haut.";
+/// Mention à côté du métier en cours, dans la liste des métiers.
+pub const METIER_ACTUEL: &str = "en cours";
+/// Touche qui donne les résultats de l'outil.
+pub const RESULTAT: &str = "Résultat";
+pub const INFOBULLE_RESULTAT: &str = "Résultat : calcule et inscrit le calcul au ruban; appuyez de nouveau pour le résultat suivant — avec Conv : remet les champs à leur valeur de départ";
+/// Bouton d'un formulaire : brancher ce calculateur sur le clavier.
+pub const AU_CLAVIER: &str = "Au clavier";
+pub const INFOBULLE_AU_CLAVIER: &str =
+    "Brancher ce calculateur sur le clavier : ses champs deviennent les touches du haut";
+/// Aide d'un outil branché sur le clavier (appui long sur une de ses touches).
+pub const AIDE_OUTIL_TITRE: &str = "Au clavier";
+/// Chaque point : (titre en gras, suite du texte).
+pub const AIDE_OUTIL: [(&str, &str); 5] = [
+    (
+        "Rangez une valeur",
+        ": tapez-la, puis appuyez sur la touche du champ. Un nombre seul prend l'unité montrée entre parenthèses au-dessus de la touche.",
+    ),
+    ("Une touche foncée", "fait défiler les options d'une liste."),
+    (
+        "La touche Résultat",
+        "calcule et inscrit le calcul au ruban. Appuyez de nouveau pour voir le résultat suivant.",
+    ),
+    (
+        "Rappelez ou effacez",
+        ": la touche d'un champ, sans rien taper, rappelle sa valeur; `Conv` puis la touche la remet à sa valeur de départ.",
+    ),
+    (
+        "Poursuivez le calcul",
+        ": un résultat affiché sert à la suite (`×` `2` `=`, `M+`) et vous suit quand vous changez d'outil.",
+    ),
+];
+pub const OUVRIR_LE_FORMULAIRE: &str = "Formulaire";
+pub const INFOBULLE_OUVRIR_LE_FORMULAIRE: &str =
+    "Ouvrir ce calculateur en formulaire : tous les résultats d'un coup d'œil";
+
+/// Infobulle de la touche d'un champ d'outil : son nom, son contenu et son mode d'emploi.
+pub fn infobulle_d_outil(nom: &str, valeur: &str, choix: bool) -> String {
+    let emploi = if choix {
+        "appuyez pour passer à l'option suivante"
+    } else {
+        "tapez une valeur, puis appuyez pour la ranger ici"
+    };
+    if valeur.is_empty() {
+        format!("{nom} — {emploi}")
+    } else {
+        format!("{nom} : {valeur} — {emploi}")
+    }
+}
 /// Exemples montrés dans un champ de longueur vide.
 pub const INDICE_PIEDS: &str = "ex. 12 pi 6 po ou 3,8 m";
 pub const INDICE_POUCES: &str = "ex. 3 1/2 ou 90 mm";
@@ -605,7 +674,7 @@ pub fn nombre_de_calculateurs(nombre: usize) -> String {
 
 pub const TRUCS_TITRE: &str = "Trucs de pro";
 /// Chaque truc : (titre en gras, texte).
-pub const TRUCS: [(&str, &str); 12] = [
+pub const TRUCS: [(&str, &str); 14] = [
     (
         "Faites défiler les résultats.",
         "Appuyez de nouveau sur une touche de fonction pour voir tous ses résultats : Diag donne la longueur, puis la coupe d'aplomb, puis la coupe de niveau.",
@@ -651,6 +720,14 @@ pub const TRUCS: [(&str, &str); 12] = [
         "Au clavier.",
         "L'apostrophe pour les pieds, le guillemet pour les pouces, la barre d'espace pour Conv.",
     ),
+    (
+        "Votre métier au bout des doigts.",
+        "Touchez le nom du métier, au-dessus du clavier, pour que les touches du haut deviennent celles de vos outils.",
+    ),
+    (
+        "D'un outil à l'autre.",
+        "Un résultat affiché vous suit quand vous changez d'outil : appuyez sur la touche du champ où le ranger.",
+    ),
 ];
 
 // ----------------------------------------------------------------------
@@ -662,7 +739,7 @@ pub const A_PROPOS_VERSION: &str = "Version";
 /// Mention demandée par l'auteur : l'application est offerte gratuitement.
 /// La page hôte de la version Web (`app/index.html`) la répète sur son écran d'attente.
 pub const GRACIEUSETE: &str = "Gracieuseté de Sylvain Leduc de Constructo AI";
-pub const A_PROPOS_DESCRIPTION: &str = "Calculatrice de construction en pieds-pouces-fractions et en métrique, avec des calculateurs par métier, pour le chantier et l'estimation. Gratuite, sans publicité, sans compte.";
+pub const A_PROPOS_DESCRIPTION: &str = "Calculatrice de construction en pieds-pouces-fractions et en métrique, dont le clavier s'adapte au métier : des outils pour onze corps de métier, pour le chantier et l'estimation. Gratuite, sans publicité, sans compte.";
 pub const AVERTISSEMENT_TITRE: &str = "Avertissement";
 pub const AVERTISSEMENT: &str = "Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.";
 pub const AVERTISSEMENT_DEFAUTS: &str = "Les valeurs par défaut (hauteur de contremarche, giron, échappée) sont des points de départ modifiables et ne constituent pas un avis de conformité au Code.";

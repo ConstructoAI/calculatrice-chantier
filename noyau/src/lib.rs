@@ -23,7 +23,7 @@ pub mod valeur;
 
 pub use erreurs::Erreur;
 pub use format::{Segment, TexteValeur};
-pub use moteur::{Ecran, Effet, Moteur, Prefixe};
+pub use moteur::{Ecran, Effet, Moteur, Prefixe, ToucheOutil};
 pub use persistance::EtatPersistant;
 pub use prefs::{Preferences, ValeursMemorisees};
 pub use ruban::{LigneRuban, Ruban};

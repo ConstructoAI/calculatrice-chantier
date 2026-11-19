@@ -9,7 +9,9 @@ pub mod rubans;
 pub mod trucs;
 
 use eframe::egui::text::{LayoutJob, TextFormat};
-use eframe::egui::{self, Align, Layout, Margin, RichText, Ui};
+use eframe::egui::{
+    self, Align, Layout, Margin, Pos2, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
+};
 
 use crate::theme::{self, Palette};
 
@@ -163,4 +165,77 @@ pub fn point_numerote(ui: &mut Ui, p: &Palette, numero: usize, titre: &str, text
         });
     });
     ui.add_space(4.0);
+}
+
+/// Genre d'une pastille de la barre des métiers (section 23).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Pastille {
+    /// Le métier choisi : pleine, avec un chevron; elle ouvre la liste des métiers.
+    Menu,
+    /// L'outil branché sur le clavier.
+    Active,
+    Ordinaire,
+}
+
+/// Une pastille cliquable : un mot ou deux dans un cadre arrondi.
+pub fn pastille(ui: &mut Ui, p: &Palette, texte: &str, genre: Pastille) -> Response {
+    const HAUTEUR: f32 = 26.0;
+    let (fond, bord, encre) = match genre {
+        Pastille::Menu => (p.selection, p.selection, p.selection_texte),
+        Pastille::Active => (
+            theme::melanger(p.carte, p.selection, 0.20),
+            p.selection,
+            p.titre,
+        ),
+        Pastille::Ordinaire => (p.bouton, p.bouton_bord, p.texte),
+    };
+    let police = if genre == Pastille::Ordinaire {
+        theme::police(12.5)
+    } else {
+        theme::police_grasse(12.5)
+    };
+    let ecrit = ui.painter().layout_no_wrap(texte.to_owned(), police, encre);
+    // Place du chevron de la pastille de menu.
+    let chevron = if genre == Pastille::Menu { 13.0 } else { 0.0 };
+    let (rect, reponse) = ui.allocate_exact_size(
+        Vec2::new(ecrit.size().x + 22.0 + chevron, HAUTEUR),
+        Sense::click(),
+    );
+    reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, texte));
+    if ui.is_rect_visible(rect) {
+        let part = if reponse.is_pointer_button_down_on() {
+            0.22
+        } else if reponse.hovered() {
+            0.10
+        } else {
+            0.0
+        };
+        let painter = ui.painter();
+        painter.rect_filled(rect, 13, theme::melanger(fond, encre, part));
+        painter.rect_stroke(
+            rect,
+            13,
+            Stroke::new(if genre == Pastille::Active { 1.5 } else { 1.0 }, bord),
+            StrokeKind::Inside,
+        );
+        painter.galley(
+            Pos2::new(rect.left() + 11.0, rect.center().y - ecrit.size().y / 2.0),
+            ecrit,
+            encre,
+        );
+        if genre == Pastille::Menu {
+            // Chevron vers le bas : la pastille ouvre une liste.
+            let centre = Pos2::new(rect.right() - 14.0, rect.center().y + 0.5);
+            painter.add(egui::Shape::convex_polygon(
+                vec![
+                    Pos2::new(centre.x - 4.0, centre.y - 2.5),
+                    Pos2::new(centre.x + 4.0, centre.y - 2.5),
+                    Pos2::new(centre.x, centre.y + 3.0),
+                ],
+                encre,
+                Stroke::NONE,
+            ));
+        }
+    }
+    reponse
 }

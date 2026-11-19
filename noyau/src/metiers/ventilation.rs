@@ -2,7 +2,10 @@
 
 use std::f64::consts::PI;
 
-use super::{Calcul, Calculateur, Champ, Lues, Metier, PO3_PAR_L, Quantite, Resultat};
+use super::{
+    Calcul, Calculateur, Champ, Lues, Metier, PO3_PAR_L, PO3_PAR_M3, Quantite, Resultat,
+    arrondi_au_dessus,
+};
 use crate::unites::{Format, PO2_PAR_PI2, PO3_PAR_PI3};
 
 /// Litres par seconde dans un pied cube par minute.
@@ -12,6 +15,10 @@ const BTU_H_PAR_KW: f64 = 3_412.141_633;
 /// BTU par heure dans une tonne de réfrigération.
 const BTU_H_PAR_TONNE: f64 = 12_000.0;
 const UNITES_THERMIQUES: &[&str] = &["BTU/h", "kW", "tonnes de réfrigération"];
+/// BTU par heure que transporte un pied cube d'air à la minute, par degré
+/// Fahrenheit d'écart : air normal, 0,075 lb/pi³ × 0,24 BTU/lb·°F × 60 min.
+const BTU_H_PAR_PCM_ET_DEGRE: f64 = 1.08;
+const ECARTS: &[&str] = &["°C", "°F"];
 
 pub const CALCULATEURS: &[Calculateur] = &[
     Calculateur {
@@ -21,7 +28,7 @@ pub const CALCULATEURS: &[Calculateur] = &[
         resume: "Le débit d'air d'un conduit rond, d'après son diamètre et la vitesse de l'air.",
         champs: &[
             Champ::longueur("Diamètre", Format::PoFrac),
-            Champ::nombre("Vitesse de l'air", "pi/min"),
+            Champ::nombre("Vitesse de l'air", "pi/min").court("Vitesse"),
         ],
         note: "",
         calcul: conduit_rond,
@@ -34,7 +41,7 @@ pub const CALCULATEURS: &[Calculateur] = &[
         champs: &[
             Champ::longueur("Largeur", Format::PoFrac),
             Champ::longueur("Hauteur", Format::PoFrac),
-            Champ::nombre("Vitesse de l'air", "pi/min"),
+            Champ::nombre("Vitesse de l'air", "pi/min").court("Vitesse"),
         ],
         note: "Le conduit rond équivalent offre la même perte de charge pour le même débit (formule de Huebscher).",
         calcul: conduit_rectangulaire,
@@ -50,6 +57,65 @@ pub const CALCULATEURS: &[Calculateur] = &[
         ],
         note: "",
         calcul: puissance_thermique,
+    },
+    Calculateur {
+        id: "conduit-pour-un-debit",
+        metier: Metier::Ventilation,
+        nom: "Conduit rond pour un débit",
+        resume: "Le diamètre du conduit rond qui transporte un débit d'air à la vitesse visée.",
+        champs: &[
+            Champ::nombre("Débit d'air", "pi³/min").court("Débit"),
+            Champ::nombre("Vitesse de l'air", "pi/min").court("Vitesse"),
+        ],
+        note: "",
+        calcul: conduit_pour_un_debit,
+    },
+    Calculateur {
+        id: "changements-d-air",
+        metier: Metier::Ventilation,
+        nom: "Changements d'air à l'heure",
+        resume: "Le débit qu'il faut pour renouveler l'air d'une pièce un certain nombre de fois à l'heure.",
+        champs: &[
+            Champ::longueur("Longueur de la pièce", Format::PiPo).court("Longueur"),
+            Champ::longueur("Largeur de la pièce", Format::PiPo).court("Largeur"),
+            Champ::longueur("Hauteur du plafond", Format::PiPo)
+                .defaut("8")
+                .court("Hauteur"),
+            Champ::nombre("Changements d'air à l'heure", "").court("Changements"),
+        ],
+        note: "",
+        calcul: changements_d_air,
+    },
+    Calculateur {
+        id: "chaleur-de-l-air",
+        metier: Metier::Ventilation,
+        nom: "Chaleur transportée par l'air",
+        resume: "La puissance de chauffage ou de refroidissement d'un débit d'air, d'après l'écart de température.",
+        champs: &[
+            Champ::nombre("Débit d'air", "pi³/min").court("Débit"),
+            Champ::nombre("Écart de température", "").court("Écart\nde temp."),
+            Champ::choix("Unité de l'écart", ECARTS).court("Unité"),
+        ],
+        note: "Chaleur sensible seulement, pour de l'air aux conditions normales : 1,08 BTU/h par pi³/min et par degré Fahrenheit.",
+        calcul: chaleur_de_l_air,
+    },
+    Calculateur {
+        id: "plancher-chauffant",
+        metier: Metier::Ventilation,
+        nom: "Tuyau de plancher chauffant",
+        resume: "La longueur de tuyau d'un plancher chauffant et le nombre de boucles.",
+        champs: &[
+            Champ::longueur("Longueur de la surface", Format::PiPo).court("Longueur"),
+            Champ::longueur("Largeur de la surface", Format::PiPo).court("Largeur"),
+            Champ::longueur("Espacement des tuyaux", Format::PoFrac)
+                .defaut("9")
+                .court("Espacement"),
+            Champ::longueur("Longueur maximale d'une boucle", Format::PiPo)
+                .defaut("300")
+                .court("Boucle\nmaximale"),
+        ],
+        note: "Sans les longueurs d'amenée jusqu'au collecteur. L'espacement et la longueur maximale d'une boucle viennent du concepteur ou du fabricant.",
+        calcul: plancher_chauffant,
     },
 ];
 
@@ -94,5 +160,57 @@ fn puissance_thermique(e: &Lues) -> Calcul {
             "En tonnes de réfrigération",
             Quantite::Mesure(btu_h / BTU_H_PAR_TONNE, "tonnes"),
         ),
+    ])
+}
+
+fn conduit_pour_un_debit(e: &Lues) -> Calcul {
+    let section = e.nombre(0) / e.nombre(1) * PO2_PAR_PI2;
+    Ok(vec![
+        Resultat::nouveau("Section nécessaire", Quantite::Aire(section)),
+        Resultat::nouveau(
+            "Diamètre du conduit rond",
+            Quantite::Longueur((4.0 * section / PI).sqrt()),
+        ),
+    ])
+}
+
+fn changements_d_air(e: &Lues) -> Calcul {
+    let volume = e.longueur(0) * e.longueur(1) * e.longueur(2);
+    let pcm = volume / PO3_PAR_PI3 * e.nombre(3) / 60.0;
+    Ok(vec![
+        Resultat::nouveau(
+            "Volume de la pièce",
+            Quantite::Double(volume / PO3_PAR_PI3, "pi³", volume / PO3_PAR_M3, "m³"),
+        ),
+        Resultat::nouveau(
+            "Débit",
+            Quantite::Double(pcm, "pi³/min", pcm * LS_PAR_PCM, "L/s"),
+        ),
+    ])
+}
+
+fn chaleur_de_l_air(e: &Lues) -> Calcul {
+    // Un écart de 1 °C vaut un écart de 1,8 °F.
+    let ecart = if e.choix(2) == 1 {
+        e.nombre(1)
+    } else {
+        e.nombre(1) * 1.8
+    };
+    let btu_h = BTU_H_PAR_PCM_ET_DEGRE * e.nombre(0) * ecart;
+    Ok(vec![Resultat::nouveau(
+        "Puissance",
+        Quantite::Double(btu_h, "BTU/h", btu_h / BTU_H_PAR_KW, "kW"),
+    )])
+}
+
+fn plancher_chauffant(e: &Lues) -> Calcul {
+    let surface = e.longueur(0) * e.longueur(1);
+    let tuyau = surface / e.longueur(2);
+    let boucles = arrondi_au_dessus(tuyau / e.longueur(3)).max(1.0);
+    Ok(vec![
+        Resultat::nouveau("Surface", Quantite::Aire(surface)),
+        Resultat::nouveau("Longueur de tuyau", Quantite::Longueur(tuyau)),
+        Resultat::nouveau("Boucles", Quantite::Compte(boucles, "boucles")),
+        Resultat::nouveau("Longueur par boucle", Quantite::Longueur(tuyau / boucles)),
     ])
 }

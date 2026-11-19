@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use eframe::egui::{self, Align2, Color32, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use noyau::analyse::analyser_collage;
+use noyau::metiers::Metier;
 use noyau::prefs::{SeparateurDecimal, Theme, ValeursMemorisees};
 use noyau::unites::UniteMasseVolumique;
 use noyau::{Effet, Moteur, Prefixe, Touche};
@@ -29,6 +30,8 @@ const LARGEUR_LARGE: f32 = 880.0;
 const LARGEUR_PLAFOND: f32 = 520.0;
 const HAUTEUR_BARRE_SUPERIEURE: f32 = 48.0;
 const HAUTEUR_BARRE_INFERIEURE: f32 = 56.0;
+/// Hauteur de la barre des métiers, au-dessus du clavier (section 23).
+const HAUTEUR_BARRE_DES_METIERS: f32 = 34.0;
 /// Durée d'affichage des confirmations discrètes, en secondes.
 const DUREE_FUGACE: f64 = 1.8;
 
@@ -91,6 +94,10 @@ enum Dialogue {
         touche: Touche,
         secondaire: bool,
     },
+    /// Liste des métiers : le clavier s'adapte à celui qu'on choisit (section 23).
+    ChoisirMetier,
+    /// Mode d'emploi de l'outil branché sur le clavier : son identifiant.
+    AideOutil(&'static str),
 }
 
 pub struct Application {
@@ -109,6 +116,10 @@ pub struct Application {
     position_metiers: vues::metiers::Position,
     saisies_metiers: vues::metiers::Saisies,
     saisies_a_sauvegarder: bool,
+    /// Dernier outil branché de chaque métier, pour y revenir (section 23).
+    derniers_outils: Vec<(Metier, &'static str)>,
+    /// La pastille de l'outil branché doit être amenée en vue dans la barre.
+    outil_a_montrer: bool,
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
     fugace: Option<(&'static str, f64)>,
     a_sauvegarder: bool,
@@ -129,8 +140,12 @@ impl Application {
         let depot = Depot::ouvrir();
         let chargement = stockage::charger_etat(&depot);
         let rubans = stockage::charger_rubans(&depot);
-        let saisies_metiers = stockage::charger_saisies(&depot);
-        let moteur = Moteur::nouveau(chargement.etat);
+        let (saisies_metiers, outil) = stockage::charger_saisies(&depot);
+        let mut moteur = Moteur::nouveau(chargement.etat);
+        // L'outil de métier branché sur le clavier à la dernière séance (section 23).
+        if let Some(id) = outil.as_deref() {
+            moteur.choisir_outil(Some(id), saisies_metiers.get(id).map(Vec::as_slice));
+        }
         let vue = if moteur.bienvenue_vue() {
             Vue::Accueil
         } else {
@@ -155,6 +170,8 @@ impl Application {
             position_metiers: vues::metiers::Position::default(),
             saisies_metiers,
             saisies_a_sauvegarder: false,
+            derniers_outils: Vec::new(),
+            outil_a_montrer: true,
             fugace: None,
             a_sauvegarder: chargement.illisible,
             // Le premier changement est enregistré sans attendre.
@@ -196,6 +213,136 @@ impl Application {
         self.tiroir_ouvert = false;
         self.fiche_ouverte = None;
         self.ruban_ouvert = None;
+        if vue == Vue::Accueil {
+            self.brancher_l_outil(self.moteur.outil().map(|c| c.id));
+        }
+    }
+
+    /// Branche un calculateur de métier sur le clavier (section 23), avec ce
+    /// que son formulaire contient; `None` revient au clavier de charpente.
+    fn brancher_l_outil(&mut self, id: Option<&'static str>) {
+        let avant = self.moteur.outil().map(|c| c.id);
+        let saisies = id.and_then(|id| self.saisies_metiers.get(id));
+        self.moteur.choisir_outil(id, saisies.map(Vec::as_slice));
+        let apres = self.moteur.outil();
+        if avant != apres.map(|c| c.id) {
+            self.saisies_a_sauvegarder = true;
+            self.outil_a_montrer = true;
+        }
+        // On reviendra à cet outil en revenant à ce métier.
+        if let Some(c) = apres {
+            self.derniers_outils
+                .retain(|(metier, _)| *metier != c.metier);
+            self.derniers_outils.push((c.metier, c.id));
+        }
+    }
+
+    /// Adapte le clavier à un métier : son dernier outil utilisé, ou le
+    /// premier de sa liste; `None` revient au clavier de charpente.
+    fn choisir_metier(&mut self, metier: Option<Metier>) {
+        let id = metier.and_then(|metier| {
+            self.derniers_outils
+                .iter()
+                .find(|(m, _)| *m == metier)
+                .map(|(_, id)| *id)
+                .or_else(|| metier.calculateurs().first().map(|c| c.id))
+        });
+        self.brancher_l_outil(id);
+    }
+
+    /// Reporte dans les formulaires ce que le clavier a rangé dans l'outil.
+    fn relever_l_outil(&mut self) {
+        let (Some(c), Some(saisies)) = (self.moteur.outil(), self.moteur.saisies_d_outil()) else {
+            return;
+        };
+        if self.saisies_metiers.get(c.id).map(Vec::as_slice) != Some(saisies) {
+            self.saisies_metiers
+                .insert(c.id.to_string(), saisies.to_vec());
+            self.saisies_a_sauvegarder = true;
+        }
+    }
+
+    /// Barre des métiers, au-dessus du clavier (section 23) : le métier
+    /// choisi, puis ses outils — ou, au clavier de charpente, les métiers.
+    fn barre_des_metiers(&mut self, ui: &mut Ui, zone: Rect, p: &Palette) {
+        /// Ce que l'utilisateur a touché dans la barre.
+        enum Choix {
+            ListeDesMetiers,
+            Metier(Metier),
+            Outil(&'static str),
+        }
+        let outil = self.moteur.outil();
+        let montrer = std::mem::replace(&mut self.outil_a_montrer, false);
+        let mut choix = None;
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .max_rect(zone.shrink2(Vec2::new(8.0, 3.0)))
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+            |ui| {
+                ui.spacing_mut().item_spacing.x = 6.0;
+                let nom = outil.map_or(textes::METIER_CHARPENTE, |c| c.metier.nom_court());
+                if vues::pastille(ui, p, nom, vues::Pastille::Menu)
+                    .on_hover_text(textes::INFOBULLE_METIER)
+                    .clicked()
+                {
+                    choix = Some(Choix::ListeDesMetiers);
+                }
+                // Chaque métier garde sa propre position de défilement.
+                egui::ScrollArea::horizontal()
+                    .id_salt(("barre-des-metiers", nom))
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                    .scroll_source(egui::scroll_area::ScrollSource {
+                        scroll_bar: false,
+                        drag: egui::scroll_area::DragScroll::Always,
+                        mouse_wheel: true,
+                    })
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.horizontal_centered(|ui| match outil {
+                            // Un métier est choisi : ses outils, celui du clavier en évidence.
+                            Some(actif) => {
+                                for c in actif.metier.calculateurs() {
+                                    let genre = if c.id == actif.id {
+                                        vues::Pastille::Active
+                                    } else {
+                                        vues::Pastille::Ordinaire
+                                    };
+                                    let reponse =
+                                        vues::pastille(ui, p, c.nom, genre).on_hover_text(c.resume);
+                                    if c.id == actif.id && montrer {
+                                        reponse.scroll_to_me(Some(egui::Align::Center));
+                                    }
+                                    if reponse.clicked() && c.id != actif.id {
+                                        choix = Some(Choix::Outil(c.id));
+                                    }
+                                }
+                            }
+                            // Clavier de charpente : les autres métiers, à un toucher.
+                            None => {
+                                for metier in Metier::TOUS {
+                                    if vues::pastille(
+                                        ui,
+                                        p,
+                                        metier.nom_court(),
+                                        vues::Pastille::Ordinaire,
+                                    )
+                                    .on_hover_text(metier.resume())
+                                    .clicked()
+                                    {
+                                        choix = Some(Choix::Metier(metier));
+                                    }
+                                }
+                            }
+                        });
+                    });
+            },
+        );
+        match choix {
+            Some(Choix::ListeDesMetiers) => self.dialogue = Dialogue::ChoisirMetier,
+            Some(Choix::Metier(metier)) => self.choisir_metier(Some(metier)),
+            Some(Choix::Outil(id)) => self.brancher_l_outil(Some(id)),
+            None => {}
+        }
     }
 
     fn dialogue_ouvert(&self) -> bool {
@@ -257,7 +404,8 @@ impl Application {
         }
         if self.saisies_a_sauvegarder {
             self.saisies_a_sauvegarder = false;
-            if stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers).is_err() {
+            let outil = self.moteur.outil().map(|c| c.id);
+            if stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil).is_err() {
                 self.signaler_l_echec_d_ecriture();
             }
         }
@@ -487,7 +635,15 @@ impl Application {
                         Some(Action::Aide) if libre => self.aller(Vue::Aide),
                         Some(Action::Preferences) if libre => self.aller(Vue::Preferences),
                         Some(Action::Ruban) if libre => self.aller(Vue::Rubans),
-                        Some(Action::Touche(touche)) if calculatrice => self.appuyer(touche),
+                        Some(Action::Touche(touche))
+                            if calculatrice
+                                && clavier::est_au_clavier(
+                                    touche,
+                                    self.moteur.outil().is_some(),
+                                ) =>
+                        {
+                            self.appuyer(touche)
+                        }
                         _ => {}
                     }
                 }
@@ -498,7 +654,10 @@ impl Application {
                         continue;
                     }
                     for c in texte.chars() {
-                        if let Some(touche) = raccourcis::touche_du_caractere(c) {
+                        // Avec un outil de métier, les touches masquées ne répondent pas.
+                        if let Some(touche) = raccourcis::touche_du_caractere(c)
+                            && clavier::est_au_clavier(touche, self.moteur.outil().is_some())
+                        {
                             self.appuyer(touche);
                         }
                     }
@@ -705,7 +864,11 @@ impl Application {
             zone_afficheur.left_bottom(),
             Vec2::new(rect.width(), hauteur_fractions),
         );
-        let zone_clavier = Rect::from_min_max(zone_fractions.left_bottom(), rect.max);
+        let zone_metiers = Rect::from_min_size(
+            zone_fractions.left_bottom(),
+            Vec2::new(rect.width(), HAUTEUR_BARRE_DES_METIERS),
+        );
+        let zone_clavier = Rect::from_min_max(zone_metiers.left_bottom(), rect.max);
 
         let ecran = self.moteur.ecran();
         let maintenant = ui.input(|i| i.time);
@@ -732,7 +895,17 @@ impl Application {
             point_decimal: contexte_base.1,
             conv_arme: ecran.prefixe == Prefixe::Conv,
         };
-        for action in clavier::dessiner(ui, zone_clavier, p, contexte, &mut self.clavier) {
+        self.barre_des_metiers(ui, zone_metiers, p);
+        let outil = self.moteur.touches_d_outil();
+        let actions = clavier::dessiner(
+            ui,
+            zone_clavier,
+            p,
+            contexte,
+            outil.as_deref(),
+            &mut self.clavier,
+        );
+        for action in actions {
             agi = true;
             match action {
                 ActionClavier::Appui(touche) => self.appuyer(touche),
@@ -743,6 +916,12 @@ impl Application {
                     }
                     self.appuyer(touche);
                 }
+                // L'aide d'une touche d'outil : le mode d'emploi de l'outil.
+                ActionClavier::Aide(Touche::Outil(_)) => {
+                    if let Some(c) = self.moteur.outil() {
+                        self.dialogue = Dialogue::AideOutil(c.id);
+                    }
+                }
                 ActionClavier::Aide(touche) => {
                     self.dialogue = Dialogue::AideTouche {
                         touche,
@@ -751,6 +930,8 @@ impl Application {
                 }
             }
         }
+        // Ce que le clavier a rangé dans l'outil rejoint les formulaires.
+        self.relever_l_outil();
         if agi {
             // L'afficheur a été dessiné avant l'action : on redessine.
             ui.ctx().request_repaint();
@@ -789,7 +970,15 @@ impl Application {
                         self.a_sauvegarder = true;
                         self.annoncer(ui.ctx(), textes::AVIS_AJOUTE_AU_RUBAN);
                     }
-                    Some(vues::metiers::Action::Clavier) => self.aller(Vue::Accueil),
+                    // La carte « Charpente » : le clavier de base.
+                    Some(vues::metiers::Action::Clavier) => {
+                        self.brancher_l_outil(None);
+                        self.aller(Vue::Accueil);
+                    }
+                    Some(vues::metiers::Action::AuClavier(id)) => {
+                        self.brancher_l_outil(Some(id));
+                        self.aller(Vue::Accueil);
+                    }
                     None => {}
                 }
             }
@@ -1187,6 +1376,123 @@ impl Application {
                     Dialogue::AideTouche { touche, secondaire }
                 }
             }
+            Dialogue::ChoisirMetier => {
+                let actuel = self.moteur.outil().map(|c| c.metier);
+                let hauteur = (ctx.content_rect().height() * 0.62).max(200.0);
+                let mention = |en_cours: bool| {
+                    if en_cours { textes::METIER_ACTUEL } else { "" }
+                };
+                let ((choix, fermer), fermee) = modale(ctx, 350.0, |ui| {
+                    // `Some(None)` : le clavier de charpente.
+                    let mut choix: Option<Option<Metier>> = None;
+                    ui.label(
+                        RichText::new(textes::TITRE_CHOISIR_METIER)
+                            .font(theme::police_grasse(17.0)),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(textes::CHOISIR_METIER_EXPLICATION)
+                            .size(13.0)
+                            .color(p.texte_attenue),
+                    );
+                    ui.add_space(8.0);
+                    egui::ScrollArea::vertical()
+                        .max_height(hauteur)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| {
+                            if vues::metiers::carte_cliquable(
+                                ui,
+                                p,
+                                "metier-charpente",
+                                textes::CHARPENTE_NOM,
+                                textes::CHARPENTE_RESUME,
+                                mention(actuel.is_none()),
+                            ) {
+                                choix = Some(None);
+                            }
+                            for metier in Metier::TOUS {
+                                if vues::metiers::carte_cliquable(
+                                    ui,
+                                    p,
+                                    ("metier-au-clavier", metier),
+                                    metier.nom(),
+                                    metier.resume(),
+                                    mention(actuel == Some(metier)),
+                                ) {
+                                    choix = Some(Some(metier));
+                                }
+                            }
+                        });
+                    ui.add_space(8.0);
+                    let fermer = ui
+                        .vertical_centered(|ui| ui.button(textes::FERMER).clicked())
+                        .inner;
+                    (choix, fermer)
+                });
+                match choix {
+                    Some(metier) => {
+                        self.choisir_metier(metier);
+                        Dialogue::Aucun
+                    }
+                    None if fermer || fermee => Dialogue::Aucun,
+                    None => Dialogue::ChoisirMetier,
+                }
+            }
+            Dialogue::AideOutil(id) => match noyau::metiers::calculateur(id) {
+                None => Dialogue::Aucun,
+                Some(c) => {
+                    let hauteur = (ctx.content_rect().height() * 0.62).max(200.0);
+                    let ((fermer, formulaire), fermee) = modale(ctx, 350.0, |ui| {
+                        ui.label(RichText::new(c.nom).font(theme::police_grasse(17.0)));
+                        ui.add_space(4.0);
+                        egui::ScrollArea::vertical()
+                            .max_height(hauteur)
+                            .auto_shrink([false, true])
+                            .show(ui, |ui| {
+                                ui.label(c.resume);
+                                ui.add_space(8.0);
+                                ui.label(
+                                    RichText::new(textes::AIDE_OUTIL_TITRE)
+                                        .font(theme::police_grasse(14.5))
+                                        .color(p.titre),
+                                );
+                                ui.add_space(4.0);
+                                for (i, (titre, texte)) in textes::AIDE_OUTIL.iter().enumerate() {
+                                    vues::point_numerote(ui, p, i + 1, titre, texte);
+                                }
+                                if !c.note.is_empty() {
+                                    ui.add_space(6.0);
+                                    ui.label(
+                                        RichText::new(c.note).size(13.0).color(p.texte_attenue),
+                                    );
+                                }
+                            });
+                        ui.add_space(10.0);
+                        let mut fermer = false;
+                        let mut formulaire = false;
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            fermer = ui.button(textes::FERMER).clicked();
+                            formulaire = ui
+                                .button(textes::OUVRIR_LE_FORMULAIRE)
+                                .on_hover_text(textes::INFOBULLE_OUVRIR_LE_FORMULAIRE)
+                                .clicked();
+                        });
+                        (fermer, formulaire)
+                    });
+                    if formulaire {
+                        self.position_metiers = vues::metiers::Position {
+                            metier: Some(c.metier),
+                            calculateur: Some(c.id),
+                        };
+                        self.aller(Vue::Metiers);
+                        Dialogue::Aucun
+                    } else if fermer || fermee {
+                        Dialogue::Aucun
+                    } else {
+                        Dialogue::AideOutil(id)
+                    }
+                }
+            },
         };
         // Une action confirmée peut avoir ouvert un autre dialogue.
         if !self.dialogue_ouvert() {
@@ -1344,7 +1650,8 @@ impl eframe::App for Application {
         // L'état est sauvegardé à la fermeture (R-45).
         let _ = stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant());
         if self.saisies_a_sauvegarder {
-            let _ = stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers);
+            let outil = self.moteur.outil().map(|c| c.id);
+            let _ = stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil);
         }
     }
 

@@ -272,6 +272,7 @@ impl Moteur {
         self.saisie.vider();
         self.montrer_resultat(valeur);
         self.presentation = Presentation {
+            libre: None,
             etiquette: Some(etiquette),
             memorise,
             avertissement: None,

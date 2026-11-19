@@ -49,10 +49,12 @@ pub enum Action {
     },
     /// Ouvrir le clavier principal.
     Clavier,
+    /// Brancher ce calculateur sur le clavier (section 23).
+    AuClavier(&'static str),
 }
 
 /// Une carte cliquable : un titre, une ligne d'explication et, à droite, une mention.
-fn carte_cliquable(
+pub fn carte_cliquable(
     ui: &mut Ui,
     p: &Palette,
     identifiant: impl std::hash::Hash + std::fmt::Debug,
@@ -301,6 +303,13 @@ fn formulaire(
                     entrees: evaluation.entrees.clone(),
                     resultats: evaluation.resultats.clone(),
                 });
+            }
+            if ui
+                .button(textes::AU_CLAVIER)
+                .on_hover_text(textes::INFOBULLE_AU_CLAVIER)
+                .clicked()
+            {
+                action = Some(Action::AuClavier(c.id));
             }
             if ui.button(textes::RECOMMENCER).clicked() {
                 *saisies = c.saisies_par_defaut();

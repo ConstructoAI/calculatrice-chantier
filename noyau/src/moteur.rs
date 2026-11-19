@@ -1,10 +1,13 @@
 //! Moteur de calcul : états, préfixes, opérateurs, cycles de sortie (section 9).
 
 mod memoires;
+mod outils;
 mod touches_fonctions;
 
+pub use outils::{CHAMPS_D_OUTIL, TOUCHE_RESULTAT, ToucheOutil};
+
 use crate::conversions::{Conversion, UniteTouche, convertir};
-use crate::erreurs::{Avertissement, Erreur, Information};
+use crate::erreurs::{Avertissement, Erreur, Information, valeur_a_corriger, valeur_manquante};
 use crate::etiquettes::{Etiquette, Note, symbole_masse_volumique};
 use crate::fonctions::arc::ArcSaisi;
 use crate::fonctions::dimensions::RegistresDimensions;
@@ -91,11 +94,19 @@ enum PrefixeInterne {
 enum Message {
     Erreur(Erreur),
     Information(Information),
+    /// Remarque d'un outil de métier sur les valeurs saisies (section 23).
+    Avis(&'static str),
+    /// Il manque une valeur à l'outil : le libellé du champ à remplir.
+    Manque(&'static str),
+    /// Un champ de l'outil contient une saisie refusée : son libellé.
+    ACorriger(&'static str),
 }
 
 /// Habillage de la valeur montrée quand aucune saisie n'est en cours.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Presentation {
+    /// Libellé libre d'un outil de métier (section 23); il prime sur l'étiquette.
+    libre: Option<&'static str>,
     etiquette: Option<Etiquette>,
     memorise: bool,
     avertissement: Option<Avertissement>,
@@ -164,6 +175,13 @@ pub struct Moteur {
     dernier_effacer: bool,
     /// Touche dont la valeur montrée vient d'être rappelée (R-37).
     rappel_de: Option<Touche>,
+    /// Outil de métier branché sur le clavier (section 23).
+    outil: Option<outils::OutilActif>,
+    /// Texte montré tel quel à la place de la valeur, quand la présentation
+    /// porte un libellé libre (résultat d'outil qui n'est pas une longueur).
+    texte_libre: Option<String>,
+    /// Mention à côté d'un libellé libre : « 2 de 3 ».
+    note_libre: Option<String>,
     bienvenue_vue: bool,
     /// Compteur de modifications de l'état à sauvegarder.
     revision: u64,
@@ -211,6 +229,9 @@ impl Moteur {
             compteur: 0,
             dernier_effacer: false,
             rappel_de: None,
+            outil: None,
+            texte_libre: None,
+            note_libre: None,
             bienvenue_vue: etat.bienvenue_vue,
             revision: 0,
         }
@@ -226,6 +247,7 @@ impl Moteur {
         let revision = self.revision;
         let mut effets = Vec::new();
         let effacer_precedent = std::mem::replace(&mut self.dernier_effacer, false);
+        self.interrompre_le_defilement(touche);
         if self.erreur_bloquante() {
             // En état d'erreur, seule la touche Effacer est acceptée (R-38).
             if touche == Touche::Effacer {
@@ -268,11 +290,14 @@ impl Moteur {
         };
         if let Some(message) = self.message {
             let (texte, erreur) = match message {
-                Message::Erreur(e) => (e.texte(), e.est_bloquante()),
-                Message::Information(i) => (i.texte(), false),
+                Message::Erreur(e) => (e.texte().to_string(), e.est_bloquante()),
+                Message::Information(i) => (i.texte().to_string(), false),
+                Message::Avis(avis) => (avis.to_string(), false),
+                Message::Manque(libelle) => (valeur_manquante(libelle), false),
+                Message::ACorriger(libelle) => (valeur_a_corriger(libelle), false),
             };
             return Ecran {
-                message: Some(texte.to_string()),
+                message: Some(texte),
                 erreur,
                 ..commun
             };
@@ -284,12 +309,24 @@ impl Moteur {
             };
         }
         let p = &self.presentation;
+        // Un outil de métier donne son propre libellé et, pour ce qui n'est pas
+        // une longueur, son propre texte.
+        let valeur = match (p.libre, &self.texte_libre) {
+            (Some(_), Some(texte)) => TexteValeur::simple(texte.clone()),
+            _ => self.texte_valeur(&self.courant, p),
+        };
         Ecran {
-            etiquette: p.etiquette.map(Etiquette::texte),
-            valeur: self.texte_valeur(&self.courant, p),
+            etiquette: p
+                .libre
+                .map(str::to_uppercase)
+                .or_else(|| p.etiquette.map(Etiquette::texte)),
+            valeur,
             memorise: p.memorise,
             avertissement: p.avertissement.map(|a| a.texte().to_string()),
-            note: p.note.map(|n| n.texte().to_string()),
+            note: match p.libre {
+                Some(_) => self.note_libre.clone(),
+                None => p.note.map(|n| n.texte().to_string()),
+            },
             ..commun
         }
     }
@@ -332,6 +369,7 @@ impl Moteur {
         self.triangle.pente = None;
         self.ruban.vider();
         self.memo = ValeursMemorisees::default();
+        self.vider_l_outil();
         self.dernier_effacer = false;
         self.montrer_information(Information::ToutEfface);
         self.revision += 1;
@@ -462,6 +500,7 @@ impl Moteur {
                 Ok(())
             }
             Touche::MPlus => self.m_plus(false),
+            Touche::Outil(rang) => self.touche_outil(rang),
             Touche::Pente
             | Touche::Montee
             | Touche::Course
@@ -529,6 +568,8 @@ impl Moteur {
             Touche::RetourArriere | Touche::FractionRapide { .. } => {
                 self.touche_simple(touche, false)
             }
+            // `Conv` puis une touche d'outil remet le champ à sa valeur de départ.
+            Touche::Outil(rang) => self.touche_outil_conv(rang),
             Touche::Pente
             | Touche::Montee
             | Touche::Course
@@ -641,6 +682,7 @@ impl Moteur {
         self.courant = sortie.valeur;
         self.provenance = Provenance::Sortie;
         self.presentation = Presentation {
+            libre: None,
             etiquette: Some(sortie.etiquette),
             memorise: sortie.memorise,
             avertissement: sortie.avertissement,

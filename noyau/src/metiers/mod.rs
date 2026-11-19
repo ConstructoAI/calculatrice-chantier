@@ -15,12 +15,16 @@
 //! - aucun calculateur ne remplace les plans ni le Code : ils font de la
 //!   géométrie et de la physique, pas de la conformité.
 
+pub mod acier;
 pub mod beton;
 pub mod electricite;
 pub mod estimation;
 pub mod finition;
+pub mod interieurs;
+pub mod maconnerie;
 pub mod plomberie;
 pub mod terrassement;
+pub mod toiture;
 pub mod ventilation;
 
 use crate::analyse::{analyser_longueur, analyser_nombre};
@@ -51,35 +55,65 @@ const MSG_NON_NEGATIF: &str = "La valeur ne peut pas être négative.";
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Metier {
     Estimation,
+    Terrassement,
     Beton,
+    Maconnerie,
+    Toiture,
+    /// Systèmes intérieurs : gypse, cloisons, isolant, plafonds.
+    Interieurs,
+    Finition,
     Plomberie,
     Electricite,
-    Finition,
     Ventilation,
-    Terrassement,
+    Acier,
 }
 
 impl Metier {
     /// Les métiers, dans l'ordre où l'interface les présente.
-    pub const TOUS: [Metier; 7] = [
+    pub const TOUS: [Metier; 11] = [
         Metier::Estimation,
+        Metier::Terrassement,
         Metier::Beton,
+        Metier::Maconnerie,
+        Metier::Toiture,
+        Metier::Interieurs,
+        Metier::Finition,
         Metier::Plomberie,
         Metier::Electricite,
-        Metier::Finition,
         Metier::Ventilation,
-        Metier::Terrassement,
+        Metier::Acier,
     ];
 
     pub fn nom(self) -> &'static str {
         match self {
             Metier::Estimation => "Estimation et soumission",
+            Metier::Terrassement => "Terrassement et aménagement",
             Metier::Beton => "Béton et fondations",
+            Metier::Maconnerie => "Maçonnerie et pavage",
+            Metier::Toiture => "Toiture et revêtement",
+            Metier::Interieurs => "Gypse et isolation",
+            Metier::Finition => "Finition",
             Metier::Plomberie => "Plomberie",
             Metier::Electricite => "Électricité",
-            Metier::Finition => "Finition",
             Metier::Ventilation => "Ventilation et chauffage",
-            Metier::Terrassement => "Terrassement et aménagement",
+            Metier::Acier => "Acier et soudure",
+        }
+    }
+
+    /// Nom en un mot, pour la barre des métiers (section 23).
+    pub fn nom_court(self) -> &'static str {
+        match self {
+            Metier::Estimation => "Estimation",
+            Metier::Terrassement => "Terrassement",
+            Metier::Beton => "Béton",
+            Metier::Maconnerie => "Maçonnerie",
+            Metier::Toiture => "Toiture",
+            Metier::Interieurs => "Gypse",
+            Metier::Finition => "Finition",
+            Metier::Plomberie => "Plomberie",
+            Metier::Electricite => "Électricité",
+            Metier::Ventilation => "Ventilation",
+            Metier::Acier => "Acier",
         }
     }
 
@@ -87,26 +121,36 @@ impl Metier {
     pub fn resume(self) -> &'static str {
         match self {
             Metier::Estimation => {
-                "Prix d'une soumission, budget au pied carré, main-d'œuvre, taxes"
+                "Soumission, budget au pied carré, main-d'œuvre, taxes, facture d'étape"
             }
-            Metier::Beton => "Dalles, semelles, murs, colonnes, armature",
-            Metier::Plomberie => "Pentes, déports, contenances, pression",
-            Metier::Electricite => "Loi d'Ohm, chute de tension, puissance, cintrage",
-            Metier::Finition => "Peinture, céramique, revêtements de sol",
-            Metier::Ventilation => "Débit des conduits, puissance thermique",
-            Metier::Terrassement => "Excavation, granulats, clôtures",
+            Metier::Terrassement => "Excavation, tranchées, granulats, pentes, clôtures, terrasses",
+            Metier::Beton => "Dalles, semelles, murs, colonnes, escaliers, armature, sacs",
+            Metier::Maconnerie => "Briques, blocs, rangs, murets, pavés",
+            Metier::Toiture => "Bardeaux, pentes, panneaux, revêtement extérieur, membranes",
+            Metier::Interieurs => "Panneaux de gypse, cloisons, isolant, valeur R, plafonds",
+            Metier::Finition => "Peinture, céramique, planchers, plinthes et moulures",
+            Metier::Plomberie => "Pentes, déports, coupes, débit, dilatation, contenances",
+            Metier::Electricite => {
+                "Loi d'Ohm, chute de tension, calibre, moteurs, transformateurs, conduits"
+            }
+            Metier::Ventilation => "Conduits, changements d'air, puissance, plancher chauffant",
+            Metier::Acier => "Masse des plaques, des barres et des tubes, cordons de soudure",
         }
     }
 
     pub fn calculateurs(self) -> &'static [Calculateur] {
         match self {
             Metier::Estimation => estimation::CALCULATEURS,
+            Metier::Terrassement => terrassement::CALCULATEURS,
             Metier::Beton => beton::CALCULATEURS,
+            Metier::Maconnerie => maconnerie::CALCULATEURS,
+            Metier::Toiture => toiture::CALCULATEURS,
+            Metier::Interieurs => interieurs::CALCULATEURS,
+            Metier::Finition => finition::CALCULATEURS,
             Metier::Plomberie => plomberie::CALCULATEURS,
             Metier::Electricite => electricite::CALCULATEURS,
-            Metier::Finition => finition::CALCULATEURS,
             Metier::Ventilation => ventilation::CALCULATEURS,
-            Metier::Terrassement => terrassement::CALCULATEURS,
+            Metier::Acier => acier::CALCULATEURS,
         }
     }
 }
@@ -136,6 +180,8 @@ pub enum Nature {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Champ {
     pub libelle: &'static str,
+    /// Libellé abrégé pour une touche du clavier; vide : le libellé convient.
+    pub court: &'static str,
     pub nature: Nature,
     /// Texte proposé au départ (pour un choix : le rang de l'option).
     pub defaut: &'static str,
@@ -149,6 +195,7 @@ impl Champ {
     const fn nouveau(libelle: &'static str, nature: Nature) -> Champ {
         Champ {
             libelle,
+            court: "",
             nature,
             defaut: "",
             facultatif: false,
@@ -189,6 +236,32 @@ impl Champ {
         self
     }
 
+    /// Donne au champ un libellé abrégé, pour une touche étroite du clavier
+    /// (section 23) : deux lignes au plus, de douze caractères au plus.
+    pub const fn court(mut self, libelle: &'static str) -> Champ {
+        self.court = libelle;
+        self
+    }
+
+    /// Libellé abrégé, pour tenir sur une touche du clavier (section 23).
+    pub fn libelle_court(&self) -> &'static str {
+        if self.court.is_empty() {
+            self.libelle
+        } else {
+            self.court
+        }
+    }
+
+    /// Le libellé à écrire dans un message de l'afficheur : le libellé complet
+    /// s'il est bref, sinon le libellé court (un saut de ligne y sépare deux mots).
+    pub fn libelle_pour_message(&self) -> &'static str {
+        if self.libelle.chars().count() <= 24 {
+            self.libelle
+        } else {
+            self.libelle_court()
+        }
+    }
+
     /// Unité d'un nombre tapé sans unité, à montrer à côté du champ.
     pub fn unite(&self) -> &'static str {
         match self.nature {
@@ -209,7 +282,7 @@ impl Champ {
     }
 
     /// Lit la saisie d'un champ rempli.
-    fn lire(&self, texte: &str, prefs: &Preferences) -> Result<Lecture, &'static str> {
+    pub(crate) fn lire(&self, texte: &str, prefs: &Preferences) -> Result<Lecture, &'static str> {
         match self.nature {
             Nature::Longueur(defaut) => {
                 let valeur = analyser_longueur(texte, defaut).map_err(|_| MSG_LONGUEUR)?;
@@ -261,12 +334,12 @@ impl Champ {
 }
 
 /// Saisie d'un champ, une fois lue.
-struct Lecture {
-    lue: Lue,
+pub(crate) struct Lecture {
+    pub(crate) lue: Lue,
     /// Format d'une longueur, tel que l'utilisateur l'a tapée.
-    format: Option<Format>,
+    pub(crate) format: Option<Format>,
     /// La saisie remise au propre, pour le ruban.
-    texte: String,
+    pub(crate) texte: String,
 }
 
 /// Valeur d'un champ : longueur en pouces, nombre, ou rang d'un choix.
@@ -335,6 +408,8 @@ pub enum Quantite {
     Double(f64, &'static str, f64, &'static str),
     /// Quantité entière, arrondie vers le haut par le calculateur.
     Compte(f64, &'static str),
+    /// Un mot plutôt qu'un nombre : le calibre d'un conducteur, par exemple.
+    Mot(&'static str),
 }
 
 impl Quantite {
@@ -380,6 +455,7 @@ impl Quantite {
                 format!("{} ({})", utile(x, unite), utile(y, autre))
             }
             Quantite::Compte(n, unite) => avec_unite(nombre_fixe(n, 0, prefs), unite),
+            Quantite::Mot(mot) => mot.to_string(),
         }
     }
 }
@@ -426,6 +502,10 @@ pub struct Evaluation {
     pub entrees: Vec<(&'static str, String)>,
     /// Les résultats : (libellé, valeur). Vide tant que le formulaire est incomplet.
     pub resultats: Vec<(&'static str, String)>,
+    /// La grandeur de chaque résultat, dans le même ordre.
+    pub quantites: Vec<Quantite>,
+    /// Format de la première longueur saisie : il donne le ton des résultats.
+    pub modele: Option<Format>,
 }
 
 impl Calculateur {
@@ -473,13 +553,18 @@ impl Calculateur {
         if !complet {
             return evaluation;
         }
+        evaluation.modele = modele;
         match (self.calcul)(&Lues(&lues)) {
             Ok(resultats) => {
-                evaluation.resultats = resultats
+                for resultat in resultats
                     .iter()
                     .filter(|resultat| resultat.quantite.est_finie())
-                    .map(|resultat| (resultat.libelle, resultat.quantite.texte(modele, prefs)))
-                    .collect();
+                {
+                    evaluation
+                        .resultats
+                        .push((resultat.libelle, resultat.quantite.texte(modele, prefs)));
+                    evaluation.quantites.push(resultat.quantite);
+                }
             }
             Err(avis) => evaluation.avis = Some(avis),
         }
@@ -488,6 +573,44 @@ impl Calculateur {
 }
 
 impl Quantite {
+    /// La grandeur comme valeur de la calculatrice, pour poursuivre un calcul
+    /// au clavier (section 23).
+    pub fn valeur(&self, modele: Option<Format>) -> Valeur {
+        let metrique = modele.and_then(Format::systeme) == Some(Systeme::Metrique);
+        let selon = |imperial: Format, autre: Format| if metrique { autre } else { imperial };
+        match *self {
+            Quantite::Longueur(pouces) => {
+                let format = match modele {
+                    Some(format) if metrique => format,
+                    _ if pouces.abs() < 12.0 - EPS => Format::PoFrac,
+                    _ => Format::PiPo,
+                };
+                Valeur::en_base(pouces, format)
+            }
+            Quantite::Aire(po2) => Valeur::en_base(po2, selon(Format::Pi2, Format::M2)),
+            Quantite::Vrac(po3) => Valeur::en_base(po3, selon(Format::Vg3, Format::M3)),
+            Quantite::Masse(lb) => Valeur::en_base(lb, selon(Format::Lb, Format::Kg)),
+            Quantite::Tonnes(lb) => Valeur::en_base(lb, selon(Format::Tc, Format::T)),
+            Quantite::Liquide(po3) => Valeur::nombre(po3 / PO3_PAR_L),
+            Quantite::Mesure(x, _)
+            | Quantite::Fixe(x, _, _)
+            | Quantite::Compte(x, _)
+            | Quantite::Double(x, _, _, _) => Valeur::nombre(x),
+            // Un mot n'a pas de valeur : rien à reprendre dans un calcul.
+            Quantite::Mot(_) => Valeur::nombre(0.0),
+        }
+    }
+
+    /// Texte à montrer tel quel à l'afficheur; `None` pour une longueur en
+    /// pieds-pouces, que l'afficheur écrit lui-même avec ses fractions.
+    pub fn texte_libre(&self, modele: Option<Format>, prefs: &Preferences) -> Option<String> {
+        let metrique = modele.and_then(Format::systeme) == Some(Systeme::Metrique);
+        match self {
+            Quantite::Longueur(_) if !metrique => None,
+            _ => Some(self.texte(modele, prefs)),
+        }
+    }
+
     /// Faux si le calcul a débordé : le résultat n'est alors pas montré.
     fn est_finie(&self) -> bool {
         match *self {
@@ -501,14 +624,18 @@ impl Quantite {
             | Quantite::Fixe(x, _, _)
             | Quantite::Compte(x, _) => x.is_finite(),
             Quantite::Double(x, _, y, _) => x.is_finite() && y.is_finite(),
+            Quantite::Mot(_) => true,
         }
     }
 }
 
-/// Un nombre et son unité, séparés par une espace insécable.
+/// Un nombre et son unité, séparés par une espace insécable; le signe des
+/// degrés se colle au nombre.
 fn avec_unite(nombre: String, unite: &str) -> String {
     if unite.is_empty() {
         nombre
+    } else if unite == "°" {
+        format!("{nombre}°")
     } else {
         format!("{nombre}{INSECABLE}{unite}")
     }
@@ -584,7 +711,7 @@ mod tests {
                 assert!(!c.nom.is_empty() && !c.resume.is_empty() && !c.champs.is_empty());
             }
         }
-        assert_eq!(total, 30);
+        assert_eq!(total, 76);
         assert!(calculateur("inconnu").is_none());
     }
 

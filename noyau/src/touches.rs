@@ -41,7 +41,13 @@ pub enum Touche {
     Additionner,
     // Hors grille
     RetourArriere,
-    FractionRapide { num: u32, den: u32 },
+    FractionRapide {
+        num: u32,
+        den: u32,
+    },
+    /// Touche d'un outil de métier branché sur le clavier (section 23) : le
+    /// rang d'un champ de l'outil, ou celui de la touche `Résultat`.
+    Outil(u8),
 }
 
 impl Touche {
@@ -117,6 +123,7 @@ impl Touche {
                 | Touche::Conv
                 | Touche::RetourArriere
                 | Touche::FractionRapide { .. }
+                | Touche::Outil(_)
         )
     }
 }

@@ -722,6 +722,21 @@ pub static FICHES: &[Fiche] = &[
         secondaire: false,
         trigo: false,
     },
+    Fiche {
+        titre: "Clavier adapté au métier",
+        acces: "barre des métiers",
+        resume: "Le clavier prend les touches de votre métier :",
+        mode_emploi: "touchez le nom du métier, au-dessus du clavier, puis un de ses outils. Les champs de l'outil deviennent les touches du haut : tapez une valeur, puis appuyez sur la touche du champ où la ranger. `Résultat` calcule et inscrit le calcul au ruban; appuyez de nouveau pour voir le résultat suivant. `Conv` puis la touche d'un champ le remet à sa valeur de départ. Maintenez une touche de l'outil enfoncée pour lire son mode d'emploi.",
+        exemple: Some((
+            "Béton, Dalle de béton : `24` `Pieds` `Longueur` `20` `Pieds` `Largeur` `4` `Pouces` `Épaisseur` `Résultat` `Résultat`",
+            "VOLUME DE BÉTON 5,93 vg³ (4,53 m³)",
+        )),
+        note: Some("L'onglet Métiers offre les mêmes calculateurs en formulaires à remplir."),
+        mots_cles: "métier outil plombier électricien béton maçon couvreur gypse acier soudure terrassement estimation soumission",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
 ];
 
 /// Fiche de la fonction principale d'une touche.
