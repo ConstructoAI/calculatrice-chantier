@@ -1,4 +1,4 @@
-//! Terrassement et aménagement (section 22.8).
+//! Terrassement et aménagement (section 22.9).
 
 use super::{Calcul, Calculateur, Champ, Lues, Metier, Quantite, Resultat, arrondi_au_dessus};
 use crate::unites::{Format, LB_PAR_TC, PO3_PAR_VG3};

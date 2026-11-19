@@ -566,7 +566,7 @@ pub const BIENVENUE_POINTS: [(&str, &str); 5] = [
     ),
     (
         "Plombier, électricien, cimentier?",
-        "L'onglet Métiers réunit des calculateurs à remplir, par corps de métier.",
+        "L'onglet Métiers réunit des calculateurs à remplir, par corps de métier, et de quoi préparer une soumission.",
     ),
 ];
 
@@ -581,7 +581,7 @@ pub const METIERS_CHARPENTE: &str = "Charpente, toiture et escaliers";
 pub const METIERS_CHARPENTE_RESUME: &str =
     "Pentes, chevrons, arêtiers, escaliers, arcs, matériaux : au clavier principal.";
 pub const METIERS_CHARPENTE_MENTION: &str = "Clavier";
-pub const METIERS_AVERTISSEMENT: &str = "Ces calculateurs font de la géométrie et de la physique. Ils ne remplacent ni les plans ni les codes en vigueur : vérifiez toujours les exigences qui s'appliquent à vos travaux.";
+pub const METIERS_AVERTISSEMENT: &str = "Ces calculateurs font de la géométrie, de la physique et de l'arithmétique. Ils ne remplacent ni les plans ni les codes en vigueur : vérifiez toujours les exigences qui s'appliquent à vos travaux.";
 pub const RESULTATS: &str = "Résultats";
 pub const AJOUTER_AU_RUBAN: &str = "Ajouter au ruban";
 pub const RECOMMENCER: &str = "Recommencer";

@@ -1,4 +1,4 @@
-//! Béton et fondations (section 22.3).
+//! Béton et fondations (section 22.4).
 
 use std::f64::consts::PI;
 

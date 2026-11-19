@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22)
+> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -77,7 +77,7 @@ Le programme offre l'équivalent fonctionnel de tout ce que montrent les six pho
 - le ruban de calcul et les rubans enregistrés ([section 14](#14-ruban-de-calcul));
 - l'aide intégrée et le menu ([section 15](#15-écrans-menu-et-aide)).
 
-S'y ajoutent, à la demande de l'utilisateur (2026-11-19), des **calculateurs par métier** — béton et fondations, plomberie, électricité, finition, ventilation, terrassement — décrits à la [section 22](#22-calculateurs-par-métier). L'utilisateur veut faire de l'application une référence gratuite pour les gens de métier.
+S'y ajoutent, à la demande de l'utilisateur (2026-11-19), des **calculateurs par métier** — estimation et soumission, béton et fondations, plomberie, électricité, finition, ventilation, terrassement — décrits à la [section 22](#22-calculateurs-par-métier). L'utilisateur veut faire de l'application une référence gratuite pour les gens de métier.
 
 L'[annexe D](#annexe-d--traçabilité-photos--application) fait correspondre chaque élément visible sur les photos à son équivalent dans l'application. L'[annexe E](#annexe-e--hors-périmètre) liste ce qui est volontairement exclu.
 
@@ -2387,7 +2387,7 @@ Conseils d'exécution :
 - [ ] Ruban courant, enregistrement, renommage, copie, export `.txt`, suppression.
 - [ ] Aide : une fiche par fonction, recherche sans accents, appui long et clic droit.
 - [ ] Écrans Bienvenue, Trucs de pro, À propos (avec l'avertissement de 1.5).
-- [ ] Les 25 calculateurs par métier donnent les valeurs de 22.9; leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
+- [ ] Les 30 calculateurs par métier donnent les valeurs de 22.10; leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
 
 ### 21.3 Recette manuelle (à faire par l'utilisateur)
 
@@ -2449,7 +2449,21 @@ Les nombres s'écrivent avec les **décimales utiles** : aucune à partir de 100
 
 **Constantes.** 1 gal US = 231 po³; 1 L = 61,0237 po³; eau : 1 kg/L et 9,806 65 kPa par mètre de hauteur; 1 lb/po² = 6,894 757 kPa; 1 HP = 746 W; 1 kW = 3 412,142 BTU/h; 1 tonne de réfrigération = 12 000 BTU/h; 1 pi³/min = 0,471 947 L/s.
 
-### 22.3 Béton et fondations
+### 22.3 Estimation et soumission
+
+Ajouté le 2026-11-19, à la demande de l'utilisateur, d'après la méthode de son profil d'entrepreneur général : le **coût majoré**. Au coût de base des travaux s'ajoutent l'administration, les imprévus et le profit, **tous trois calculés sur le coût de base** (ils s'additionnent, ils ne se composent pas); les taxes s'appliquent ensuite au **prix avant taxes**. Chaque montant est arrondi au cent, pour que les lignes affichées s'additionnent exactement. Les montants s'écrivent `1 234,56 $`.
+
+Pourcentages de départ : administration 3 %, imprévus 12 %, profit 15 %, TPS 5 %, TVQ 9,975 %. Tous se modifient. Une note donne des repères pour l'administration et les imprévus : 3 % et 12 % en résidentiel neuf, 3 % et 15 % en rénovation résidentielle, 3 % et 10 % en commercial neuf. L'application ne contient **aucun prix** : ni coût au pied carré, ni taux horaire. L'utilisateur saisit les siens.
+
+| Calculateur | Champs | Résultats |
+|---|---|---|
+| **Prix d'une soumission** `soumission` | Coût de base des travaux ($), Administration (% ; 3), Imprévus (% ; 12), Profit (% ; 15), TPS (% ; 5), TVQ (% ; 9,975) | Administration, Imprévus et Profit = coût de base × pourcentage · Prix avant taxes = somme · TPS et TVQ = prix avant taxes × taux · Prix, taxes comprises |
+| **Budget au pied carré** `budget-au-pied-carre` | Superficie habitable (pi²), Coût de base ($/pi²), Superficie du garage (pi², facultatif), Coût de base du garage ($/pi², facultatif), puis les cinq pourcentages | Coût de base = superficie × coût (+ garage) · Administration, imprévus et profit · Prix avant taxes · TPS et TVQ · Prix, taxes comprises · Prix au pied carré, taxes comprises = prix ÷ superficie totale. Un seul des deux champs du garage rempli : « Pour le garage, donnez la superficie et le coût au pied carré. » |
+| **Coût de la main-d'œuvre** `main-d-oeuvre` | Nombre d'ouvriers (entier ; 1), Heures par ouvrier (h), Taux horaire ($/h), Charges et avantages sociaux (% ; 0) | Heures totales · Coût horaire, charges comprises = taux × (1 + charges ÷ 100) · Coût de la main-d'œuvre |
+| **Taxes du Québec** `taxes` | Montant ($), Ce montant est (avant taxes ★, taxes comprises), TPS (% ; 5), TVQ (% ; 9,975) | Montant avant taxes · TPS · TVQ · Total. À partir d'un total : montant avant taxes = total ÷ (1 + somme des taux), et la TVQ prend le reste, pour que les trois lignes redonnent le total saisi |
+| **Majoration et marge** `majoration-et-marge` | Coût ($), Majoration sur le coût (%) | Prix de vente = coût × (1 + majoration ÷ 100) · Profit · Marge sur le prix de vente = profit ÷ prix |
+
+### 22.4 Béton et fondations
 
 | Calculateur | Champs (unité par défaut; valeur de départ) | Résultats |
 |---|---|---|
@@ -2461,7 +2475,7 @@ Les nombres s'écrivent avec les **décimales utiles** : aucune à partir de 100
 
 Masse linéique des barres : 10M 0,785 kg/m; 15M 1,570; 20M 2,355; 25M 3,925. L'armature ne compte ni chevauchements ni enrobage des rives (une note le dit). Le mur ne déduit pas les ouvertures.
 
-### 22.4 Plomberie
+### 22.5 Plomberie
 
 | Calculateur | Champs | Résultats |
 |---|---|---|
@@ -2474,7 +2488,7 @@ Masse linéique des barres : 10M 0,785 kg/m; 15M 1,570; 20M 2,355; 25M 3,925. L'
 
 Les déports se mesurent de centre à centre (une note rappelle de déduire l'emboîtement des raccords).
 
-### 22.5 Électricité
+### 22.6 Électricité
 
 | Calculateur | Champs | Résultats |
 |---|---|---|
@@ -2486,7 +2500,7 @@ Les déports se mesurent de centre à centre (une note rappelle de déduire l'em
 
 Sections en mils circulaires : 14 AWG 4 110; 12 : 6 530; 10 : 10 380; 8 : 16 510; 6 : 26 240; 4 : 41 740; 3 : 52 620; 2 : 66 360; 1 : 83 690; 1/0 : 105 600; 2/0 : 133 100; 3/0 : 167 800; 4/0 : 211 600; puis 250 000, 350 000 et 500 000. K est la résistivité du conducteur à 75 °C, en ohms-mils circulaires par pied.
 
-### 22.6 Finition
+### 22.7 Finition
 
 | Calculateur | Champs | Résultats |
 |---|---|---|
@@ -2494,7 +2508,7 @@ Sections en mils circulaires : 14 AWG 4 110; 12 : 6 530; 10 : 10 380; 8 : 16 510
 | **Céramique et tuiles** `ceramique` | Longueur et Largeur de la surface (pi), Longueur et Largeur d'une tuile (po), Pertes (% ; 10), Tuiles par boîte (entier, facultatif) | Surface · Tuiles = surface × (1 + pertes ÷ 100) ÷ aire d'une tuile, arrondi au-dessus · Boîtes = tuiles ÷ tuiles par boîte, arrondi au-dessus (si le champ est rempli) |
 | **Revêtement de sol en boîtes** `revetement-de-sol` | Longueur et Largeur du plancher (pi), Pertes (% ; 10), Couverture d'une boîte (pi²) | Surface · Surface à couvrir, pertes comprises · Boîtes, arrondi au-dessus |
 
-### 22.7 Ventilation et chauffage
+### 22.8 Ventilation et chauffage
 
 | Calculateur | Champs | Résultats |
 |---|---|---|
@@ -2502,7 +2516,7 @@ Sections en mils circulaires : 14 AWG 4 110; 12 : 6 530; 10 : 10 380; 8 : 16 510
 | **Débit d'un conduit rectangulaire** `conduit-rectangulaire` | Largeur (po), Hauteur (po), Vitesse de l'air (pi/min) | Section · Débit · Conduit rond équivalent = 1,30 × (a·b)^0,625 ÷ (a + b)^0,25 (formule de Huebscher) |
 | **Puissance de chauffage et de climatisation** `puissance-thermique` | Puissance, Unité (BTU/h ★, kW, tonnes de réfrigération) | La même puissance en BTU/h, en kW et en tonnes |
 
-### 22.8 Terrassement et aménagement
+### 22.9 Terrassement et aménagement
 
 | Calculateur | Champs | Résultats |
 |---|---|---|
@@ -2510,12 +2524,19 @@ Sections en mils circulaires : 14 AWG 4 110; 12 : 6 530; 10 : 10 380; 8 : 16 510
 | **Pierre, gravier et sable** `granulats` | Longueur (pi), Largeur (pi), Épaisseur (po), Masse volumique (tc/vg³ ; 1,5) | Volume · Masse = volume en vg³ × masse volumique, en tonnes courtes et en tonnes |
 | **Clôture** `cloture` | Longueur totale (pi), Espacement visé des poteaux (pi ; 8) | Sections = longueur ÷ espacement, arrondi au-dessus · Poteaux = sections + 1 · Espacement réel = longueur ÷ sections |
 
-### 22.9 Valeurs d'essai
+### 22.10 Valeurs d'essai
 
 Calculées à part, hors du programme (comme les vecteurs de la section 19). Elles sont rejouées par `noyau/tests/metiers.rs`. Préférences par défaut.
 
 | Calculateur | Saisies | Résultats attendus |
 |---|---|---|
+| soumission | 100 000 · 3 · 12 · 15 · 5 · 9,975 | `3 000,00 $` · `12 000,00 $` · `15 000,00 $` · `130 000,00 $` · `6 500,00 $` · `12 967,50 $` · `149 467,50 $` |
+| soumission | 251 126,40 · 3 · 12 · 15 · 5 · 9,975 | `7 533,79 $` · `30 135,17 $` · `37 668,96 $` · `326 464,32 $` · `16 323,22 $` · `32 564,82 $` · `375 352,36 $` |
+| budget-au-pied-carre | 1 400 · 200 · 400 · 100 · 3 · 12 · 15 · 5 · 9,975 | `320 000,00 $` · `96 000,00 $` · `416 000,00 $` · `62 296,00 $` · `478 296,00 $` · `265,72 $/pi²` |
+| main-d-oeuvre | 3 · 40 · 45,50 · 30 | `120,0 h` · `59,15 $/h` · `7 098,00 $` |
+| taxes | 1 000 · avant taxes · 5 · 9,975 | `1 000,00 $` · `50,00 $` · `99,75 $` · `1 149,75 $` |
+| taxes | 500 · taxes comprises · 5 · 9,975 | `434,88 $` · `21,74 $` · `43,38 $` · `500,00 $` |
+| majoration-et-marge | 800 · 25 | `1 000,00 $` · `200,00 $` · `20,00 %` |
 | dalle | 24 · 20 · 4 · 10 | `480 pi² (44,6 m²)` · `5,93 vg³ (4,53 m³)` · `6,52 vg³ (4,98 m³)` |
 | dalle | 7,3 m · 6 m · 100 mm · 10 | `43,8 m² (471 pi²)` · `4,38 m³ (5,73 vg³)` · `4,82 m³ (6,30 vg³)` |
 | semelle | 120 · 20 · 8 · 10 | `4,94 vg³ (3,78 m³)` · `5,43 vg³ (4,15 m³)` |
@@ -2546,7 +2567,7 @@ Calculées à part, hors du programme (comme les vecteurs de la section 19). Ell
 | granulats | 40 · 12 · 6 · 1,5 | `8,89 vg³ (6,80 m³)` · `13,3 tc (12,1 t)` |
 | cloture | 100 · 8 | `13 sections` · `14 poteaux` · `7 pi 8 5/16 po` |
 
-### 22.10 Écran
+### 22.11 Écran
 
 Onglet **Métiers** de la barre inférieure (pictogramme : un casque de chantier), aussi dans le menu ☰. Trois niveaux :
 
@@ -2998,8 +3019,9 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 10 | Terminologie : « montée / course », « empannon », « coupe latérale », « mur en pente », « gypse », « ruban ». | 4.3 |
 | 11 | Les listes d'empannons n'affichent pas d'élément final de longueur nulle. | 12.3 |
 | 12 | Palette aux couleurs de l'ERP Constructo AI — **choisie par l'utilisateur le 2026-11-19** (elle remplace « Ardoise et ambre »). | 16.3 |
-| 13 | Calculateurs par métier : l'utilisateur a demandé « plomberie, électricien, fondation, etc. »; la liste des 25 calculateurs, leurs valeurs par défaut et leur présentation en formulaires sont un choix de Claude. | 22 |
+| 13 | Calculateurs par métier : l'utilisateur a demandé « plomberie, électricien, fondation, etc. »; la liste des 30 calculateurs, leurs valeurs par défaut et leur présentation en formulaires sont un choix de Claude. | 22 |
 | 14 | Les calculateurs par métier ne reproduisent aucune table de code (intensités admissibles, calibres, pentes minimales) : géométrie et physique seulement. | 22.1 |
+| 15 | Estimation : la méthode du coût majoré (administration, imprévus et profit sur le coût de base; taxes sur le prix avant taxes) et ses pourcentages de départ viennent du profil d'entrepreneur général fourni par l'utilisateur le 2026-11-19. Les coûts au pied carré et les taux horaires de ce profil ne sont **pas** repris : l'utilisateur de l'application saisit les siens. À confirmer : faut-il les offrir en choix prédéfinis? | 22.3 |
 
 
 

@@ -38,7 +38,164 @@ fn refuser(id: &str, saisies: &[&str], avis: &str) {
 }
 
 // ----------------------------------------------------------------------
-// Béton et fondations (22.3)
+// Estimation et soumission (22.3)
+// ----------------------------------------------------------------------
+
+#[test]
+fn prix_d_une_soumission() {
+    // Champs : coût de base, administration, imprévus, profit, TPS, TVQ.
+    verifier(
+        "soumission",
+        &["100000", "3", "12", "15", "5", "9,975"],
+        &[
+            ("Administration", "3 000,00 $"),
+            ("Imprévus", "12 000,00 $"),
+            ("Profit", "15 000,00 $"),
+            ("Prix avant taxes", "130 000,00 $"),
+            ("TPS", "6 500,00 $"),
+            ("TVQ", "12 967,50 $"),
+            ("Prix, taxes comprises", "149 467,50 $"),
+        ],
+    );
+    // Un coût qui ne tombe pas rond : chaque ligne est arrondie au cent.
+    verifier(
+        "soumission",
+        &["251 126,40", "3", "12", "15", "5", "9,975"],
+        &[
+            ("Administration", "7 533,79 $"),
+            ("Imprévus", "30 135,17 $"),
+            ("Profit", "37 668,96 $"),
+            ("Prix avant taxes", "326 464,32 $"),
+            ("TPS", "16 323,22 $"),
+            ("TVQ", "32 564,82 $"),
+            ("Prix, taxes comprises", "375 352,36 $"),
+        ],
+    );
+    // Rénovation : 15 % d'imprévus.
+    verifier(
+        "soumission",
+        &["48500", "3", "15", "15", "5", "9,975"],
+        &[
+            ("Administration", "1 455,00 $"),
+            ("Imprévus", "7 275,00 $"),
+            ("Profit", "7 275,00 $"),
+            ("Prix avant taxes", "64 505,00 $"),
+            ("TPS", "3 225,25 $"),
+            ("TVQ", "6 434,37 $"),
+            ("Prix, taxes comprises", "74 164,62 $"),
+        ],
+    );
+}
+
+#[test]
+fn budget_au_pied_carre() {
+    // 1 400 pi² à 200 $/pi², plus un garage de 400 pi² à 100 $/pi².
+    verifier(
+        "budget-au-pied-carre",
+        &["1400", "200", "400", "100", "3", "12", "15", "5", "9,975"],
+        &[
+            ("Coût de base", "320 000,00 $"),
+            ("Administration, imprévus et profit", "96 000,00 $"),
+            ("Prix avant taxes", "416 000,00 $"),
+            ("TPS et TVQ", "62 296,00 $"),
+            ("Prix, taxes comprises", "478 296,00 $"),
+            ("Prix au pied carré, taxes comprises", "265,72 $/pi²"),
+        ],
+    );
+    // Sans garage, les deux champs du garage restent vides.
+    verifier(
+        "budget-au-pied-carre",
+        &["1000", "100", "", "", "0", "0", "0", "5", "9,975"],
+        &[
+            ("Coût de base", "100 000,00 $"),
+            ("Administration, imprévus et profit", "0,00 $"),
+            ("Prix avant taxes", "100 000,00 $"),
+            ("TPS et TVQ", "14 975,00 $"),
+            ("Prix, taxes comprises", "114 975,00 $"),
+            ("Prix au pied carré, taxes comprises", "114,98 $/pi²"),
+        ],
+    );
+    refuser(
+        "budget-au-pied-carre",
+        &["1400", "200", "400", "", "3", "12", "15", "5", "9,975"],
+        "Pour le garage, donnez la superficie et le coût au pied carré.",
+    );
+}
+
+#[test]
+fn main_d_oeuvre_taxes_et_marge() {
+    verifier(
+        "main-d-oeuvre",
+        &["3", "40", "45,50", "30"],
+        &[
+            ("Heures totales", "120,0 h"),
+            ("Coût horaire, charges comprises", "59,15 $/h"),
+            ("Coût de la main-d'œuvre", "7 098,00 $"),
+        ],
+    );
+    verifier(
+        "main-d-oeuvre",
+        &["2", "37,5", "95", "0"],
+        &[
+            ("Heures totales", "75,0 h"),
+            ("Coût horaire, charges comprises", "95,00 $/h"),
+            ("Coût de la main-d'œuvre", "7 125,00 $"),
+        ],
+    );
+    // Sens du montant : rang dans la liste « avant taxes » · « taxes comprises ».
+    verifier(
+        "taxes",
+        &["1000", "0", "5", "9,975"],
+        &[
+            ("Montant avant taxes", "1 000,00 $"),
+            ("TPS", "50,00 $"),
+            ("TVQ", "99,75 $"),
+            ("Total, taxes comprises", "1 149,75 $"),
+        ],
+    );
+    verifier(
+        "taxes",
+        &["1149,75", "1", "5", "9,975"],
+        &[
+            ("Montant avant taxes", "1 000,00 $"),
+            ("TPS", "50,00 $"),
+            ("TVQ", "99,75 $"),
+            ("Total, taxes comprises", "1 149,75 $"),
+        ],
+    );
+    // Les trois lignes redonnent exactement le total saisi.
+    verifier(
+        "taxes",
+        &["500", "1", "5", "9,975"],
+        &[
+            ("Montant avant taxes", "434,88 $"),
+            ("TPS", "21,74 $"),
+            ("TVQ", "43,38 $"),
+            ("Total, taxes comprises", "500,00 $"),
+        ],
+    );
+    verifier(
+        "majoration-et-marge",
+        &["800", "25"],
+        &[
+            ("Prix de vente", "1 000,00 $"),
+            ("Profit", "200,00 $"),
+            ("Marge sur le prix de vente", "20,00 %"),
+        ],
+    );
+    verifier(
+        "majoration-et-marge",
+        &["1250", "40"],
+        &[
+            ("Prix de vente", "1 750,00 $"),
+            ("Profit", "500,00 $"),
+            ("Marge sur le prix de vente", "28,57 %"),
+        ],
+    );
+}
+
+// ----------------------------------------------------------------------
+// Béton et fondations (22.4)
 // ----------------------------------------------------------------------
 
 #[test]
@@ -138,7 +295,7 @@ fn armature() {
 }
 
 // ----------------------------------------------------------------------
-// Plomberie (22.4)
+// Plomberie (22.5)
 // ----------------------------------------------------------------------
 
 #[test]
@@ -251,7 +408,7 @@ fn contenances_et_pression() {
 }
 
 // ----------------------------------------------------------------------
-// Électricité (22.5)
+// Électricité (22.6)
 // ----------------------------------------------------------------------
 
 #[test]
@@ -436,7 +593,7 @@ fn cout_d_energie() {
 }
 
 // ----------------------------------------------------------------------
-// Finition (22.6)
+// Finition (22.7)
 // ----------------------------------------------------------------------
 
 #[test]
@@ -499,7 +656,7 @@ fn ceramique_et_revetement() {
 }
 
 // ----------------------------------------------------------------------
-// Ventilation et chauffage (22.7)
+// Ventilation et chauffage (22.8)
 // ----------------------------------------------------------------------
 
 #[test]
@@ -565,7 +722,7 @@ fn puissance_thermique() {
 }
 
 // ----------------------------------------------------------------------
-// Terrassement et aménagement (22.8)
+// Terrassement et aménagement (22.9)
 // ----------------------------------------------------------------------
 
 #[test]

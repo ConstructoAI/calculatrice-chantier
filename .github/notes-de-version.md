@@ -1,6 +1,6 @@
 Calculatrice de construction en pieds-pouces-fractions et en métrique, en français du Québec :
-le clavier du charpentier, plus 25 calculateurs par métier (béton et fondations, plomberie,
-électricité, finition, ventilation, terrassement). Gratuite, sans publicité, sans compte.
+le clavier du charpentier, plus 30 calculateurs par métier (estimation et soumission, béton
+et fondations, plomberie, électricité, finition, ventilation, terrassement). Gratuite, sans publicité, sans compte.
 
 Gracieuseté de Sylvain Leduc de Constructo AI.
 

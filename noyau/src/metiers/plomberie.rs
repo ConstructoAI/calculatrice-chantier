@@ -1,4 +1,4 @@
-//! Plomberie (section 22.4).
+//! Plomberie (section 22.5).
 
 use std::f64::consts::PI;
 

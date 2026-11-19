@@ -1,4 +1,4 @@
-//! Finition : peinture, céramique, revêtements de sol (section 22.6).
+//! Finition : peinture, céramique, revêtements de sol (section 22.7).
 
 use super::{Calcul, Calculateur, Champ, Lues, Metier, Quantite, Resultat, arrondi_au_dessus};
 use crate::unites::{Format, PO2_PAR_PI2};

@@ -8,8 +8,9 @@ chantier :
   noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets
   composés, quantités de matériaux (blocs, béton de semelle, gypse, bardeaux, montants,
   bois en pmp), conversions et coûts;
-- **par formulaires**, dans l'onglet *Métiers* : 25 calculateurs pour le béton et les
-  fondations, la plomberie, l'électricité, la finition, la ventilation et le terrassement.
+- **par formulaires**, dans l'onglet *Métiers* : 30 calculateurs pour l'estimation, le
+  béton et les fondations, la plomberie, l'électricité, la finition, la ventilation et le
+  terrassement.
 
 Le même programme existe en deux versions :
 
@@ -49,6 +50,7 @@ et s'ajoutent au ruban d'un clic.
 
 | Métier | Calculateurs |
 |---|---|
+| Estimation et soumission | prix d'une soumission (administration, imprévus, profit, TPS et TVQ), budget au pied carré, coût de la main-d'œuvre, taxes du Québec, majoration et marge |
 | Béton et fondations | dalle, semelle filante, mur de fondation, colonnes et pieux ronds (volume et sacs), armature d'une dalle |
 | Plomberie | pente d'un drain, déport de tuyauterie, déport roulé, contenance d'un tuyau, pression d'une colonne d'eau, réservoir cylindrique |
 | Électricité | loi d'Ohm et puissance, chute de tension, puissance d'un circuit (monophasé ou triphasé), cintrage d'un conduit, coût d'utilisation |
@@ -56,8 +58,9 @@ et s'ajoutent au ruban d'un clic.
 | Ventilation et chauffage | débit d'un conduit rond ou rectangulaire, conversion BTU/h, kW et tonnes |
 | Terrassement et aménagement | excavation et remblai, pierre, gravier et sable, clôture |
 
-Ces calculateurs font de la géométrie et de la physique. Ils ne reproduisent aucune table
-de code (intensités admissibles, calibres, pentes minimales) et ne remplacent ni les plans
+Ces calculateurs font de la géométrie, de la physique et de l'arithmétique. Ils ne
+reproduisent aucune table de code (intensités admissibles, calibres, pentes minimales), ne
+contiennent aucun prix (chacun saisit ses coûts et ses taux) et ne remplacent ni les plans
 ni les codes en vigueur.
 
 ## Installer sur un téléphone ou une tablette
@@ -161,7 +164,7 @@ cargo fmt --all --check
 
 Les tests du noyau rejouent, touche par touche, tous les exemples chiffrés de la
 section 19 du cahier des charges, et vérifient chaque calculateur par métier contre des
-valeurs calculées à part (section 22.9).
+valeurs calculées à part (section 22.10).
 
 ## Publication automatique
 

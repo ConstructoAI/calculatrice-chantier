@@ -17,6 +17,7 @@
 
 pub mod beton;
 pub mod electricite;
+pub mod estimation;
 pub mod finition;
 pub mod plomberie;
 pub mod terrassement;
@@ -49,6 +50,7 @@ const MSG_NON_NEGATIF: &str = "La valeur ne peut pas être négative.";
 /// Corps de métier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Metier {
+    Estimation,
     Beton,
     Plomberie,
     Electricite,
@@ -59,7 +61,8 @@ pub enum Metier {
 
 impl Metier {
     /// Les métiers, dans l'ordre où l'interface les présente.
-    pub const TOUS: [Metier; 6] = [
+    pub const TOUS: [Metier; 7] = [
+        Metier::Estimation,
         Metier::Beton,
         Metier::Plomberie,
         Metier::Electricite,
@@ -70,6 +73,7 @@ impl Metier {
 
     pub fn nom(self) -> &'static str {
         match self {
+            Metier::Estimation => "Estimation et soumission",
             Metier::Beton => "Béton et fondations",
             Metier::Plomberie => "Plomberie",
             Metier::Electricite => "Électricité",
@@ -82,6 +86,9 @@ impl Metier {
     /// Ce qu'on y trouve, en quelques mots.
     pub fn resume(self) -> &'static str {
         match self {
+            Metier::Estimation => {
+                "Prix d'une soumission, budget au pied carré, main-d'œuvre, taxes"
+            }
             Metier::Beton => "Dalles, semelles, murs, colonnes, armature",
             Metier::Plomberie => "Pentes, déports, contenances, pression",
             Metier::Electricite => "Loi d'Ohm, chute de tension, puissance, cintrage",
@@ -93,6 +100,7 @@ impl Metier {
 
     pub fn calculateurs(self) -> &'static [Calculateur] {
         match self {
+            Metier::Estimation => estimation::CALCULATEURS,
             Metier::Beton => beton::CALCULATEURS,
             Metier::Plomberie => plomberie::CALCULATEURS,
             Metier::Electricite => electricite::CALCULATEURS,
@@ -576,7 +584,7 @@ mod tests {
                 assert!(!c.nom.is_empty() && !c.resume.is_empty() && !c.champs.is_empty());
             }
         }
-        assert_eq!(total, 25);
+        assert_eq!(total, 30);
         assert!(calculateur("inconnu").is_none());
     }
 

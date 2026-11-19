@@ -1,4 +1,4 @@
-//! Ventilation et chauffage (section 22.7).
+//! Ventilation et chauffage (section 22.8).
 
 use std::f64::consts::PI;
 

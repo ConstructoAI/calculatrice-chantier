@@ -1,4 +1,4 @@
-//! Électricité (section 22.5).
+//! Électricité (section 22.6).
 
 use super::{Calcul, Calculateur, Champ, Lues, Metier, Quantite, Resultat};
 use crate::unites::{Format, PO_PAR_PI};
