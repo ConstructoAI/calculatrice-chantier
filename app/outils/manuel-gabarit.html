@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="fr-CA">
+<!--
+    Gabarit du manuel d'utilisation. NE PAS MODIFIER `app/manuel.html` À LA MAIN :
+    cette page est produite à partir de ce gabarit et du contenu même du programme
+    (fiches d'aide, calculateurs par métier, exemples calculés par le noyau) par
+
+        cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored
+
+    Les repères entre crochets doubles sont remplacés par le générateur
+    (`app/src/manuel.rs`).
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuel d'utilisation — Calculatrice de chantier</title>
+<meta name="description" content="Manuel d'utilisation de la Calculatrice de chantier : pieds-pouces-fractions, charpente, et les outils de onze corps de métier.">
+<meta name="theme-color" content="#002050">
+<style>
+:root {
+    --fond: #f3f7fc;
+    --carte: #ffffff;
+    --bord: #d5deeb;
+    --texte: #17202e;
+    --attenue: #55637a;
+    --marine: #002050;
+    --primaire: #0078d4;
+    --titre: #0b5cab;
+    --accent: #f97316;
+    --touche: #e3edf9;
+    --touche-texte: #0b3d7a;
+    --note: #fff7ed;
+    --note-bord: #fdba74;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fond: #0d1524;
+        --carte: #162033;
+        --bord: #2a3a55;
+        --texte: #e6edf7;
+        --attenue: #9fb0c8;
+        --marine: #001a40;
+        --primaire: #4aa3ee;
+        --titre: #7cc0ff;
+        --touche: #22344f;
+        --touche-texte: #cfe4ff;
+        --note: #2b2113;
+        --note-bord: #9a5a1b;
+    }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--texte);
+    font: 16px/1.55 "Segoe UI", Selawik, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+}
+.entete {
+    background: linear-gradient(180deg, #003a8c, var(--marine));
+    color: #fff;
+    padding: 28px 20px 24px;
+    border-bottom: 4px solid var(--accent);
+}
+.entete > * { max-width: 860px; margin-left: auto; margin-right: auto; }
+.marque { margin: 0; font-weight: 700; letter-spacing: .02em; opacity: .9; }
+.marque::before { content: ""; display: inline-block; width: 12px; height: 16px; margin-right: 8px; border-left: 5px solid var(--accent); border-bottom: 5px solid var(--accent); vertical-align: -2px; }
+h1 { margin: 6px auto 4px; font-size: 2rem; line-height: 1.2; }
+.sous-titre { margin: 0 auto 14px; opacity: .85; }
+.bouton {
+    display: inline-block; background: var(--accent); color: #1b1203; font-weight: 700;
+    padding: 9px 16px; border-radius: 8px; text-decoration: none;
+}
+main, nav, footer { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+nav { margin-top: 22px; }
+nav ol { margin: 6px 0 0; padding-left: 1.4em; columns: 2 300px; column-gap: 32px; }
+nav li { margin: 3px 0; break-inside: avoid; }
+nav ul { margin: 2px 0 6px; padding-left: 1.1em; list-style: none; font-size: .93em; }
+a { color: var(--primaire); }
+h2 {
+    margin: 44px 0 10px; padding-top: 12px; font-size: 1.5rem; line-height: 1.25; color: var(--titre);
+    border-top: 2px solid var(--bord);
+}
+h3 { margin: 28px 0 8px; font-size: 1.2rem; }
+h4 { margin: 0 0 6px; font-size: 1.05rem; }
+p { margin: 8px 0; }
+ul, ol { padding-left: 1.4em; }
+li { margin: 4px 0; }
+kbd {
+    display: inline-block; font: inherit; font-size: .88em; font-weight: 700; white-space: nowrap;
+    background: var(--touche); color: var(--touche-texte); border: 1px solid var(--bord);
+    border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; margin: 1px 0;
+}
+.ecran {
+    display: inline-block; font-weight: 700; background: var(--carte); border: 1px solid var(--bord);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+}
+.carte, article {
+    background: var(--carte); border: 1px solid var(--bord); border-radius: 10px;
+    padding: 14px 16px; margin: 12px 0;
+}
+.avis { background: var(--note); border: 1px solid var(--note-bord); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.exemple { background: var(--fond); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 10px 0 4px; }
+.exemple .mot { font-size: .8em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--attenue); margin-right: 6px; }
+.note { color: var(--attenue); font-size: .94em; }
+.acces { font-weight: 400; font-size: .9em; color: var(--attenue); margin-left: 6px; }
+.table { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .95em; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--bord); }
+th { color: var(--attenue); font-size: .85em; text-transform: uppercase; letter-spacing: .03em; }
+tr:last-child td { border-bottom: 0; }
+.haut { font-size: .85rem; font-weight: 400; float: right; margin-top: 8px; }
+footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 2px solid var(--bord); color: var(--attenue); font-size: .94em; }
+@media (max-width: 520px) {
+    h1 { font-size: 1.6rem; }
+    main, nav, footer { padding: 0 14px; }
+    .haut { float: none; display: block; }
+}
+@media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .entete { background: none; color: #000; border-bottom: 2px solid #000; padding: 0 0 8px; }
+    .bouton, .haut { display: none; }
+    article, .carte, .exemple, tr { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<header class="entete" id="haut">
+    <p class="marque">Calculatrice de chantier</p>
+    <h1>Manuel d'utilisation</h1>
+    <p class="sous-titre">Gracieuseté de Sylvain Leduc de Constructo AI</p>
+    <p><a class="bouton" href="https://constructoai.github.io/calculatrice-chantier/">Ouvrir la calculatrice</a></p>
+</header>
+
+<nav aria-label="Sommaire">
+    <h2 id="sommaire">Sommaire</h2>
+    <ol>
+        <li><a href="#presentation">Présentation</a></li>
+        <li><a href="#installer">Installer et ouvrir</a></li>
+        <li><a href="#ecran">L'écran en un coup d'œil</a></li>
+        <li><a href="#calculer">Taper une mesure et calculer</a></li>
+        <li><a href="#memoires">Les mémoires</a></li>
+        <li><a href="#charpente">Le clavier de charpente</a></li>
+        <li><a href="#metier">Le clavier de votre métier</a></li>
+        <li><a href="#ruban">Le ruban de calcul</a></li>
+        <li><a href="#preferences">Les préférences</a></li>
+        <li><a href="#raccourcis">Les raccourcis clavier</a></li>
+        <li><a href="#trucs">Trucs de pro</a></li>
+        <li><a href="#depannage">Messages et dépannage</a></li>
+        <li><a href="#fonctions">Répertoire des touches et des fonctions</a></li>
+        <li><a href="#outils">Répertoire des outils par métier</a>
+            <ul>
+[[SOMMAIRE_DES_METIERS]]
+            </ul>
+        </li>
+        <li><a href="#licence">Avertissement, licence et contact</a></li>
+    </ol>
+</nav>
+
+<main>
+
+<h2 id="presentation">1. Présentation</h2>
+<p>La Calculatrice de chantier calcule comme on parle sur un chantier : en pieds, en pouces et en fractions, mais aussi en mètres et en millimètres. Elle réunit trois choses.</p>
+<ul>
+    <li><strong>Le clavier du charpentier</strong> : pentes et chevrons, arêtiers, noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets composés, quantités de matériaux, conversions et coûts.</li>
+    <li><strong>Le clavier de votre métier</strong> : [[NOMBRE_D_OUTILS]] outils pour [[NOMBRE_DE_METIERS]] autres corps de métier. On touche son métier au-dessus du clavier, et les touches du haut deviennent celles de ses outils.</li>
+    <li><strong>Le ruban de calcul</strong>, qui garde la trace de tout ce qui a été saisi et calculé, pour le relire, l'enregistrer ou le partager.</li>
+</ul>
+<p>La calculatrice est gratuite, sans publicité et sans compte. Rien n'est envoyé sur Internet : vos réglages, vos mémoires et vos rubans restent sur votre appareil.</p>
+<div class="avis">
+    <p><strong>Avertissement.</strong> Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.</p>
+    <p>Les outils par métier font de la géométrie, de la physique et de l'arithmétique. Ils ne reproduisent aucune table de code (intensités admissibles, calibres minimaux, pentes minimales, remplissage permis) et ne contiennent aucun prix : chacun saisit ses coûts et ses taux.</p>
+</div>
+
+<h2 id="installer">2. Installer et ouvrir <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h3>Sur le Web : ordinateur, tablette, téléphone</h3>
+<p>Ouvrez <a href="https://constructoai.github.io/calculatrice-chantier/">constructoai.github.io/calculatrice-chantier</a>. La calculatrice s'utilise telle quelle, dans le navigateur.</p>
+<h3>L'installer sur un téléphone ou une tablette</h3>
+<p>Installée, la calculatrice a son icône, s'ouvre en plein écran et fonctionne sans réseau, même au fond d'un sous-sol.</p>
+<ul>
+    <li><strong>Android (Chrome)</strong> : ouvrez le site, puis le menu <kbd>☰</kbd> de la calculatrice, et touchez <em>Installer l'application</em>. Ou, dans le menu de Chrome : <em>Installer l'application</em>.</li>
+    <li><strong>iPhone et iPad (Safari)</strong> : ouvrez le site, touchez <em>Partager</em>, puis <em>Sur l'écran d'accueil</em>.</li>
+    <li><strong>Ordinateur (Chrome ou Edge)</strong> : menu <kbd>☰</kbd> de la calculatrice, <em>Installer l'application</em>, ou l'icône d'installation dans la barre d'adresse.</li>
+</ul>
+<p>Les mises à jour arrivent d'elles-mêmes : à chaque ouverture avec du réseau, la calculatrice prend la dernière version. La version en cours est écrite au bas du menu <kbd>☰</kbd>.</p>
+<h3>Sous Windows, sans navigateur</h3>
+<p>Téléchargez <code>calculatrice-chantier-windows-x64.exe</code> depuis la <a href="https://github.com/ConstructoAI/calculatrice-chantier/releases/latest">dernière publication</a>, puis lancez-le : il n'y a rien à installer. L'exécutable n'est pas signé; au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » : choisissez <em>Informations complémentaires</em>, puis <em>Exécuter quand même</em>.</p>
+<h3>Où sont vos données</h3>
+<div class="table"><table>
+    <thead><tr><th></th><th>Version Web</th><th>Version Windows</th></tr></thead>
+    <tbody>
+        <tr><td>Réglages, mémoires, rubans</td><td>dans le navigateur, sur l'appareil</td><td>dans le dossier <code>%APPDATA%\CalculatriceChantier\</code></td></tr>
+        <tr><td>Export d'un ruban</td><td>téléchargement d'un fichier <code>.txt</code></td><td>boîte « Enregistrer sous »</td></tr>
+        <tr><td>Plein écran</td><td>bouton de la barre supérieure, là où le navigateur le permet</td><td>bouton, préférence ou <kbd>F11</kbd></td></tr>
+    </tbody>
+</table></div>
+<p class="note">Dans la version Web, effacer les données de navigation du site efface aussi vos réglages et vos rubans enregistrés.</p>
+
+<h2 id="ecran">3. L'écran en un coup d'œil <a class="haut" href="#sommaire">Sommaire</a></h2>
+<div class="table"><table>
+    <tbody>
+        <tr><td><strong>Barre supérieure</strong></td><td>Le menu <kbd>☰</kbd>, le bouton de plein écran, le nom de la calculatrice et la roue dentée des préférences.</td></tr>
+        <tr><td><strong>Afficheur</strong></td><td>En petit, les indicateurs : <span class="ecran">CONV</span>, <span class="ecran">STOCKER</span> ou <span class="ecran">RAPPEL</span> quand une de ces touches attend la suivante; <span class="ecran">M</span> quand la mémoire cumulative n'est pas vide; l'opération en attente; <span class="ecran">MÉM.</span> pour une valeur mémorisée. Au milieu, l'étiquette de ce qui est affiché. En grand, la valeur, les fractions empilées. Dans le coin, la touche de retour arrière <kbd>⌫</kbd>. Un double-clic sur la valeur la copie.</td></tr>
+        <tr><td><strong>Fractions rapides</strong></td><td>Une bande de touches <kbd>1/8</kbd>, <kbd>1/4</kbd>, <kbd>3/8</kbd>… qui s'active dans les préférences.</td></tr>
+        <tr><td><strong>Barre des métiers</strong></td><td>Le métier choisi, puis ses outils. Voir <a href="#metier">Le clavier de votre métier</a>.</td></tr>
+        <tr><td><strong>Clavier</strong></td><td>Les touches. En petit, au-dessus de chacune : sa seconde fonction, obtenue avec <kbd>Conv</kbd>.</td></tr>
+        <tr><td><strong>Barre inférieure</strong></td><td>Quatre onglets : <em>Accueil</em> (la calculatrice), <em>Métiers</em> (les outils en formulaires), <em>Rubans</em> et <em>Aide</em>.</td></tr>
+    </tbody>
+</table></div>
+<p>Le menu <kbd>☰</kbd> mène aux calculateurs par métier, aux rubans enregistrés, à l'aide, à ce manuel, à l'écran de bienvenue, aux trucs de pro, aux préférences et à l'écran <em>À propos</em>. Au bas du menu : le courriel et le site de Constructo AI, et la version de la calculatrice.</p>
+<p><strong>De l'aide sur une touche :</strong> maintenez-la enfoncée, ou faites un clic droit. Sa fiche s'ouvre, avec un exemple. L'onglet <em>Aide</em> réunit toutes les fiches et permet d'y chercher un mot.</p>
+
+<h2 id="calculer">4. Taper une mesure et calculer <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h3>Les mesures</h3>
+<p>Tapez une mesure comme vous la dites : le nombre, puis l'unité.</p>
+<div class="table"><table>
+    <thead><tr><th>Pour taper</th><th>Touches</th></tr></thead>
+    <tbody>
+        <tr><td>5 pi 7 1/2 po</td><td><kbd>5</kbd> <kbd>Pieds</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd></td></tr>
+        <tr><td>3/4 po</td><td><kbd>3</kbd> <kbd>/</kbd> <kbd>4</kbd></td></tr>
+        <tr><td>7,3 m</td><td><kbd>7</kbd> <kbd>,</kbd> <kbd>3</kbd> <kbd>m</kbd></td></tr>
+        <tr><td>des centimètres, des millimètres</td><td>le nombre, puis <kbd>Conv</kbd> <kbd>7</kbd> (cm) ou <kbd>Conv</kbd> <kbd>9</kbd> (mm)</td></tr>
+        <tr><td>des pieds carrés, des pieds cubes</td><td>le nombre, puis <kbd>Pieds</kbd> deux fois, ou trois fois</td></tr>
+        <tr><td>une masse</td><td>le nombre, puis <kbd>Conv</kbd> <kbd>4</kbd> (lb), <kbd>Conv</kbd> <kbd>1</kbd> (kg), <kbd>Conv</kbd> <kbd>6</kbd> (tonne courte) ou <kbd>Conv</kbd> <kbd>3</kbd> (tonne métrique)</td></tr>
+    </tbody>
+</table></div>
+<p>Si vous ne tapez pas le dénominateur d'une fraction, la résolution en vigueur est utilisée : <kbd>15</kbd> <kbd>/</kbd> vaut 15/16. La touche <kbd>⌫</kbd> efface le dernier caractère tapé.</p>
+<h3>Les opérations</h3>
+<p>Les touches <kbd>+</kbd> <kbd>−</kbd> <kbd>×</kbd> <kbd>÷</kbd> et <kbd>=</kbd> s'emploient comme sur toute calculatrice, avec des mesures aussi bien qu'avec des nombres. Les calculs s'enchaînent de gauche à droite.</p>
+<p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>+</kbd> <kbd>18</kbd> <kbd>Pieds</kbd> <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>=</kbd> → <span class="ecran">24 pi 3 1/2 po</span></p>
+<p>Une longueur multipliée par une longueur donne une aire; une aire multipliée par une longueur donne un volume.</p>
+<p class="exemple"><span class="mot">Exemple</span> <kbd>40</kbd> <kbd>Pieds</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Pieds</kbd> <kbd>=</kbd> → <span class="ecran">1 400 pi²</span></p>
+<h3>Les pourcentages</h3>
+<p><kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> ajoute 10 % à la valeur — vos pertes, d'un geste. <kbd>−</kbd> <kbd>20</kbd> <kbd>%</kbd> en retranche 20 %, <kbd>×</kbd> <kbd>18</kbd> <kbd>%</kbd> en calcule 18 %, <kbd>÷</kbd> <kbd>80</kbd> <kbd>%</kbd> la divise par 0,80.</p>
+<h3>Les conversions</h3>
+<p>Sur une valeur affichée, appuyez sur l'unité voulue : <kbd>m</kbd> la convertit en mètres, <kbd>Pieds</kbd> en pieds, <kbd>Conv</kbd> <kbd>9</kbd> en millimètres. <kbd>Pieds</kbd> alterne entre pieds-pouces et pieds décimaux, <kbd>Pouces</kbd> entre fraction et décimales.</p>
+<h3>La touche Conv</h3>
+<p><kbd>Conv</kbd> est la touche de conversion et de seconde fonction. Suivie d'une touche, elle exécute la fonction écrite en petit au-dessus de cette touche; suivie d'une unité, elle convertit la valeur affichée. Vous pouvez aussi toucher directement la petite étiquette.</p>
+<h3>Effacer</h3>
+<ul>
+    <li><kbd>Effacer</kbd>, une fois : efface l'affichage et l'erreur éventuelle.</li>
+    <li><kbd>Effacer</kbd>, deux fois : efface aussi les valeurs temporaires (montée, course, longueur, diamètre…). À faire avant un nouveau problème. La pente saisie, les mémoires et les valeurs mémorisées sont conservées.</li>
+    <li><kbd>Conv</kbd> <kbd>×</kbd> (<em>Effacer tout</em>) : remet la calculatrice à neuf, après confirmation — mémoires, ruban, valeurs mémorisées et champs de l'outil de métier. Les préférences sont conservées.</li>
+</ul>
+<h3>Copier et coller</h3>
+<p>Un double-clic sur la valeur affichée la copie (ou <kbd>Ctrl</kbd>+<kbd>C</kbd>). <kbd>Ctrl</kbd>+<kbd>V</kbd> colle un nombre ou une longueur écrite en toutes lettres : <code>12 pi 6 po</code>, <code>30 po</code>, <code>3,8 m</code>.</p>
+
+<h2 id="memoires">5. Les mémoires <a class="haut" href="#sommaire">Sommaire</a></h2>
+<ul>
+    <li><strong>La mémoire cumulative.</strong> Chaque pression sur <kbd>M+</kbd> ajoute la valeur affichée au total; <kbd>Conv</kbd> <kbd>M+</kbd> la retranche. <kbd>Rappel</kbd> <kbd>M+</kbd> montre le total; <kbd>M+</kbd> ensuite montre la moyenne, puis le nombre de valeurs. <kbd>Rappel</kbd> <kbd>Rappel</kbd> montre le total et vide la mémoire.</li>
+    <li><strong>Trois registres libres.</strong> <kbd>Stocker</kbd> <kbd>1</kbd>, <kbd>2</kbd> ou <kbd>3</kbd> range la valeur affichée; <kbd>Rappel</kbd> <kbd>1</kbd>, <kbd>2</kbd> ou <kbd>3</kbd> la ramène.</li>
+    <li><strong>Les valeurs mémorisées de la calculatrice.</strong> <kbd>Stocker</kbd> <kbd>4</kbd> à <kbd>9</kbd> et <kbd>0</kbd> règlent le bloc, l'entraxe, la section de semelle, la contremarche visée, l'épaisseur du plancher, le giron visé et la masse volumique. Elles se modifient aussi dans les <a href="#preferences">préférences</a>.</li>
+    <li><strong>Rappeler ce qu'une touche a en mémoire.</strong> <kbd>Rappel</kbd> suivie d'une touche de fonction affiche sa dernière valeur : <kbd>Rappel</kbd> <kbd>Course</kbd> montre la dernière course.</li>
+</ul>
+
+<h2 id="charpente">6. Le clavier de charpente <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>C'est le clavier de base, celui que la calculatrice montre quand la barre des métiers indique <em>Charpente</em>. Ses touches de fonction suivent toutes la même règle : <strong>une valeur tapée, puis la touche, range la valeur; la touche seule calcule</strong>. Appuyez de nouveau sur une touche pour faire défiler tous ses résultats.</p>
+<p class="exemple"><span class="mot">Exemple</span> Un chevron : <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> · <kbd>8</kbd> <kbd>Pieds</kbd> <kbd>5</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> · <kbd>Diag</kbd> → <span class="ecran">9 pi 8 15/16 po</span>, puis <kbd>Arêtier Noue</kbd> → <span class="ecran">12 pi 10 1/2 po</span></p>
+<p>Les touches du haut résolvent le triangle rectangle : donnez deux valeurs parmi <kbd>Pente</kbd>, <kbd>Montée</kbd>, <kbd>Course</kbd> et <kbd>Diag</kbd>, puis appuyez sur la troisième. La pente reste en mémoire : inutile de la retaper pour le chevron suivant. Pour envoyer un résultat dans une autre fonction, appuyez d'abord sur <kbd>=</kbd>.</p>
+<p>Chaque touche et chaque seconde fonction a sa fiche, avec un exemple chiffré, dans le <a href="#fonctions">répertoire des touches et des fonctions</a>, plus bas.</p>
+
+<h2 id="metier">7. Le clavier de votre métier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Au-dessus du clavier, la <strong>barre des métiers</strong> commence par une pastille pleine : le métier en cours (<em>Charpente</em>, au départ). À sa droite, une rangée de pastilles défile de côté.</p>
+<ul>
+    <li><strong>Choisir son métier :</strong> touchez-le dans la rangée, ou touchez la pastille pleine pour ouvrir la liste <em>Votre métier</em>.</li>
+    <li><strong>Changer d'outil :</strong> une fois le métier choisi, la rangée montre ses outils. Un toucher suffit.</li>
+    <li><strong>Revenir à la charpente :</strong> touchez la pastille pleine, puis <em>Charpente, toiture et escaliers</em>.</li>
+</ul>
+<p>La calculatrice retient l'outil en cours : vous le retrouvez à la prochaine ouverture.</p>
+<h3>Remplir un outil</h3>
+<p>Les champs de l'outil deviennent les <strong>touches du haut</strong>. Au-dessus de chaque touche s'écrit le contenu de son champ; quand le champ est vide, on y lit entre parenthèses l'unité d'un nombre tapé sans unité : <span class="ecran">(pi)</span>, <span class="ecran">(po)</span>, <span class="ecran">(A)</span>.</p>
+<ol>
+    <li><strong>Tapez une valeur, puis appuyez sur la touche du champ</strong> où la ranger. Un nombre seul prend l'unité du champ : <kbd>24</kbd> sur un champ en pieds donne 24 pi 0 po.</li>
+    <li><strong>Une touche foncée</strong> fait défiler les options d'une liste : l'angle d'un raccord, le calibre d'un conducteur.</li>
+    <li><strong>Appuyez sur <kbd>Résultat</kbd>.</strong> Le calcul s'inscrit au ruban et le premier résultat s'affiche, avec son rang : <span class="ecran">2 de 3</span>. Appuyez de nouveau pour voir le suivant.</li>
+</ol>
+<p class="exemple"><span class="mot">Exemple</span> Une dalle de 24 pi sur 20 pi, épaisse de 4 po. Métier <em>Béton</em>, outil <em>Dalle de béton</em> : <kbd>24</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> · <kbd>20</kbd> <kbd>Pieds</kbd> <kbd>Largeur</kbd> · <kbd>4</kbd> <kbd>Pouces</kbd> <kbd>Épaisseur</kbd> · <kbd>Résultat</kbd> → <span class="ecran">480 pi² (44,6 m²)</span> · <kbd>Résultat</kbd> → <span class="ecran">5,93 vg³ (4,53 m³)</span> · <kbd>Résultat</kbd> → <span class="ecran">6,52 vg³ (4,98 m³)</span> à commander, pertes de 10 % comprises.</p>
+<p class="exemple"><span class="mot">Exemple</span> Un déport de 12 po avec des raccords à 45°. Métier <em>Plomberie</em>, outil <em>Déport de tuyauterie</em> : <kbd>12</kbd> <kbd>Pouces</kbd> <kbd>Déport</kbd> · <kbd>Résultat</kbd> → <span class="ecran">1 pi 5 po</span> de parcours · <kbd>Résultat</kbd> → <span class="ecran">1 pi 0 po</span> d'avance. Pour un autre angle, appuyez sur la touche foncée <kbd>Angle</kbd> jusqu'à l'angle voulu.</p>
+<p class="exemple"><span class="mot">Exemple</span> La chute de tension d'un circuit de 120 V, 15 A, long de 100 pi, en cuivre 14 AWG. Métier <em>Électricité</em>, outil <em>Chute de tension</em> : <kbd>15</kbd> <kbd>Courant</kbd> · <kbd>100</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> · <kbd>Résultat</kbd> → <span class="ecran">9,42 V</span> · <kbd>Résultat</kbd> → <span class="ecran">7,85 %</span> · <kbd>Résultat</kbd> → <span class="ecran">110,6 V</span> à la charge.</p>
+<h3>À savoir</h3>
+<ul>
+    <li><strong>Rappeler un champ :</strong> sa touche, sans rien taper, affiche sa valeur.</li>
+    <li><strong>Remettre un champ à sa valeur de départ :</strong> <kbd>Conv</kbd>, puis sa touche. <strong>Tous les champs :</strong> touchez l'étiquette <em>Recommencer</em>, au-dessus de <kbd>Résultat</kbd>.</li>
+    <li><strong>Il manque une valeur?</strong> L'afficheur la nomme : <span class="ecran">IL MANQUE : LARGEUR</span>.</li>
+    <li><strong>Poursuivre le calcul :</strong> un résultat affiché est une valeur comme une autre. <kbd>×</kbd> <kbd>2</kbd> <kbd>=</kbd>, <kbd>M+</kbd> et <kbd>Stocker</kbd> s'en servent.</li>
+    <li><strong>D'un outil à l'autre :</strong> la valeur affichée vous suit quand vous changez d'outil. Le volume foisonné d'une tranchée, par exemple, se range d'une pression dans le champ <em>Volume</em> des voyages de camion.</li>
+    <li><strong>Une aire calculée au clavier</strong> va dans un champ en pieds carrés : <kbd>40</kbd> <kbd>Pieds</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Pieds</kbd> <kbd>=</kbd>, puis <kbd>Superficie</kbd>.</li>
+    <li><strong>Le mode d'emploi d'un outil :</strong> maintenez une de ses touches enfoncée.</li>
+</ul>
+<h3>Les mêmes outils en formulaires</h3>
+<p>L'onglet <em>Métiers</em> présente chaque outil comme un formulaire : tous les champs et tous les résultats d'un coup d'œil, recalculés à chaque frappe. Une mesure s'y écrit en toutes lettres (<code>12 pi 6 po</code>, <code>30 po</code>, <code>3,8 m</code>). Le bouton <em>Ajouter au ruban</em> y inscrit le calcul; <em>Au clavier</em> branche l'outil sur les touches de l'accueil. Le formulaire et le clavier partagent les mêmes valeurs.</p>
+<p>Les résultats suivent le système de la première longueur saisie : en pieds-pouces ou en métrique pour les longueurs, dans les deux systèmes pour les aires, les volumes et les masses. Les quantités à acheter (sacs, boîtes, panneaux) sont arrondies à l'unité supérieure.</p>
+<p>Tous les outils sont décrits, avec un exemple, dans le <a href="#outils">répertoire des outils par métier</a>.</p>
+
+<h2 id="ruban">8. Le ruban de calcul <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Le ruban garde la trace des calculs : les opérations et leurs totaux, les valeurs données aux fonctions et leurs résultats, les conversions, et le détail de chaque calcul d'un outil de métier, sous son titre.</p>
+<ul>
+    <li><strong>Le consulter :</strong> onglet <em>Rubans</em>, ou <kbd>Conv</kbd> <kbd>=</kbd>. Dans une fenêtre large, il reste affiché à droite de la calculatrice.</li>
+    <li><strong>Enregistrer :</strong> donnez-lui un nom — celui du client ou du chantier. Les rubans enregistrés se rouvrent, se renomment, se copient, s'exportent et se suppriment depuis l'onglet <em>Rubans</em>.</li>
+    <li><strong>Copier :</strong> le texte du ruban va dans le presse-papiers, prêt à coller dans un courriel ou un texto.</li>
+    <li><strong>Exporter :</strong> un fichier <code>.txt</code>.</li>
+    <li><strong>Vider :</strong> efface le ruban courant, après confirmation.</li>
+</ul>
+<p class="note">Le ruban courant garde les 500 dernières lignes. <kbd>Effacer</kbd> deux fois y trace un filet de séparation; <em>Effacer tout</em> le vide.</p>
+
+<h2 id="preferences">9. Les préférences <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>La roue dentée, ou <kbd>Conv</kbd> <kbd>Stocker</kbd>, ouvre les préférences. Les changements s'appliquent aussitôt et sont conservés.</p>
+<div class="table"><table>
+    <thead><tr><th>Préférence</th><th>Choix (en gras : au départ)</th></tr></thead>
+    <tbody>
+        <tr><td>Mode trigonométrique</td><td><strong>désactivé</strong>, activé : les touches <kbd>Longueur</kbd>, <kbd>Largeur</kbd> et <kbd>Hauteur</kbd> deviennent <kbd>sin</kbd>, <kbd>cos</kbd> et <kbd>tan</kbd></td></tr>
+        <tr><td>Fractions rapides</td><td><strong>désactivé</strong>, activé : montre la bande de fractions</td></tr>
+        <tr><td>Mode plein écran</td><td><strong>désactivé</strong>, activé (version Windows)</td></tr>
+        <tr><td>Thème</td><td><strong>Automatique</strong>, Clair, Sombre</td></tr>
+        <tr><td>Résolution des fractions</td><td>1/2, 1/4, 1/8, <strong>1/16</strong>, 1/32, 1/64</td></tr>
+        <tr><td>Mode des fractions</td><td><strong>Standard</strong> (fraction réduite), Constant (dénominateur fixe)</td></tr>
+        <tr><td>Notation exponentielle</td><td><strong>désactivée</strong>, activée</td></tr>
+        <tr><td>Affichage des aires</td><td><strong>Standard</strong>, Pieds carrés, Verges carrées, Mètres carrés</td></tr>
+        <tr><td>Affichage des volumes</td><td><strong>Standard</strong>, Verges cubes, Pieds cubes, Mètres cubes</td></tr>
+        <tr><td>Mètres (longueurs)</td><td><strong>0,000</strong>, Flottant</td></tr>
+        <tr><td>Degrés décimaux</td><td><strong>0,00</strong>, Flottant</td></tr>
+        <tr><td>Séparateur de milliers</td><td><strong>activé</strong> (une espace), désactivé</td></tr>
+        <tr><td>Séparateur décimal</td><td><strong>Virgule</strong>, Point</td></tr>
+        <tr><td>Décimales (valeurs sans unité)</td><td><strong>Flottant</strong>, 0, 1, 2, 3, 4</td></tr>
+        <tr><td>Mur en pente</td><td><strong>Décroissant</strong> (du plus long au plus court), Croissant</td></tr>
+        <tr><td>Mur cintré</td><td><strong>Extérieur</strong> (au-dessus de l'arc), Intérieur (sous l'arc)</td></tr>
+        <tr><td>Empannons</td><td><strong>Décroissant</strong>, Croissant</td></tr>
+        <tr><td>Empannons irréguliers</td><td><strong>Entraxe constant</strong>, Appariés</td></tr>
+    </tbody>
+</table></div>
+<h3>Les valeurs mémorisées</h3>
+<p>Ce sont les points de départ des fonctions de charpente. Touchez une ligne des préférences pour la modifier.</p>
+<div class="table"><table>
+    <thead><tr><th>Valeur</th><th>Au départ</th><th>Aussi par</th><th>Sert à</th></tr></thead>
+    <tbody>
+        <tr><td>Échappée</td><td>6 pi 8 po</td><td></td><td>trémie d'escalier</td></tr>
+        <tr><td>Hauteur de contremarche visée</td><td>7 1/2 po</td><td><kbd>Stocker</kbd> <kbd>7</kbd></td><td>escalier</td></tr>
+        <tr><td>Épaisseur du plancher</td><td>10 po</td><td><kbd>Stocker</kbd> <kbd>8</kbd></td><td>trémie d'escalier</td></tr>
+        <tr><td>Giron visé</td><td>10 po</td><td><kbd>Stocker</kbd> <kbd>9</kbd></td><td>escalier</td></tr>
+        <tr><td>Aire et longueur d'un bloc</td><td>128 po² et 16 po</td><td><kbd>Stocker</kbd> <kbd>4</kbd></td><td>blocs</td></tr>
+        <tr><td>Angle de la moulure</td><td>45,00°</td><td><kbd>Stocker</kbd> <kbd>Onglet composé</kbd></td><td>onglet composé</td></tr>
+        <tr><td>Entraxe</td><td>16 po</td><td><kbd>Stocker</kbd> <kbd>5</kbd></td><td>empannons, murs, montants</td></tr>
+        <tr><td>Section de semelle</td><td>264 po²</td><td><kbd>Stocker</kbd> <kbd>6</kbd></td><td>semelle</td></tr>
+        <tr><td>Masse volumique</td><td>1,5 tc/vg³</td><td><kbd>Stocker</kbd> <kbd>0</kbd></td><td>passer d'un volume à une masse</td></tr>
+        <tr><td>Paquets de bardeaux par carré</td><td>3</td><td></td><td>toiture</td></tr>
+    </tbody>
+</table></div>
+<p class="avis">Ces valeurs de départ, comme celles des outils par métier (pertes, rendements, espacements), sont des points de départ modifiables. Elles ne constituent pas un avis de conformité au Code.</p>
+<p>Le bouton <em>Réinitialiser les données et les préférences</em> remet tout à neuf, après confirmation.</p>
+
+<h2 id="raccourcis">10. Les raccourcis clavier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Sur un ordinateur, la calculatrice répond au clavier.</p>
+<div class="table"><table>
+    <thead><tr><th>Touche du clavier</th><th>Action</th><th>Touche du clavier</th><th>Action</th></tr></thead>
+    <tbody>
+        <tr><td><kbd>0</kbd> à <kbd>9</kbd></td><td>chiffres</td><td><kbd>'</kbd></td><td>Pieds</td></tr>
+        <tr><td><kbd>,</kbd> ou <kbd>.</kbd></td><td>virgule</td><td><kbd>"</kbd></td><td>Pouces</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd></td><td>+ − ×</td><td><kbd>V</kbd></td><td>Verges</td></tr>
+        <tr><td><kbd>:</kbd></td><td>÷</td><td><kbd>M</kbd></td><td>m</td></tr>
+        <tr><td><kbd>/</kbd></td><td>barre de fraction</td><td><kbd>%</kbd></td><td>%</td></tr>
+        <tr><td><kbd>Entrée</kbd> ou <kbd>=</kbd></td><td>=</td><td><kbd>Espace</kbd></td><td>Conv</td></tr>
+        <tr><td><kbd>Retour arrière</kbd></td><td>⌫</td><td><kbd>S</kbd></td><td>Stocker</td></tr>
+        <tr><td><kbd>Échap</kbd> ou <kbd>Suppr</kbd></td><td>Effacer</td><td><kbd>R</kbd></td><td>Rappel</td></tr>
+        <tr><td><kbd>P</kbd> <kbd>T</kbd> <kbd>C</kbd> <kbd>D</kbd></td><td>Pente, Montée, Course, Diag</td><td><kbd>Inser</kbd></td><td>M+</td></tr>
+        <tr><td><kbd>A</kbd> <kbd>O</kbd> <kbd>E</kbd></td><td>Arêtier Noue, Onglet composé, Escalier</td><td><kbd>F1</kbd></td><td>Aide</td></tr>
+        <tr><td><kbd>B</kbd> <kbd>I</kbd> <kbd>J</kbd></td><td>Arc, Cercle, Empannon</td><td><kbd>F11</kbd></td><td>plein écran</td></tr>
+        <tr><td><kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd></td><td>Longueur, Largeur, Hauteur</td><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Préférences</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>copier la valeur affichée</td><td><kbd>Ctrl</kbd>+<kbd>R</kbd></td><td>ruban</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>coller un nombre ou une longueur</td><td></td><td></td></tr>
+    </tbody>
+</table></div>
+<p class="note">Dans la version Web, <kbd>F11</kbd> et <kbd>Ctrl</kbd>+<kbd>R</kbd> restent ceux du navigateur. Avec un outil de métier au clavier, les raccourcis des touches de charpente (de <kbd>P</kbd> à <kbd>J</kbd>, et <kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd>) sont sans effet.</p>
+
+<h2 id="trucs">11. Trucs de pro <a class="haut" href="#sommaire">Sommaire</a></h2>
+<ol>
+[[TRUCS]]
+</ol>
+
+<h2 id="depannage">12. Messages et dépannage <a class="haut" href="#sommaire">Sommaire</a></h2>
+<div class="table"><table>
+    <thead><tr><th>L'afficheur indique</th><th>Ce que cela veut dire</th></tr></thead>
+    <tbody>
+        <tr><td><span class="ecran">AUCUNE VALEUR</span></td><td>La touche n'a rien à rappeler ni à calculer : il lui manque une valeur. Tapez-la, puis appuyez de nouveau.</td></tr>
+        <tr><td><span class="ecran">IL MANQUE : …</span></td><td>L'outil de métier attend encore la valeur du champ nommé.</td></tr>
+        <tr><td><span class="ecran">À CORRIGER : …</span></td><td>Le champ nommé contient une saisie que l'outil ne peut pas lire. Retapez sa valeur.</td></tr>
+        <tr><td><span class="ecran">ERREUR – unités incompatibles</span></td><td>Les unités ne vont pas ensemble : une longueur additionnée à un nombre seul, une longueur dans un champ qui attend des ampères. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – saisie invalide</span></td><td>La valeur n'a pas de sens ici : zéro là où il faut une mesure, un nombre à virgule là où il faut un entier. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – calcul impossible</span></td><td>Le calcul n'a pas de résultat : une division par zéro, un triangle impossible. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – trigonométrie</span></td><td>La valeur est hors du domaine de la fonction : un sinus inverse plus grand que 1, par exemple. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – dépassement</span></td><td>Le résultat est trop grand pour l'afficheur. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+    </tbody>
+</table></div>
+<ul>
+    <li><strong>Un résultat semble arrondi.</strong> Les longueurs s'affichent à la résolution des fractions choisie dans les préférences (au 1/16 de pouce, au départ); le calcul, lui, garde toute sa précision.</li>
+    <li><strong>Une fonction de charpente donne un résultat inattendu.</strong> Une valeur d'un calcul précédent est peut-être restée en mémoire : appuyez deux fois sur <kbd>Effacer</kbd> et recommencez.</li>
+    <li><strong>Les touches de charpente ont disparu.</strong> Un outil de métier est au clavier : touchez la pastille du métier, puis <em>Charpente, toiture et escaliers</em>.</li>
+    <li><strong>La calculatrice installée n'a pas la dernière version.</strong> Ouvrez-la une fois avec du réseau, fermez-la, puis rouvrez-la. La version se lit au bas du menu <kbd>☰</kbd>.</li>
+    <li><strong>Mes rubans ont disparu (version Web).</strong> Ils sont conservés dans le navigateur : ils s'effacent avec les données de navigation du site, et ne suivent pas d'un appareil à l'autre. Exportez ceux qui comptent.</li>
+</ul>
+
+<h2 id="fonctions">13. Répertoire des touches et des fonctions <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Ce sont les fiches de l'onglet <em>Aide</em> : une par touche et par seconde fonction du clavier de charpente, avec un exemple chiffré.</p>
+[[FONCTIONS]]
+
+<h2 id="outils">14. Répertoire des outils par métier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Pour chaque outil : ses champs — qui sont aussi ses touches —, l'unité d'un nombre tapé sans unité, la valeur de départ, et un exemple calculé par la calculatrice. Quand la touche porte un libellé plus court que le champ, il est donné entre parenthèses.</p>
+[[OUTILS]]
+
+<h2 id="licence">15. Avertissement, licence et contact <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.</p>
+<p>La Calculatrice de chantier est un logiciel libre, distribué sous la <a href="https://www.apache.org/licenses/LICENSE-2.0">licence Apache, version 2.0</a>. Son code source est public : <a href="https://github.com/ConstructoAI/calculatrice-chantier">github.com/ConstructoAI/calculatrice-chantier</a>. Le logiciel est fourni « tel quel », sans garantie d'aucune sorte.</p>
+<p>Une question, une erreur à signaler, un outil qui manque à votre métier? Écrivez à <a href="mailto:info@constructoai.ca">info@constructoai.ca</a>, ou visitez <a href="https://constructoai.ca/">constructoai.ca</a>.</p>
+
+</main>
+
+<footer>
+    <p>Calculatrice de chantier — gracieuseté de Sylvain Leduc de Constructo AI. <a href="#haut">Haut de la page</a></p>
+</footer>
+</body>
+</html>

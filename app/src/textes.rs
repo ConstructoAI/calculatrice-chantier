@@ -18,6 +18,9 @@ pub const NOM_APPLICATION: &str = "Calculatrice de chantier";
 pub const APP_ID: &str = "CalculatriceChantier";
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Révision du code source : l'identifiant court du commit, inscrit à la
+/// compilation par `app/build.rs`. Vide quand elle n'est pas connue.
+pub const REVISION: &str = env!("REVISION");
 
 // ----------------------------------------------------------------------
 // Clavier (section 5.1)
@@ -247,6 +250,7 @@ pub const ONGLET_AIDE: &str = "Aide";
 
 pub const MENU_RUBANS: &str = "Rubans enregistrés";
 pub const MENU_AIDE: &str = "Aide";
+pub const MENU_MANUEL: &str = "Manuel d'utilisation";
 pub const MENU_BIENVENUE: &str = "Bienvenue";
 pub const MENU_TRUCS: &str = "Trucs de pro";
 pub const MENU_PREFERENCES: &str = "Préférences";
@@ -739,6 +743,37 @@ pub const A_PROPOS_VERSION: &str = "Version";
 /// Mention demandée par l'auteur : l'application est offerte gratuitement.
 /// La page hôte de la version Web (`app/index.html`) la répète sur son écran d'attente.
 pub const GRACIEUSETE: &str = "Gracieuseté de Sylvain Leduc de Constructo AI";
+/// Coordonnées publiques de Constructo AI, à la demande de l'auteur : pied du
+/// menu et écran « À propos ».
+pub const COURRIEL_CONSTRUCTO: &str = "info@constructoai.ca";
+pub const LIEN_COURRIEL_CONSTRUCTO: &str = "mailto:info@constructoai.ca";
+pub const INFOBULLE_COURRIEL: &str = "Écrire à Constructo AI";
+pub const SITE_CONSTRUCTO: &str = "constructoai.ca";
+pub const LIEN_SITE_CONSTRUCTO: &str = "https://constructoai.ca/";
+pub const INFOBULLE_SITE: &str = "Ouvrir le site de Constructo AI";
+
+/// « Version 0.5.0 · révision 1a2b3c4 » : pied du menu et écran « À propos ».
+pub fn version_et_revision() -> String {
+    if REVISION.is_empty() {
+        format!("{A_PROPOS_VERSION} {VERSION}")
+    } else {
+        format!("{A_PROPOS_VERSION} {VERSION} · révision {REVISION}")
+    }
+}
+
+/// Le manuel d'utilisation : nom de la page, et adresse de la page publiée
+/// (pour la version de bureau, si la copie locale ne peut pas être écrite).
+pub const FICHIER_DU_MANUEL: &str = "manuel.html";
+// Dans un navigateur, le manuel est toujours la page voisine : l'adresse complète ne sert pas.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub const ADRESSE_DU_MANUEL: &str =
+    "https://constructoai.github.io/calculatrice-chantier/manuel.html";
+
+pub const LICENCE_TITRE: &str = "Licence";
+pub const LICENCE: &str = "Calculatrice de chantier est un logiciel libre, distribué sous la licence Apache 2.0. Il est fourni tel quel, sans garantie.";
+pub const CODE_SOURCE: &str = "Code source : github.com/ConstructoAI/calculatrice-chantier";
+pub const LIEN_CODE_SOURCE: &str = "https://github.com/ConstructoAI/calculatrice-chantier";
+
 pub const A_PROPOS_DESCRIPTION: &str = "Calculatrice de construction en pieds-pouces-fractions et en métrique, dont le clavier s'adapte au métier : des outils pour onze corps de métier, pour le chantier et l'estimation. Gratuite, sans publicité, sans compte.";
 pub const AVERTISSEMENT_TITRE: &str = "Avertissement";
 pub const AVERTISSEMENT: &str = "Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.";

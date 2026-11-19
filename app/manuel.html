@@ -1,0 +1,1898 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuel d'utilisation — Calculatrice de chantier</title>
+<meta name="description" content="Manuel d'utilisation de la Calculatrice de chantier : pieds-pouces-fractions, charpente, et les outils de onze corps de métier.">
+<meta name="theme-color" content="#002050">
+<style>
+:root {
+    --fond: #f3f7fc;
+    --carte: #ffffff;
+    --bord: #d5deeb;
+    --texte: #17202e;
+    --attenue: #55637a;
+    --marine: #002050;
+    --primaire: #0078d4;
+    --titre: #0b5cab;
+    --accent: #f97316;
+    --touche: #e3edf9;
+    --touche-texte: #0b3d7a;
+    --note: #fff7ed;
+    --note-bord: #fdba74;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fond: #0d1524;
+        --carte: #162033;
+        --bord: #2a3a55;
+        --texte: #e6edf7;
+        --attenue: #9fb0c8;
+        --marine: #001a40;
+        --primaire: #4aa3ee;
+        --titre: #7cc0ff;
+        --touche: #22344f;
+        --touche-texte: #cfe4ff;
+        --note: #2b2113;
+        --note-bord: #9a5a1b;
+    }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--texte);
+    font: 16px/1.55 "Segoe UI", Selawik, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+}
+.entete {
+    background: linear-gradient(180deg, #003a8c, var(--marine));
+    color: #fff;
+    padding: 28px 20px 24px;
+    border-bottom: 4px solid var(--accent);
+}
+.entete > * { max-width: 860px; margin-left: auto; margin-right: auto; }
+.marque { margin: 0; font-weight: 700; letter-spacing: .02em; opacity: .9; }
+.marque::before { content: ""; display: inline-block; width: 12px; height: 16px; margin-right: 8px; border-left: 5px solid var(--accent); border-bottom: 5px solid var(--accent); vertical-align: -2px; }
+h1 { margin: 6px auto 4px; font-size: 2rem; line-height: 1.2; }
+.sous-titre { margin: 0 auto 14px; opacity: .85; }
+.bouton {
+    display: inline-block; background: var(--accent); color: #1b1203; font-weight: 700;
+    padding: 9px 16px; border-radius: 8px; text-decoration: none;
+}
+main, nav, footer { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+nav { margin-top: 22px; }
+nav ol { margin: 6px 0 0; padding-left: 1.4em; columns: 2 300px; column-gap: 32px; }
+nav li { margin: 3px 0; break-inside: avoid; }
+nav ul { margin: 2px 0 6px; padding-left: 1.1em; list-style: none; font-size: .93em; }
+a { color: var(--primaire); }
+h2 {
+    margin: 44px 0 10px; padding-top: 12px; font-size: 1.5rem; line-height: 1.25; color: var(--titre);
+    border-top: 2px solid var(--bord);
+}
+h3 { margin: 28px 0 8px; font-size: 1.2rem; }
+h4 { margin: 0 0 6px; font-size: 1.05rem; }
+p { margin: 8px 0; }
+ul, ol { padding-left: 1.4em; }
+li { margin: 4px 0; }
+kbd {
+    display: inline-block; font: inherit; font-size: .88em; font-weight: 700; white-space: nowrap;
+    background: var(--touche); color: var(--touche-texte); border: 1px solid var(--bord);
+    border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; margin: 1px 0;
+}
+.ecran {
+    display: inline-block; font-weight: 700; background: var(--carte); border: 1px solid var(--bord);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+}
+.carte, article {
+    background: var(--carte); border: 1px solid var(--bord); border-radius: 10px;
+    padding: 14px 16px; margin: 12px 0;
+}
+.avis { background: var(--note); border: 1px solid var(--note-bord); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.exemple { background: var(--fond); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 10px 0 4px; }
+.exemple .mot { font-size: .8em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--attenue); margin-right: 6px; }
+.note { color: var(--attenue); font-size: .94em; }
+.acces { font-weight: 400; font-size: .9em; color: var(--attenue); margin-left: 6px; }
+.table { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .95em; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--bord); }
+th { color: var(--attenue); font-size: .85em; text-transform: uppercase; letter-spacing: .03em; }
+tr:last-child td { border-bottom: 0; }
+.haut { font-size: .85rem; font-weight: 400; float: right; margin-top: 8px; }
+footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 2px solid var(--bord); color: var(--attenue); font-size: .94em; }
+@media (max-width: 520px) {
+    h1 { font-size: 1.6rem; }
+    main, nav, footer { padding: 0 14px; }
+    .haut { float: none; display: block; }
+}
+@media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .entete { background: none; color: #000; border-bottom: 2px solid #000; padding: 0 0 8px; }
+    .bouton, .haut { display: none; }
+    article, .carte, .exemple, tr { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<header class="entete" id="haut">
+    <p class="marque">Calculatrice de chantier</p>
+    <h1>Manuel d'utilisation</h1>
+    <p class="sous-titre">Gracieuseté de Sylvain Leduc de Constructo AI</p>
+    <p><a class="bouton" href="https://constructoai.github.io/calculatrice-chantier/">Ouvrir la calculatrice</a></p>
+</header>
+
+<nav aria-label="Sommaire">
+    <h2 id="sommaire">Sommaire</h2>
+    <ol>
+        <li><a href="#presentation">Présentation</a></li>
+        <li><a href="#installer">Installer et ouvrir</a></li>
+        <li><a href="#ecran">L'écran en un coup d'œil</a></li>
+        <li><a href="#calculer">Taper une mesure et calculer</a></li>
+        <li><a href="#memoires">Les mémoires</a></li>
+        <li><a href="#charpente">Le clavier de charpente</a></li>
+        <li><a href="#metier">Le clavier de votre métier</a></li>
+        <li><a href="#ruban">Le ruban de calcul</a></li>
+        <li><a href="#preferences">Les préférences</a></li>
+        <li><a href="#raccourcis">Les raccourcis clavier</a></li>
+        <li><a href="#trucs">Trucs de pro</a></li>
+        <li><a href="#depannage">Messages et dépannage</a></li>
+        <li><a href="#fonctions">Répertoire des touches et des fonctions</a></li>
+        <li><a href="#outils">Répertoire des outils par métier</a>
+            <ul>
+                <li><a href="#metier-estimation">Estimation et soumission</a></li>
+                <li><a href="#metier-terrassement">Terrassement et aménagement</a></li>
+                <li><a href="#metier-beton">Béton et fondations</a></li>
+                <li><a href="#metier-maconnerie">Maçonnerie et pavage</a></li>
+                <li><a href="#metier-toiture">Toiture et revêtement</a></li>
+                <li><a href="#metier-gypse">Gypse et isolation</a></li>
+                <li><a href="#metier-finition">Finition</a></li>
+                <li><a href="#metier-plomberie">Plomberie</a></li>
+                <li><a href="#metier-electricite">Électricité</a></li>
+                <li><a href="#metier-ventilation">Ventilation et chauffage</a></li>
+                <li><a href="#metier-acier">Acier et soudure</a></li>
+            </ul>
+        </li>
+        <li><a href="#licence">Avertissement, licence et contact</a></li>
+    </ol>
+</nav>
+
+<main>
+
+<h2 id="presentation">1. Présentation</h2>
+<p>La Calculatrice de chantier calcule comme on parle sur un chantier : en pieds, en pouces et en fractions, mais aussi en mètres et en millimètres. Elle réunit trois choses.</p>
+<ul>
+    <li><strong>Le clavier du charpentier</strong> : pentes et chevrons, arêtiers, noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets composés, quantités de matériaux, conversions et coûts.</li>
+    <li><strong>Le clavier de votre métier</strong> : 76 outils pour 11 autres corps de métier. On touche son métier au-dessus du clavier, et les touches du haut deviennent celles de ses outils.</li>
+    <li><strong>Le ruban de calcul</strong>, qui garde la trace de tout ce qui a été saisi et calculé, pour le relire, l'enregistrer ou le partager.</li>
+</ul>
+<p>La calculatrice est gratuite, sans publicité et sans compte. Rien n'est envoyé sur Internet : vos réglages, vos mémoires et vos rubans restent sur votre appareil.</p>
+<div class="avis">
+    <p><strong>Avertissement.</strong> Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.</p>
+    <p>Les outils par métier font de la géométrie, de la physique et de l'arithmétique. Ils ne reproduisent aucune table de code (intensités admissibles, calibres minimaux, pentes minimales, remplissage permis) et ne contiennent aucun prix : chacun saisit ses coûts et ses taux.</p>
+</div>
+
+<h2 id="installer">2. Installer et ouvrir <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h3>Sur le Web : ordinateur, tablette, téléphone</h3>
+<p>Ouvrez <a href="https://constructoai.github.io/calculatrice-chantier/">constructoai.github.io/calculatrice-chantier</a>. La calculatrice s'utilise telle quelle, dans le navigateur.</p>
+<h3>L'installer sur un téléphone ou une tablette</h3>
+<p>Installée, la calculatrice a son icône, s'ouvre en plein écran et fonctionne sans réseau, même au fond d'un sous-sol.</p>
+<ul>
+    <li><strong>Android (Chrome)</strong> : ouvrez le site, puis le menu <kbd>☰</kbd> de la calculatrice, et touchez <em>Installer l'application</em>. Ou, dans le menu de Chrome : <em>Installer l'application</em>.</li>
+    <li><strong>iPhone et iPad (Safari)</strong> : ouvrez le site, touchez <em>Partager</em>, puis <em>Sur l'écran d'accueil</em>.</li>
+    <li><strong>Ordinateur (Chrome ou Edge)</strong> : menu <kbd>☰</kbd> de la calculatrice, <em>Installer l'application</em>, ou l'icône d'installation dans la barre d'adresse.</li>
+</ul>
+<p>Les mises à jour arrivent d'elles-mêmes : à chaque ouverture avec du réseau, la calculatrice prend la dernière version. La version en cours est écrite au bas du menu <kbd>☰</kbd>.</p>
+<h3>Sous Windows, sans navigateur</h3>
+<p>Téléchargez <code>calculatrice-chantier-windows-x64.exe</code> depuis la <a href="https://github.com/ConstructoAI/calculatrice-chantier/releases/latest">dernière publication</a>, puis lancez-le : il n'y a rien à installer. L'exécutable n'est pas signé; au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » : choisissez <em>Informations complémentaires</em>, puis <em>Exécuter quand même</em>.</p>
+<h3>Où sont vos données</h3>
+<div class="table"><table>
+    <thead><tr><th></th><th>Version Web</th><th>Version Windows</th></tr></thead>
+    <tbody>
+        <tr><td>Réglages, mémoires, rubans</td><td>dans le navigateur, sur l'appareil</td><td>dans le dossier <code>%APPDATA%\CalculatriceChantier\</code></td></tr>
+        <tr><td>Export d'un ruban</td><td>téléchargement d'un fichier <code>.txt</code></td><td>boîte « Enregistrer sous »</td></tr>
+        <tr><td>Plein écran</td><td>bouton de la barre supérieure, là où le navigateur le permet</td><td>bouton, préférence ou <kbd>F11</kbd></td></tr>
+    </tbody>
+</table></div>
+<p class="note">Dans la version Web, effacer les données de navigation du site efface aussi vos réglages et vos rubans enregistrés.</p>
+
+<h2 id="ecran">3. L'écran en un coup d'œil <a class="haut" href="#sommaire">Sommaire</a></h2>
+<div class="table"><table>
+    <tbody>
+        <tr><td><strong>Barre supérieure</strong></td><td>Le menu <kbd>☰</kbd>, le bouton de plein écran, le nom de la calculatrice et la roue dentée des préférences.</td></tr>
+        <tr><td><strong>Afficheur</strong></td><td>En petit, les indicateurs : <span class="ecran">CONV</span>, <span class="ecran">STOCKER</span> ou <span class="ecran">RAPPEL</span> quand une de ces touches attend la suivante; <span class="ecran">M</span> quand la mémoire cumulative n'est pas vide; l'opération en attente; <span class="ecran">MÉM.</span> pour une valeur mémorisée. Au milieu, l'étiquette de ce qui est affiché. En grand, la valeur, les fractions empilées. Dans le coin, la touche de retour arrière <kbd>⌫</kbd>. Un double-clic sur la valeur la copie.</td></tr>
+        <tr><td><strong>Fractions rapides</strong></td><td>Une bande de touches <kbd>1/8</kbd>, <kbd>1/4</kbd>, <kbd>3/8</kbd>… qui s'active dans les préférences.</td></tr>
+        <tr><td><strong>Barre des métiers</strong></td><td>Le métier choisi, puis ses outils. Voir <a href="#metier">Le clavier de votre métier</a>.</td></tr>
+        <tr><td><strong>Clavier</strong></td><td>Les touches. En petit, au-dessus de chacune : sa seconde fonction, obtenue avec <kbd>Conv</kbd>.</td></tr>
+        <tr><td><strong>Barre inférieure</strong></td><td>Quatre onglets : <em>Accueil</em> (la calculatrice), <em>Métiers</em> (les outils en formulaires), <em>Rubans</em> et <em>Aide</em>.</td></tr>
+    </tbody>
+</table></div>
+<p>Le menu <kbd>☰</kbd> mène aux calculateurs par métier, aux rubans enregistrés, à l'aide, à ce manuel, à l'écran de bienvenue, aux trucs de pro, aux préférences et à l'écran <em>À propos</em>. Au bas du menu : le courriel et le site de Constructo AI, et la version de la calculatrice.</p>
+<p><strong>De l'aide sur une touche :</strong> maintenez-la enfoncée, ou faites un clic droit. Sa fiche s'ouvre, avec un exemple. L'onglet <em>Aide</em> réunit toutes les fiches et permet d'y chercher un mot.</p>
+
+<h2 id="calculer">4. Taper une mesure et calculer <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h3>Les mesures</h3>
+<p>Tapez une mesure comme vous la dites : le nombre, puis l'unité.</p>
+<div class="table"><table>
+    <thead><tr><th>Pour taper</th><th>Touches</th></tr></thead>
+    <tbody>
+        <tr><td>5 pi 7 1/2 po</td><td><kbd>5</kbd> <kbd>Pieds</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd></td></tr>
+        <tr><td>3/4 po</td><td><kbd>3</kbd> <kbd>/</kbd> <kbd>4</kbd></td></tr>
+        <tr><td>7,3 m</td><td><kbd>7</kbd> <kbd>,</kbd> <kbd>3</kbd> <kbd>m</kbd></td></tr>
+        <tr><td>des centimètres, des millimètres</td><td>le nombre, puis <kbd>Conv</kbd> <kbd>7</kbd> (cm) ou <kbd>Conv</kbd> <kbd>9</kbd> (mm)</td></tr>
+        <tr><td>des pieds carrés, des pieds cubes</td><td>le nombre, puis <kbd>Pieds</kbd> deux fois, ou trois fois</td></tr>
+        <tr><td>une masse</td><td>le nombre, puis <kbd>Conv</kbd> <kbd>4</kbd> (lb), <kbd>Conv</kbd> <kbd>1</kbd> (kg), <kbd>Conv</kbd> <kbd>6</kbd> (tonne courte) ou <kbd>Conv</kbd> <kbd>3</kbd> (tonne métrique)</td></tr>
+    </tbody>
+</table></div>
+<p>Si vous ne tapez pas le dénominateur d'une fraction, la résolution en vigueur est utilisée : <kbd>15</kbd> <kbd>/</kbd> vaut 15/16. La touche <kbd>⌫</kbd> efface le dernier caractère tapé.</p>
+<h3>Les opérations</h3>
+<p>Les touches <kbd>+</kbd> <kbd>−</kbd> <kbd>×</kbd> <kbd>÷</kbd> et <kbd>=</kbd> s'emploient comme sur toute calculatrice, avec des mesures aussi bien qu'avec des nombres. Les calculs s'enchaînent de gauche à droite.</p>
+<p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>+</kbd> <kbd>18</kbd> <kbd>Pieds</kbd> <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>=</kbd> → <span class="ecran">24 pi 3 1/2 po</span></p>
+<p>Une longueur multipliée par une longueur donne une aire; une aire multipliée par une longueur donne un volume.</p>
+<p class="exemple"><span class="mot">Exemple</span> <kbd>40</kbd> <kbd>Pieds</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Pieds</kbd> <kbd>=</kbd> → <span class="ecran">1 400 pi²</span></p>
+<h3>Les pourcentages</h3>
+<p><kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> ajoute 10 % à la valeur — vos pertes, d'un geste. <kbd>−</kbd> <kbd>20</kbd> <kbd>%</kbd> en retranche 20 %, <kbd>×</kbd> <kbd>18</kbd> <kbd>%</kbd> en calcule 18 %, <kbd>÷</kbd> <kbd>80</kbd> <kbd>%</kbd> la divise par 0,80.</p>
+<h3>Les conversions</h3>
+<p>Sur une valeur affichée, appuyez sur l'unité voulue : <kbd>m</kbd> la convertit en mètres, <kbd>Pieds</kbd> en pieds, <kbd>Conv</kbd> <kbd>9</kbd> en millimètres. <kbd>Pieds</kbd> alterne entre pieds-pouces et pieds décimaux, <kbd>Pouces</kbd> entre fraction et décimales.</p>
+<h3>La touche Conv</h3>
+<p><kbd>Conv</kbd> est la touche de conversion et de seconde fonction. Suivie d'une touche, elle exécute la fonction écrite en petit au-dessus de cette touche; suivie d'une unité, elle convertit la valeur affichée. Vous pouvez aussi toucher directement la petite étiquette.</p>
+<h3>Effacer</h3>
+<ul>
+    <li><kbd>Effacer</kbd>, une fois : efface l'affichage et l'erreur éventuelle.</li>
+    <li><kbd>Effacer</kbd>, deux fois : efface aussi les valeurs temporaires (montée, course, longueur, diamètre…). À faire avant un nouveau problème. La pente saisie, les mémoires et les valeurs mémorisées sont conservées.</li>
+    <li><kbd>Conv</kbd> <kbd>×</kbd> (<em>Effacer tout</em>) : remet la calculatrice à neuf, après confirmation — mémoires, ruban, valeurs mémorisées et champs de l'outil de métier. Les préférences sont conservées.</li>
+</ul>
+<h3>Copier et coller</h3>
+<p>Un double-clic sur la valeur affichée la copie (ou <kbd>Ctrl</kbd>+<kbd>C</kbd>). <kbd>Ctrl</kbd>+<kbd>V</kbd> colle un nombre ou une longueur écrite en toutes lettres : <code>12 pi 6 po</code>, <code>30 po</code>, <code>3,8 m</code>.</p>
+
+<h2 id="memoires">5. Les mémoires <a class="haut" href="#sommaire">Sommaire</a></h2>
+<ul>
+    <li><strong>La mémoire cumulative.</strong> Chaque pression sur <kbd>M+</kbd> ajoute la valeur affichée au total; <kbd>Conv</kbd> <kbd>M+</kbd> la retranche. <kbd>Rappel</kbd> <kbd>M+</kbd> montre le total; <kbd>M+</kbd> ensuite montre la moyenne, puis le nombre de valeurs. <kbd>Rappel</kbd> <kbd>Rappel</kbd> montre le total et vide la mémoire.</li>
+    <li><strong>Trois registres libres.</strong> <kbd>Stocker</kbd> <kbd>1</kbd>, <kbd>2</kbd> ou <kbd>3</kbd> range la valeur affichée; <kbd>Rappel</kbd> <kbd>1</kbd>, <kbd>2</kbd> ou <kbd>3</kbd> la ramène.</li>
+    <li><strong>Les valeurs mémorisées de la calculatrice.</strong> <kbd>Stocker</kbd> <kbd>4</kbd> à <kbd>9</kbd> et <kbd>0</kbd> règlent le bloc, l'entraxe, la section de semelle, la contremarche visée, l'épaisseur du plancher, le giron visé et la masse volumique. Elles se modifient aussi dans les <a href="#preferences">préférences</a>.</li>
+    <li><strong>Rappeler ce qu'une touche a en mémoire.</strong> <kbd>Rappel</kbd> suivie d'une touche de fonction affiche sa dernière valeur : <kbd>Rappel</kbd> <kbd>Course</kbd> montre la dernière course.</li>
+</ul>
+
+<h2 id="charpente">6. Le clavier de charpente <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>C'est le clavier de base, celui que la calculatrice montre quand la barre des métiers indique <em>Charpente</em>. Ses touches de fonction suivent toutes la même règle : <strong>une valeur tapée, puis la touche, range la valeur; la touche seule calcule</strong>. Appuyez de nouveau sur une touche pour faire défiler tous ses résultats.</p>
+<p class="exemple"><span class="mot">Exemple</span> Un chevron : <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> · <kbd>8</kbd> <kbd>Pieds</kbd> <kbd>5</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> · <kbd>Diag</kbd> → <span class="ecran">9 pi 8 15/16 po</span>, puis <kbd>Arêtier Noue</kbd> → <span class="ecran">12 pi 10 1/2 po</span></p>
+<p>Les touches du haut résolvent le triangle rectangle : donnez deux valeurs parmi <kbd>Pente</kbd>, <kbd>Montée</kbd>, <kbd>Course</kbd> et <kbd>Diag</kbd>, puis appuyez sur la troisième. La pente reste en mémoire : inutile de la retaper pour le chevron suivant. Pour envoyer un résultat dans une autre fonction, appuyez d'abord sur <kbd>=</kbd>.</p>
+<p>Chaque touche et chaque seconde fonction a sa fiche, avec un exemple chiffré, dans le <a href="#fonctions">répertoire des touches et des fonctions</a>, plus bas.</p>
+
+<h2 id="metier">7. Le clavier de votre métier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Au-dessus du clavier, la <strong>barre des métiers</strong> commence par une pastille pleine : le métier en cours (<em>Charpente</em>, au départ). À sa droite, une rangée de pastilles défile de côté.</p>
+<ul>
+    <li><strong>Choisir son métier :</strong> touchez-le dans la rangée, ou touchez la pastille pleine pour ouvrir la liste <em>Votre métier</em>.</li>
+    <li><strong>Changer d'outil :</strong> une fois le métier choisi, la rangée montre ses outils. Un toucher suffit.</li>
+    <li><strong>Revenir à la charpente :</strong> touchez la pastille pleine, puis <em>Charpente, toiture et escaliers</em>.</li>
+</ul>
+<p>La calculatrice retient l'outil en cours : vous le retrouvez à la prochaine ouverture.</p>
+<h3>Remplir un outil</h3>
+<p>Les champs de l'outil deviennent les <strong>touches du haut</strong>. Au-dessus de chaque touche s'écrit le contenu de son champ; quand le champ est vide, on y lit entre parenthèses l'unité d'un nombre tapé sans unité : <span class="ecran">(pi)</span>, <span class="ecran">(po)</span>, <span class="ecran">(A)</span>.</p>
+<ol>
+    <li><strong>Tapez une valeur, puis appuyez sur la touche du champ</strong> où la ranger. Un nombre seul prend l'unité du champ : <kbd>24</kbd> sur un champ en pieds donne 24 pi 0 po.</li>
+    <li><strong>Une touche foncée</strong> fait défiler les options d'une liste : l'angle d'un raccord, le calibre d'un conducteur.</li>
+    <li><strong>Appuyez sur <kbd>Résultat</kbd>.</strong> Le calcul s'inscrit au ruban et le premier résultat s'affiche, avec son rang : <span class="ecran">2 de 3</span>. Appuyez de nouveau pour voir le suivant.</li>
+</ol>
+<p class="exemple"><span class="mot">Exemple</span> Une dalle de 24 pi sur 20 pi, épaisse de 4 po. Métier <em>Béton</em>, outil <em>Dalle de béton</em> : <kbd>24</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> · <kbd>20</kbd> <kbd>Pieds</kbd> <kbd>Largeur</kbd> · <kbd>4</kbd> <kbd>Pouces</kbd> <kbd>Épaisseur</kbd> · <kbd>Résultat</kbd> → <span class="ecran">480 pi² (44,6 m²)</span> · <kbd>Résultat</kbd> → <span class="ecran">5,93 vg³ (4,53 m³)</span> · <kbd>Résultat</kbd> → <span class="ecran">6,52 vg³ (4,98 m³)</span> à commander, pertes de 10 % comprises.</p>
+<p class="exemple"><span class="mot">Exemple</span> Un déport de 12 po avec des raccords à 45°. Métier <em>Plomberie</em>, outil <em>Déport de tuyauterie</em> : <kbd>12</kbd> <kbd>Pouces</kbd> <kbd>Déport</kbd> · <kbd>Résultat</kbd> → <span class="ecran">1 pi 5 po</span> de parcours · <kbd>Résultat</kbd> → <span class="ecran">1 pi 0 po</span> d'avance. Pour un autre angle, appuyez sur la touche foncée <kbd>Angle</kbd> jusqu'à l'angle voulu.</p>
+<p class="exemple"><span class="mot">Exemple</span> La chute de tension d'un circuit de 120 V, 15 A, long de 100 pi, en cuivre 14 AWG. Métier <em>Électricité</em>, outil <em>Chute de tension</em> : <kbd>15</kbd> <kbd>Courant</kbd> · <kbd>100</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> · <kbd>Résultat</kbd> → <span class="ecran">9,42 V</span> · <kbd>Résultat</kbd> → <span class="ecran">7,85 %</span> · <kbd>Résultat</kbd> → <span class="ecran">110,6 V</span> à la charge.</p>
+<h3>À savoir</h3>
+<ul>
+    <li><strong>Rappeler un champ :</strong> sa touche, sans rien taper, affiche sa valeur.</li>
+    <li><strong>Remettre un champ à sa valeur de départ :</strong> <kbd>Conv</kbd>, puis sa touche. <strong>Tous les champs :</strong> touchez l'étiquette <em>Recommencer</em>, au-dessus de <kbd>Résultat</kbd>.</li>
+    <li><strong>Il manque une valeur?</strong> L'afficheur la nomme : <span class="ecran">IL MANQUE : LARGEUR</span>.</li>
+    <li><strong>Poursuivre le calcul :</strong> un résultat affiché est une valeur comme une autre. <kbd>×</kbd> <kbd>2</kbd> <kbd>=</kbd>, <kbd>M+</kbd> et <kbd>Stocker</kbd> s'en servent.</li>
+    <li><strong>D'un outil à l'autre :</strong> la valeur affichée vous suit quand vous changez d'outil. Le volume foisonné d'une tranchée, par exemple, se range d'une pression dans le champ <em>Volume</em> des voyages de camion.</li>
+    <li><strong>Une aire calculée au clavier</strong> va dans un champ en pieds carrés : <kbd>40</kbd> <kbd>Pieds</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Pieds</kbd> <kbd>=</kbd>, puis <kbd>Superficie</kbd>.</li>
+    <li><strong>Le mode d'emploi d'un outil :</strong> maintenez une de ses touches enfoncée.</li>
+</ul>
+<h3>Les mêmes outils en formulaires</h3>
+<p>L'onglet <em>Métiers</em> présente chaque outil comme un formulaire : tous les champs et tous les résultats d'un coup d'œil, recalculés à chaque frappe. Une mesure s'y écrit en toutes lettres (<code>12 pi 6 po</code>, <code>30 po</code>, <code>3,8 m</code>). Le bouton <em>Ajouter au ruban</em> y inscrit le calcul; <em>Au clavier</em> branche l'outil sur les touches de l'accueil. Le formulaire et le clavier partagent les mêmes valeurs.</p>
+<p>Les résultats suivent le système de la première longueur saisie : en pieds-pouces ou en métrique pour les longueurs, dans les deux systèmes pour les aires, les volumes et les masses. Les quantités à acheter (sacs, boîtes, panneaux) sont arrondies à l'unité supérieure.</p>
+<p>Tous les outils sont décrits, avec un exemple, dans le <a href="#outils">répertoire des outils par métier</a>.</p>
+
+<h2 id="ruban">8. Le ruban de calcul <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Le ruban garde la trace des calculs : les opérations et leurs totaux, les valeurs données aux fonctions et leurs résultats, les conversions, et le détail de chaque calcul d'un outil de métier, sous son titre.</p>
+<ul>
+    <li><strong>Le consulter :</strong> onglet <em>Rubans</em>, ou <kbd>Conv</kbd> <kbd>=</kbd>. Dans une fenêtre large, il reste affiché à droite de la calculatrice.</li>
+    <li><strong>Enregistrer :</strong> donnez-lui un nom — celui du client ou du chantier. Les rubans enregistrés se rouvrent, se renomment, se copient, s'exportent et se suppriment depuis l'onglet <em>Rubans</em>.</li>
+    <li><strong>Copier :</strong> le texte du ruban va dans le presse-papiers, prêt à coller dans un courriel ou un texto.</li>
+    <li><strong>Exporter :</strong> un fichier <code>.txt</code>.</li>
+    <li><strong>Vider :</strong> efface le ruban courant, après confirmation.</li>
+</ul>
+<p class="note">Le ruban courant garde les 500 dernières lignes. <kbd>Effacer</kbd> deux fois y trace un filet de séparation; <em>Effacer tout</em> le vide.</p>
+
+<h2 id="preferences">9. Les préférences <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>La roue dentée, ou <kbd>Conv</kbd> <kbd>Stocker</kbd>, ouvre les préférences. Les changements s'appliquent aussitôt et sont conservés.</p>
+<div class="table"><table>
+    <thead><tr><th>Préférence</th><th>Choix (en gras : au départ)</th></tr></thead>
+    <tbody>
+        <tr><td>Mode trigonométrique</td><td><strong>désactivé</strong>, activé : les touches <kbd>Longueur</kbd>, <kbd>Largeur</kbd> et <kbd>Hauteur</kbd> deviennent <kbd>sin</kbd>, <kbd>cos</kbd> et <kbd>tan</kbd></td></tr>
+        <tr><td>Fractions rapides</td><td><strong>désactivé</strong>, activé : montre la bande de fractions</td></tr>
+        <tr><td>Mode plein écran</td><td><strong>désactivé</strong>, activé (version Windows)</td></tr>
+        <tr><td>Thème</td><td><strong>Automatique</strong>, Clair, Sombre</td></tr>
+        <tr><td>Résolution des fractions</td><td>1/2, 1/4, 1/8, <strong>1/16</strong>, 1/32, 1/64</td></tr>
+        <tr><td>Mode des fractions</td><td><strong>Standard</strong> (fraction réduite), Constant (dénominateur fixe)</td></tr>
+        <tr><td>Notation exponentielle</td><td><strong>désactivée</strong>, activée</td></tr>
+        <tr><td>Affichage des aires</td><td><strong>Standard</strong>, Pieds carrés, Verges carrées, Mètres carrés</td></tr>
+        <tr><td>Affichage des volumes</td><td><strong>Standard</strong>, Verges cubes, Pieds cubes, Mètres cubes</td></tr>
+        <tr><td>Mètres (longueurs)</td><td><strong>0,000</strong>, Flottant</td></tr>
+        <tr><td>Degrés décimaux</td><td><strong>0,00</strong>, Flottant</td></tr>
+        <tr><td>Séparateur de milliers</td><td><strong>activé</strong> (une espace), désactivé</td></tr>
+        <tr><td>Séparateur décimal</td><td><strong>Virgule</strong>, Point</td></tr>
+        <tr><td>Décimales (valeurs sans unité)</td><td><strong>Flottant</strong>, 0, 1, 2, 3, 4</td></tr>
+        <tr><td>Mur en pente</td><td><strong>Décroissant</strong> (du plus long au plus court), Croissant</td></tr>
+        <tr><td>Mur cintré</td><td><strong>Extérieur</strong> (au-dessus de l'arc), Intérieur (sous l'arc)</td></tr>
+        <tr><td>Empannons</td><td><strong>Décroissant</strong>, Croissant</td></tr>
+        <tr><td>Empannons irréguliers</td><td><strong>Entraxe constant</strong>, Appariés</td></tr>
+    </tbody>
+</table></div>
+<h3>Les valeurs mémorisées</h3>
+<p>Ce sont les points de départ des fonctions de charpente. Touchez une ligne des préférences pour la modifier.</p>
+<div class="table"><table>
+    <thead><tr><th>Valeur</th><th>Au départ</th><th>Aussi par</th><th>Sert à</th></tr></thead>
+    <tbody>
+        <tr><td>Échappée</td><td>6 pi 8 po</td><td></td><td>trémie d'escalier</td></tr>
+        <tr><td>Hauteur de contremarche visée</td><td>7 1/2 po</td><td><kbd>Stocker</kbd> <kbd>7</kbd></td><td>escalier</td></tr>
+        <tr><td>Épaisseur du plancher</td><td>10 po</td><td><kbd>Stocker</kbd> <kbd>8</kbd></td><td>trémie d'escalier</td></tr>
+        <tr><td>Giron visé</td><td>10 po</td><td><kbd>Stocker</kbd> <kbd>9</kbd></td><td>escalier</td></tr>
+        <tr><td>Aire et longueur d'un bloc</td><td>128 po² et 16 po</td><td><kbd>Stocker</kbd> <kbd>4</kbd></td><td>blocs</td></tr>
+        <tr><td>Angle de la moulure</td><td>45,00°</td><td><kbd>Stocker</kbd> <kbd>Onglet composé</kbd></td><td>onglet composé</td></tr>
+        <tr><td>Entraxe</td><td>16 po</td><td><kbd>Stocker</kbd> <kbd>5</kbd></td><td>empannons, murs, montants</td></tr>
+        <tr><td>Section de semelle</td><td>264 po²</td><td><kbd>Stocker</kbd> <kbd>6</kbd></td><td>semelle</td></tr>
+        <tr><td>Masse volumique</td><td>1,5 tc/vg³</td><td><kbd>Stocker</kbd> <kbd>0</kbd></td><td>passer d'un volume à une masse</td></tr>
+        <tr><td>Paquets de bardeaux par carré</td><td>3</td><td></td><td>toiture</td></tr>
+    </tbody>
+</table></div>
+<p class="avis">Ces valeurs de départ, comme celles des outils par métier (pertes, rendements, espacements), sont des points de départ modifiables. Elles ne constituent pas un avis de conformité au Code.</p>
+<p>Le bouton <em>Réinitialiser les données et les préférences</em> remet tout à neuf, après confirmation.</p>
+
+<h2 id="raccourcis">10. Les raccourcis clavier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Sur un ordinateur, la calculatrice répond au clavier.</p>
+<div class="table"><table>
+    <thead><tr><th>Touche du clavier</th><th>Action</th><th>Touche du clavier</th><th>Action</th></tr></thead>
+    <tbody>
+        <tr><td><kbd>0</kbd> à <kbd>9</kbd></td><td>chiffres</td><td><kbd>'</kbd></td><td>Pieds</td></tr>
+        <tr><td><kbd>,</kbd> ou <kbd>.</kbd></td><td>virgule</td><td><kbd>"</kbd></td><td>Pouces</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd></td><td>+ − ×</td><td><kbd>V</kbd></td><td>Verges</td></tr>
+        <tr><td><kbd>:</kbd></td><td>÷</td><td><kbd>M</kbd></td><td>m</td></tr>
+        <tr><td><kbd>/</kbd></td><td>barre de fraction</td><td><kbd>%</kbd></td><td>%</td></tr>
+        <tr><td><kbd>Entrée</kbd> ou <kbd>=</kbd></td><td>=</td><td><kbd>Espace</kbd></td><td>Conv</td></tr>
+        <tr><td><kbd>Retour arrière</kbd></td><td>⌫</td><td><kbd>S</kbd></td><td>Stocker</td></tr>
+        <tr><td><kbd>Échap</kbd> ou <kbd>Suppr</kbd></td><td>Effacer</td><td><kbd>R</kbd></td><td>Rappel</td></tr>
+        <tr><td><kbd>P</kbd> <kbd>T</kbd> <kbd>C</kbd> <kbd>D</kbd></td><td>Pente, Montée, Course, Diag</td><td><kbd>Inser</kbd></td><td>M+</td></tr>
+        <tr><td><kbd>A</kbd> <kbd>O</kbd> <kbd>E</kbd></td><td>Arêtier Noue, Onglet composé, Escalier</td><td><kbd>F1</kbd></td><td>Aide</td></tr>
+        <tr><td><kbd>B</kbd> <kbd>I</kbd> <kbd>J</kbd></td><td>Arc, Cercle, Empannon</td><td><kbd>F11</kbd></td><td>plein écran</td></tr>
+        <tr><td><kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd></td><td>Longueur, Largeur, Hauteur</td><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Préférences</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>copier la valeur affichée</td><td><kbd>Ctrl</kbd>+<kbd>R</kbd></td><td>ruban</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>coller un nombre ou une longueur</td><td></td><td></td></tr>
+    </tbody>
+</table></div>
+<p class="note">Dans la version Web, <kbd>F11</kbd> et <kbd>Ctrl</kbd>+<kbd>R</kbd> restent ceux du navigateur. Avec un outil de métier au clavier, les raccourcis des touches de charpente (de <kbd>P</kbd> à <kbd>J</kbd>, et <kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd>) sont sans effet.</p>
+
+<h2 id="trucs">11. Trucs de pro <a class="haut" href="#sommaire">Sommaire</a></h2>
+<ol>
+    <li><strong>Faites défiler les résultats.</strong> Appuyez de nouveau sur une touche de fonction pour voir tous ses résultats : Diag donne la longueur, puis la coupe d'aplomb, puis la coupe de niveau.</li>
+    <li><strong>La pente reste en mémoire.</strong> Inutile de la retaper pour le chevron suivant.</li>
+    <li><strong>Repartez à neuf.</strong> Avant un nouveau problème, appuyez deux fois sur Effacer.</li>
+    <li><strong>Réutilisez un résultat.</strong> Pour envoyer un résultat dans une autre fonction, appuyez d'abord sur =.</li>
+    <li><strong>Vérifiez l'équerre.</strong> Longueur, Largeur, puis Largeur deux fois : la diagonale à mesurer sur le terrain.</li>
+    <li><strong>Ajoutez vos pertes d'un geste.</strong> + 10 %.</li>
+    <li><strong>Convertissez sans effort.</strong> Sur une valeur affichée, appuyez sur l'unité voulue. Pieds alterne entre pieds-pouces et pieds décimaux.</li>
+    <li><strong>Cliquez sur l'étiquette.</strong> Un clic sur la petite étiquette au-dessus d'une touche équivaut à Conv puis la touche.</li>
+    <li><strong>Gardez votre liste de coupe.</strong> Enregistrez le ruban après le calcul d'un escalier ou d'un toit.</li>
+    <li><strong>Plus de précision?</strong> Réglez la résolution des fractions dans les Préférences, ou temporairement : Conv 3 pour le 1/32.</li>
+    <li><strong>Arrondissez à la hausse.</strong> Les quantités de matériaux sont exactes, non arrondies : commandez toujours l'unité supérieure.</li>
+    <li><strong>Au clavier.</strong> L'apostrophe pour les pieds, le guillemet pour les pouces, la barre d'espace pour Conv.</li>
+    <li><strong>Votre métier au bout des doigts.</strong> Touchez le nom du métier, au-dessus du clavier, pour que les touches du haut deviennent celles de vos outils.</li>
+    <li><strong>D'un outil à l'autre.</strong> Un résultat affiché vous suit quand vous changez d'outil : appuyez sur la touche du champ où le ranger.</li>
+</ol>
+
+<h2 id="depannage">12. Messages et dépannage <a class="haut" href="#sommaire">Sommaire</a></h2>
+<div class="table"><table>
+    <thead><tr><th>L'afficheur indique</th><th>Ce que cela veut dire</th></tr></thead>
+    <tbody>
+        <tr><td><span class="ecran">AUCUNE VALEUR</span></td><td>La touche n'a rien à rappeler ni à calculer : il lui manque une valeur. Tapez-la, puis appuyez de nouveau.</td></tr>
+        <tr><td><span class="ecran">IL MANQUE : …</span></td><td>L'outil de métier attend encore la valeur du champ nommé.</td></tr>
+        <tr><td><span class="ecran">À CORRIGER : …</span></td><td>Le champ nommé contient une saisie que l'outil ne peut pas lire. Retapez sa valeur.</td></tr>
+        <tr><td><span class="ecran">ERREUR – unités incompatibles</span></td><td>Les unités ne vont pas ensemble : une longueur additionnée à un nombre seul, une longueur dans un champ qui attend des ampères. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – saisie invalide</span></td><td>La valeur n'a pas de sens ici : zéro là où il faut une mesure, un nombre à virgule là où il faut un entier. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – calcul impossible</span></td><td>Le calcul n'a pas de résultat : une division par zéro, un triangle impossible. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – trigonométrie</span></td><td>La valeur est hors du domaine de la fonction : un sinus inverse plus grand que 1, par exemple. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERREUR – dépassement</span></td><td>Le résultat est trop grand pour l'afficheur. Appuyez sur <kbd>Effacer</kbd>.</td></tr>
+    </tbody>
+</table></div>
+<ul>
+    <li><strong>Un résultat semble arrondi.</strong> Les longueurs s'affichent à la résolution des fractions choisie dans les préférences (au 1/16 de pouce, au départ); le calcul, lui, garde toute sa précision.</li>
+    <li><strong>Une fonction de charpente donne un résultat inattendu.</strong> Une valeur d'un calcul précédent est peut-être restée en mémoire : appuyez deux fois sur <kbd>Effacer</kbd> et recommencez.</li>
+    <li><strong>Les touches de charpente ont disparu.</strong> Un outil de métier est au clavier : touchez la pastille du métier, puis <em>Charpente, toiture et escaliers</em>.</li>
+    <li><strong>La calculatrice installée n'a pas la dernière version.</strong> Ouvrez-la une fois avec du réseau, fermez-la, puis rouvrez-la. La version se lit au bas du menu <kbd>☰</kbd>.</li>
+    <li><strong>Mes rubans ont disparu (version Web).</strong> Ils sont conservés dans le navigateur : ils s'effacent avec les données de navigation du site, et ne suivent pas d'un appareil à l'autre. Exportez ceux qui comptent.</li>
+</ul>
+
+<h2 id="fonctions">13. Répertoire des touches et des fonctions <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Ce sont les fiches de l'onglet <em>Aide</em> : une par touche et par seconde fonction du clavier de charpente, avec un exemple chiffré.</p>
+<h3>Les touches principales</h3>
+<article>
+    <h4>Pente</h4>
+    <p><strong>La pente d'un toit ou d'un plan incliné.</strong> Elle s'exprime en pouces de montée pour 12 pouces de course (7 po = pente 7/12), en degrés, en pourcentage ou en ratio. Pour la saisir : <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> (7/12), <kbd>30</kbd> <kbd>Pente</kbd> (30 degrés) ou <kbd>75</kbd> <kbd>%</kbd> <kbd>Pente</kbd> (75 %). Pour la calculer : saisissez deux valeurs parmi la montée, la course et la diagonale, puis appuyez sur <kbd>Pente</kbd>. Appuyez de nouveau pour la voir sous ses autres formes. La pente saisie reste en mémoire jusqu'à ce que vous en saisissiez une autre.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>30,45</kbd> <kbd>Pente</kbd>, puis <kbd>Pente</kbd> à répétition → <strong>30,45° · 58,78702 % · ratio 0,58787 · 7 1/16 po</strong></p>
+</article>
+<article>
+    <h4>Montée</h4>
+    <p><strong>Le côté vertical d'un triangle rectangle.</strong> C'est la hauteur d'un toit de la sablière au faîte, la hauteur totale d'un escalier d'un plancher fini à l'autre, ou la flèche d'un arc. Tapez la mesure puis <kbd>Montée</kbd> pour la saisir. Pour la calculer, saisissez deux autres valeurs (pente, course ou diagonale) et appuyez sur <kbd>Montée</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>11</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> <kbd>Montée</kbd> → <strong>MONTÉE 6 pi 8 1/2 po</strong></p>
+</article>
+<article>
+    <h4>Course</h4>
+    <p><strong>Le côté horizontal d'un triangle rectangle.</strong> C'est la demi-portée d'un toit (du mur extérieur au centre du faîte), la longueur au sol d'un escalier, ou la corde d'un arc. Tapez la mesure puis <kbd>Course</kbd>, ou calculez-la à partir de deux autres valeurs.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>4</kbd> <kbd>Pieds</kbd> <kbd>Diag</kbd> <kbd>Course</kbd> → <strong>COURSE 3 pi 6 15/16 po</strong></p>
+</article>
+<article>
+    <h4>Diag</h4>
+    <p><strong>La diagonale (hypoténuse).</strong> C'est la longueur du chevron commun, ou la diagonale qui sert à vérifier l'équerrage d'une fondation. Appuyez de nouveau pour obtenir la coupe d'aplomb et la coupe de niveau.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>7</kbd> <kbd>Pieds</kbd> <kbd>2</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> <kbd>Diag</kbd>, puis <kbd>Diag</kbd> deux fois → <strong>DIAGONALE 8 pi 3 9/16 po · COUPE D'APLOMB 30,26° · COUPE DE NIVEAU 59,74°</strong></p>
+    <p class="note">La longueur est mesurée de pointe à pointe : ajoutez le débord du toit et retranchez la demi-épaisseur de la faîtière au besoin.</p>
+</article>
+<article>
+    <h4>Arêtier Noue</h4>
+    <p><strong>La longueur du chevron d'arêtier ou de noue et ses coupes.</strong> Saisissez la pente et la course du chevron commun, puis appuyez sur <kbd>Arêtier Noue</kbd>. Appuyez de nouveau pour la coupe d'aplomb, la coupe de niveau et la coupe latérale (biseau). Pour un toit dont les deux versants ont des pentes différentes, saisissez d'abord la pente irrégulière.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>8</kbd> <kbd>Pieds</kbd> <kbd>5</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>Arêtier Noue</kbd>, puis <kbd>Arêtier Noue</kbd> à répétition → <strong>ARÊTIER/NOUE 12 pi 10 1/2 po · 22,42° · 67,58° · 45,00°</strong></p>
+    <p class="note">Les longueurs sont théoriques, d'axe en axe.</p>
+</article>
+<article>
+    <h4>Onglet composé</h4>
+    <p><strong>Les réglages de la scie à onglets pour une moulure couronne coupée à plat.</strong> Tapez l'angle du coin (90 pour un coin d'équerre), puis <kbd>Onglet composé</kbd> : vous obtenez l'angle d'onglet (rotation de la table) et l'angle de biseau (inclinaison de la lame). Pour un ouvrage à plusieurs côtés égaux, tapez plutôt le nombre de côtés (toute valeur inférieure à 25 est prise pour un nombre de côtés). Vérifiez d'abord que l'angle de la moulure mémorisé correspond à votre moulure.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>90</kbd> <kbd>Onglet composé</kbd>, puis <kbd>Onglet composé</kbd> → <strong>ONGLET 35,26° · BISEAU 30,00°</strong></p>
+</article>
+<article>
+    <h4>Escalier</h4>
+    <p><strong>Le calcul complet d'un escalier droit.</strong> Saisissez la hauteur à monter avec <kbd>Montée</kbd>, la longueur disponible avec <kbd>Course</kbd>, ou les deux, puis appuyez sur <kbd>Escalier</kbd> à répétition : hauteur et nombre de contremarches, giron et nombre de marches, écarts d'arrondi, longueur de la trémie, longueur du limon, inclinaison. La hauteur de contremarche et le giron visés, l'échappée et l'épaisseur du plancher se règlent dans les Préférences. Un symbole d'avertissement signale une contremarche plus haute que la valeur visée.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>9</kbd> <kbd>Pieds</kbd> <kbd>11</kbd> <kbd>Pouces</kbd> <kbd>Montée</kbd>, puis <kbd>Escalier</kbd> à répétition → <strong>CONTREMARCHE 7 7/16 po · 16 contremarches · GIRON 10 po · 15 marches · TRÉMIE 10 pi 1 po · LIMON 15 pi 6 15/16 po · 36,64°</strong></p>
+    <p class="note">Le giron n'inclut pas le nez de marche. Vérifiez toujours les exigences du Code de construction.</p>
+</article>
+<article>
+    <h4>Arc</h4>
+    <p><strong>Tout ce qui concerne un arc de cercle.</strong> Deux données suffisent : le diamètre et l'angle, le diamètre et la longueur d'arc, ou encore la corde (touche <kbd>Course</kbd>) et la flèche (touche <kbd>Montée</kbd>). Appuyez sur <kbd>Arc</kbd> à répétition : angle, longueur d'arc, corde, aire du segment, aire du secteur, flèche, puis la longueur de chaque montant d'un mur cintré à l'entraxe mémorisé.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>Cercle</kbd> <kbd>85</kbd> <kbd>Arc</kbd>, puis <kbd>Arc</kbd> → <strong>ARC 85,00° · ARC 3 pi 8 1/2 po</strong></p>
+</article>
+<article>
+    <h4>Cercle</h4>
+    <p><strong>Aire et circonférence d'un cercle.</strong> Tapez le diamètre, puis <kbd>Cercle</kbd>; appuyez de nouveau pour l'aire, puis la circonférence.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>11</kbd> <kbd>Pouces</kbd> <kbd>Cercle</kbd>, puis <kbd>Cercle</kbd> deux fois → <strong>AIRE 95,03318 po² · CIRCONFÉRENCE 34 9/16 po</strong></p>
+</article>
+<article>
+    <h4>Empannon</h4>
+    <p><strong>La longueur de chaque empannon.</strong> Les empannons sont les chevrons raccourcis qui s'appuient sur l'arêtier ou la noue. Saisissez la pente et la course, puis appuyez sur <kbd>Empannon</kbd> à répétition : entraxe, incrément (différence de longueur d'un empannon au suivant), chaque longueur, puis les coupes. L'ordre (décroissant ou croissant) se choisit dans les Préférences.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>8</kbd> <kbd>Pieds</kbd> <kbd>5</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd>, puis <kbd>Empannon</kbd> à répétition → <strong>ENTRAXE 16 po · INCRÉMENT 1 pi 6 1/2 po · 8 pi 2 3/8 po · 6 pi 7 7/8 po · 5 pi 1 3/8 po…</strong></p>
+</article>
+<article>
+    <h4>m</h4>
+    <p><strong>Mètres.</strong> Tapez un nombre puis <kbd>m</kbd>. Deux pressions donnent des mètres carrés, trois des mètres cubes. Sur une valeur déjà affichée, <kbd>m</kbd> la convertit en mètres.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>8</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>m</kbd> → <strong>2,438 m</strong></p>
+</article>
+<article>
+    <h4>Longueur</h4>
+    <p><strong>Mémorise une longueur</strong> pour les calculs d'aire, de volume et de matériaux (blocs, semelle, gypse, toiture).</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>20</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Longueur</kbd> → <strong>LONGUEUR 20 pi 6 po</strong></p>
+</article>
+<article>
+    <h4>Largeur</h4>
+    <p><strong>Mémorise la largeur,</strong> puis donne, à chaque pression : l'aire, la diagonale d'équerrage et le périmètre du rectangle.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>20</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Longueur</kbd> <kbd>25</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Largeur</kbd>, puis <kbd>Largeur</kbd> à répétition → <strong>AIRE 522,75 pi² · ÉQUERRAGE 32 pi 8 5/8 po · PÉRIMÈTRE 92 pi 0 po</strong></p>
+</article>
+<article>
+    <h4>Hauteur</h4>
+    <p><strong>Mémorise la hauteur,</strong> puis donne, à chaque pression : le volume, l'aire des quatre murs et l'aire de la pièce (murs et plafond), utile pour la peinture et le gypse.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>15</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> <kbd>20</kbd> <kbd>Pieds</kbd> <kbd>Largeur</kbd> <kbd>12</kbd> <kbd>Pieds</kbd> <kbd>Hauteur</kbd>, puis <kbd>Hauteur</kbd> à répétition → <strong>VOLUME 3 600 pi³ · MURS 840 pi² · PIÈCE 1 140 pi²</strong></p>
+</article>
+<article>
+    <h4>%</h4>
+    <p><strong>Pourcentages.</strong> <kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> ajoute 10 % à la valeur, <kbd>−</kbd> <kbd>20</kbd> <kbd>%</kbd> en retranche 20 %, <kbd>×</kbd> <kbd>18</kbd> <kbd>%</kbd> en calcule 18 %, <kbd>÷</kbd> <kbd>80</kbd> <kbd>%</kbd> la divise par 0,80. Fonctionne aussi avec des mesures. Sert enfin à saisir une pente en pourcentage : <kbd>2</kbd> <kbd>%</kbd> <kbd>Pente</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>137</kbd> <kbd>Pieds</kbd> <kbd>Pieds</kbd> <kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> → <strong>150,7 pi²</strong></p>
+</article>
+<article>
+    <h4>Verges, Pieds, Pouces</h4>
+    <p><strong>Les unités impériales.</strong> Tapez le nombre, puis l'unité : <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>7</kbd> <kbd>Pouces</kbd>. Deux pressions de la même unité donnent des unités carrées, trois des unités cubes. Sur une valeur affichée, la touche convertit; <kbd>Pieds</kbd> alterne entre pieds-pouces et pieds décimaux, <kbd>Pouces</kbd> entre fraction et décimales.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>+</kbd> <kbd>18</kbd> <kbd>Pieds</kbd> <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>=</kbd> → <strong>24 pi 3 1/2 po</strong></p>
+</article>
+<article>
+    <h4>/</h4>
+    <p><strong>La barre de fraction.</strong> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> donne un demi-pouce. Si vous ne tapez pas le dénominateur, la résolution en vigueur est utilisée : <kbd>15</kbd> <kbd>/</kbd> vaut 15/16.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>15</kbd> <kbd>/</kbd> <kbd>=</kbd> → <strong>15/16 po</strong></p>
+</article>
+<article>
+    <h4>Effacer</h4>
+    <p><strong>Une pression efface l'affichage et l'erreur éventuelle.</strong> Deux pressions effacent aussi les valeurs temporaires (montée, course, longueur, diamètre…). La pente saisie, les mémoires et les valeurs mémorisées sont conservées.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>+</kbd> <kbd>3</kbd> <kbd>Effacer</kbd> <kbd>4</kbd> <kbd>=</kbd> → <strong>9</strong></p>
+</article>
+<article>
+    <h4>Conv</h4>
+    <p><strong>La touche de conversion et de seconde fonction.</strong> Suivie d'une touche, elle exécute la fonction écrite en petit au-dessus de cette touche. Suivie d'une unité, elle convertit la valeur affichée. Vous pouvez aussi cliquer directement sur la petite étiquette.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>14</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Verges</kbd> → <strong>4,666667 vg</strong></p>
+</article>
+<article>
+    <h4>Stocker</h4>
+    <p><strong>Met une valeur en mémoire.</strong> <kbd>Stocker</kbd> <kbd>1</kbd>, <kbd>2</kbd> ou <kbd>3</kbd> : trois registres libres. <kbd>Stocker</kbd> <kbd>4</kbd> à <kbd>9</kbd> et <kbd>0</kbd> : les valeurs mémorisées de la calculatrice (bloc, entraxe, section de semelle, contremarche visée, épaisseur du plancher, giron visé, masse volumique).</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>18</kbd> <kbd>Pouces</kbd> <kbd>Stocker</kbd> <kbd>5</kbd> → <strong>ENTRAXE 18 po MÉM.</strong></p>
+</article>
+<article>
+    <h4>Rappel</h4>
+    <p><strong>Rappelle une valeur.</strong> Suivie d'une touche, elle affiche ce que cette touche a en mémoire : <kbd>Rappel</kbd> <kbd>5</kbd> montre l'entraxe, <kbd>Rappel</kbd> <kbd>Course</kbd> la dernière course. La valeur rappelée peut servir dans un calcul.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>Rappel</kbd> <kbd>7</kbd> → <strong>CONTREMARCHE VISÉE 7 1/2 po MÉM.</strong></p>
+</article>
+<article>
+    <h4>M+</h4>
+    <p><strong>La mémoire cumulative.</strong> Chaque pression ajoute la valeur affichée au total. <kbd>Rappel</kbd> <kbd>M+</kbd> montre le total; <kbd>M+</kbd> ensuite montre la moyenne, puis le nombre de valeurs. <kbd>Rappel</kbd> <kbd>Rappel</kbd> montre le total et vide la mémoire.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>100</kbd> <kbd>M+</kbd> <kbd>200</kbd> <kbd>M+</kbd> <kbd>50</kbd> <kbd>Conv</kbd> <kbd>M+</kbd> <kbd>Rappel</kbd> <kbd>M+</kbd>, puis <kbd>M+</kbd> deux fois → <strong>TOTAL M 250 · MOYENNE 83,33333 · NOMBRE 3</strong></p>
+</article>
+<article>
+    <h4>=</h4>
+    <p><strong>Termine le calcul.</strong> Après une touche de fonction, <kbd>=</kbd> rend le résultat disponible pour une autre fonction.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>2</kbd> <kbd>+</kbd> <kbd>3</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>=</kbd> → <strong>20</strong></p>
+</article>
+<article>
+    <h4>⌫</h4>
+    <p><strong>Retour arrière :</strong> annule la dernière frappe de la saisie en cours.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>12</kbd> <kbd>3</kbd> <kbd>⌫</kbd> <kbd>⌫</kbd> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>=</kbd> → <strong>17 po</strong></p>
+</article>
+<article>
+    <h4>Chiffres et virgule</h4>
+    <p><strong>La saisie des nombres.</strong> Tapez les chiffres, puis l'unité s'il y a lieu. La virgule sépare les décimales. Un nombre compte au plus 12 chiffres. Dès qu'un résultat est affiché, le premier chiffre tapé commence une nouvelle valeur.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>17,32</kbd> <kbd>Pieds</kbd> <kbd>=</kbd> → <strong>17,32 pi</strong></p>
+</article>
+<article>
+    <h4>+  −  ×  ÷</h4>
+    <p><strong>Les quatre opérations.</strong> Les calculs se font dans l'ordre de la frappe, sans priorité des opérateurs : <kbd>2</kbd> <kbd>+</kbd> <kbd>3</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>=</kbd> donne 20. Les unités suivent : une longueur multipliée par une longueur donne une aire; une aire multipliée par une longueur, un volume.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>3</kbd> <kbd>Pouces</kbd> <kbd>×</kbd> <kbd>11</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>=</kbd> → <strong>60,59375 pi²</strong></p>
+</article>
+<h3>Les secondes fonctions, avec Conv</h3>
+<article>
+    <h4>Ratio <span class="acces"><kbd>Conv</kbd> <kbd>Pente</kbd></span></h4>
+    <p><strong>Saisit la pente comme un ratio</strong> montée ÷ course : <kbd>0,65</kbd> <kbd>Conv</kbd> <kbd>Pente</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>0,65</kbd> <kbd>Conv</kbd> <kbd>Pente</kbd>, puis <kbd>Pente</kbd> → <strong>RATIO DE PENTE 0,65 · PENTE 7 13/16 po</strong></p>
+</article>
+<article>
+    <h4>Mur en pente <span class="acces"><kbd>Conv</kbd> <kbd>Montée</kbd></span></h4>
+    <p><strong>La longueur de chaque montant d'un mur dont le dessus suit la pente du toit</strong> (mur pignon, mur rampant). Saisissez la montée et la course (ou la pente et l'une des deux), puis <kbd>Conv</kbd> <kbd>Montée</kbd> et <kbd>Montée</kbd> à répétition : entraxe, chaque montant, base, angle du mur. Si le mur en pente repose sur un mur de hauteur constante, tapez cette hauteur juste avant <kbd>Conv</kbd> <kbd>Montée</kbd> : elle s'ajoute à chaque montant.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>4</kbd> <kbd>Pieds</kbd> <kbd>Montée</kbd> <kbd>8</kbd> <kbd>Pieds</kbd> <kbd>Course</kbd> <kbd>Conv</kbd> <kbd>Montée</kbd>, puis <kbd>Montée</kbd> à répétition → <strong>ENTRAXE 16 po · 3 pi 4 po · 2 pi 8 po · 2 pi 0 po · 1 pi 4 po · 0 pi 8 po · ANGLE DU MUR 26,57°</strong></p>
+</article>
+<article>
+    <h4>Polygone <span class="acces"><kbd>Conv</kbd> <kbd>Course</kbd></span></h4>
+    <p><strong>Une figure régulière à plusieurs côtés</strong> (patio hexagonal, gloriette octogonale). Saisissez le rayon (<kbd>15</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Arc</kbd>), tapez le nombre de côtés, puis <kbd>Conv</kbd> <kbd>Course</kbd> : angle intérieur, demi-angle (réglage de coupe), longueur d'un côté, périmètre, aire.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>15</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Arc</kbd> <kbd>6</kbd> <kbd>Conv</kbd> <kbd>Course</kbd>, puis <kbd>Course</kbd> à répétition → <strong>ANGLE INTÉRIEUR 120,00° · DEMI-ANGLE 60,00° · CÔTÉ 15 pi 0 po · PÉRIMÈTRE 90 pi 0 po · AIRE 584,5671 pi²</strong></p>
+</article>
+<article>
+    <h4>Toiture <span class="acces"><kbd>Conv</kbd> <kbd>Diag</kbd></span></h4>
+    <p><strong>Les matériaux de couverture.</strong> Saisissez la pente, puis la longueur et la largeur du bâtiment en plan (ou tapez directement une aire en plan), puis <kbd>Conv</kbd> <kbd>Diag</kbd> : aire réelle du toit, nombre de carrés (100 pi²), nombre de paquets de bardeaux, nombre de feuilles de 4 × 8.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>10</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>14</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> <kbd>11</kbd> <kbd>Pieds</kbd> <kbd>Largeur</kbd> <kbd>Conv</kbd> <kbd>Diag</kbd>, puis <kbd>Diag</kbd> à répétition → <strong>AIRE DU TOIT 200,4631 pi² · CARRÉS 2,00 · PAQUETS 6,01 · FEUILLES 4×8 6,26</strong></p>
+    <p class="note">Les quantités ne sont pas arrondies et n'incluent ni les pertes, ni les débords, ni les noues.</p>
+</article>
+<article>
+    <h4>Pente irrég. <span class="acces"><kbd>Conv</kbd> <kbd>Arêtier Noue</kbd></span></h4>
+    <p><strong>La seconde pente d'un toit irrégulier,</strong> dont deux versants de pentes différentes se rencontrent sur un arêtier ou une noue : <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>Conv</kbd> <kbd>Arêtier Noue</kbd>. Elle est effacée par deux pressions d'<kbd>Effacer</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>4</kbd> <kbd>Pieds</kbd> <kbd>Course</kbd> <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>Conv</kbd> <kbd>Arêtier Noue</kbd>, puis <kbd>Arêtier Noue</kbd> → <strong>PENTE IRRÉGULIÈRE 8 po · ARÊTIER/NOUE IRRÉG. 5 pi 9 11/16 po</strong></p>
+</article>
+<article>
+    <h4>Angle moulure <span class="acces"><kbd>Conv</kbd> <kbd>Onglet composé</kbd></span></h4>
+    <p><strong>L'angle entre le dos de la moulure et le mur.</strong> Les moulures couronnes courantes sont à 38° ou à 45°. <kbd>38</kbd> <kbd>Conv</kbd> <kbd>Onglet composé</kbd> le mémorise; sans nombre, la touche l'affiche.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>38</kbd> <kbd>Conv</kbd> <kbd>Onglet composé</kbd> <kbd>60</kbd> <kbd>Onglet composé</kbd>, puis <kbd>Onglet composé</kbd> → <strong>ANGLE MOULURE 38,00° · ONGLET 46,84° · BISEAU 43,03°</strong></p>
+</article>
+<article>
+    <h4>Contrem. max. <span class="acces"><kbd>Conv</kbd> <kbd>Escalier</kbd></span></h4>
+    <p><strong>Le même calcul d'escalier, avec une hauteur de contremarche plafonnée.</strong> La contremarche ne dépasse jamais la hauteur visée : la calculatrice ajoute une contremarche au besoin. À utiliser quand une hauteur maximale est imposée.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>10</kbd> <kbd>Pieds</kbd> <kbd>1</kbd> <kbd>Pouces</kbd> <kbd>Montée</kbd> <kbd>15</kbd> <kbd>Pieds</kbd> <kbd>5</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> <kbd>Conv</kbd> <kbd>Escalier</kbd>, puis <kbd>Escalier</kbd> → <strong>CONTREMARCHE 7 1/8 po · 17 contremarches</strong></p>
+</article>
+<article>
+    <h4>Rayon <span class="acces"><kbd>Conv</kbd> <kbd>Arc</kbd></span></h4>
+    <p><strong>Saisit le rayon d'un cercle,</strong> ou le calcule à partir de la corde et de la flèche d'un arc.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>3</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Course</kbd> <kbd>1</kbd> <kbd>Pieds</kbd> <kbd>3</kbd> <kbd>Pouces</kbd> <kbd>Montée</kbd> <kbd>Conv</kbd> <kbd>Arc</kbd> → <strong>RAYON 1 pi 10 3/16 po</strong></p>
+</article>
+<article>
+    <h4>Colonne/Cône <span class="acces"><kbd>Conv</kbd> <kbd>Cercle</kbd></span></h4>
+    <p><strong>Volume et surface d'une colonne, puis d'un cône.</strong> Saisissez le diamètre (<kbd>Cercle</kbd>) et la hauteur (<kbd>Hauteur</kbd>), puis <kbd>Conv</kbd> <kbd>Cercle</kbd> et <kbd>Cercle</kbd> à répétition. Pratique pour le béton des colonnes et des coffrages tubulaires.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>2</kbd> <kbd>Pieds</kbd> <kbd>4</kbd> <kbd>Pouces</kbd> <kbd>Cercle</kbd> <kbd>4</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>Hauteur</kbd> <kbd>Conv</kbd> <kbd>Cercle</kbd>, puis <kbd>Cercle</kbd> → <strong>COLONNE – VOLUME 19,24226 pi³ · COLONNE – SURFACE 41,53884 pi²</strong></p>
+</article>
+<article>
+    <h4>Emp. irrég. <span class="acces"><kbd>Conv</kbd> <kbd>Empannon</kbd></span></h4>
+    <p><strong>Les empannons du versant à pente irrégulière d'abord.</strong> Dans les Préférences, choisissez de garder le même entraxe sur les deux versants ou d'apparier les empannons pour qu'ils se rencontrent sur l'arêtier.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>7</kbd> <kbd>Pouces</kbd> <kbd>Pente</kbd> <kbd>4</kbd> <kbd>Pieds</kbd> <kbd>Course</kbd> <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>Conv</kbd> <kbd>Arêtier Noue</kbd> <kbd>Conv</kbd> <kbd>Empannon</kbd>, puis <kbd>Empannon</kbd> à répétition → <strong>ENTRAXE 16 po · INCRÉMENT 1 pi 4 13/16 po · 2 pi 9 5/8 po · 1 pi 4 13/16 po…</strong></p>
+</article>
+<article>
+    <h4>Blocs <span class="acces"><kbd>Conv</kbd> <kbd>Longueur</kbd></span></h4>
+    <p><strong>Le nombre de blocs de béton ou de briques.</strong> À partir de la longueur et de la hauteur du mur saisies, d'une aire affichée, ou d'une longueur seule (une rangée). Bloc par défaut : 8 × 16 po, joint compris. Pour des briques, mémorisez l'aire d'une brique avec <kbd>Stocker</kbd> <kbd>4</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>300</kbd> <kbd>Pieds</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Longueur</kbd>, puis <kbd>+</kbd> <kbd>3</kbd> <kbd>%</kbd> → <strong>BLOCS 337,5 · 347,625</strong></p>
+    <p class="note">Le résultat n'est pas arrondi : ajoutez vos pertes avec <kbd>+</kbd> <kbd>5</kbd> <kbd>%</kbd>.</p>
+</article>
+<article>
+    <h4>Semelle <span class="acces"><kbd>Conv</kbd> <kbd>Largeur</kbd></span></h4>
+    <p><strong>Le volume de béton d'une semelle.</strong> Tapez la longueur de la semelle, puis <kbd>Conv</kbd> <kbd>Largeur</kbd>. La section de la semelle (largeur × épaisseur) est mémorisée : <kbd>16</kbd> <kbd>Pouces</kbd> <kbd>×</kbd> <kbd>8</kbd> <kbd>Pouces</kbd> <kbd>=</kbd> <kbd>Stocker</kbd> <kbd>6</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>100</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Largeur</kbd> → <strong>SEMELLE 6,790123 vg³</strong></p>
+</article>
+<article>
+    <h4>Gypse <span class="acces"><kbd>Conv</kbd> <kbd>Hauteur</kbd></span></h4>
+    <p><strong>Le nombre de feuilles de gypse</strong> de 4 × 8, 4 × 9, 4 × 10 et 4 × 12 pour une aire, ou pour une longueur de mur si les feuilles sont posées debout.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>150</kbd> <kbd>Pieds</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Hauteur</kbd>, puis <kbd>Hauteur</kbd> à répétition → <strong>FEUILLES 4×8 4,6875 · 4×9 4,166667 · 4×10 3,75 · 4×12 3,125</strong></p>
+    <p class="note">Le résultat n'est pas arrondi et ne tient pas compte des ouvertures.</p>
+</article>
+<article>
+    <h4>x² <span class="acces"><kbd>Conv</kbd> <kbd>%</kbd></span></h4>
+    <p><strong>Le carré.</strong> Le carré d'une longueur donne une aire.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>7</kbd> <kbd>Pieds</kbd> <kbd>4</kbd> <kbd>Pouces</kbd> <kbd>Conv</kbd> <kbd>%</kbd> → <strong>53,77778 pi²</strong></p>
+</article>
+<article>
+    <h4>√x <span class="acces"><kbd>Conv</kbd> <kbd>Effacer</kbd></span></h4>
+    <p><strong>La racine carrée.</strong> La racine d'une aire donne une longueur.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>25</kbd> <kbd>Pieds</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>Effacer</kbd> → <strong>5 pi 0 po</strong></p>
+</article>
+<article>
+    <h4>cm, mm <span class="acces"><kbd>Conv</kbd> <kbd>7</kbd>, <kbd>Conv</kbd> <kbd>9</kbd></span></h4>
+    <p><strong>Centimètres et millimètres :</strong> pour saisir (<kbd>250</kbd> <kbd>Conv</kbd> <kbd>9</kbd>) ou pour convertir la valeur affichée.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>3</kbd> <kbd>/</kbd> <kbd>4</kbd> <kbd>Conv</kbd> <kbd>9</kbd> → <strong>19,05 mm</strong></p>
+</article>
+<article>
+    <h4>pmp <span class="acces"><kbd>Conv</kbd> <kbd>8</kbd></span></h4>
+    <p><strong>Le pied mesure de planche</strong> (144 pouces cubes). Tapez les dimensions nominales d'une pièce en pouces, pouces et pieds : <kbd>2</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>×</kbd> <kbd>14</kbd> <kbd>Conv</kbd> <kbd>8</kbd>. Convertit aussi un volume.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>2</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>×</kbd> <kbd>14</kbd> <kbd>Conv</kbd> <kbd>8</kbd> → <strong>9,333333 pmp</strong></p>
+</article>
+<article>
+    <h4>1/x <span class="acces"><kbd>Conv</kbd> <kbd>÷</kbd></span></h4>
+    <p><strong>L'inverse</strong> d'un nombre.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>8</kbd> <kbd>Conv</kbd> <kbd>÷</kbd> → <strong>0,125</strong></p>
+</article>
+<article>
+    <h4>lb, kg, t courte, t métr. <span class="acces"><kbd>Conv</kbd> <kbd>4</kbd>, <kbd>1</kbd>, <kbd>6</kbd>, <kbd>3</kbd></span></h4>
+    <p><strong>Les masses.</strong> Pour saisir une masse ou convertir la valeur affichée. Un volume est converti en masse au moyen de la masse volumique mémorisée (et l'inverse). La tonne courte vaut 2 000 lb; la tonne métrique, 1 000 kg.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Verges</kbd> <kbd>Verges</kbd> <kbd>Verges</kbd> <kbd>Conv</kbd> <kbd>4</kbd>, puis <kbd>Conv</kbd> <kbd>6</kbd> → <strong>15 000 lb · 7,5 tc</strong></p>
+</article>
+<article>
+    <h4>Montants <span class="acces"><kbd>Conv</kbd> <kbd>5</kbd></span></h4>
+    <p><strong>Le nombre de montants d'un mur</strong> pour une longueur donnée, à l'entraxe mémorisé, montant de départ compris.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>16</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>5</kbd> → <strong>MONTANTS 13</strong></p>
+    <p class="note">N'inclut ni les montants doublés, ni les coins, ni les cadres d'ouverture.</p>
+</article>
+<article>
+    <h4>Acre <span class="acces"><kbd>Conv</kbd> <kbd>2</kbd></span></h4>
+    <p><strong>L'acre</strong> (43 560 pi²), pour saisir une superficie ou convertir une aire affichée.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>10000</kbd> <kbd>Pieds</kbd> <kbd>Pieds</kbd> <kbd>Conv</kbd> <kbd>2</kbd> → <strong>0,229568 acre</strong></p>
+</article>
+<article>
+    <h4>Coût <span class="acces"><kbd>Conv</kbd> <kbd>0</kbd></span></h4>
+    <p><strong>Le coût total.</strong> La quantité étant affichée : <kbd>×</kbd>, le prix unitaire, puis <kbd>Conv</kbd> <kbd>0</kbd>. Le prix s'applique à l'unité affichée (par pied, par verge cube, par mètre carré…). Pour le bois en pmp, le prix est celui du millier de pmp.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>12</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> <kbd>×</kbd> <kbd>3,50</kbd> <kbd>Conv</kbd> <kbd>0</kbd> → <strong>COÛT 43,75 $</strong></p>
+</article>
+<article>
+    <h4>Effacer tout <span class="acces"><kbd>Conv</kbd> <kbd>×</kbd></span></h4>
+    <p><strong>Remet la calculatrice à neuf :</strong> efface les mémoires et rétablit les valeurs mémorisées par défaut. Les préférences sont conservées. Une confirmation est demandée.</p>
+</article>
+<article>
+    <h4>+/− <span class="acces"><kbd>Conv</kbd> <kbd>−</kbd></span></h4>
+    <p><strong>Change le signe</strong> de la valeur.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Conv</kbd> <kbd>−</kbd> <kbd>=</kbd> → <strong>−5</strong></p>
+</article>
+<article>
+    <h4>π <span class="acces"><kbd>Conv</kbd> <kbd>+</kbd></span></h4>
+    <p><strong>La constante π</strong> (3,141593).</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>Conv</kbd> <kbd>+</kbd> → <strong>3,141593</strong></p>
+</article>
+<article>
+    <h4>dms◄►déc <span class="acces"><kbd>Conv</kbd> <kbd>,</kbd></span></h4>
+    <p><strong>Convertit un angle</strong> entre les degrés décimaux et les degrés-minutes-secondes. Pour saisir 23° 42′ 39″ : <kbd>23</kbd> <kbd>,</kbd> <kbd>42</kbd> <kbd>,</kbd> <kbd>39</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>44,29</kbd> <kbd>Conv</kbd> <kbd>,</kbd> → <strong>44°17′24″</strong></p>
+</article>
+<article>
+    <h4>Ruban <span class="acces"><kbd>Conv</kbd> <kbd>=</kbd></span></h4>
+    <p><strong>Affiche le ruban de calcul :</strong> la liste de tout ce qui a été saisi et calculé. Vous pouvez l'enregistrer, le copier ou l'exporter.</p>
+</article>
+<article>
+    <h4>Préf. <span class="acces"><kbd>Conv</kbd> <kbd>Stocker</kbd></span></h4>
+    <p><strong>Ouvre les Préférences.</strong> Les changements s'appliquent immédiatement et sont conservés d'une séance à l'autre.</p>
+</article>
+<article>
+    <h4>MC <span class="acces"><kbd>Conv</kbd> <kbd>Rappel</kbd></span></h4>
+    <p><strong>Vide la mémoire cumulative</strong> M+.</p>
+</article>
+<article>
+    <h4>M− <span class="acces"><kbd>Conv</kbd> <kbd>M+</kbd></span></h4>
+    <p><strong>Soustrait</strong> la valeur affichée de la mémoire cumulative.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>100</kbd> <kbd>M+</kbd> <kbd>50</kbd> <kbd>Conv</kbd> <kbd>M+</kbd> <kbd>Rappel</kbd> <kbd>M+</kbd> → <strong>TOTAL M 50</strong></p>
+</article>
+<h3>Les autres fonctions</h3>
+<article>
+    <h4>sin, cos, tan <span class="acces">mode trigonométrique</span></h4>
+    <p><strong>Les fonctions trigonométriques,</strong> en degrés. Avec <kbd>Conv</kbd> : les fonctions inverses, qui donnent un angle. Dans ce mode, elles remplacent les touches <kbd>Longueur</kbd>, <kbd>Largeur</kbd> et <kbd>Hauteur</kbd>.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>30</kbd> <kbd>sin</kbd> · <kbd>0,5</kbd> <kbd>Conv</kbd> <kbd>sin</kbd> → <strong>0,5 · 30,00°</strong></p>
+</article>
+<article>
+    <h4>Fractions rapides <span class="acces">bande de touches</span></h4>
+    <p><strong>Une bande de touches</strong> qui saisit une fraction de pouce d'un seul geste : <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> puis <kbd>3/8</kbd>. S'active dans les Préférences.</p>
+    <p class="exemple"><span class="mot">Exemple</span> <kbd>5</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>3/8</kbd> <kbd>=</kbd> → <strong>5 pi 6 3/8 po</strong></p>
+</article>
+<article>
+    <h4>Clavier adapté au métier <span class="acces">barre des métiers</span></h4>
+    <p><strong>Le clavier prend les touches de votre métier :</strong> touchez le nom du métier, au-dessus du clavier, puis un de ses outils. Les champs de l'outil deviennent les touches du haut : tapez une valeur, puis appuyez sur la touche du champ où la ranger. <kbd>Résultat</kbd> calcule et inscrit le calcul au ruban; appuyez de nouveau pour voir le résultat suivant. <kbd>Conv</kbd> puis la touche d'un champ le remet à sa valeur de départ. Maintenez une touche de l'outil enfoncée pour lire son mode d'emploi.</p>
+    <p class="exemple"><span class="mot">Exemple</span> Béton, Dalle de béton : <kbd>24</kbd> <kbd>Pieds</kbd> <kbd>Longueur</kbd> <kbd>20</kbd> <kbd>Pieds</kbd> <kbd>Largeur</kbd> <kbd>4</kbd> <kbd>Pouces</kbd> <kbd>Épaisseur</kbd> <kbd>Résultat</kbd> <kbd>Résultat</kbd> → <strong>VOLUME DE BÉTON 5,93 vg³ (4,53 m³)</strong></p>
+    <p class="note">L'onglet Métiers offre les mêmes calculateurs en formulaires à remplir.</p>
+</article>
+
+<h2 id="outils">14. Répertoire des outils par métier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Pour chaque outil : ses champs — qui sont aussi ses touches —, l'unité d'un nombre tapé sans unité, la valeur de départ, et un exemple calculé par la calculatrice. Quand la touche porte un libellé plus court que le champ, il est donné entre parenthèses.</p>
+<h3 id="metier-estimation">Estimation et soumission</h3>
+<p class="note">Soumission, budget au pied carré, main-d'œuvre, taxes, facture d'étape.</p>
+<article id="outil-soumission">
+    <h4>Prix d'une soumission</h4>
+    <p>Du coût des travaux au prix à soumettre : administration, imprévus, profit et taxes.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Coût de base des travaux <span class="acces">(touche : Coût de base)</span></td><td>$</td><td></td></tr>
+            <tr><td>Administration <span class="acces">(touche : Admin.)</span></td><td>%</td><td>3 %</td></tr>
+            <tr><td>Imprévus (contingences) <span class="acces">(touche : Imprévus)</span></td><td>%</td><td>12 %</td></tr>
+            <tr><td>Profit</td><td>%</td><td>15 %</td></tr>
+            <tr><td>TPS</td><td>%</td><td>5 %</td></tr>
+            <tr><td>TVQ</td><td>%</td><td>9,975 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Coût de base des travaux : 100 000 $ · Administration : 3 % · Imprévus (contingences) : 12 % · Profit : 15 % · TPS : 5 % · TVQ : 9,975 % → Administration : <strong>3 000,00 $</strong> · Imprévus : <strong>12 000,00 $</strong> · Profit : <strong>15 000,00 $</strong> · Prix avant taxes : <strong>130 000,00 $</strong> · TPS : <strong>6 500,00 $</strong> · TVQ : <strong>12 967,50 $</strong> · Prix, taxes comprises : <strong>149 467,50 $</strong></p>
+    <p class="note">Les trois pourcentages s'appliquent au coût de base; les taxes, au prix avant taxes. Repères pour l'administration et les imprévus : 3 % et 12 % en résidentiel neuf, 3 % et 15 % en rénovation résidentielle, 3 % et 10 % en commercial neuf.</p>
+</article>
+<article id="outil-budget-au-pied-carre">
+    <h4>Budget au pied carré</h4>
+    <p>L'ordre de grandeur du prix d'un projet, d'après sa superficie et un coût au pied carré.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Superficie habitable <span class="acces">(touche : Superficie)</span></td><td>pi²</td><td></td></tr>
+            <tr><td>Coût de base</td><td>$/pi²</td><td></td></tr>
+            <tr><td>Superficie du garage <span class="acces">(touche : Garage)</span> <span class="acces">— facultatif</span></td><td>pi²</td><td></td></tr>
+            <tr><td>Coût de base du garage <span class="acces">(touche : Coût garage)</span> <span class="acces">— facultatif</span></td><td>$/pi²</td><td></td></tr>
+            <tr><td>Administration <span class="acces">(touche : Admin.)</span></td><td>%</td><td>3 %</td></tr>
+            <tr><td>Imprévus (contingences) <span class="acces">(touche : Imprévus)</span></td><td>%</td><td>12 %</td></tr>
+            <tr><td>Profit</td><td>%</td><td>15 %</td></tr>
+            <tr><td>TPS</td><td>%</td><td>5 %</td></tr>
+            <tr><td>TVQ</td><td>%</td><td>9,975 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Superficie habitable : 1 400 pi² · Coût de base : 200 $/pi² · Superficie du garage : 400 pi² · Coût de base du garage : 100 $/pi² · Administration : 3 % · Imprévus (contingences) : 12 % · Profit : 15 % · TPS : 5 % · TVQ : 9,975 % → Coût de base : <strong>320 000,00 $</strong> · Administration, imprévus et profit : <strong>96 000,00 $</strong> · Prix avant taxes : <strong>416 000,00 $</strong> · TPS et TVQ : <strong>62 296,00 $</strong> · Prix, taxes comprises : <strong>478 296,00 $</strong> · Prix au pied carré, taxes comprises : <strong>265,72 $/pi²</strong></p>
+    <p class="note">Estimation budgétaire seulement : le coût au pied carré dépend de la région, de la qualité des finis et de la complexité du projet.</p>
+</article>
+<article id="outil-main-d-oeuvre">
+    <h4>Coût de la main-d'œuvre</h4>
+    <p>Le coût d'une équipe, d'après ses heures, son taux horaire et les charges de l'employeur.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Nombre d'ouvriers <span class="acces">(touche : Ouvriers)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Heures par ouvrier <span class="acces">(touche : Heures)</span></td><td>h</td><td></td></tr>
+            <tr><td>Taux horaire</td><td>$/h</td><td></td></tr>
+            <tr><td>Charges et avantages sociaux <span class="acces">(touche : Charges)</span></td><td>%</td><td>0 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Nombre d'ouvriers : 3 · Heures par ouvrier : 40 h · Taux horaire : 45,5 $/h · Charges et avantages sociaux : 30 % → Heures totales : <strong>120,0 h</strong> · Coût horaire, charges comprises : <strong>59,15 $/h</strong> · Coût de la main-d'œuvre : <strong>7 098,00 $</strong></p>
+    <p class="note">Les charges regroupent les vacances, les avantages sociaux et les cotisations de l'employeur; elles s'ajoutent au taux horaire.</p>
+</article>
+<article id="outil-taxes">
+    <h4>Taxes du Québec</h4>
+    <p>La TPS et la TVQ d'un montant, ou le montant avant taxes d'un total.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Montant</td><td>$</td><td></td></tr>
+            <tr><td>Ce montant est <span class="acces">(touche : Montant donné)</span></td><td>liste</td><td><strong>avant taxes</strong> · taxes comprises</td></tr>
+            <tr><td>TPS</td><td>%</td><td>5 %</td></tr>
+            <tr><td>TVQ</td><td>%</td><td>9,975 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Montant : 1 000 $ · Ce montant est : avant taxes · TPS : 5 % · TVQ : 9,975 % → Montant avant taxes : <strong>1 000,00 $</strong> · TPS : <strong>50,00 $</strong> · TVQ : <strong>99,75 $</strong> · Total, taxes comprises : <strong>1 149,75 $</strong></p>
+    <p class="note">Les deux taxes se calculent sur le montant avant taxes. Changez les taux s'ils ont changé.</p>
+</article>
+<article id="outil-majoration-et-marge">
+    <h4>Majoration et marge</h4>
+    <p>Le prix de vente d'après le coût et la majoration, et la marge qui en résulte.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Coût</td><td>$</td><td></td></tr>
+            <tr><td>Majoration sur le coût <span class="acces">(touche : Majoration)</span></td><td>%</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Coût : 800 $ · Majoration sur le coût : 25 % → Prix de vente : <strong>1 000,00 $</strong> · Profit : <strong>200,00 $</strong> · Marge sur le prix de vente : <strong>20,00 %</strong></p>
+    <p class="note">La majoration se mesure sur le coût, la marge sur le prix de vente : 25 % de majoration donnent 20 % de marge.</p>
+</article>
+<article id="outil-facturation-progressive">
+    <h4>Facture d'étape</h4>
+    <p>Le montant d'une facture d'étape, d'après l'avancement des travaux et la retenue.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Montant du contrat, avant taxes <span class="acces">(touche : Contrat)</span></td><td>$</td><td></td></tr>
+            <tr><td>Avancement des travaux <span class="acces">(touche : Avancement)</span></td><td>%</td><td></td></tr>
+            <tr><td>Retenue</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Déjà facturé, avant taxes <span class="acces">(touche : Déjà facturé)</span></td><td>$</td><td>0 $</td></tr>
+            <tr><td>TPS</td><td>%</td><td>5 %</td></tr>
+            <tr><td>TVQ</td><td>%</td><td>9,975 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Montant du contrat, avant taxes : 100 000 $ · Avancement des travaux : 40 % · Retenue : 10 % · Déjà facturé, avant taxes : 20 000 $ · TPS : 5 % · TVQ : 9,975 % → Travaux exécutés à ce jour : <strong>40 000,00 $</strong> · Retenue : <strong>4 000,00 $</strong> · Cette facture, avant taxes : <strong>16 000,00 $</strong> · TPS : <strong>800,00 $</strong> · TVQ : <strong>1 596,00 $</strong> · Cette facture, taxes comprises : <strong>18 396,00 $</strong></p>
+    <p class="note">Le montant déjà facturé est celui des factures précédentes, avant taxes et retenue déduite.</p>
+</article>
+<article id="outil-duree-des-travaux">
+    <h4>Durée des travaux</h4>
+    <p>Les heures et les jours de travail, d'après la quantité à réaliser et le rendement de l'équipe.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Quantité à réaliser <span class="acces">(touche : Quantité)</span></td><td></td><td></td></tr>
+            <tr><td>Rendement d'un ouvrier, à l'heure <span class="acces">(touche : Rendement)</span></td><td></td><td></td></tr>
+            <tr><td>Nombre d'ouvriers <span class="acces">(touche : Ouvriers)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Heures par jour</td><td>h</td><td>8 h</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Quantité à réaliser : 1 200 · Rendement d'un ouvrier, à l'heure : 50 · Nombre d'ouvriers : 2 · Heures par jour : 8 h → Heures de travail, en tout : <strong>24,0 h</strong> · Durée, à cette équipe : <strong>12,0 h</strong> · Jours de travail : <strong>1,5 jours</strong></p>
+    <p class="note">La quantité et le rendement s'expriment dans la même unité : des pieds carrés et des pieds carrés à l'heure, par exemple.</p>
+</article>
+<h3 id="metier-terrassement">Terrassement et aménagement</h3>
+<p class="note">Excavation, tranchées, granulats, pentes, clôtures, terrasses.</p>
+<article id="outil-excavation">
+    <h4>Excavation et remblai</h4>
+    <p>Le volume d'une excavation rectangulaire, en place et une fois la terre remuée.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Profondeur</td><td>pi</td><td></td></tr>
+            <tr><td>Foisonnement</td><td>%</td><td>25 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 30 pi 0 po · Largeur : 20 pi 0 po · Profondeur : 4 pi 0 po · Foisonnement : 25 % → Volume en place : <strong>88,9 vg³ (68,0 m³)</strong> · Volume à transporter, foisonné : <strong>111 vg³ (85,0 m³)</strong></p>
+    <p class="note">La terre remuée prend plus de place : environ 10 à 15 % de plus pour le sable, 25 % pour la terre, 30 % et plus pour l'argile.</p>
+</article>
+<article id="outil-granulats">
+    <h4>Pierre, gravier et sable</h4>
+    <p>Le volume et la masse d'une couche de granulats.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Épaisseur</td><td>po</td><td></td></tr>
+            <tr><td>Masse volumique</td><td>tc/vg³</td><td>1,5 tc/vg³</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 40 pi 0 po · Largeur : 12 pi 0 po · Épaisseur : 6 po · Masse volumique : 1,5 tc/vg³ → Volume : <strong>8,89 vg³ (6,80 m³)</strong> · Masse : <strong>13,3 tc (12,1 t)</strong></p>
+    <p class="note">Comptez environ 1,5 tonne courte par verge cube de pierre concassée; le fournisseur donne la valeur exacte de son matériau.</p>
+</article>
+<article id="outil-cloture">
+    <h4>Clôture</h4>
+    <p>Le nombre de poteaux et de sections d'une clôture droite, également espacés.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur totale <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Espacement visé des poteaux <span class="acces">(touche : Espacement)</span></td><td>pi</td><td>8 pi 0 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur totale : 100 pi 0 po · Espacement visé des poteaux : 8 pi 0 po → Sections : <strong>13 sections</strong> · Poteaux : <strong>14 poteaux</strong> · Espacement réel : <strong>7 pi 8 5/16 po</strong></p>
+</article>
+<article id="outil-tranchee">
+    <h4>Tranchée</h4>
+    <p>Le volume d'une tranchée, à parois droites ou inclinées.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur au fond</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur en haut <span class="acces">— facultatif</span></td><td>pi</td><td></td></tr>
+            <tr><td>Profondeur</td><td>pi</td><td></td></tr>
+            <tr><td>Foisonnement</td><td>%</td><td>25 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 100 pi 0 po · Largeur au fond : 2 pi 0 po · Largeur en haut : 6 pi 0 po · Profondeur : 4 pi 0 po · Foisonnement : 25 % → Volume en place : <strong>59,3 vg³ (45,3 m³)</strong> · Volume à transporter, foisonné : <strong>74,1 vg³ (56,6 m³)</strong></p>
+    <p class="note">Laissez la largeur en haut vide pour des parois verticales. L'inclinaison des parois est une question de sécurité : suivez le Code de sécurité pour les travaux de construction.</p>
+</article>
+<article id="outil-voyages-de-camion">
+    <h4>Voyages de camion</h4>
+    <p>Le nombre de voyages pour transporter un volume de terre ou de pierre.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Volume à transporter <span class="acces">(touche : Volume)</span></td><td>vg³</td><td></td></tr>
+            <tr><td>Capacité du camion <span class="acces">(touche : Camion)</span></td><td>vg³</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Volume à transporter : 74 vg³ · Capacité du camion : 12 vg³ → Voyages : <strong>7 voyages</strong> · Charge moyenne d'un voyage : <strong>10,6 vg³</strong></p>
+    <p class="note">Comptez le volume foisonné : la terre remuée prend plus de place. La capacité dépend du camion, du matériau et des limites de charge.</p>
+</article>
+<article id="outil-pente-de-terrain">
+    <h4>Pente et dénivelé</h4>
+    <p>Remplissez deux des trois grandeurs : la troisième est calculée.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Distance horizontale <span class="acces">(touche : Distance)</span> <span class="acces">— facultatif</span></td><td>pi</td><td></td></tr>
+            <tr><td>Dénivelé <span class="acces">— facultatif</span></td><td>po</td><td></td></tr>
+            <tr><td>Pente <span class="acces">— facultatif</span></td><td>%</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Distance horizontale : 50 pi 0 po · Pente : 2 % → Distance horizontale : <strong>50 pi 0 po</strong> · Dénivelé : <strong>1 pi 0 po</strong> · Pente : <strong>2,00 %</strong> · Angle : <strong>1,15°</strong> · Longueur en pente : <strong>50 pi 0 1/8 po</strong></p>
+    <p class="note">Une pente de 2 % équivaut à environ 1/4 po au pied.</p>
+</article>
+<article id="outil-terrasse">
+    <h4>Terrasse : planches et vis</h4>
+    <p>Les planches de surface d'une terrasse rectangulaire et les vis pour les fixer.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur, dans le sens des planches <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la terrasse <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur d'une planche <span class="acces">(touche : Planche)</span></td><td>po</td><td>5 1/2 po</td></tr>
+            <tr><td>Jeu entre les planches <span class="acces">(touche : Jeu)</span></td><td>po</td><td>1/8 po</td></tr>
+            <tr><td>Espacement des solives <span class="acces">(touche : Solives)</span></td><td>po</td><td>16 po</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur, dans le sens des planches : 16 pi 0 po · Largeur de la terrasse : 12 pi 0 po · Largeur d'une planche : 5 1/2 po · Jeu entre les planches : 1/8 po · Espacement des solives : 16 po · Pertes : 10 % → Surface : <strong>192 pi² (17,8 m²)</strong> · Rangs de planches : <strong>26 rangs</strong> · Longueur de planches : <strong>416 pi 0 po</strong> · Longueur à acheter, pertes comprises : <strong>457 pi 7 3/16 po</strong> · Vis : <strong>676 vis</strong></p>
+    <p class="note">Deux vis à chaque croisement d'une planche et d'une solive. La structure (solives, poutres, poteaux) se calcule à part.</p>
+</article>
+<article id="outil-tourbe">
+    <h4>Tourbe en rouleaux</h4>
+    <p>Le nombre de rouleaux de tourbe pour gazonner une surface.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Surface d'un rouleau <span class="acces">(touche : Rouleau)</span></td><td>pi²</td><td>10 pi²</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>5 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 50 pi 0 po · Largeur : 30 pi 0 po · Surface d'un rouleau : 10 pi² · Pertes : 5 % → Surface : <strong>1 500 pi² (139 m²)</strong> · Rouleaux : <strong>158 rouleaux</strong></p>
+    <p class="note">Un rouleau mesure souvent 2 pi sur 5 pi, soit 10 pi² : vérifiez auprès du fournisseur.</p>
+</article>
+<article id="outil-poteaux">
+    <h4>Béton des poteaux</h4>
+    <p>Le béton pour sceller des poteaux de clôture ou de terrasse dans leurs trous.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre du trou <span class="acces">(touche : Trou)</span></td><td>po</td><td></td></tr>
+            <tr><td>Profondeur du trou <span class="acces">(touche : Profondeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Poteau</td><td>liste</td><td><strong>Carré</strong> · Rond</td></tr>
+            <tr><td>Côté ou diamètre du poteau <span class="acces">(touche : Côté)</span></td><td>po</td><td></td></tr>
+            <tr><td>Nombre de poteaux <span class="acces">(touche : Nombre)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Rendement d'un sac <span class="acces">(touche : Sac)</span></td><td>L</td><td>14 L</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre du trou : 10 po · Profondeur du trou : 4 pi 0 po · Poteau : Carré · Côté ou diamètre du poteau : 3 1/2 po · Nombre de poteaux : 12 · Rendement d'un sac : 14 L → Volume de béton : <strong>0,818 vg³ (0,626 m³)</strong> · Volume, en litres : <strong>626 L</strong> · Sacs de béton prémélangé : <strong>45 sacs</strong></p>
+    <p class="note">Le volume du poteau est déduit de celui du trou; mettez 0 pour un trou rempli de béton. Rendement : environ 14 L pour un sac de 30 kg de béton prémélangé.</p>
+</article>
+<h3 id="metier-beton">Béton et fondations</h3>
+<p class="note">Dalles, semelles, murs, colonnes, escaliers, armature, sacs.</p>
+<article id="outil-dalle">
+    <h4>Dalle de béton</h4>
+    <p>Le volume de béton d'une dalle rectangulaire.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Épaisseur</td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 24 pi 0 po · Largeur : 20 pi 0 po · Épaisseur : 4 po · Pertes : 10 % → Surface : <strong>480 pi² (44,6 m²)</strong> · Volume de béton : <strong>5,93 vg³ (4,53 m³)</strong> · À commander, pertes comprises : <strong>6,52 vg³ (4,98 m³)</strong></p>
+</article>
+<article id="outil-semelle">
+    <h4>Semelle filante</h4>
+    <p>Le volume de béton d'une semelle continue, sous un mur.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur totale <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>po</td><td></td></tr>
+            <tr><td>Épaisseur</td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur totale : 120 pi 0 po · Largeur : 20 po · Épaisseur : 8 po · Pertes : 10 % → Volume de béton : <strong>4,94 vg³ (3,78 m³)</strong> · À commander, pertes comprises : <strong>5,43 vg³ (4,15 m³)</strong></p>
+</article>
+<article id="outil-mur-de-fondation">
+    <h4>Mur de fondation</h4>
+    <p>Le volume de béton d'un mur et la surface de son coffrage.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur totale <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur</td><td>pi</td><td></td></tr>
+            <tr><td>Épaisseur</td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur totale : 120 pi 0 po · Hauteur : 8 pi 0 po · Épaisseur : 8 po · Pertes : 10 % → Volume de béton : <strong>23,7 vg³ (18,1 m³)</strong> · À commander, pertes comprises : <strong>26,1 vg³ (19,9 m³)</strong> · Coffrage, deux faces : <strong>1 920 pi² (178 m²)</strong></p>
+    <p class="note">Les ouvertures ne sont pas déduites.</p>
+</article>
+<article id="outil-colonnes">
+    <h4>Colonnes et pieux ronds</h4>
+    <p>Le béton de colonnes rondes coulées dans des tubes, en volume et en sacs.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre</td><td>po</td><td></td></tr>
+            <tr><td>Hauteur</td><td>pi</td><td></td></tr>
+            <tr><td>Nombre de colonnes <span class="acces">(touche : Nombre)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Rendement d'un sac <span class="acces">(touche : Sac)</span></td><td>L</td><td>14 L</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre : 10 po · Hauteur : 4 pi 0 po · Nombre de colonnes : 6 · Pertes : 10 % · Rendement d'un sac : 14 L → Volume de béton : <strong>0,485 vg³ (0,371 m³)</strong> · À commander, pertes comprises : <strong>0,533 vg³ (0,408 m³)</strong> · Sacs de béton prémélangé : <strong>30 sacs</strong></p>
+    <p class="note">Le rendement est inscrit sur le sac : environ 14 L pour un sac de 30 kg de béton prémélangé.</p>
+</article>
+<article id="outil-armature">
+    <h4>Armature d'une dalle</h4>
+    <p>Les barres d'armature d'une dalle, posées dans les deux sens à espacement régulier.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Espacement des barres <span class="acces">(touche : Espacement)</span></td><td>po</td><td>16 po</td></tr>
+            <tr><td>Barre</td><td>liste</td><td><strong>10M</strong> · 15M · 20M · 25M</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 24 pi 0 po · Largeur : 20 pi 0 po · Espacement des barres : 16 po · Barre : 10M → Barres dans le sens de la longueur : <strong>16 barres</strong> · Barres dans le sens de la largeur : <strong>19 barres</strong> · Longueur totale de barres : <strong>764 pi 0 po</strong> · Masse d'acier : <strong>403 lb (183 kg)</strong></p>
+    <p class="note">Sans les chevauchements ni l'enrobage des rives : ajoutez-les selon les plans.</p>
+</article>
+<article id="outil-sacs-de-beton">
+    <h4>Béton en sacs</h4>
+    <p>Le nombre de sacs de béton prémélangé pour un petit ouvrage rectangulaire.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Épaisseur</td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Rendement d'un sac <span class="acces">(touche : Sac)</span></td><td>L</td><td>14 L</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 4 pi 0 po · Largeur : 4 pi 0 po · Épaisseur : 4 po · Pertes : 10 % · Rendement d'un sac : 14 L → Volume de béton : <strong>0,198 vg³ (0,151 m³)</strong> · Volume à préparer, pertes comprises : <strong>166 L</strong> · Sacs de béton prémélangé : <strong>12 sacs</strong></p>
+    <p class="note">Le rendement est inscrit sur le sac : environ 14 L pour un sac de 30 kg de béton prémélangé.</p>
+</article>
+<article id="outil-escalier-de-beton">
+    <h4>Escalier de béton</h4>
+    <p>Le volume de béton d'un escalier droit coulé sur une paillasse inclinée.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Nombre de marches <span class="acces">(touche : Marches)</span></td><td>nombre entier</td><td></td></tr>
+            <tr><td>Hauteur d'une contremarche <span class="acces">(touche : Contremarche)</span></td><td>po</td><td></td></tr>
+            <tr><td>Giron</td><td>po</td><td></td></tr>
+            <tr><td>Largeur de l'escalier <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Épaisseur de la paillasse <span class="acces">(touche : Paillasse)</span></td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Nombre de marches : 5 · Hauteur d'une contremarche : 7 po · Giron : 11 po · Largeur de l'escalier : 4 pi 0 po · Épaisseur de la paillasse : 5 po · Pertes : 10 % → Volume de béton : <strong>0,533 vg³ (0,408 m³)</strong> · À commander, pertes comprises : <strong>0,587 vg³ (0,449 m³)</strong></p>
+    <p class="note">La paillasse est la dalle inclinée sous les marches; son épaisseur se mesure perpendiculairement à la pente. Mettez 0 pour des marches coulées sur un sol en pente.</p>
+</article>
+<article id="outil-treillis">
+    <h4>Treillis métallique</h4>
+    <p>Le nombre de feuilles de treillis pour armer une dalle, chevauchements compris.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Longueur d'une feuille <span class="acces">(touche : Longueur feuille)</span></td><td>pi</td><td>8 pi 0 po</td></tr>
+            <tr><td>Largeur d'une feuille <span class="acces">(touche : Largeur feuille)</span></td><td>pi</td><td>4 pi 0 po</td></tr>
+            <tr><td>Chevauchement <span class="acces">(touche : Chevauch.)</span></td><td>po</td><td>6 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 24 pi 0 po · Largeur : 20 pi 0 po · Longueur d'une feuille : 8 pi 0 po · Largeur d'une feuille : 4 pi 0 po · Chevauchement : 6 po → Surface : <strong>480 pi² (44,6 m²)</strong> · Feuilles de treillis : <strong>19 feuilles</strong></p>
+    <p class="note">Chaque feuille perd la largeur d'un chevauchement sur deux de ses côtés.</p>
+</article>
+<h3 id="metier-maconnerie">Maçonnerie et pavage</h3>
+<p class="note">Briques, blocs, rangs, murets, pavés.</p>
+<article id="outil-briques-et-blocs">
+    <h4>Briques et blocs</h4>
+    <p>Le nombre de briques ou de blocs d'un mur, joints de mortier compris.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur du mur <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur du mur <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Ouvertures à déduire <span class="acces">(touche : Ouvertures)</span></td><td>pi²</td><td>0 pi²</td></tr>
+            <tr><td>Longueur d'une unité <span class="acces">(touche : Longueur unité)</span></td><td>po</td><td></td></tr>
+            <tr><td>Hauteur d'une unité <span class="acces">(touche : Hauteur unité)</span></td><td>po</td><td></td></tr>
+            <tr><td>Joint de mortier <span class="acces">(touche : Joint)</span></td><td>po</td><td>3/8 po</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>5 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur du mur : 22 pi 0 po · Hauteur du mur : 8 pi 0 po · Ouvertures à déduire : 0 pi² · Longueur d'une unité : 15 5/8 po · Hauteur d'une unité : 7 5/8 po · Joint de mortier : 3/8 po · Pertes : 5 % → Surface du mur : <strong>176 pi² (16,4 m²)</strong> · Unités au pied carré : <strong>1,125</strong> · Unités nécessaires, pertes comprises : <strong>208 unités</strong></p>
+    <p class="note">Mesurez la brique ou le bloc sans le joint. Un bloc de béton courant mesure 15 5/8 po sur 7 5/8 po (390 mm sur 190 mm).</p>
+</article>
+<article id="outil-rangs-de-maconnerie">
+    <h4>Rangs de maçonnerie</h4>
+    <p>Le nombre de rangs pour atteindre une hauteur, joints de mortier compris.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Hauteur à atteindre <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur d'une unité <span class="acces">(touche : Hauteur unité)</span></td><td>po</td><td></td></tr>
+            <tr><td>Joint de mortier <span class="acces">(touche : Joint)</span></td><td>po</td><td>3/8 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Hauteur à atteindre : 8 pi 1 po · Hauteur d'une unité : 7 5/8 po · Joint de mortier : 3/8 po → Hauteur d'un rang, joint compris : <strong>8 po</strong> · Rangs : <strong>13 rangs</strong> · Hauteur obtenue : <strong>8 pi 8 po</strong></p>
+</article>
+<article id="outil-muret">
+    <h4>Muret de blocs</h4>
+    <p>Les blocs d'un muret posé à sec : par rang, et en tout.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur du muret <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur du muret <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Longueur d'un bloc <span class="acces">(touche : Longueur bloc)</span></td><td>po</td><td></td></tr>
+            <tr><td>Hauteur d'un bloc <span class="acces">(touche : Hauteur bloc)</span></td><td>po</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur du muret : 21 pi 6 po · Hauteur du muret : 40 po · Longueur d'un bloc : 12 po · Hauteur d'un bloc : 6 po → Blocs par rang : <strong>22 blocs</strong> · Rangs : <strong>7 rangs</strong> · Blocs : <strong>154 blocs</strong> · Hauteur obtenue : <strong>3 pi 6 po</strong></p>
+    <p class="note">Sans les blocs de couronnement ni le rang enfoui. Un muret de soutènement se construit selon les directives du fabricant.</p>
+</article>
+<article id="outil-paves">
+    <h4>Pavés et dalles</h4>
+    <p>Le nombre de pavés d'une surface rectangulaire et le sable de son lit de pose.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Longueur d'un pavé <span class="acces">(touche : Longueur pavé)</span></td><td>po</td><td></td></tr>
+            <tr><td>Largeur d'un pavé <span class="acces">(touche : Largeur pavé)</span></td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>5 %</td></tr>
+            <tr><td>Épaisseur du lit de sable <span class="acces">(touche : Lit de sable)</span></td><td>po</td><td>1 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 20 pi 0 po · Largeur : 12 pi 0 po · Longueur d'un pavé : 7 7/8 po · Largeur d'un pavé : 3 15/16 po · Pertes : 5 % · Épaisseur du lit de sable : 1 po → Surface : <strong>240 pi² (22,3 m²)</strong> · Pavés : <strong>1 171 pavés</strong> · Sable du lit de pose : <strong>0,741 vg³ (0,566 m³)</strong></p>
+    <p class="note">Les joints ne sont pas comptés. Prévoyez plus de pertes pour une pose en diagonale ou des bordures courbes.</p>
+</article>
+<h3 id="metier-toiture">Toiture et revêtement</h3>
+<p class="note">Bardeaux, pentes, panneaux, revêtement extérieur, membranes.</p>
+<article id="outil-bardeaux">
+    <h4>Bardeaux d'asphalte</h4>
+    <p>Les paquets de bardeaux d'un toit à deux versants, d'après ses mesures au sol et sa pente.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur du toit <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur au sol, débords compris <span class="acces">(touche : Largeur au sol)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Pente du toit <span class="acces">(touche : Pente)</span></td><td>sur 12</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Couverture d'un paquet <span class="acces">(touche : Par paquet)</span></td><td>pi²</td><td>33,3 pi²</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur du toit : 40 pi 0 po · Largeur au sol, débords compris : 28 pi 0 po · Pente du toit : 6 sur 12 · Pertes : 10 % · Couverture d'un paquet : 33,3 pi² → Surface du toit : <strong>1 252 pi² (116 m²)</strong> · Carrés de 100 pi², pertes comprises : <strong>13,8 carrés</strong> · Paquets de bardeaux : <strong>42 paquets</strong></p>
+    <p class="note">Toit à deux versants de même pente; les mesures comprennent les débords. Un carré vaut 100 pi² : le plus souvent trois paquets. Ajoutez les bardeaux de départ et de faîte.</p>
+</article>
+<article id="outil-pente-de-toit">
+    <h4>Pente d'un toit</h4>
+    <p>La même pente en pouces sur 12, en degrés et en pourcentage, avec son facteur de pente.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Pente</td><td></td><td></td></tr>
+            <tr><td>Unité</td><td>liste</td><td><strong>sur 12</strong> · degrés · pour cent</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Pente : 6 · Unité : sur 12 → Pente, sur 12 : <strong>6,00 sur 12</strong> · Angle : <strong>26,57°</strong> · Pente, en pourcentage : <strong>50,0 %</strong> · Facteur de pente : <strong>1,1180</strong></p>
+    <p class="note">Le facteur de pente multiplie une longueur ou une surface mesurée au sol pour donner celle du toit.</p>
+</article>
+<article id="outil-panneaux">
+    <h4>Panneaux de contreplaqué ou d'OSB</h4>
+    <p>Le nombre de panneaux pour couvrir un toit, un plancher ou un mur.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur ou hauteur <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Panneau</td><td>liste</td><td><strong>4 pi × 8 pi</strong> · 4 pi × 9 pi · 4 pi × 10 pi</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 24 pi 0 po · Largeur ou hauteur : 16 pi 0 po · Panneau : 4 pi × 8 pi · Pertes : 10 % → Surface : <strong>384 pi² (35,7 m²)</strong> · Panneaux : <strong>14 panneaux</strong></p>
+    <p class="note">Pour un toit, la largeur se mesure le long de la pente : de l'avant-toit au faîte.</p>
+</article>
+<article id="outil-revetement-exterieur">
+    <h4>Revêtement extérieur</h4>
+    <p>Le revêtement des murs extérieurs, ouvertures déduites, en boîtes ou en paquets.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur des murs <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur des murs <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Ouvertures à déduire <span class="acces">(touche : Ouvertures)</span></td><td>pi²</td><td>0 pi²</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Couverture d'une boîte <span class="acces">(touche : Par boîte)</span></td><td>pi²</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur des murs : 120 pi 0 po · Hauteur des murs : 9 pi 0 po · Ouvertures à déduire : 150 pi² · Pertes : 10 % · Couverture d'une boîte : 200 pi² → Surface à couvrir : <strong>930 pi² (86,4 m²)</strong> · Surface à acheter, pertes comprises : <strong>1 023 pi² (95,0 m²)</strong> · Boîtes : <strong>6 boîtes</strong></p>
+    <p class="note">La longueur des murs est le tour du bâtiment. Les pignons se calculent à part.</p>
+</article>
+<article id="outil-membrane">
+    <h4>Membrane et papier en rouleaux</h4>
+    <p>Le nombre de rouleaux de membrane, de papier ou de pare-air, chevauchements compris.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la surface <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la surface <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur d'un rouleau <span class="acces">(touche : Largeur rouleau)</span></td><td>po</td><td>36 po</td></tr>
+            <tr><td>Longueur d'un rouleau <span class="acces">(touche : Longueur rouleau)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Chevauchement <span class="acces">(touche : Chevauch.)</span></td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la surface : 40 pi 0 po · Largeur de la surface : 14 pi 0 po · Largeur d'un rouleau : 36 po · Longueur d'un rouleau : 65 pi 0 po · Chevauchement : 4 po · Pertes : 10 % → Surface : <strong>560 pi² (52,0 m²)</strong> · Rouleaux : <strong>4 rouleaux</strong></p>
+    <p class="note">Chaque rang recouvre le précédent de la largeur du chevauchement.</p>
+</article>
+<h3 id="metier-gypse">Gypse et isolation</h3>
+<p class="note">Panneaux de gypse, cloisons, isolant, valeur R, plafonds.</p>
+<article id="outil-gypse">
+    <h4>Panneaux de gypse d'une pièce</h4>
+    <p>Le nombre de panneaux de gypse pour les murs d'une pièce, avec ou sans le plafond.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la pièce <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la pièce <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur des murs <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td>8 pi 0 po</td></tr>
+            <tr><td>Portes (21 pi² chacune) <span class="acces">(touche : Portes)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Fenêtres (15 pi² chacune) <span class="acces">(touche : Fenêtres)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Surfaces à couvrir <span class="acces">(touche : Surfaces)</span></td><td>liste</td><td>Murs seulement · <strong>Murs et plafond</strong></td></tr>
+            <tr><td>Panneau</td><td>liste</td><td><strong>4 pi × 8 pi</strong> · 4 pi × 10 pi · 4 pi × 12 pi</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la pièce : 12 pi 0 po · Largeur de la pièce : 10 pi 0 po · Hauteur des murs : 8 pi 0 po · Portes (21 pi² chacune) : 1 · Fenêtres (15 pi² chacune) : 1 · Surfaces à couvrir : Murs et plafond · Panneau : 4 pi × 8 pi · Pertes : 10 % → Surface à couvrir : <strong>436 pi² (40,5 m²)</strong> · Panneaux : <strong>15 panneaux</strong></p>
+    <p class="note">Les ouvertures sont déduites. Prévoyez plus de pertes pour une pièce très découpée.</p>
+</article>
+<article id="outil-montants-de-cloison">
+    <h4>Montants d'une cloison</h4>
+    <p>Le nombre de montants d'une cloison droite et la longueur de ses lisses.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la cloison <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Espacement des montants <span class="acces">(touche : Espacement)</span></td><td>po</td><td>16 po</td></tr>
+            <tr><td>Montants en plus <span class="acces">(touche : En plus)</span></td><td>nombre entier</td><td>0</td></tr>
+            <tr><td>Lisses</td><td>liste</td><td><strong>Une en bas, une en haut</strong> · Une en bas, deux en haut</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la cloison : 12 pi 0 po · Espacement des montants : 16 po · Montants en plus : 0 · Lisses : Une en bas, deux en haut → Montants : <strong>10 montants</strong> · Longueur de lisses : <strong>36 pi 0 po</strong></p>
+    <p class="note">Un montant à chaque bout, puis un à chaque espacement. Ajoutez les montants des coins, des intersections et des ouvertures.</p>
+</article>
+<article id="outil-isolant">
+    <h4>Isolant en nattes ou en panneaux</h4>
+    <p>Le nombre de paquets d'isolant pour couvrir une surface.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur ou largeur <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>5 %</td></tr>
+            <tr><td>Couverture d'un paquet <span class="acces">(touche : Par paquet)</span></td><td>pi²</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 40 pi 0 po · Hauteur ou largeur : 8 pi 0 po · Pertes : 5 % · Couverture d'un paquet : 78,3 pi² → Surface : <strong>320 pi² (29,7 m²)</strong> · Surface à couvrir, pertes comprises : <strong>336 pi² (31,2 m²)</strong> · Paquets : <strong>5 paquets</strong></p>
+    <p class="note">La couverture est inscrite sur l'emballage : elle dépend de l'épaisseur de l'isolant et de l'espacement des montants.</p>
+</article>
+<article id="outil-valeur-r">
+    <h4>Valeur R et valeur RSI</h4>
+    <p>La même résistance thermique en valeur R et en valeur RSI, et le coefficient U.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Résistance thermique <span class="acces">(touche : Résistance)</span></td><td></td><td></td></tr>
+            <tr><td>Unité</td><td>liste</td><td><strong>R (impérial)</strong> · RSI (métrique)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Résistance thermique : 24,5 · Unité : R (impérial) → Valeur R : <strong>24,5</strong> · Valeur RSI : <strong>4,31</strong> · Coefficient U : <strong>0,232 W/m²·K</strong></p>
+    <p class="note">La valeur R vaut 5,678 fois la valeur RSI. Le coefficient U est l'inverse de la valeur RSI.</p>
+</article>
+<article id="outil-plafond-suspendu">
+    <h4>Plafond suspendu</h4>
+    <p>Les tuiles d'un plafond suspendu et la cornière qui fait le tour de la pièce.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la pièce <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la pièce <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Tuile</td><td>liste</td><td><strong>2 pi × 4 pi</strong> · 2 pi × 2 pi</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la pièce : 20 pi 0 po · Largeur de la pièce : 15 pi 0 po · Tuile : 2 pi × 4 pi · Pertes : 10 % → Surface : <strong>300 pi² (27,9 m²)</strong> · Tuiles : <strong>42 tuiles</strong> · Cornière murale : <strong>70 pi 0 po</strong></p>
+    <p class="note">Les tés porteurs et les entretoises dépendent du plan de pose : comptez-les d'après le calepinage.</p>
+</article>
+<h3 id="metier-finition">Finition</h3>
+<p class="note">Peinture, céramique, planchers, plinthes et moulures.</p>
+<article id="outil-peinture">
+    <h4>Peinture d'une pièce</h4>
+    <p>La surface à peindre d'une pièce rectangulaire et la peinture qu'il faut.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la pièce <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la pièce <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur des murs <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td>8 pi 0 po</td></tr>
+            <tr><td>Portes (21 pi² chacune) <span class="acces">(touche : Portes)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Fenêtres (15 pi² chacune) <span class="acces">(touche : Fenêtres)</span></td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Surfaces à peindre <span class="acces">(touche : Surfaces)</span></td><td>liste</td><td><strong>Murs seulement</strong> · Murs et plafond</td></tr>
+            <tr><td>Couches</td><td>nombre entier</td><td>2</td></tr>
+            <tr><td>Rendement d'un contenant de 3,78 L <span class="acces">(touche : Rendement)</span></td><td>pi²</td><td>350 pi²</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la pièce : 12 pi 0 po · Largeur de la pièce : 10 pi 0 po · Hauteur des murs : 8 pi 0 po · Portes (21 pi² chacune) : 1 · Fenêtres (15 pi² chacune) : 1 · Surfaces à peindre : Murs seulement · Couches : 2 · Rendement d'un contenant de 3,78 L : 350 pi² → Surface à peindre : <strong>316 pi² (29,4 m²)</strong> · Peinture nécessaire : <strong>6,83 L</strong> · Contenants de 3,78 L : <strong>2 contenants</strong></p>
+    <p class="note">Le rendement est inscrit sur le contenant : de 300 à 400 pi² selon la peinture et la surface.</p>
+</article>
+<article id="outil-ceramique">
+    <h4>Céramique et tuiles</h4>
+    <p>Le nombre de tuiles pour couvrir une surface rectangulaire.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la surface <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la surface <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Longueur d'une tuile <span class="acces">(touche : Longueur tuile)</span></td><td>po</td><td></td></tr>
+            <tr><td>Largeur d'une tuile <span class="acces">(touche : Largeur tuile)</span></td><td>po</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Tuiles par boîte <span class="acces">(touche : Par boîte)</span> <span class="acces">— facultatif</span></td><td>nombre entier</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la surface : 10 pi 0 po · Largeur de la surface : 8 pi 0 po · Longueur d'une tuile : 24 po · Largeur d'une tuile : 12 po · Pertes : 10 % · Tuiles par boîte : 8 → Surface : <strong>80,0 pi² (7,43 m²)</strong> · Tuiles nécessaires : <strong>44 tuiles</strong> · Boîtes : <strong>6 boîtes</strong></p>
+    <p class="note">Les joints ne sont pas comptés. Prévoyez plus de pertes pour une pose en diagonale.</p>
+</article>
+<article id="outil-revetement-de-sol">
+    <h4>Revêtement de sol en boîtes</h4>
+    <p>Le nombre de boîtes de bois franc, de stratifié ou de vinyle pour un plancher.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur du plancher <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur du plancher <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Couverture d'une boîte <span class="acces">(touche : Par boîte)</span></td><td>pi²</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur du plancher : 15 pi 0 po · Largeur du plancher : 12 pi 0 po · Pertes : 10 % · Couverture d'une boîte : 22,5 pi² → Surface : <strong>180 pi² (16,7 m²)</strong> · Surface à couvrir, pertes comprises : <strong>198 pi² (18,4 m²)</strong> · Boîtes : <strong>9 boîtes</strong></p>
+</article>
+<article id="outil-peinture-d-une-surface">
+    <h4>Peinture d'une surface</h4>
+    <p>La peinture pour un mur, un plancher ou une clôture.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur ou largeur <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Couches</td><td>nombre entier</td><td>2</td></tr>
+            <tr><td>Rendement d'un contenant de 3,78 L <span class="acces">(touche : Rendement)</span></td><td>pi²</td><td>350 pi²</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 40 pi 0 po · Hauteur ou largeur : 8 pi 0 po · Couches : 2 · Rendement d'un contenant de 3,78 L : 350 pi² → Surface à peindre : <strong>320 pi² (29,7 m²)</strong> · Peinture nécessaire : <strong>6,91 L</strong> · Contenants de 3,78 L : <strong>2 contenants</strong></p>
+    <p class="note">Le rendement est inscrit sur le contenant : de 300 à 400 pi² selon la peinture et la surface.</p>
+</article>
+<article id="outil-moulures">
+    <h4>Plinthes et moulures</h4>
+    <p>La longueur de plinthes ou de moulures pour faire le tour d'une pièce.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la pièce <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la pièce <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Portes</td><td>nombre entier</td><td>1</td></tr>
+            <tr><td>Largeur d'une porte <span class="acces">(touche : Largeur porte)</span></td><td>po</td><td>32 po</td></tr>
+            <tr><td>Pertes</td><td>%</td><td>10 %</td></tr>
+            <tr><td>Longueur d'une moulure <span class="acces">(touche : Longueur moulure)</span></td><td>pi</td><td>8 pi 0 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la pièce : 12 pi 0 po · Largeur de la pièce : 10 pi 0 po · Portes : 1 · Largeur d'une porte : 32 po · Pertes : 10 % · Longueur d'une moulure : 8 pi 0 po → Tour de la pièce : <strong>44 pi 0 po</strong> · Longueur à poser : <strong>41 pi 4 po</strong> · Longueur à acheter, pertes comprises : <strong>45 pi 5 5/8 po</strong> · Moulures : <strong>6 moulures</strong></p>
+    <p class="note">Les portes sont déduites pour des plinthes; mettez 0 porte pour une moulure de plafond.</p>
+</article>
+<h3 id="metier-plomberie">Plomberie</h3>
+<p class="note">Pentes, déports, coupes, débit, dilatation, contenances.</p>
+<article id="outil-pente-de-drain">
+    <h4>Pente d'un drain</h4>
+    <p>Le dénivelé d'un tuyau posé en pente régulière.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur du tuyau <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Pente, par pied de longueur <span class="acces">(touche : Pente par pied)</span></td><td>po</td><td>1/4 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur du tuyau : 40 pi 0 po · Pente, par pied de longueur : 1/4 po → Dénivelé : <strong>10 po</strong> · Pente : <strong>2,08 %</strong></p>
+    <p class="note">Le Code fixe la pente minimale selon le diamètre du tuyau.</p>
+</article>
+<article id="outil-deport">
+    <h4>Déport de tuyauterie</h4>
+    <p>Le tronçon incliné qui relie deux tuyaux parallèles.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Déport</td><td>po</td><td></td></tr>
+            <tr><td>Angle des raccords <span class="acces">(touche : Angle)</span></td><td>liste</td><td>11,25° · 22,5° · 30° · <strong>45°</strong> · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Déport : 12 po · Angle des raccords : 45° → Longueur de parcours : <strong>1 pi 5 po</strong> · Avance : <strong>1 pi 0 po</strong></p>
+    <p class="note">Mesures de centre à centre : déduisez l'emboîtement des raccords.</p>
+</article>
+<article id="outil-deport-roule">
+    <h4>Déport roulé</h4>
+    <p>Un déport à la fois horizontal et vertical.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Déport horizontal</td><td>po</td><td></td></tr>
+            <tr><td>Déport vertical</td><td>po</td><td></td></tr>
+            <tr><td>Angle des raccords <span class="acces">(touche : Angle)</span></td><td>liste</td><td>11,25° · 22,5° · 30° · <strong>45°</strong> · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Déport horizontal : 8 po · Déport vertical : 6 po · Angle des raccords : 45° → Déport réel : <strong>10 po</strong> · Longueur de parcours : <strong>1 pi 2 1/8 po</strong> · Avance : <strong>10 po</strong></p>
+    <p class="note">Mesures de centre à centre : déduisez l'emboîtement des raccords.</p>
+</article>
+<article id="outil-contenance-de-tuyau">
+    <h4>Contenance d'un tuyau</h4>
+    <p>Le volume d'eau que contient un tuyau plein, et sa masse.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre intérieur <span class="acces">(touche : Diamètre)</span></td><td>po</td><td></td></tr>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre intérieur : 4 po · Longueur : 10 pi 0 po → Contenance : <strong>24,7 L (6,53 gal US)</strong> · Masse de l'eau : <strong>54,5 lb (24,7 kg)</strong></p>
+</article>
+<article id="outil-pression-d-eau">
+    <h4>Pression d'une colonne d'eau</h4>
+    <p>La pression statique au bas d'une hauteur d'eau.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Hauteur d'eau <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Hauteur d'eau : 30 pi 0 po → Pression : <strong>89,7 kPa (13,0 lb/po²)</strong></p>
+    <p class="note">Eau froide au repos : la pression baisse dès que l'eau circule.</p>
+</article>
+<article id="outil-reservoir">
+    <h4>Réservoir cylindrique</h4>
+    <p>La contenance d'un réservoir rond.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre intérieur <span class="acces">(touche : Diamètre)</span></td><td>po</td><td></td></tr>
+            <tr><td>Hauteur ou longueur <span class="acces">(touche : Hauteur)</span></td><td>po</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre intérieur : 20 po · Hauteur ou longueur : 48 po → Contenance : <strong>247 L (65,3 gal US)</strong></p>
+</article>
+<article id="outil-debit-et-vitesse">
+    <h4>Débit et vitesse de l'eau</h4>
+    <p>La vitesse de l'eau dans un tuyau, d'après son diamètre intérieur et le débit.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre intérieur <span class="acces">(touche : Diamètre)</span></td><td>po</td><td></td></tr>
+            <tr><td>Débit</td><td></td><td></td></tr>
+            <tr><td>Unité du débit <span class="acces">(touche : Unité)</span></td><td>liste</td><td><strong>gal US/min</strong> · L/min · L/s</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre intérieur : 13/16 po · Débit : 8 · Unité du débit : gal US/min → Vitesse de l'eau : <strong>5,30 pi/s (1,62 m/s)</strong> · Débit : <strong>8,00 gal US/min (30,3 L/min)</strong></p>
+    <p class="note">Une vitesse élevée cause du bruit et de l'usure : comparez-la à la limite recommandée pour le matériau du tuyau.</p>
+</article>
+<article id="outil-longueur-de-coupe">
+    <h4>Longueur de coupe d'un tuyau</h4>
+    <p>La longueur à couper entre deux raccords, d'après la mesure de centre à centre.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Mesure de centre à centre <span class="acces">(touche : Centre à centre)</span></td><td>po</td><td></td></tr>
+            <tr><td>Retrait du premier raccord <span class="acces">(touche : Retrait 1)</span></td><td>po</td><td></td></tr>
+            <tr><td>Retrait du second raccord <span class="acces">(touche : Retrait 2)</span></td><td>po</td><td></td></tr>
+            <tr><td>Emboîtement à chaque bout <span class="acces">(touche : Emboîtement)</span></td><td>po</td><td>0 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Mesure de centre à centre : 48 po · Retrait du premier raccord : 1 1/8 po · Retrait du second raccord : 1 1/8 po · Emboîtement à chaque bout : 3/4 po → Longueur de coupe : <strong>3 pi 11 1/4 po</strong></p>
+    <p class="note">Le retrait va du centre du raccord à sa face; l'emboîtement est la profondeur où le tuyau entre dans le raccord. Les deux figurent dans les tables du fabricant.</p>
+</article>
+<article id="outil-deports-paralleles">
+    <h4>Déports parallèles</h4>
+    <p>Des tuyaux côte à côte qui dévient ensemble, en gardant le même écart.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Déport</td><td>po</td><td></td></tr>
+            <tr><td>Écart entre les tuyaux, de centre à centre <span class="acces">(touche : Écart)</span></td><td>po</td><td></td></tr>
+            <tr><td>Angle des raccords <span class="acces">(touche : Angle)</span></td><td>liste</td><td>11,25° · 22,5° · 30° · <strong>45°</strong> · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Déport : 12 po · Écart entre les tuyaux, de centre à centre : 6 po · Angle des raccords : 45° → Longueur de parcours : <strong>1 pi 5 po</strong> · Avance : <strong>1 pi 0 po</strong> · Décalage d'un tuyau au suivant : <strong>2 1/2 po</strong></p>
+    <p class="note">Chaque tuyau commence son déport plus loin que le précédent, de la valeur du décalage.</p>
+</article>
+<article id="outil-dilatation">
+    <h4>Dilatation d'un tuyau</h4>
+    <p>L'allongement d'un tuyau qui se réchauffe.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur du tuyau <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Écart de température <span class="acces">(touche : Écart de temp.)</span></td><td>°C</td><td></td></tr>
+            <tr><td>Coefficient de dilatation <span class="acces">(touche : Coefficient)</span></td><td>mm/m/°C</td><td>0,017 mm/m/°C</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur du tuyau : 50 pi 0 po · Écart de température : 60 °C · Coefficient de dilatation : 0,017 mm/m/°C → Allongement : <strong>5/8 po</strong> · Allongement, en millimètres : <strong>15,5 mm</strong></p>
+    <p class="note">Coefficients courants, en millimètres par mètre et par degré Celsius : cuivre, 0,017; acier, 0,012; PVC, 0,054; CPVC, 0,065; ABS, 0,10; PEX, de 0,15 à 0,20. Celui du fabricant fait foi.</p>
+</article>
+<article id="outil-chauffe-eau">
+    <h4>Chauffage de l'eau</h4>
+    <p>L'énergie et le temps qu'il faut pour réchauffer un volume d'eau.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Volume d'eau <span class="acces">(touche : Volume)</span></td><td>L</td><td></td></tr>
+            <tr><td>Élévation de température <span class="acces">(touche : Élévation)</span></td><td>°C</td><td></td></tr>
+            <tr><td>Puissance de chauffe <span class="acces">(touche : Puissance)</span></td><td>kW</td><td></td></tr>
+            <tr><td>Rendement</td><td>%</td><td>100 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Volume d'eau : 180 L · Élévation de température : 45 °C · Puissance de chauffe : 4,5 kW · Rendement : 100 % → Énergie nécessaire : <strong>9,42 kWh</strong> · Temps de chauffe : <strong>126 min</strong> · Temps de chauffe, en heures : <strong>2,09 h</strong></p>
+    <p class="note">Un litre d'eau demande 4,186 kJ pour gagner 1 °C. La contenance en litres est inscrite sur la plaque du chauffe-eau.</p>
+</article>
+<h3 id="metier-electricite">Électricité</h3>
+<p class="note">Loi d'Ohm, chute de tension, calibre, moteurs, transformateurs, conduits.</p>
+<article id="outil-loi-d-ohm">
+    <h4>Loi d'Ohm et puissance</h4>
+    <p>Remplissez deux des quatre grandeurs : les deux autres sont calculées.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Tension <span class="acces">— facultatif</span></td><td>V</td><td></td></tr>
+            <tr><td>Courant <span class="acces">— facultatif</span></td><td>A</td><td></td></tr>
+            <tr><td>Résistance <span class="acces">— facultatif</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Puissance <span class="acces">— facultatif</span></td><td>W</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Tension : 120 V · Courant : 15 A → Tension : <strong>120 V</strong> · Courant : <strong>15,0 A</strong> · Résistance : <strong>8,00 Ω</strong> · Puissance : <strong>1 800 W</strong></p>
+    <p class="note">Courant continu, ou charge résistive en courant alternatif.</p>
+</article>
+<article id="outil-chute-de-tension">
+    <h4>Chute de tension</h4>
+    <p>La tension perdue le long d'un conducteur.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Tension du circuit <span class="acces">(touche : Tension)</span></td><td>V</td><td>120 V</td></tr>
+            <tr><td>Courant</td><td>A</td><td></td></tr>
+            <tr><td>Longueur du parcours, aller simple <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Calibre du conducteur <span class="acces">(touche : Calibre)</span></td><td>liste</td><td><strong>14 AWG</strong> · 12 AWG · 10 AWG · 8 AWG · 6 AWG · 4 AWG · 3 AWG · 2 AWG · 1 AWG · 1/0 AWG · 2/0 AWG · 3/0 AWG · 4/0 AWG · 250 kcmil · 350 kcmil · 500 kcmil</td></tr>
+            <tr><td>Métal</td><td>liste</td><td><strong>Cuivre</strong> · Aluminium</td></tr>
+            <tr><td>Circuit</td><td>liste</td><td><strong>Monophasé ou continu</strong> · Triphasé</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Tension du circuit : 120 V · Courant : 15 A · Longueur du parcours, aller simple : 100 pi 0 po · Calibre du conducteur : 14 AWG · Métal : Cuivre · Circuit : Monophasé ou continu → Chute de tension : <strong>9,42 V</strong> · Chute, en pourcentage : <strong>7,85 %</strong> · Tension à la charge : <strong>110,6 V</strong></p>
+    <p class="note">Calcul selon la résistivité du conducteur à 75 °C. Le Code fixe la chute de tension permise et le calibre minimal.</p>
+</article>
+<article id="outil-puissance">
+    <h4>Puissance d'un circuit</h4>
+    <p>La puissance d'une charge, d'après sa tension et son courant.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Tension</td><td>V</td><td></td></tr>
+            <tr><td>Courant</td><td>A</td><td></td></tr>
+            <tr><td>Facteur de puissance <span class="acces">(touche : Facteur puissance)</span></td><td></td><td>1</td></tr>
+            <tr><td>Circuit</td><td>liste</td><td><strong>Monophasé</strong> · Triphasé</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Tension : 240 V · Courant : 30 A · Facteur de puissance : 1 · Circuit : Monophasé → Puissance apparente : <strong>7,20 kVA</strong> · Puissance active : <strong>7,20 kW</strong> · Équivalent en HP : <strong>9,65 HP</strong></p>
+    <p class="note">En triphasé, la tension est celle entre deux phases. 1 HP vaut 746 W.</p>
+</article>
+<article id="outil-cintrage">
+    <h4>Cintrage d'un conduit : déport</h4>
+    <p>L'écart entre les deux coudes d'un déport, et ce que le déport fait perdre en longueur.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Hauteur du déport <span class="acces">(touche : Déport)</span></td><td>po</td><td></td></tr>
+            <tr><td>Angle des coudes <span class="acces">(touche : Angle)</span></td><td>liste</td><td>10° · 22,5° · <strong>30°</strong> · 45° · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Hauteur du déport : 6 po · Angle des coudes : 30° → Distance entre les marques : <strong>1 pi 0 po</strong> · Raccourcissement : <strong>1 5/8 po</strong></p>
+    <p class="note">Le raccourcissement est la longueur que le déport enlève au parcours du conduit.</p>
+</article>
+<article id="outil-cout-d-energie">
+    <h4>Coût d'utilisation</h4>
+    <p>L'énergie que consomme un appareil, et ce qu'elle coûte.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Puissance de l'appareil <span class="acces">(touche : Puissance)</span></td><td>W</td><td></td></tr>
+            <tr><td>Utilisation par jour <span class="acces">(touche : Heures par jour)</span></td><td>h</td><td></td></tr>
+            <tr><td>Nombre de jours <span class="acces">(touche : Jours)</span></td><td>nombre entier</td><td>30</td></tr>
+            <tr><td>Tarif</td><td>¢/kWh</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Puissance de l'appareil : 1 500 W · Utilisation par jour : 8 h · Nombre de jours : 30 · Tarif : 10 ¢/kWh → Énergie : <strong>360 kWh</strong> · Coût : <strong>36,00 $</strong></p>
+    <p class="note">Le tarif figure sur votre facture d'électricité.</p>
+</article>
+<article id="outil-calibre-pour-chute">
+    <h4>Calibre selon la chute de tension</h4>
+    <p>Le plus petit conducteur qui garde la chute de tension sous la limite visée.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Tension du circuit <span class="acces">(touche : Tension)</span></td><td>V</td><td>120 V</td></tr>
+            <tr><td>Courant</td><td>A</td><td></td></tr>
+            <tr><td>Longueur du parcours, aller simple <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Chute de tension visée <span class="acces">(touche : Chute visée)</span></td><td>%</td><td>3 %</td></tr>
+            <tr><td>Métal</td><td>liste</td><td><strong>Cuivre</strong> · Aluminium</td></tr>
+            <tr><td>Circuit</td><td>liste</td><td><strong>Monophasé ou continu</strong> · Triphasé</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Tension du circuit : 120 V · Courant : 20 A · Longueur du parcours, aller simple : 100 pi 0 po · Chute de tension visée : 3 % · Métal : Cuivre · Circuit : Monophasé ou continu → Calibre suffisant : <strong>8 AWG</strong> · Section minimale : <strong>14,3 kcmil</strong> · Chute avec ce calibre : <strong>3,13 V</strong> · Chute, en pourcentage : <strong>2,60 %</strong></p>
+    <p class="note">Le calibre répond à la chute de tension seulement : le Code fixe aussi le calibre minimal d'après le courant admissible.</p>
+</article>
+<article id="outil-resistances">
+    <h4>Résistances en série et en parallèle</h4>
+    <p>La résistance équivalente de deux à quatre résistances.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Résistance 1 <span class="acces">(touche : R1)</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Résistance 2 <span class="acces">(touche : R2)</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Résistance 3 <span class="acces">(touche : R3)</span> <span class="acces">— facultatif</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Résistance 4 <span class="acces">(touche : R4)</span> <span class="acces">— facultatif</span></td><td>Ω</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Résistance 1 : 100 Ω · Résistance 2 : 220 Ω · Résistance 3 : 470 Ω → En série : <strong>790 Ω</strong> · En parallèle : <strong>60,0 Ω</strong></p>
+</article>
+<article id="outil-transformateur">
+    <h4>Courants d'un transformateur</h4>
+    <p>Les courants au primaire et au secondaire d'un transformateur, d'après sa puissance.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Puissance</td><td>kVA</td><td></td></tr>
+            <tr><td>Tension au primaire <span class="acces">(touche : Primaire)</span></td><td>V</td><td></td></tr>
+            <tr><td>Tension au secondaire <span class="acces">(touche : Secondaire)</span></td><td>V</td><td></td></tr>
+            <tr><td>Circuit</td><td>liste</td><td><strong>Monophasé</strong> · Triphasé</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Puissance : 75 kVA · Tension au primaire : 600 V · Tension au secondaire : 208 V · Circuit : Triphasé → Courant au primaire : <strong>72,2 A</strong> · Courant au secondaire : <strong>208 A</strong> · Rapport de transformation : <strong>2,88</strong></p>
+    <p class="note">Courants à pleine charge, sans les pertes du transformateur. En triphasé, les tensions sont celles entre deux phases.</p>
+</article>
+<article id="outil-moteur">
+    <h4>Courant d'un moteur</h4>
+    <p>Le courant à pleine charge d'un moteur, d'après sa puissance, son rendement et son facteur de puissance.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Puissance du moteur <span class="acces">(touche : Puissance)</span></td><td>HP</td><td></td></tr>
+            <tr><td>Tension</td><td>V</td><td></td></tr>
+            <tr><td>Rendement</td><td>%</td><td>90 %</td></tr>
+            <tr><td>Facteur de puissance <span class="acces">(touche : Facteur puissance)</span></td><td></td><td>0,85</td></tr>
+            <tr><td>Circuit</td><td>liste</td><td>Monophasé · <strong>Triphasé</strong></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Puissance du moteur : 10 HP · Tension : 575 V · Rendement : 90 % · Facteur de puissance : 0,85 · Circuit : Triphasé → Puissance à l'arbre : <strong>7,46 kW</strong> · Puissance absorbée : <strong>8,29 kW</strong> · Courant à pleine charge : <strong>9,79 A</strong></p>
+    <p class="note">Calcul d'après le rendement et le facteur de puissance indiqués. La plaque signalétique du moteur et les tables du Code font foi.</p>
+</article>
+<article id="outil-remplissage-de-conduit">
+    <h4>Remplissage d'un conduit</h4>
+    <p>La part de la section d'un conduit qu'occupent des conducteurs de même grosseur.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre intérieur du conduit <span class="acces">(touche : Conduit)</span></td><td>po</td><td></td></tr>
+            <tr><td>Diamètre d'un conducteur, isolant compris <span class="acces">(touche : Conducteur)</span></td><td>po</td><td></td></tr>
+            <tr><td>Nombre de conducteurs <span class="acces">(touche : Nombre)</span></td><td>nombre entier</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre intérieur du conduit : 13/16 po · Diamètre d'un conducteur, isolant compris : 1/8 po · Nombre de conducteurs : 9 → Section du conduit : <strong>0,533 po² (344 mm²)</strong> · Section des conducteurs : <strong>0,087 po² (56,2 mm²)</strong> · Remplissage : <strong>16,3 %</strong></p>
+    <p class="note">Les diamètres figurent dans les tables des fabricants. Le Code fixe le remplissage permis selon le nombre de conducteurs.</p>
+</article>
+<article id="outil-eclairage">
+    <h4>Éclairage : nombre de luminaires</h4>
+    <p>Le nombre de luminaires pour atteindre un éclairement, par la méthode des lumens.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la pièce <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la pièce <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Éclairement visé <span class="acces">(touche : Éclairement)</span></td><td>lux</td><td></td></tr>
+            <tr><td>Flux d'un luminaire <span class="acces">(touche : Flux)</span></td><td>lm</td><td></td></tr>
+            <tr><td>Facteur d'utilisation <span class="acces">(touche : Utilisation)</span></td><td></td><td>0,6</td></tr>
+            <tr><td>Facteur de maintenance <span class="acces">(touche : Maintenance)</span></td><td></td><td>0,8</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la pièce : 30 pi 0 po · Largeur de la pièce : 20 pi 0 po · Éclairement visé : 300 lux · Flux d'un luminaire : 4 000 lm · Facteur d'utilisation : 0,6 · Facteur de maintenance : 0,8 → Surface : <strong>600 pi² (55,7 m²)</strong> · Flux lumineux nécessaire : <strong>34 839 lm</strong> · Luminaires : <strong>9 luminaires</strong></p>
+    <p class="note">Estimation : les deux facteurs dépendent du luminaire, de la pièce et de l'entretien. Un pied-bougie vaut 10,76 lux.</p>
+</article>
+<h3 id="metier-ventilation">Ventilation et chauffage</h3>
+<p class="note">Conduits, changements d'air, puissance, plancher chauffant.</p>
+<article id="outil-conduit-rond">
+    <h4>Débit d'un conduit rond</h4>
+    <p>Le débit d'air d'un conduit rond, d'après son diamètre et la vitesse de l'air.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre</td><td>po</td><td></td></tr>
+            <tr><td>Vitesse de l'air <span class="acces">(touche : Vitesse)</span></td><td>pi/min</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre : 8 po · Vitesse de l'air : 700 pi/min → Section : <strong>0,349 pi² (0,032 m²)</strong> · Débit : <strong>244 pi³/min (115 L/s)</strong></p>
+</article>
+<article id="outil-conduit-rectangulaire">
+    <h4>Débit d'un conduit rectangulaire</h4>
+    <p>Le débit d'air d'un conduit rectangulaire, et le conduit rond qui le remplace.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Largeur</td><td>po</td><td></td></tr>
+            <tr><td>Hauteur</td><td>po</td><td></td></tr>
+            <tr><td>Vitesse de l'air <span class="acces">(touche : Vitesse)</span></td><td>pi/min</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Largeur : 14 po · Hauteur : 8 po · Vitesse de l'air : 900 pi/min → Section : <strong>0,778 pi² (0,072 m²)</strong> · Débit : <strong>700 pi³/min (330 L/s)</strong> · Conduit rond équivalent : <strong>11 7/16 po</strong></p>
+    <p class="note">Le conduit rond équivalent offre la même perte de charge pour le même débit (formule de Huebscher).</p>
+</article>
+<article id="outil-puissance-thermique">
+    <h4>Puissance de chauffage et de climatisation</h4>
+    <p>La même puissance en BTU/h, en kilowatts et en tonnes de réfrigération.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Puissance</td><td></td><td></td></tr>
+            <tr><td>Unité</td><td>liste</td><td><strong>BTU/h</strong> · kW · tonnes de réfrigération</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Puissance : 36 000 · Unité : BTU/h → En BTU par heure : <strong>36 000 BTU/h</strong> · En kilowatts : <strong>10,6 kW</strong> · En tonnes de réfrigération : <strong>3,00 tonnes</strong></p>
+</article>
+<article id="outil-conduit-pour-un-debit">
+    <h4>Conduit rond pour un débit</h4>
+    <p>Le diamètre du conduit rond qui transporte un débit d'air à la vitesse visée.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Débit d'air <span class="acces">(touche : Débit)</span></td><td>pi³/min</td><td></td></tr>
+            <tr><td>Vitesse de l'air <span class="acces">(touche : Vitesse)</span></td><td>pi/min</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Débit d'air : 400 pi³/min · Vitesse de l'air : 800 pi/min → Section nécessaire : <strong>0,500 pi² (0,046 m²)</strong> · Diamètre du conduit rond : <strong>9 9/16 po</strong></p>
+</article>
+<article id="outil-changements-d-air">
+    <h4>Changements d'air à l'heure</h4>
+    <p>Le débit qu'il faut pour renouveler l'air d'une pièce un certain nombre de fois à l'heure.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la pièce <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la pièce <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Hauteur du plafond <span class="acces">(touche : Hauteur)</span></td><td>pi</td><td>8 pi 0 po</td></tr>
+            <tr><td>Changements d'air à l'heure <span class="acces">(touche : Changements)</span></td><td></td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la pièce : 12 pi 0 po · Largeur de la pièce : 10 pi 0 po · Hauteur du plafond : 8 pi 0 po · Changements d'air à l'heure : 6 → Volume de la pièce : <strong>960 pi³ (27,2 m³)</strong> · Débit : <strong>96,0 pi³/min (45,3 L/s)</strong></p>
+</article>
+<article id="outil-chaleur-de-l-air">
+    <h4>Chaleur transportée par l'air</h4>
+    <p>La puissance de chauffage ou de refroidissement d'un débit d'air, d'après l'écart de température.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Débit d'air <span class="acces">(touche : Débit)</span></td><td>pi³/min</td><td></td></tr>
+            <tr><td>Écart de température <span class="acces">(touche : Écart de temp.)</span></td><td></td><td></td></tr>
+            <tr><td>Unité de l'écart <span class="acces">(touche : Unité)</span></td><td>liste</td><td><strong>°C</strong> · °F</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Débit d'air : 1 000 pi³/min · Écart de température : 20 · Unité de l'écart : °F → Puissance : <strong>21 600 BTU/h (6,33 kW)</strong></p>
+    <p class="note">Chaleur sensible seulement, pour de l'air aux conditions normales : 1,08 BTU/h par pi³/min et par degré Fahrenheit.</p>
+</article>
+<article id="outil-plancher-chauffant">
+    <h4>Tuyau de plancher chauffant</h4>
+    <p>La longueur de tuyau d'un plancher chauffant et le nombre de boucles.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur de la surface <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Largeur de la surface <span class="acces">(touche : Largeur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Espacement des tuyaux <span class="acces">(touche : Espacement)</span></td><td>po</td><td>9 po</td></tr>
+            <tr><td>Longueur maximale d'une boucle <span class="acces">(touche : Boucle maximale)</span></td><td>pi</td><td>300 pi 0 po</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur de la surface : 30 pi 0 po · Largeur de la surface : 20 pi 0 po · Espacement des tuyaux : 9 po · Longueur maximale d'une boucle : 300 pi 0 po → Surface : <strong>600 pi² (55,7 m²)</strong> · Longueur de tuyau : <strong>800 pi 0 po</strong> · Boucles : <strong>3 boucles</strong> · Longueur par boucle : <strong>266 pi 8 po</strong></p>
+    <p class="note">Sans les longueurs d'amenée jusqu'au collecteur. L'espacement et la longueur maximale d'une boucle viennent du concepteur ou du fabricant.</p>
+</article>
+<h3 id="metier-acier">Acier et soudure</h3>
+<p class="note">Masse des plaques, des barres et des tubes, cordons de soudure.</p>
+<article id="outil-plaque">
+    <h4>Masse d'une plaque</h4>
+    <p>La masse d'une plaque ou d'une tôle rectangulaire.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Largeur</td><td>pi</td><td></td></tr>
+            <tr><td>Épaisseur</td><td>po</td><td></td></tr>
+            <tr><td>Métal</td><td>liste</td><td><strong>Acier</strong> · Acier inoxydable · Aluminium</td></tr>
+            <tr><td>Nombre de pièces <span class="acces">(touche : Pièces)</span></td><td>nombre entier</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Longueur : 8 pi 0 po · Largeur : 4 pi 0 po · Épaisseur : 1/4 po · Métal : Acier · Nombre de pièces : 1 → Surface d'une face : <strong>32,0 pi² (2,97 m²)</strong> · Masse d'une pièce : <strong>327 lb (148 kg)</strong> · Masse totale : <strong>327 lb (148 kg)</strong></p>
+    <p class="note">Masses volumiques : acier, 7 850 kg/m³; acier inoxydable, 8 000 kg/m³; aluminium, 2 700 kg/m³.</p>
+</article>
+<article id="outil-barre-ronde">
+    <h4>Masse d'une barre ou d'un tube rond</h4>
+    <p>La masse d'une barre ronde pleine ou d'un tube rond, au pied et en tout.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Diamètre extérieur <span class="acces">(touche : Diamètre)</span></td><td>po</td><td></td></tr>
+            <tr><td>Épaisseur de la paroi <span class="acces">(touche : Paroi)</span> <span class="acces">— facultatif</span></td><td>po</td><td></td></tr>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Métal</td><td>liste</td><td><strong>Acier</strong> · Acier inoxydable · Aluminium</td></tr>
+            <tr><td>Nombre de pièces <span class="acces">(touche : Pièces)</span></td><td>nombre entier</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Diamètre extérieur : 1 po · Longueur : 12 pi 0 po · Métal : Acier · Nombre de pièces : 1 → Masse linéique : <strong>2,67 lb/pi (3,98 kg/m)</strong> · Masse d'une pièce : <strong>32,1 lb (14,5 kg)</strong> · Masse totale : <strong>32,1 lb (14,5 kg)</strong></p>
+    <p class="note">Laissez la paroi vide pour une barre pleine. Masses volumiques : acier, 7 850 kg/m³; acier inoxydable, 8 000 kg/m³; aluminium, 2 700 kg/m³.</p>
+</article>
+<article id="outil-profile-rectangulaire">
+    <h4>Masse d'une barre plate ou d'un tube rectangulaire</h4>
+    <p>La masse d'une barre plate, d'un carré plein ou d'un tube carré ou rectangulaire.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Largeur</td><td>po</td><td></td></tr>
+            <tr><td>Hauteur</td><td>po</td><td></td></tr>
+            <tr><td>Épaisseur de la paroi <span class="acces">(touche : Paroi)</span> <span class="acces">— facultatif</span></td><td>po</td><td></td></tr>
+            <tr><td>Longueur</td><td>pi</td><td></td></tr>
+            <tr><td>Métal</td><td>liste</td><td><strong>Acier</strong> · Acier inoxydable · Aluminium</td></tr>
+            <tr><td>Nombre de pièces <span class="acces">(touche : Pièces)</span></td><td>nombre entier</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Largeur : 2 po · Hauteur : 2 po · Épaisseur de la paroi : 1/8 po · Longueur : 20 pi 0 po · Métal : Acier · Nombre de pièces : 1 → Masse linéique : <strong>3,19 lb/pi (4,75 kg/m)</strong> · Masse d'une pièce : <strong>63,8 lb (28,9 kg)</strong> · Masse totale : <strong>63,8 lb (28,9 kg)</strong></p>
+    <p class="note">Laissez la paroi vide pour une barre pleine. Coins vifs : un tube aux coins arrondis pèse un peu moins.</p>
+</article>
+<article id="outil-cordon-de-soudure">
+    <h4>Cordon de soudure d'angle</h4>
+    <p>Le métal que demande un cordon de soudure d'angle en acier, et les électrodes à prévoir.</p>
+    <div class="table"><table>
+        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>
+        <tbody>
+            <tr><td>Côté du cordon <span class="acces">(touche : Côté)</span></td><td>po</td><td></td></tr>
+            <tr><td>Longueur du cordon <span class="acces">(touche : Longueur)</span></td><td>pi</td><td></td></tr>
+            <tr><td>Rendement de dépôt <span class="acces">(touche : Rendement)</span></td><td>%</td><td>65 %</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Exemple</span> Côté du cordon : 1/4 po · Longueur du cordon : 100 pi 0 po · Rendement de dépôt : 65 % → Métal déposé : <strong>10,6 lb (4,82 kg)</strong> · Électrodes ou fil à prévoir : <strong>16,4 lb (7,42 kg)</strong></p>
+    <p class="note">Cordon à face plane et à côtés égaux, en acier. Le rendement de dépôt dépend du procédé : environ 60 à 65 % à l'électrode enrobée, plus de 90 % au fil plein. Prévoyez un surplus pour le bombé du cordon.</p>
+</article>
+
+<h2 id="licence">15. Avertissement, licence et contact <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.</p>
+<p>La Calculatrice de chantier est un logiciel libre, distribué sous la <a href="https://www.apache.org/licenses/LICENSE-2.0">licence Apache, version 2.0</a>. Son code source est public : <a href="https://github.com/ConstructoAI/calculatrice-chantier">github.com/ConstructoAI/calculatrice-chantier</a>. Le logiciel est fourni « tel quel », sans garantie d'aucune sorte.</p>
+<p>Une question, une erreur à signaler, un outil qui manque à votre métier? Écrivez à <a href="mailto:info@constructoai.ca">info@constructoai.ca</a>, ou visitez <a href="https://constructoai.ca/">constructoai.ca</a>.</p>
+
+</main>
+
+<footer>
+    <p>Calculatrice de chantier — gracieuseté de Sylvain Leduc de Constructo AI. <a href="#haut">Haut de la page</a></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,9 @@
+Calculatrice de chantier
+Copyright 2026 Sylvain Leduc, Constructo AI
+https://constructoai.ca/
+
+Ce logiciel est distribué sous la licence Apache, version 2.0.
+Le texte de la licence se trouve dans le fichier LICENSE.
+
+Les polices du dossier app/polices/ viennent d'autres auteurs et gardent leur
+propre licence : voir app/polices/LISEZMOI.md.

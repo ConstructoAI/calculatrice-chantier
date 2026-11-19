@@ -13,6 +13,7 @@
 //! | `exporter` | boîte « Enregistrer sous » | téléchargement |
 //! | plein écran | préférence appliquée à la fenêtre | bouton, à la demande |
 //! | installation | sans objet | application Web installable |
+//! | manuel | copie dans le dossier de données | page du site |
 
 #[cfg(not(target_arch = "wasm32"))]
 mod bureau;

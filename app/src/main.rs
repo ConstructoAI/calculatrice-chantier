@@ -9,6 +9,8 @@ mod afficheur;
 mod aide;
 mod application;
 mod clavier;
+#[cfg(test)]
+mod manuel;
 mod plateforme;
 mod raccourcis;
 mod stockage;

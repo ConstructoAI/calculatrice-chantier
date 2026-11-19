@@ -6,14 +6,18 @@ Gratuite, sans publicité, sans compte.
 
 Gracieuseté de Sylvain Leduc de Constructo AI.
 
-## Nouveautés de la version 0.4
+## Nouveautés de la version 0.5
 
-- **Le clavier s'adapte à votre métier.** Touchez « Plomberie », « Électricité » ou
-  « Béton » au-dessus du clavier : les touches du haut deviennent celles de vos outils.
-  Tapez une valeur, appuyez sur la touche du champ, puis sur `Résultat`.
-- **76 outils au lieu de 30**, et quatre nouveaux métiers : maçonnerie et pavage, toiture
-  et revêtement, gypse et isolation, acier et soudure.
-- Un résultat affiché sert à la suite du calcul et vous suit d'un outil à l'autre.
+- **Un manuel d'utilisation complet** : menu ☰ → *Manuel d'utilisation*, ou
+  <https://constructoai.github.io/calculatrice-chantier/manuel.html>. Il explique chaque
+  touche et chacun des 76 outils, exemples à l'appui, et se lit sans réseau.
+- **Au bas du menu** : le courriel et le site de Constructo AI, la version et la révision
+  de la calculatrice.
+- **Logiciel libre** : la calculatrice est maintenant distribuée sous la licence Apache 2.0.
+
+Depuis la version 0.4, le clavier s'adapte à votre métier : touchez « Plomberie »,
+« Électricité » ou « Béton » au-dessus du clavier, et les touches du haut deviennent celles
+de vos outils — 76 outils pour onze corps de métier.
 
 ## Version de bureau (Windows 10 ou 11, 64 bits)
 

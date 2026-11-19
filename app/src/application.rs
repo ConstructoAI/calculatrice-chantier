@@ -56,6 +56,8 @@ enum Vue {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ChoixMenu {
     Aller(Vue),
+    /// Ouvrir le manuel d'utilisation dans le navigateur.
+    Manuel,
     /// Installer l'application sur l'appareil (version Web).
     Installer,
     Quitter,
@@ -1064,6 +1066,8 @@ impl Application {
         let ecran = ctx.content_rect();
         let mut choix: Option<ChoixMenu> = None;
         let mut fermer = false;
+        // Lien touché au pied du menu : (adresse, dans un nouvel onglet).
+        let mut lien: Option<(&str, bool)> = None;
         // Les entrées du menu dépendent de la plateforme : on ne « quitte » pas
         // une page Web (on ferme son onglet), et seul un navigateur peut
         // installer l'application sur l'appareil.
@@ -1071,6 +1075,7 @@ impl Application {
             (textes::MENU_METIERS, ChoixMenu::Aller(Vue::Metiers)),
             (textes::MENU_RUBANS, ChoixMenu::Aller(Vue::Rubans)),
             (textes::MENU_AIDE, ChoixMenu::Aller(Vue::Aide)),
+            (textes::MENU_MANUEL, ChoixMenu::Manuel),
             (textes::MENU_BIENVENUE, ChoixMenu::Aller(Vue::Bienvenue)),
             (textes::MENU_TRUCS, ChoixMenu::Aller(Vue::Trucs)),
             (textes::MENU_PREFERENCES, ChoixMenu::Aller(Vue::Preferences)),
@@ -1091,6 +1096,7 @@ impl Application {
                 ui.painter().rect_filled(ecran, 0, p.voile);
                 let largeur = 280.0f32.min(ecran.width() * 0.82);
                 let panneau = Rect::from_min_size(ecran.min, Vec2::new(largeur, ecran.height()));
+                let mut fin_des_entrees = panneau.top();
                 // Le fond du panneau absorbe les clics.
                 ui.interact(panneau, egui::Id::unique("tiroir-fond"), Sense::CLICK);
                 theme::ombre_portee(ui.painter(), panneau, 0, p.ombre, (24, 0));
@@ -1142,26 +1148,104 @@ impl Application {
                                 choix = Some(element);
                             }
                         }
+                        fin_des_entrees = ui.min_rect().bottom();
                     },
                 );
-                // Au pied du menu : la mention de l'auteur.
+                // Au pied du menu, de bas en haut : la version du programme, le
+                // site et le courriel de Constructo AI, la mention de l'auteur.
+                let attenue = theme::melanger(p.barre_texte, p.pied_fond, 0.30);
+                let gauche = panneau.left() + 24.0;
+                let version = ui.painter().layout_no_wrap(
+                    textes::version_et_revision(),
+                    theme::police(11.5),
+                    attenue,
+                );
                 let mention = ui.painter().layout(
                     textes::GRACIEUSETE.to_owned(),
                     theme::police(12.0),
-                    theme::melanger(p.barre_texte, p.pied_fond, 0.30),
+                    attenue,
                     panneau.width() - 48.0,
                 );
-                let position = Pos2::new(
-                    panneau.left() + 24.0,
-                    panneau.bottom() - 16.0 - mention.size().y,
-                );
-                ui.painter().galley(position, mention, p.barre_texte);
+                const HAUTEUR_DE_LIEN: f32 = 26.0;
+                let liens = [
+                    (
+                        textes::SITE_CONSTRUCTO,
+                        textes::LIEN_SITE_CONSTRUCTO,
+                        textes::INFOBULLE_SITE,
+                        true,
+                    ),
+                    (
+                        textes::COURRIEL_CONSTRUCTO,
+                        textes::LIEN_COURRIEL_CONSTRUCTO,
+                        textes::INFOBULLE_COURRIEL,
+                        false,
+                    ),
+                ];
+                let hauteur_du_pied = 14.0
+                    + version.size().y
+                    + 4.0
+                    + HAUTEUR_DE_LIEN * liens.len() as f32
+                    + 4.0
+                    + mention.size().y;
+                // Dans une fenêtre trop basse, les entrées du menu passent d'abord.
+                if panneau.bottom() - hauteur_du_pied >= fin_des_entrees + 6.0 {
+                    let mut y = panneau.bottom() - 14.0 - version.size().y;
+                    ui.painter().galley(Pos2::new(gauche, y), version, attenue);
+                    y -= 4.0;
+                    for (texte, adresse, infobulle, nouvel_onglet) in liens {
+                        let ecrit = ui.painter().layout_no_wrap(
+                            texte.to_owned(),
+                            theme::police(13.0),
+                            p.barre_texte,
+                        );
+                        let zone = Rect::from_min_size(
+                            Pos2::new(gauche - 6.0, y - HAUTEUR_DE_LIEN),
+                            Vec2::new(ecrit.size().x + 12.0, HAUTEUR_DE_LIEN),
+                        );
+                        let reponse = ui
+                            .interact(
+                                zone,
+                                egui::Id::unique(("lien-du-menu", adresse)),
+                                Sense::CLICK,
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text(infobulle);
+                        reponse.widget_info(|| {
+                            egui::WidgetInfo::labeled(egui::Role::Link, true, texte)
+                        });
+                        let position = Pos2::new(gauche, zone.center().y - ecrit.size().y / 2.0);
+                        // Un filet sous le texte : c'est un lien; il s'affirme au survol.
+                        let filet = if reponse.hovered() { 200 } else { 90 };
+                        let sous = position.y + ecrit.size().y + 0.5;
+                        ui.painter().line_segment(
+                            [
+                                Pos2::new(position.x, sous),
+                                Pos2::new(position.x + ecrit.size().x, sous),
+                            ],
+                            Stroke::new(1.0, Color32::from_white_alpha(filet)),
+                        );
+                        ui.painter().galley(position, ecrit, p.barre_texte);
+                        if reponse.clicked() {
+                            lien = Some((adresse, nouvel_onglet));
+                        }
+                        y -= HAUTEUR_DE_LIEN;
+                    }
+                    y -= 4.0;
+                    let position = Pos2::new(gauche, y - mention.size().y);
+                    ui.painter().galley(position, mention, attenue);
+                }
                 if voile.clicked() {
                     fermer = true;
                 }
             });
         match choix {
             Some(ChoixMenu::Aller(vue)) => self.aller(vue),
+            Some(ChoixMenu::Manuel) => {
+                self.tiroir_ouvert = false;
+                ctx.open_url(egui::OpenUrl::new_tab(plateforme::adresse_du_manuel(
+                    &self.depot,
+                )));
+            }
             Some(ChoixMenu::Installer) => {
                 self.tiroir_ouvert = false;
                 match plateforme::installation() {
@@ -1180,6 +1264,12 @@ impl Application {
             }
             None if fermer => self.tiroir_ouvert = false,
             None => {}
+        }
+        if let Some((adresse, nouvel_onglet)) = lien {
+            ctx.open_url(egui::OpenUrl {
+                url: adresse.to_owned(),
+                new_tab: nouvel_onglet,
+            });
         }
     }
 

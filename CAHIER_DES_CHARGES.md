@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.6 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22)
+> **Version du document :** 1.7 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -194,7 +194,8 @@ Ces choix sont arrêtés. S'en écarter seulement en cas d'impossibilité techni
 | Sérialisation | `serde` + `serde_json`, fichiers JSON lisibles. |
 | Dates | `chrono` (heure locale) pour l'horodatage des rubans enregistrés. |
 | Boîte « Enregistrer sous » | `rfd` (export du ruban en `.txt`), sur le bureau. Dans le navigateur, le fichier est téléchargé. |
-| Réseau | **Aucun.** Aucune dépendance réseau, aucune télémétrie. La version Web est un site statique : une fois la page chargée, le programme ne fait aucune requête. |
+| Réseau | **Aucun.** Aucune dépendance réseau, aucune télémétrie. La version Web est un site statique : une fois la page chargée, le programme ne fait aucune requête. Les liens du menu et de l'écran « À propos » (courriel, site, manuel, code source) s'ouvrent dans le navigateur ou le logiciel de courriel de l'utilisateur : le programme lui-même ne contacte rien. |
+| Licence | **Apache 2.0**, choisie par l'utilisateur le 2026-11-19. Fichiers `LICENSE` (texte officiel, non modifié) et `NOTICE` (avis de droit d'auteur) à la racine; champ `license = "Apache-2.0"` des manifestes. Les polices de `app/polices/` gardent leur propre licence. |
 | Langue | Français seulement. Tous les textes sont centralisés (`textes.rs`) pour permettre une autre langue plus tard, sans l'implémenter maintenant. |
 
 **Dépendances autorisées (liste fermée)** : `eframe`, `serde`, `serde_json`, `chrono`, `rfd`; en `build-dependencies` facultative : `winresource` (icône de l'exécutable). Pour la cible Web seulement, l'accès au navigateur : `wasm-bindgen`, `wasm-bindgen-futures`, `js-sys` et `web-sys` (eframe les utilise déjà, sauf `wasm-bindgen-futures`, qui lance le programme dans la page). Le crate `noyau` ne dépend que de `serde` (derive). Toute autre dépendance doit être justifiée auprès de l'utilisateur.
@@ -1503,7 +1504,7 @@ Ruban du 19 novembre 2026, 8 h 04
 |---|---|
 | **Barre supérieure** | ☰ (menu) · bouton plein écran (version Web : seulement si le navigateur le permet) · titre de l'application · ⚙ (Préférences) |
 | **Barre inférieure** | quatre onglets : **Accueil** (la calculatrice), **Métiers** (section 22), **Rubans**, **Aide** |
-| **Menu ☰** (tiroir à gauche) | Calculateurs par métier · Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Installer l'application (version Web seulement, 3.1) · Quitter (version de bureau seulement) |
+| **Menu ☰** (tiroir à gauche) | Calculateurs par métier · Rubans enregistrés · Aide · Manuel d'utilisation (15.4) · Bienvenue · Trucs de pro · Préférences · À propos · Installer l'application (version Web seulement, 3.1) · Quitter (version de bureau seulement). **Au pied du tiroir**, de haut en bas : la mention « Gracieuseté de Sylvain Leduc de Constructo AI »; le courriel `info@constructoai.ca` (lien `mailto:`) et le site `constructoai.ca` (lien vers `https://constructoai.ca/`, ouvert dans un nouvel onglet), demandés par l'utilisateur le 2026-11-19; la version et la révision : `Version 0.5.0 · révision 1a2b3c4`. La révision est l'identifiant court du commit git, inscrit à la compilation par `app/build.rs`; sans dépôt git, seule la version s'affiche. Si le tiroir est trop bas pour tout montrer, les entrées du menu passent d'abord. |
 
 `Échap` ferme le tiroir, un dialogue ou un écran secondaire et ramène à l'Accueil.
 
@@ -1517,7 +1518,7 @@ Ruban du 19 novembre 2026, 8 h 04
 | **Préférences** | section 13 |
 | **Bienvenue** | présentation en quelques lignes (annexe B.3); affichée automatiquement au premier lancement |
 | **Trucs de pro** | liste d'astuces (annexe B.4) |
-| **À propos** | nom, version, mention « Gracieuseté de Sylvain Leduc de Constructo AI » (demandée par l'utilisateur le 2026-11-19; elle figure aussi au pied du menu ☰ et sur l'écran d'attente de la version Web), avertissement (1.5), emplacement du dossier de données, mention des bibliothèques libres utilisées et de leurs licences |
+| **À propos** | nom, version, mention « Gracieuseté de Sylvain Leduc de Constructo AI » (demandée par l'utilisateur le 2026-11-19; elle figure aussi au pied du menu ☰ et sur l'écran d'attente de la version Web), le courriel et le site de Constructo AI (liens), avertissement (1.5), emplacement du dossier de données, licence du logiciel (Apache 2.0) avec un lien vers le code source, mention des bibliothèques libres utilisées et de leurs licences |
 
 ### 15.3 Aide contextuelle
 
@@ -1527,6 +1528,29 @@ Ruban du 19 novembre 2026, 8 h 04
 - La recherche de l'écran Aide ignore la casse et les accents (« arete » trouve « Arêtier ») et cherche dans les titres, les mots-clés et le texte.
 
 Chaque fiche comprend : un titre, « À quoi ça sert », « Comment faire » (étapes), un exemple chiffré tiré de la section 19, et au besoin une note.
+
+### 15.4 Manuel d'utilisation
+
+Ajouté le 2026-11-19, à la demande de l'utilisateur, qui voulait « un manuel d'utilisation complet ». C'est une page Web autonome, `app/manuel.html` : sans script ni ressource externe, lisible sur un téléphone, en thème clair ou sombre, et imprimable.
+
+**Contenu.** Quinze chapitres : présentation et avertissement; installer et ouvrir; l'écran; taper une mesure et calculer; les mémoires; le clavier de charpente; le clavier de votre métier; le ruban; les préférences; les raccourcis clavier; les trucs de pro; les messages et le dépannage; le répertoire des touches et des fonctions; le répertoire des outils par métier; l'avertissement, la licence et les coordonnées.
+
+**R-61** Le manuel ne s'écrit pas à la main : il est **produit** à partir d'un gabarit (`app/outils/manuel-gabarit.html`, qui porte la mise en page et les chapitres rédigés) et du contenu même du programme. Le générateur (`app/src/manuel.rs`, compilé pour les tests seulement) y insère :
+
+- les trucs de pro (annexe B.4);
+- toutes les fiches d'aide (annexe B), en trois groupes : touches principales, secondes fonctions, autres fonctions;
+- pour chacun des métiers et des calculateurs de la section 22 : le nom, le résumé, le tableau des champs (libellé, libellé de la touche s'il diffère, unité, valeur de départ, options des listes), la note, et **un exemple calculé par le noyau** à partir d'une valeur d'essai de 22.14.
+
+Trois tests gardent le manuel exact : chaque calculateur a un exemple qui donne des résultats; la page contient chaque métier, chaque calculateur et chaque fiche, et toutes ses ancres mènent quelque part; et **la page publiée est identique à ce que le générateur produit**. Ce dernier test échoue dès qu'une fiche, un calculateur ou le gabarit change : il faut alors refaire la page par `cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored`.
+
+**Accès.** Entrée « Manuel d'utilisation » du menu ☰ :
+
+| Version | Ce qui s'ouvre |
+|---|---|
+| Web | la page `manuel.html` du site, dans un nouvel onglet. Elle fait partie des fichiers gardés hors ligne (`app/sw.js`) : installée, la calculatrice montre son manuel sans réseau. |
+| Bureau | le manuel est embarqué dans l'exécutable. Il est copié dans le dossier de données (`manuel.html`), puis ouvert dans le navigateur par une adresse `file:` : il se lit sans réseau. Si la copie échoue, c'est la page publiée qui est ouverte. |
+
+Tout ce qui diffère est dans `app/src/plateforme/` (`adresse_du_manuel`).
 
 ---
 
@@ -1700,6 +1724,8 @@ Calculatrice/                      (dossier de travail)
 ├── .github/                       (publication automatique : site Web et exécutable)
 ├── .gitignore
 ├── README.md                      (les deux versions, compilation, raccourcis — en français)
+├── LICENSE                        (licence Apache 2.0, texte officiel)
+├── NOTICE                         (avis de droit d'auteur)
 ├── noyau/
 │   ├── Cargo.toml                 (nom : calculatrice-noyau)
 │   ├── src/
@@ -1751,12 +1777,14 @@ Calculatrice/                      (dossier de travail)
 │       └── outils.rs              outils de métier au clavier (23.9)
 └── app/
     ├── Cargo.toml                 (nom : calculatrice-chantier — nom de l'exécutable)
-    ├── build.rs                   (facultatif : icône de l'exécutable via winresource)
+    ├── build.rs                   inscrit la révision du code source (identifiant du commit) dans le programme
+    ├── manuel.html                manuel d'utilisation, produit par src/manuel.rs (15.4)
     ├── index.html                 page hôte de la version Web (3.1)
     ├── manifest.webmanifest       manifeste de l'application Web installable (3.1)
     ├── sw.js                      service qui garde le site utilisable hors ligne (3.1)
     ├── icones/                    icônes PNG de l'application installable
     ├── outils/icones.py           script qui dessine ces icônes
+    ├── outils/manuel-gabarit.html gabarit du manuel d'utilisation (15.4)
     ├── polices/                   polices libres de la version Web, licences, LISEZMOI.md
     └── src/
         ├── main.rs                points d'entrée : fenêtre native ou page Web
@@ -1772,6 +1800,7 @@ Calculatrice/                      (dossier de travail)
         │   ├── bureau.rs          dossier de données, « Enregistrer sous », plein écran de la fenêtre
         │   └── web.rs             stockage local, téléchargement, plein écran du navigateur, démarrage
         ├── aide.rs                contenu des fiches (annexe B) + recherche
+        ├── manuel.rs              générateur du manuel d'utilisation et ses tests (15.4)
         └── vues/
             ├── preferences.rs
             ├── rubans.rs
@@ -2396,6 +2425,7 @@ Conseils d'exécution :
 - [ ] Aide : une fiche par fonction, recherche sans accents, appui long et clic droit.
 - [ ] Écrans Bienvenue, Trucs de pro, À propos (avec l'avertissement de 1.5).
 - [ ] Les 76 calculateurs par métier donnent les valeurs de 22.14; leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
+- [ ] Le manuel d'utilisation est à jour (test `le_manuel_est_a_jour`) et s'ouvre depuis le menu (15.4); le pied du menu montre la mention, le courriel, le site, la version et la révision (15.1).
 - [ ] Le clavier s'adapte au métier (section 23) : chaque calculateur se branche sur le clavier, se remplit avec les touches et donne les mêmes résultats que son formulaire; l'outil branché est repris à la réouverture.
 
 ### 21.3 Recette manuelle (à faire par l'utilisateur)
@@ -2412,6 +2442,7 @@ Conseils d'exécution :
 - [ ] Le ruban s'enregistre, se rouvre et s'exporte en `.txt` lisible dans le Bloc-notes (accents intacts).
 - [ ] Version Web : la page s'ouvre sur ordinateur et sur téléphone; les mêmes calculs donnent les mêmes résultats; après rechargement de la page, les réglages et les rubans sont toujours là; un ruban s'exporte par téléchargement.
 - [ ] Version Web : le menu « Installer l'application » l'installe (ou explique comment); une fois installée, elle s'ouvre et calcule en mode avion.
+- [ ] Dans le menu ☰ : « Manuel d'utilisation » ouvre le manuel dans le navigateur; le courriel ouvre un nouveau message à `info@constructoai.ca`; le site ouvre `constructoai.ca`. (Ces ouvertures ne se vérifient pas par les tests automatisés.)
 - [ ] Sur un téléphone : toucher un métier dans la barre au-dessus du clavier, puis `24` `Pieds` `Longueur` `20` `Pieds` `Largeur` `4` `Pouces` `Épaisseur` `Résultat` `Résultat` donne `5,93 vg³ (4,53 m³)` pour la dalle de béton; les touches restent assez grandes pour le doigt.
 
 ---
@@ -3282,7 +3313,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-60, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-61, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 
@@ -3318,6 +3349,9 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 16 | Clavier adapté au métier : l'utilisateur s'attendait à ce que « la calculatrice s'adapte selon le métier ». Le principe retenu — les champs d'un calculateur deviennent les touches du haut, une touche `Résultat` fait défiler les résultats, une barre des métiers au-dessus du clavier — est un choix de Claude. | 23 |
 | 17 | Valeurs de départ des calculateurs ajoutés à la version 0.4 : retenue de 10 %, paquet de bardeaux de 33,3 pi², rouleau de tourbe de 10 pi², espacement de 9 po et boucle de 300 pi pour un plancher chauffant, rendement de dépôt de 65 %, rendement de 90 % et facteur de puissance de 0,85 pour un moteur, facteurs d'éclairage de 0,6 et de 0,8. Ce sont des points de départ modifiables, pas des recommandations. | 22 |
 | 18 | Constantes physiques citées en note : coefficients de dilatation des tuyaux, masses volumiques des métaux, 1,08 BTU/h par pi³/min et par degré Fahrenheit. Valeurs courantes des manuels; les données du fabricant font foi. | 22.5, 22.8, 22.13 |
+| 19 | Licence : l'utilisateur a choisi **Apache 2.0** le 2026-11-19. Le titulaire du droit d'auteur inscrit dans `NOTICE` et dans le README — « Sylvain Leduc, Constructo AI » — reprend la mention publique de l'auteur; à confirmer (la personne ou l'entreprise). | 3 |
+| 20 | « Révision » au pied du menu : l'utilisateur a demandé « la révision »; Claude affiche la version du programme suivie de l'identifiant court du commit git. | 15.1 |
+| 21 | Manuel d'utilisation : sa forme (une page Web produite à partir du programme, ouverte depuis le menu) et son plan sont un choix de Claude. | 15.4 |
 
 
 

@@ -4,6 +4,7 @@ description = "Noyau de calcul de la calculatrice de chantier (aucune dépendanc
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [lib]
 name = "noyau"

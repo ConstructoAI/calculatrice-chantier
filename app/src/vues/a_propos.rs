@@ -1,6 +1,6 @@
 //! Écran « À propos » (sections 1.5 et 15.2).
 
-use eframe::egui::{RichText, Ui};
+use eframe::egui::{self, RichText, Ui};
 
 use super::{carte, corps, en_tete, section};
 use crate::plateforme;
@@ -19,10 +19,7 @@ pub fn afficher(ui: &mut Ui, p: &Palette, dossier: Option<&str>) -> bool {
                 .font(theme::police_grasse(22.0))
                 .color(p.entete),
         );
-        ui.label(
-            RichText::new(format!("{} {}", textes::A_PROPOS_VERSION, textes::VERSION))
-                .color(p.texte_attenue),
-        );
+        ui.label(RichText::new(textes::version_et_revision()).color(p.texte_attenue));
         ui.add_space(6.0);
         ui.label(textes::A_PROPOS_DESCRIPTION);
         ui.add_space(4.0);
@@ -30,6 +27,19 @@ pub fn afficher(ui: &mut Ui, p: &Palette, dossier: Option<&str>) -> bool {
             RichText::new(textes::GRACIEUSETE)
                 .font(theme::police_grasse(14.5))
                 .color(p.titre),
+        );
+        // Les coordonnées de Constructo AI : le courriel s'ouvre dans le
+        // logiciel de courriel, le site dans un nouvel onglet.
+        ui.hyperlink_to(
+            textes::COURRIEL_CONSTRUCTO,
+            textes::LIEN_COURRIEL_CONSTRUCTO,
+        );
+        ui.add(
+            egui::Hyperlink::from_label_and_url(
+                textes::SITE_CONSTRUCTO,
+                textes::LIEN_SITE_CONSTRUCTO,
+            )
+            .open_in_new_tab(true),
         );
 
         section(ui, p, textes::AVERTISSEMENT_TITRE);
@@ -51,6 +61,13 @@ pub fn afficher(ui: &mut Ui, p: &Palette, dossier: Option<&str>) -> bool {
                 ui.label(RichText::new(textes::CONFIDENTIALITE_WEB).color(p.texte_attenue));
             }
         }
+
+        section(ui, p, textes::LICENCE_TITRE);
+        ui.label(textes::LICENCE);
+        ui.add(
+            egui::Hyperlink::from_label_and_url(textes::CODE_SOURCE, textes::LIEN_CODE_SOURCE)
+                .open_in_new_tab(true),
+        );
 
         section(ui, p, textes::BIBLIOTHEQUES_TITRE);
         if plateforme::NAVIGATEUR {

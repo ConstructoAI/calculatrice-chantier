@@ -121,6 +121,12 @@ fn telecharger(nom: &str, contenu: &str) -> Option<()> {
 }
 
 /// Le navigateur permet-il le plein écran? (Pas sur tous les téléphones.)
+/// Adresse du manuel d'utilisation : une page du site, à côté de celle de
+/// l'application, gardée hors ligne avec elle (`app/sw.js`).
+pub fn adresse_du_manuel(_depot: &Depot) -> String {
+    textes::FICHIER_DU_MANUEL.to_string()
+}
+
 pub fn plein_ecran_possible() -> bool {
     document().is_some_and(|d| d.fullscreen_enabled())
 }

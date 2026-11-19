@@ -100,6 +100,42 @@ impl Depot {
     }
 }
 
+/// Le manuel d'utilisation, embarqué dans le programme.
+const MANUEL: &str = include_str!("../../manuel.html");
+
+/// Adresse du manuel d'utilisation, à ouvrir dans le navigateur. La page est
+/// d'abord copiée dans le dossier de données : elle se lit ainsi sans réseau.
+/// Si la copie échoue, c'est l'adresse de la page publiée qui est rendue.
+pub fn adresse_du_manuel(depot: &Depot) -> String {
+    match depot.ecrire(textes::FICHIER_DU_MANUEL, MANUEL) {
+        Ok(()) => {
+            let chemin = depot.dossier.join(textes::FICHIER_DU_MANUEL);
+            adresse_de_fichier(&std::path::absolute(&chemin).unwrap_or(chemin))
+        }
+        Err(_) => textes::ADRESSE_DU_MANUEL.to_string(),
+    }
+}
+
+/// Adresse `file:` d'un fichier du poste : les barres obliques inverses de
+/// Windows deviennent des barres obliques, et tout caractère hors des lettres,
+/// des chiffres et de quelques signes est codé en pourcentage.
+fn adresse_de_fichier(chemin: &Path) -> String {
+    let texte = chemin.to_string_lossy().replace('\\', "/");
+    let mut adresse = String::from("file://");
+    if !texte.starts_with('/') {
+        adresse.push('/');
+    }
+    for octet in texte.bytes() {
+        match octet {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => {
+                adresse.push(char::from(octet))
+            }
+            autre => adresse.push_str(&format!("%{autre:02X}")),
+        }
+    }
+    adresse
+}
+
 /// Demande où enregistrer le fichier, puis l'écrit.
 pub fn exporter(fichier: &Fichier<'_>) -> Export {
     let choix = rfd::FileDialog::new()
@@ -156,6 +192,36 @@ mod tests {
         // Un contenu qui n'est pas de l'UTF-8 est illisible, pas absent.
         fs::write(dossier.join("essai.json"), [0xFF, 0xFE, 0x00]).unwrap();
         assert!(matches!(depot.lire("essai.json"), Lecture::Illisible));
+        let _ = fs::remove_dir_all(&dossier);
+    }
+
+    #[test]
+    fn adresse_d_un_fichier_du_poste() {
+        assert_eq!(
+            adresse_de_fichier(Path::new("/tmp/Jean Tremblay/manuel.html")),
+            "file:///tmp/Jean%20Tremblay/manuel.html"
+        );
+        assert_eq!(
+            adresse_de_fichier(Path::new(
+                "C:\\Users\\Zoé\\AppData\\Roaming\\CalculatriceChantier\\manuel.html"
+            )),
+            "file:///C:/Users/Zo%C3%A9/AppData/Roaming/CalculatriceChantier/manuel.html"
+        );
+    }
+
+    #[test]
+    fn le_manuel_est_copie_dans_le_dossier_de_donnees() {
+        let dossier = std::env::temp_dir().join(format!(
+            "calculatrice-chantier-manuel-{}",
+            std::process::id()
+        ));
+        let depot = Depot::dans(&dossier);
+        let adresse = adresse_du_manuel(&depot);
+        assert!(adresse.starts_with("file:///"), "{adresse}");
+        assert!(adresse.ends_with("/manuel.html"), "{adresse}");
+        let copie = fs::read_to_string(dossier.join("manuel.html")).unwrap();
+        assert!(copie.starts_with("<!doctype html>"));
+        assert!(copie.contains("Manuel d'utilisation"));
         let _ = fs::remove_dir_all(&dossier);
     }
 }

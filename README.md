@@ -26,8 +26,13 @@ L'exécutable de bureau n'est pas signé. Au premier lancement, Windows peut aff
 *Exécuter quand même*.
 
 La calculatrice est gratuite, sans publicité et sans compte : une gracieuseté de
-Sylvain Leduc de Constructo AI. Le comportement complet est
-décrit dans `CAHIER_DES_CHARGES.md`.
+Sylvain Leduc de [Constructo AI](https://constructoai.ca/). C'est un logiciel libre, sous
+licence Apache 2.0.
+
+**Le [manuel d'utilisation](https://constructoai.github.io/calculatrice-chantier/manuel.html)**
+explique tout, exemples à l'appui : il s'ouvre aussi depuis le menu ☰ de la calculatrice
+et se lit sans réseau. Le comportement complet du programme est décrit dans
+`CAHIER_DES_CHARGES.md`.
 
 > Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le
 > jugement d'une personne compétente, ni les exigences du Code de construction du Québec
@@ -197,6 +202,15 @@ valeurs calculées à part (section 22.14). Ils rejouent aussi les outils de mé
 clavier (section 23.9) et soumettent chacun des 76 outils à des milliers de touches au
 hasard.
 
+Le manuel d'utilisation (`app/manuel.html`) est produit à partir d'un gabarit
+(`app/outils/manuel-gabarit.html`) et du contenu même du programme : fiches d'aide,
+calculateurs, exemples calculés par le noyau. Un test échoue s'il n'est plus à jour;
+pour le refaire :
+
+```powershell
+cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored
+```
+
 ## Publication automatique
 
 Deux automatisations GitHub (dossier `.github/workflows/`) tiennent les deux versions à
@@ -224,6 +238,25 @@ jour :
 | `app/manifest.webmanifest`, `app/sw.js` | Ce qui rend la version Web installable et utilisable hors ligne. |
 | `app/icones/` | Icônes de l'application installable, dessinées par `app/outils/icones.py`. |
 | `app/polices/` | Polices libres de la version Web, avec leurs licences (`LISEZMOI.md`). |
+| `app/manuel.html` | Manuel d'utilisation : une page du site, aussi embarquée dans l'exécutable de bureau. Produite par `app/src/manuel.rs` à partir de `app/outils/manuel-gabarit.html`. |
+| `app/build.rs` | Inscrit dans le programme la révision du code source (l'identifiant du commit), affichée au bas du menu. |
+| `LICENSE`, `NOTICE` | Licence Apache 2.0 et avis de droit d'auteur. |
+
+## Licence
+
+La Calculatrice de chantier est un logiciel libre, distribué sous la
+[licence Apache, version 2.0](LICENSE). Chacun peut l'utiliser, la copier, la modifier et
+la redistribuer, y compris à des fins commerciales, à condition de joindre une copie de la
+licence, de conserver les avis de droit d'auteur et le contenu du fichier [`NOTICE`](NOTICE),
+et de signaler les fichiers modifiés. La licence ne donne aucun droit sur les noms et les
+marques. Le logiciel est fourni « tel quel », sans garantie d'aucune sorte.
+
+Copyright 2026 Sylvain Leduc, Constructo AI — <https://constructoai.ca/> ·
+<info@constructoai.ca>
+
+Les polices du dossier `app/polices/` viennent d'autres auteurs et gardent leur propre
+licence (SIL OFL 1.1 pour Selawik et Open Sans, licence Bitstream Vera pour DejaVu Sans) :
+voir `app/polices/LISEZMOI.md`.
 
 ## Nom de l'application
 

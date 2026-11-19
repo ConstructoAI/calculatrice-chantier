@@ -13,6 +13,7 @@ const COPIE = "calculatrice-chantier";
 const PAGE = "./";
 const FICHIERS_FIXES = [
     "manifest.webmanifest",
+    "manuel.html",
     "icones/icone-192.png",
     "icones/icone-512.png",
     "icones/icone-masquable-512.png",
