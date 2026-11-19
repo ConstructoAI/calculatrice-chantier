@@ -1,8 +1,7 @@
 //! L'application : fenêtre, navigation, dialogues, clavier d'ordinateur et
 //! sauvegarde. Aucune formule ici (R-49) : tout le calcul est dans le noyau.
 
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use eframe::egui::{self, Align2, Color32, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use noyau::analyse::analyser_collage;
@@ -13,6 +12,7 @@ use noyau::{Effet, Moteur, Prefixe, Touche};
 use crate::afficheur::{self, ActionAfficheur};
 use crate::aide;
 use crate::clavier::{self, ActionClavier, Contexte, EtatClavier};
+use crate::plateforme::{self, Depot, Export, Fichier};
 use crate::raccourcis::{self, Action};
 use crate::stockage::{self, MAX_RUBANS, RubanEnregistre};
 use crate::textes;
@@ -29,8 +29,6 @@ const LARGEUR_LARGE: f32 = 880.0;
 const LARGEUR_PLAFOND: f32 = 520.0;
 const HAUTEUR_BARRE_SUPERIEURE: f32 = 48.0;
 const HAUTEUR_BARRE_INFERIEURE: f32 = 56.0;
-/// Intervalle minimal entre deux écritures de l'état (R-45).
-const INTERVALLE_SAUVEGARDE: Duration = Duration::from_secs(1);
 /// Durée d'affichage des confirmations discrètes, en secondes.
 const DUREE_FUGACE: f64 = 1.8;
 
@@ -86,7 +84,8 @@ enum Dialogue {
 
 pub struct Application {
     moteur: Moteur,
-    dossier: PathBuf,
+    /// Là où sont conservées les données : un dossier ou le navigateur.
+    depot: Depot,
     rubans: Vec<RubanEnregistre>,
     vue: Vue,
     tiroir_ouvert: bool,
@@ -98,7 +97,8 @@ pub struct Application {
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
     fugace: Option<(&'static str, f64)>,
     a_sauvegarder: bool,
-    derniere_sauvegarde: Instant,
+    /// Moment de la dernière écriture de l'état, en secondes de l'horloge d'egui.
+    derniere_sauvegarde: f64,
     echec_d_ecriture_signale: bool,
     plein_ecran_applique: bool,
     sombre_applique: Option<bool>,
@@ -111,9 +111,9 @@ impl Application {
         theme::installer_les_polices(&cc.egui_ctx);
         // L'échelle suit la taille de la fenêtre : pas de zoom au clavier.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
-        let dossier = stockage::dossier_de_donnees();
-        let chargement = stockage::charger_etat(&dossier);
-        let rubans = stockage::charger_rubans(&dossier);
+        let depot = Depot::ouvrir();
+        let chargement = stockage::charger_etat(&depot);
+        let rubans = stockage::charger_rubans(&depot);
         let moteur = Moteur::nouveau(chargement.etat);
         let vue = if moteur.bienvenue_vue() {
             Vue::Accueil
@@ -127,7 +127,7 @@ impl Application {
         };
         Application {
             moteur,
-            dossier,
+            depot,
             rubans,
             vue,
             tiroir_ouvert: false,
@@ -138,7 +138,8 @@ impl Application {
             ruban_ouvert: None,
             fugace: None,
             a_sauvegarder: chargement.illisible,
-            derniere_sauvegarde: Instant::now(),
+            // Le premier changement est enregistré sans attendre.
+            derniere_sauvegarde: f64::NEG_INFINITY,
             echec_d_ecriture_signale: false,
             plein_ecran_applique: false,
             sombre_applique: None,
@@ -201,6 +202,12 @@ impl Application {
     }
 
     fn basculer_plein_ecran(&mut self) {
+        if plateforme::NAVIGATEUR {
+            // Dans un navigateur, le plein écran se demande sur-le-champ : il
+            // n'est pas mémorisé dans les préférences.
+            plateforme::basculer_plein_ecran();
+            return;
+        }
         let voulu = !self.moteur.preferences().plein_ecran;
         self.moteur.preferences_mut().plein_ecran = voulu;
         self.a_sauvegarder = true;
@@ -210,36 +217,45 @@ impl Application {
     // Sauvegarde (section 17.3)
     // ------------------------------------------------------------------
 
-    fn sauvegarder(&mut self) {
+    /// Signale, une seule fois, que les données ne peuvent pas être conservées.
+    fn signaler_l_echec_d_ecriture(&mut self) {
+        if self.echec_d_ecriture_signale {
+            return;
+        }
+        self.echec_d_ecriture_signale = true;
+        self.dialogue = Dialogue::Avis(if plateforme::NAVIGATEUR {
+            textes::AVIS_ECRITURE_IMPOSSIBLE_WEB
+        } else {
+            textes::AVIS_ECRITURE_IMPOSSIBLE
+        });
+    }
+
+    fn sauvegarder(&mut self, ctx: &egui::Context) {
         self.a_sauvegarder = false;
-        self.derniere_sauvegarde = Instant::now();
-        if stockage::enregistrer_etat(&self.dossier, &self.moteur.etat_persistant()).is_err()
-            && !self.echec_d_ecriture_signale
-        {
-            self.echec_d_ecriture_signale = true;
-            self.dialogue = Dialogue::Avis(textes::AVIS_ECRITURE_IMPOSSIBLE);
+        self.derniere_sauvegarde = ctx.input(|i| i.time);
+        if stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant()).is_err() {
+            self.signaler_l_echec_d_ecriture();
         }
     }
 
-    /// Au plus une écriture par seconde (R-45).
+    /// Sur le bureau, au plus une écriture par seconde (R-45); dans un
+    /// navigateur, sans délai.
     fn sauvegarder_si_du(&mut self, ctx: &egui::Context) {
         if !self.a_sauvegarder {
             return;
         }
-        let ecoule = self.derniere_sauvegarde.elapsed();
-        if ecoule >= INTERVALLE_SAUVEGARDE {
-            self.sauvegarder();
+        let ecoule = ctx.input(|i| i.time) - self.derniere_sauvegarde;
+        if ecoule >= plateforme::INTERVALLE_SAUVEGARDE {
+            self.sauvegarder(ctx);
         } else {
-            ctx.request_repaint_after(INTERVALLE_SAUVEGARDE - ecoule);
+            let attente = (plateforme::INTERVALLE_SAUVEGARDE - ecoule).max(0.0);
+            ctx.request_repaint_after(Duration::from_secs_f64(attente));
         }
     }
 
     fn ecrire_rubans(&mut self) {
-        if stockage::enregistrer_rubans(&self.dossier, &self.rubans).is_err()
-            && !self.echec_d_ecriture_signale
-        {
-            self.echec_d_ecriture_signale = true;
-            self.dialogue = Dialogue::Avis(textes::AVIS_ECRITURE_IMPOSSIBLE);
+        if stockage::enregistrer_rubans(&self.depot, &self.rubans).is_err() {
+            self.signaler_l_echec_d_ecriture();
         }
     }
 
@@ -299,16 +315,17 @@ impl Application {
         let Some((nom, texte)) = self.texte_de_ruban(id) else {
             return;
         };
-        let choix = rfd::FileDialog::new()
-            .set_title(textes::TITRE_EXPORTER)
-            .set_file_name(stockage::nom_de_fichier(&nom))
-            .add_filter(textes::FILTRE_TEXTE, &["txt"])
-            .save_file();
-        if let Some(chemin) = choix {
-            match stockage::exporter_texte(&chemin, &texte) {
-                Ok(()) => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
-                Err(_) => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
-            }
+        // Bureau : boîte « Enregistrer sous »; navigateur : téléchargement.
+        let fichier = Fichier {
+            titre: textes::TITRE_EXPORTER,
+            filtre: textes::FILTRE_TEXTE,
+            nom: &stockage::nom_de_fichier(&nom),
+            contenu: &stockage::contenu_exporte(&texte),
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
         }
     }
 
@@ -387,6 +404,10 @@ impl Application {
     }
 
     fn appliquer_plein_ecran(&mut self, ctx: &egui::Context) {
+        if plateforme::NAVIGATEUR {
+            // Le navigateur gère son plein écran (voir `basculer_plein_ecran`).
+            return;
+        }
         let voulu = self.moteur.preferences().plein_ecran;
         if voulu != self.plein_ecran_applique {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(voulu));
@@ -428,6 +449,8 @@ impl Application {
                     }
                     let ctrl = modifiers.ctrl || modifiers.command;
                     match raccourcis::action_de_la_touche(key, ctrl) {
+                        // Dans un navigateur, F11 appartient au navigateur.
+                        Some(Action::PleinEcran) if plateforme::NAVIGATEUR => {}
                         Some(Action::PleinEcran) => self.basculer_plein_ecran(),
                         Some(Action::Aide) if libre => self.aller(Vue::Aide),
                         Some(Action::Preferences) if libre => self.aller(Vue::Preferences),
@@ -486,16 +509,21 @@ impl Application {
         ) {
             self.tiroir_ouvert = !self.tiroir_ouvert;
         }
-        if bouton_icone(
-            ui,
-            case(1.0),
-            textes::NOM_PLEIN_ECRAN,
-            textes::INFOBULLE_PLEIN_ECRAN,
-            p,
-            dessiner_plein_ecran,
-        ) {
+        // Certains navigateurs (sur téléphone surtout) n'offrent pas le plein écran.
+        let plein_ecran = plateforme::plein_ecran_possible();
+        if plein_ecran
+            && bouton_icone(
+                ui,
+                case(1.0),
+                textes::NOM_PLEIN_ECRAN,
+                textes::INFOBULLE_PLEIN_ECRAN,
+                p,
+                dessiner_plein_ecran,
+            )
+        {
             self.basculer_plein_ecran();
         }
+        let boutons_a_gauche = if plein_ecran { 2.0 } else { 1.0 };
         let droite = Rect::from_min_size(
             Pos2::new(rect.right() - cote, rect.top()),
             Vec2::splat(cote),
@@ -517,7 +545,10 @@ impl Application {
         }
         // Logo : la petite équerre orange de l'icône.
         let logo = Rect::from_center_size(
-            Pos2::new(rect.left() + 2.0 * cote + 12.0, rect.center().y),
+            Pos2::new(
+                rect.left() + boutons_a_gauche * cote + 12.0,
+                rect.center().y,
+            ),
             Vec2::splat(17.0),
         );
         dessiner_equerre(ui.painter(), logo, p.barre_accent);
@@ -748,7 +779,7 @@ impl Application {
                 }
             }
             Vue::APropos => {
-                if vues::a_propos::afficher(ui, p, &self.dossier) {
+                if vues::a_propos::afficher(ui, p, self.depot.emplacement().as_deref()) {
                     self.aller(Vue::Accueil);
                 }
             }
@@ -832,6 +863,10 @@ impl Application {
                             (textes::MENU_QUITTER, None),
                         ];
                         for (libelle, vue) in elements {
+                            // On ne « quitte » pas une page Web : on ferme son onglet.
+                            if vue.is_none() && plateforme::NAVIGATEUR {
+                                continue;
+                            }
                             // Texte blanc; le fond s'éclaire au survol.
                             let (zone, reponse) = ui.allocate_exact_size(
                                 Vec2::new(ui.available_width(), 42.0),
@@ -866,7 +901,7 @@ impl Application {
         match choix {
             Some(Some(vue)) => self.aller(vue),
             Some(None) => {
-                self.sauvegarder();
+                self.sauvegarder(ctx);
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
             None if fermer => self.tiroir_ouvert = false,
@@ -1214,9 +1249,13 @@ impl eframe::App for Application {
         self.sauvegarder_si_du(&ctx);
     }
 
+    // Bureau seulement : une page Web se ferme sans préavis, et chaque
+    // changement y est déjà enregistré sur-le-champ. (La signature de cette
+    // méthode dépend aussi du moteur de rendu, qui n'est pas le même sur le Web.)
+    #[cfg(not(target_arch = "wasm32"))]
     fn on_exit(&mut self) {
         // L'état est sauvegardé à la fermeture (R-45).
-        let _ = stockage::enregistrer_etat(&self.dossier, &self.moteur.etat_persistant());
+        let _ = stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant());
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {

@@ -11,6 +11,7 @@ use noyau::unites::{Format, UniteMasseVolumique};
 use noyau::{Moteur, Valeur};
 
 use super::{carte, corps, en_tete, section};
+use crate::plateforme;
 use crate::textes;
 use crate::theme::{self, Palette};
 
@@ -215,13 +216,17 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
                 textes::PREF_FRACTIONS_RAPIDES_AIDE,
                 &mut prefs.fractions_rapides,
             );
-            bascule(
-                ui,
-                p,
-                textes::PREF_PLEIN_ECRAN,
-                textes::PREF_PLEIN_ECRAN_AIDE,
-                &mut prefs.plein_ecran,
-            );
+            // Dans un navigateur, le plein écran se demande par le bouton de la
+            // barre supérieure : il ne peut pas être rétabli au démarrage.
+            if !plateforme::NAVIGATEUR {
+                bascule(
+                    ui,
+                    p,
+                    textes::PREF_PLEIN_ECRAN,
+                    textes::PREF_PLEIN_ECRAN_AIDE,
+                    &mut prefs.plein_ecran,
+                );
+            }
             choix(
                 ui,
                 textes::PREF_THEME,

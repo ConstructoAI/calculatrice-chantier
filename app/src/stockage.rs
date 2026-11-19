@@ -1,13 +1,16 @@
-//! Lecture et écriture des fichiers de données (section 17).
+//! Lecture et écriture des données conservées (section 17).
+//!
+//! Ce module ne sait pas où vont les données : un dossier de fichiers sur le
+//! bureau, le stockage local dans un navigateur. C'est l'affaire du `Depot` de
+//! la plateforme.
 
-use std::fs;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::io;
 
 use chrono::{Datelike, Timelike};
 use noyau::{EtatPersistant, LigneRuban};
 use serde::{Deserialize, Serialize};
 
+use crate::plateforme::{Depot, JSON_LISIBLE, Lecture};
 use crate::textes;
 
 const FICHIER_ETAT: &str = "etat.json";
@@ -19,90 +22,52 @@ const VERSION_RUBANS: u32 = 1;
 /// Nombre maximal de rubans enregistrés (annexe A.2).
 pub const MAX_RUBANS: usize = 200;
 
-/// Dossier de données de l'utilisateur (section 17.1).
-///
-/// `eframe::storage_dir` n'est offert qu'avec la fonctionnalité `persistence`,
-/// que l'application n'active pas : on applique donc le repli prévu, soit
-/// `%APPDATA%\CalculatriceChantier\` sous Windows.
-pub fn dossier_de_donnees() -> PathBuf {
-    let variable = |nom: &str| {
-        std::env::var_os(nom)
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-    };
-    let base = if cfg!(windows) {
-        variable("APPDATA")
-    } else if cfg!(target_os = "macos") {
-        variable("HOME").map(|h| h.join("Library").join("Application Support"))
+/// Met une valeur en JSON : lisible sur le bureau, compact dans un navigateur.
+fn en_json<T: Serialize>(valeur: &T) -> io::Result<String> {
+    let json = if JSON_LISIBLE {
+        serde_json::to_string_pretty(valeur)
     } else {
-        variable("XDG_DATA_HOME")
-            .or_else(|| variable("HOME").map(|h| h.join(".local").join("share")))
+        serde_json::to_string(valeur)
     };
-    match base {
-        Some(base) => base.join(textes::APP_ID),
-        None => PathBuf::from("."),
-    }
-}
-
-/// Écriture atomique : dans un fichier temporaire, puis renommage (R-44).
-fn ecrire_atomique(chemin: &Path, contenu: &str) -> io::Result<()> {
-    if let Some(parent) = chemin.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let mut nom_temporaire = chemin.as_os_str().to_owned();
-    nom_temporaire.push(".tmp");
-    let temporaire = PathBuf::from(nom_temporaire);
-    {
-        let mut fichier = fs::File::create(&temporaire)?;
-        fichier.write_all(contenu.as_bytes())?;
-        fichier.sync_all()?;
-    }
-    fs::rename(&temporaire, chemin)
+    json.map_err(io::Error::other)
 }
 
 /// Résultat de la lecture de `etat.json`.
 pub struct Chargement {
     pub etat: EtatPersistant,
-    /// Le fichier existait mais n'a pas pu être lu : il a été mis de côté (R-46).
+    /// La donnée existait mais n'a pas pu être lue : elle a été mise de côté (R-46).
     pub illisible: bool,
 }
 
-/// Lit l'état conservé. Fichier absent : valeurs par défaut. Fichier illisible
-/// ou d'une version inconnue : mis de côté, valeurs par défaut (R-46).
-pub fn charger_etat(dossier: &Path) -> Chargement {
-    let chemin = dossier.join(FICHIER_ETAT);
-    let texte = match fs::read_to_string(&chemin) {
-        Ok(texte) => texte,
-        Err(erreur) => {
-            let illisible = erreur.kind() != io::ErrorKind::NotFound;
-            if illisible {
-                let _ = fs::rename(&chemin, dossier.join(FICHIER_ETAT_CORROMPU));
-            }
-            return Chargement {
-                etat: EtatPersistant::default(),
-                illisible,
-            };
+/// Lit l'état conservé. Donnée absente : valeurs par défaut. Donnée illisible
+/// ou d'une version inconnue : mise de côté, valeurs par défaut (R-46).
+pub fn charger_etat(depot: &Depot) -> Chargement {
+    let par_defaut = |illisible: bool| {
+        if illisible {
+            depot.mettre_de_cote(FICHIER_ETAT, FICHIER_ETAT_CORROMPU);
         }
+        Chargement {
+            etat: EtatPersistant::default(),
+            illisible,
+        }
+    };
+    let texte = match depot.lire(FICHIER_ETAT) {
+        Lecture::Texte(texte) => texte,
+        Lecture::Absent => return par_defaut(false),
+        Lecture::Illisible => return par_defaut(true),
     };
     match serde_json::from_str::<EtatPersistant>(&texte) {
         Ok(etat) if etat.version_connue() => Chargement {
             etat,
             illisible: false,
         },
-        _ => {
-            let _ = fs::rename(&chemin, dossier.join(FICHIER_ETAT_CORROMPU));
-            Chargement {
-                etat: EtatPersistant::default(),
-                illisible: true,
-            }
-        }
+        _ => par_defaut(true),
     }
 }
 
-/// Enregistre l'état, en JSON lisible.
-pub fn enregistrer_etat(dossier: &Path, etat: &EtatPersistant) -> io::Result<()> {
-    let json = serde_json::to_string_pretty(etat).map_err(io::Error::other)?;
-    ecrire_atomique(&dossier.join(FICHIER_ETAT), &json)
+/// Enregistre l'état.
+pub fn enregistrer_etat(depot: &Depot, etat: &EtatPersistant) -> io::Result<()> {
+    depot.ecrire(FICHIER_ETAT, &en_json(etat)?)
 }
 
 /// Un ruban enregistré (section 14.3).
@@ -133,41 +98,45 @@ struct FichierRubans {
     rubans: Vec<RubanEnregistre>,
 }
 
-/// Lit les rubans enregistrés; liste vide si le fichier est absent ou illisible.
-pub fn charger_rubans(dossier: &Path) -> Vec<RubanEnregistre> {
-    let chemin = dossier.join(FICHIER_RUBANS);
-    let Ok(texte) = fs::read_to_string(&chemin) else {
-        return Vec::new();
+/// Lit les rubans enregistrés; liste vide s'il n'y en a pas. Une liste
+/// illisible ou d'une version inconnue est mise de côté.
+pub fn charger_rubans(depot: &Depot) -> Vec<RubanEnregistre> {
+    let lus = match depot.lire(FICHIER_RUBANS) {
+        Lecture::Absent => return Vec::new(),
+        Lecture::Illisible => None,
+        Lecture::Texte(texte) => serde_json::from_str::<FichierRubans>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_RUBANS),
     };
-    match serde_json::from_str::<FichierRubans>(&texte) {
-        Ok(fichier) if fichier.version == VERSION_RUBANS => fichier.rubans,
-        _ => {
-            let _ = fs::rename(&chemin, dossier.join(FICHIER_RUBANS_CORROMPU));
+    match lus {
+        Some(fichier) => fichier.rubans,
+        None => {
+            depot.mettre_de_cote(FICHIER_RUBANS, FICHIER_RUBANS_CORROMPU);
             Vec::new()
         }
     }
 }
 
 /// Enregistre les rubans, du plus récent au plus ancien.
-pub fn enregistrer_rubans(dossier: &Path, rubans: &[RubanEnregistre]) -> io::Result<()> {
+pub fn enregistrer_rubans(depot: &Depot, rubans: &[RubanEnregistre]) -> io::Result<()> {
     let fichier = FichierRubans {
         version: VERSION_RUBANS,
         rubans: rubans.to_vec(),
     };
-    let json = serde_json::to_string_pretty(&fichier).map_err(io::Error::other)?;
-    ecrire_atomique(&dossier.join(FICHIER_RUBANS), &json)
+    depot.ecrire(FICHIER_RUBANS, &en_json(&fichier)?)
 }
 
-/// Écrit un texte exporté : UTF-8 avec indicateur d'ordre des octets et fins de
-/// ligne Windows, pour que le Bloc-notes garde les accents intacts.
-pub fn exporter_texte(chemin: &Path, texte: &str) -> io::Result<()> {
+/// Contenu d'un fichier texte exporté : UTF-8 avec indicateur d'ordre des
+/// octets et fins de ligne Windows, pour que le Bloc-notes garde les accents
+/// intacts.
+pub fn contenu_exporte(texte: &str) -> String {
     let mut contenu = String::with_capacity(texte.len() + 16);
     contenu.push('\u{FEFF}');
     for ligne in texte.lines() {
         contenu.push_str(ligne);
         contenu.push_str("\r\n");
     }
-    fs::write(chemin, contenu)
+    contenu
 }
 
 /// Date et heure locales : (ISO 8601, date en clair).
@@ -199,6 +168,9 @@ pub fn nom_de_fichier(nom: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+
     use super::*;
     use noyau::{Moteur, Touche};
 
@@ -215,6 +187,10 @@ mod tests {
             fs::create_dir_all(&chemin).unwrap();
             DossierTemporaire(chemin)
         }
+
+        fn depot(&self) -> Depot {
+            Depot::dans(&self.0)
+        }
     }
 
     impl Drop for DossierTemporaire {
@@ -226,7 +202,7 @@ mod tests {
     #[test]
     fn fichier_absent_valeurs_par_defaut() {
         let d = DossierTemporaire::nouveau("absent");
-        let c = charger_etat(&d.0);
+        let c = charger_etat(&d.depot());
         assert!(!c.illisible);
         assert_eq!(c.etat, EtatPersistant::default());
     }
@@ -251,10 +227,10 @@ mod tests {
         moteur.preferences_mut().resolution = 8;
         moteur.marquer_bienvenue_vue();
         let etat = moteur.etat_persistant();
-        enregistrer_etat(&d.0, &etat).unwrap();
+        enregistrer_etat(&d.depot(), &etat).unwrap();
         // L'écriture est atomique : il ne reste pas de fichier temporaire.
         assert!(!d.0.join("etat.json.tmp").exists());
-        let relu = charger_etat(&d.0);
+        let relu = charger_etat(&d.depot());
         assert!(!relu.illisible);
         assert_eq!(relu.etat.preferences, etat.preferences);
         assert_eq!(relu.etat.memoire, etat.memoire);
@@ -265,7 +241,7 @@ mod tests {
             etat.pente.map(|p| p.ratio)
         );
         assert!(relu.etat.bienvenue_vue);
-        // Le JSON est lisible et en UTF-8.
+        // Sur le bureau, le JSON est lisible et en UTF-8.
         let texte = fs::read_to_string(d.0.join("etat.json")).unwrap();
         assert!(texte.contains("\"resolution\": 8"));
     }
@@ -274,7 +250,7 @@ mod tests {
     fn fichier_corrompu_mis_de_cote() {
         let d = DossierTemporaire::nouveau("corrompu");
         fs::write(d.0.join("etat.json"), "{ ceci n'est pas du JSON").unwrap();
-        let c = charger_etat(&d.0);
+        let c = charger_etat(&d.depot());
         assert!(c.illisible);
         assert_eq!(c.etat, EtatPersistant::default());
         assert!(d.0.join("etat.corrompu.json").exists());
@@ -285,7 +261,7 @@ mod tests {
     fn version_inconnue_mise_de_cote() {
         let d = DossierTemporaire::nouveau("version");
         fs::write(d.0.join("etat.json"), "{ \"version\": 99 }").unwrap();
-        assert!(charger_etat(&d.0).illisible);
+        assert!(charger_etat(&d.depot()).illisible);
         assert!(d.0.join("etat.corrompu.json").exists());
     }
 
@@ -298,7 +274,7 @@ mod tests {
             "{ \"version\": 1, \"preferences\": { \"resolution\": 32 } }",
         )
         .unwrap();
-        let c = charger_etat(&d.0);
+        let c = charger_etat(&d.depot());
         assert!(!c.illisible);
         assert_eq!(c.etat.preferences.resolution, 32);
         assert!(c.etat.preferences.separateur_milliers);
@@ -306,9 +282,25 @@ mod tests {
     }
 
     #[test]
+    fn json_compact_relu_comme_le_json_lisible() {
+        // Le navigateur conserve un JSON compact : il doit se relire pareil.
+        let d = DossierTemporaire::nouveau("compact");
+        let mut moteur = Moteur::default();
+        for t in [Touche::Chiffre(4), Touche::Pieds, Touche::MPlus] {
+            moteur.appuyer(t);
+        }
+        let etat = moteur.etat_persistant();
+        fs::write(d.0.join("etat.json"), serde_json::to_string(&etat).unwrap()).unwrap();
+        let relu = charger_etat(&d.depot());
+        assert!(!relu.illisible);
+        assert_eq!(relu.etat.memoire, etat.memoire);
+        assert_eq!(relu.etat.ruban, etat.ruban);
+    }
+
+    #[test]
     fn aller_retour_des_rubans() {
         let d = DossierTemporaire::nouveau("rubans");
-        assert!(charger_rubans(&d.0).is_empty());
+        assert!(charger_rubans(&d.depot()).is_empty());
         let ruban = RubanEnregistre {
             id: 1,
             nom: "Escalier du sous-sol".to_string(),
@@ -318,20 +310,30 @@ mod tests {
                 ..LigneRuban::default()
             }],
         };
-        enregistrer_rubans(&d.0, std::slice::from_ref(&ruban)).unwrap();
-        assert_eq!(charger_rubans(&d.0), vec![ruban.clone()]);
+        enregistrer_rubans(&d.depot(), std::slice::from_ref(&ruban)).unwrap();
+        assert_eq!(charger_rubans(&d.depot()), vec![ruban.clone()]);
         assert_eq!(ruban.date_en_clair(), "19 novembre 2026, 8 h 04");
     }
 
     #[test]
+    fn rubans_illisibles_mis_de_cote() {
+        let d = DossierTemporaire::nouveau("rubans-illisibles");
+        fs::write(
+            d.0.join("rubans.json"),
+            "{ \"version\": 99, \"rubans\": [] }",
+        )
+        .unwrap();
+        assert!(charger_rubans(&d.depot()).is_empty());
+        assert!(d.0.join("rubans.corrompu.json").exists());
+        assert!(!d.0.join("rubans.json").exists());
+    }
+
+    #[test]
     fn export_lisible_dans_le_bloc_notes() {
-        let d = DossierTemporaire::nouveau("export");
-        let chemin = d.0.join("ruban.txt");
-        exporter_texte(&chemin, "Montée\n= 5 pi 7 1/2 po\n").unwrap();
-        let octets = fs::read(&chemin).unwrap();
-        assert_eq!(&octets[..3], &[0xEF, 0xBB, 0xBF]);
-        let texte = String::from_utf8(octets).unwrap();
-        assert!(texte.contains("Montée\r\n= 5 pi 7 1/2 po\r\n"));
+        let contenu = contenu_exporte("Montée\n= 5 pi 7 1/2 po\n");
+        // Indicateur d'ordre des octets en tête, puis des fins de ligne Windows.
+        assert_eq!(&contenu.as_bytes()[..3], &[0xEF, 0xBB, 0xBF]);
+        assert_eq!(contenu, "\u{FEFF}Montée\r\n= 5 pi 7 1/2 po\r\n");
     }
 
     #[test]

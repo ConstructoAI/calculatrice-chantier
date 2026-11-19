@@ -400,6 +400,7 @@ pub fn police_italique(taille: f32) -> FontId {
 }
 
 /// Dossier des polices du système, s'il existe.
+#[cfg(not(target_arch = "wasm32"))]
 fn dossier_des_polices() -> Option<std::path::PathBuf> {
     #[cfg(windows)]
     {
@@ -412,8 +413,9 @@ fn dossier_des_polices() -> Option<std::path::PathBuf> {
     }
 }
 
-/// Installe les polices : Segoe UI (courant, gras, italique) sous Windows, avec
+/// Bureau : installe Segoe UI (courant, gras, italique) sous Windows, avec
 /// repli sur les polices intégrées d'egui si un fichier est absent.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn installer_les_polices(ctx: &egui::Context) {
     let mut definitions = FontDefinitions::default();
     let defaut: Vec<String> = definitions
@@ -471,6 +473,73 @@ pub fn installer_les_polices(ctx: &egui::Context) {
         .families
         .insert(FontFamily::Name(FAMILLE_ITALIQUE.into()), chaine(italique));
     ctx.set_fonts(definitions);
+}
+
+/// Web : installe les polices embarquées.
+#[cfg(target_arch = "wasm32")]
+pub fn installer_les_polices(ctx: &egui::Context) {
+    ctx.set_fonts(definitions_embarquees());
+}
+
+/// Polices libres embarquées dans la version Web, où les polices du système
+/// sont hors d'atteinte (provenance et licences : `app/polices/LISEZMOI.md`).
+/// Elles sont aussi compilées pour les tests, qui vérifient qu'aucun caractère
+/// du programme n'y manque.
+///
+/// Selawik a exactement les largeurs de Segoe UI : la mise en page est donc la
+/// même que sur le bureau. Il lui manque quelques signes (− √ π ′ ″ et l'espace
+/// insécable), pris dans Open Sans, et quelques symboles (⁻ → ↔ ◄ ► ⌫), pris
+/// dans DejaVu Sans. Selawik n'a pas d'italique : Open Sans le fournit.
+#[cfg(any(target_arch = "wasm32", test))]
+fn definitions_embarquees() -> FontDefinitions {
+    const POLICES: [(&str, &[u8]); 6] = [
+        ("selawik", include_bytes!("../polices/selawk.ttf")),
+        ("selawik-gras", include_bytes!("../polices/selawkb.ttf")),
+        (
+            "italique",
+            include_bytes!("../polices/OpenSans-Italic-extrait.ttf"),
+        ),
+        (
+            "signes",
+            include_bytes!("../polices/OpenSans-Regular-signes.ttf"),
+        ),
+        (
+            "signes-gras",
+            include_bytes!("../polices/OpenSans-Bold-signes.ttf"),
+        ),
+        (
+            "symboles",
+            include_bytes!("../polices/DejaVuSans-symboles.ttf"),
+        ),
+    ];
+    let mut definitions = FontDefinitions::empty();
+    for (nom, octets) in POLICES {
+        definitions
+            .font_data
+            .insert(nom.to_owned(), Arc::new(FontData::from_static(octets)));
+    }
+    let chaine =
+        |noms: &[&str]| -> Vec<String> { noms.iter().map(|nom| (*nom).to_owned()).collect() };
+    // La première police d'une chaîne fixe la hauteur de ligne. Celle des
+    // extraits d'Open Sans (1,36 em) est presque celle de Segoe UI (1,33 em),
+    // alors que celle de Selawik (1,20 em) resserrerait tous les textes. Les
+    // extraits passent donc en tête : ils ne contiennent de toute façon que
+    // les signes absents de Selawik.
+    let courant = chaine(&["signes", "selawik", "symboles"]);
+    definitions
+        .families
+        .insert(FontFamily::Proportional, courant.clone());
+    // Aucune police à chasse fixe n'est embarquée : la police courante en tient lieu.
+    definitions.families.insert(FontFamily::Monospace, courant);
+    definitions.families.insert(
+        FontFamily::Name(FAMILLE_GRAS.into()),
+        chaine(&["signes-gras", "selawik-gras", "symboles"]),
+    );
+    definitions.families.insert(
+        FontFamily::Name(FAMILLE_ITALIQUE.into()),
+        chaine(&["italique", "selawik", "signes", "symboles"]),
+    );
+    definitions
 }
 
 /// Règle le style des écrans secondaires (boutons, listes, champs) selon la palette.
@@ -560,6 +629,7 @@ pub fn installer_le_style(ctx: &egui::Context, p: &Palette) {
 
 /// Icône de la fenêtre : une équerre de charpentier orange sur fond bleu
 /// marine, dessinée par le code (aucun fichier image). Retourne des octets RVBA.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn icone_rvba(taille: u32) -> Vec<u8> {
     const MARINE: [f32; 3] = [0.0, 43.0, 107.0];
     const MARINE_BAS: [f32; 3] = [0.0, 24.0, 51.0];
@@ -600,6 +670,7 @@ pub fn icone_rvba(taille: u32) -> Vec<u8> {
 }
 
 /// Couleur de l'icône au point (u, v) du carré unité; `None` hors du fond arrondi.
+#[cfg(not(target_arch = "wasm32"))]
 fn couleur_icone(u: f32, v: f32, fond: [f32; 3], equerre: [f32; 3]) -> Option<[f32; 3]> {
     const RAYON: f32 = 0.18;
     // Fond : carré aux coins arrondis.
@@ -631,6 +702,82 @@ fn couleur_icone(u: f32, v: f32, fond: [f32; 3], equerre: [f32; 3]) -> Option<[f
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Caractères non ASCII des sources du programme (hors commentaires et
+    /// hors tests), y compris ceux écrits `\u{…}`.
+    fn caracteres_des_sources() -> std::collections::BTreeSet<char> {
+        fn parcourir(dossier: &std::path::Path, trouves: &mut std::collections::BTreeSet<char>) {
+            for entree in std::fs::read_dir(dossier).unwrap() {
+                let chemin = entree.unwrap().path();
+                if chemin.is_dir() {
+                    parcourir(&chemin, trouves);
+                } else if chemin.extension().is_some_and(|e| e == "rs") {
+                    let source = std::fs::read_to_string(&chemin).unwrap();
+                    for ligne in source.lines() {
+                        let ligne = ligne.trim_start();
+                        if ligne.starts_with("mod tests") {
+                            break;
+                        }
+                        if ligne.starts_with("//") {
+                            continue;
+                        }
+                        let code = ligne.split(" // ").next().unwrap_or(ligne);
+                        trouves.extend(code.chars().filter(|c| !c.is_ascii()));
+                        for echappement in code.split("\\u{").skip(1) {
+                            let hexa = echappement.split('}').next().unwrap_or("");
+                            if let Some(c) =
+                                u32::from_str_radix(hexa, 16).ok().and_then(char::from_u32)
+                            {
+                                trouves.insert(c);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let racine = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut trouves = std::collections::BTreeSet::new();
+        parcourir(&racine.join("src"), &mut trouves);
+        parcourir(&racine.join("../noyau/src"), &mut trouves);
+        trouves
+    }
+
+    #[test]
+    fn polices_web_sans_caractere_manquant() {
+        let ctx = egui::Context::default();
+        ctx.set_fonts(definitions_embarquees());
+        // Une première passe charge les polices; sa texture n'intéresse pas le test.
+        let mut sortie = ctx.run_ui(egui::RawInput::default(), |_| {});
+        sortie.textures_delta.clear();
+        let mut caracteres = caracteres_des_sources();
+        // L'indicateur d'ordre des octets ne s'affiche pas : il ouvre les fichiers exportés.
+        caracteres.remove(&'\u{FEFF}');
+        assert!(
+            caracteres.contains(&'⌫') && caracteres.contains(&'\u{2212}'),
+            "le relevé des caractères des sources est incomplet"
+        );
+        // Témoin : la vérification voit bien qu'un caractère est absent.
+        assert!(!ctx.fonts_mut(|f| f.has_glyph(&police(14.0), '\u{6F22}')));
+        // Tout l'ASCII affichable, et deux caractères qu'egui emploie lui-même.
+        caracteres.extend((0x20u8..=0x7E).map(char::from));
+        caracteres.extend(['…', '•']);
+        for (style, police) in [
+            ("courant", police(14.0)),
+            ("gras", police_grasse(14.0)),
+            ("italique", police_italique(14.0)),
+            ("chasse fixe", FontId::monospace(14.0)),
+        ] {
+            let manquants: Vec<String> = caracteres
+                .iter()
+                .filter(|c| !ctx.fonts_mut(|f| f.has_glyph(&police, **c)))
+                .map(|c| format!("{c} (U+{:04X})", *c as u32))
+                .collect();
+            assert!(
+                manquants.is_empty(),
+                "caractères sans glyphe dans les polices Web, style {style} : {manquants:?}"
+            );
+        }
+    }
 
     #[test]
     fn icone_de_la_bonne_taille() {

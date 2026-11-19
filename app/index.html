@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<!--
+    Page hôte de la version Web de la calculatrice (construite avec trunk).
+    Elle ne contient que le canevas où le programme se dessine, un écran
+    d'attente et un message d'échec. Les identifiants `calculatrice`,
+    `chargement` et `echec` sont ceux qu'attend `app/src/plateforme/web.rs`.
+-->
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#002050">
+    <meta name="description"
+        content="Calculatrice de construction en pieds-pouces-fractions et en métrique : pentes et chevrons, escaliers, arcs, onglets, quantités de matériaux. En français du Québec.">
+    <title>Calculatrice de chantier</title>
+
+    <!-- Le programme, compilé en WebAssembly. -->
+    <link data-trunk rel="rust" href="Cargo.toml" data-bin="calculatrice-chantier" data-wasm-opt="0">
+
+    <!-- Icône : la même équerre que celle de la fenêtre de bureau, dessinée en SVG. -->
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23002B6B'/%3E%3Cstop offset='1' stop-color='%23001833'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='18' fill='url(%23g)'/%3E%3Cpath fill='%23F97316' d='M24 18h18v46h40v18H24z'/%3E%3Cpath fill='%2300224F' d='M34 26.8h8v2.4h-8zM34 36.8h8v2.4h-8zM34 46.8h8v2.4h-8zM50.8 64h2.4v8h-2.4zM60.8 64h2.4v8h-2.4zM70.8 64h2.4v8h-2.4z'/%3E%3C/svg%3E">
+
+    <style>
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            /* Pas de rebond ni de « tirer pour actualiser » sous le doigt. */
+            overscroll-behavior: none;
+            background: #002050;
+            font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+            /* Les gestes sont ceux de la calculatrice : ni zoom, ni sélection, ni menu d'appui long. */
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .message {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            padding: 24px;
+            box-sizing: border-box;
+            text-align: center;
+            color: #ffffff;
+            background: linear-gradient(#002B6B, #001833);
+        }
+
+        .message[hidden] {
+            display: none;
+        }
+
+        .message svg {
+            width: 84px;
+            height: 84px;
+            filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+        }
+
+        .message h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .message p {
+            margin: 0;
+            max-width: 30em;
+            font-size: 15px;
+            line-height: 1.5;
+            color: #cfe2fc;
+        }
+
+        .barre {
+            width: 160px;
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .barre::before {
+            content: "";
+            display: block;
+            width: 40%;
+            height: 100%;
+            border-radius: 2px;
+            background: #F97316;
+            animation: va-et-vient 1.1s ease-in-out infinite alternate;
+        }
+
+        @keyframes va-et-vient {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(150%);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .barre::before {
+                animation: none;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="calculatrice"></canvas>
+
+    <!-- Écran d'attente : retiré par le programme dès qu'il est prêt. -->
+    <div id="chargement" class="message">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="18" fill="#00327A" />
+            <path fill="#F97316" d="M24 18h18v46h40v18H24z" />
+            <path fill="#00224F"
+                d="M34 26.8h8v2.4h-8zM34 36.8h8v2.4h-8zM34 46.8h8v2.4h-8zM50.8 64h2.4v8h-2.4zM60.8 64h2.4v8h-2.4zM70.8 64h2.4v8h-2.4z" />
+        </svg>
+        <h1>Calculatrice de chantier</h1>
+        <div class="barre" role="progressbar" aria-label="Chargement"></div>
+        <noscript>
+            <p>Cette calculatrice a besoin de JavaScript. Activez-le dans les réglages de votre navigateur, puis
+                rechargez la page.</p>
+        </noscript>
+    </div>
+
+    <!-- Message d'échec : montré si le programme ne peut pas démarrer. -->
+    <div id="echec" class="message" hidden>
+        <h1>La calculatrice n'a pas pu démarrer</h1>
+        <p>Rechargez la page. Si le problème persiste, mettez votre navigateur à jour ou essayez-en un autre : la
+            calculatrice a besoin de WebAssembly et de WebGL (Chrome, Edge, Firefox ou Safari récents).</p>
+    </div>
+
+    <script>
+        // Si le programme ne peut même pas se charger (navigateur trop ancien, réseau coupé),
+        // montrer le message d'échec plutôt qu'une attente sans fin. Une fois l'écran
+        // d'attente retiré par le programme, ce code ne fait plus rien.
+        (function () {
+            function echecDuChargement() {
+                var chargement = document.getElementById("chargement");
+                var echec = document.getElementById("echec");
+                if (chargement && echec) {
+                    chargement.remove();
+                    echec.hidden = false;
+                }
+            }
+            window.addEventListener("error", echecDuChargement, true);
+            window.addEventListener("unhandledrejection", echecDuChargement);
+        })();
+    </script>
+</body>
+
+</html>

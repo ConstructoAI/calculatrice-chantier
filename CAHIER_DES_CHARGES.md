@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.1 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3)
+> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -183,17 +183,17 @@ Ces choix sont arrêtés. S'en écarter seulement en cas d'impossibilité techni
 | Sujet | Décision |
 |---|---|
 | Langage | Rust stable, **édition 2024**. La machine a `cargo 1.99.1`; eframe 0.37 exige Rust ≥ 1.95. |
-| Plateforme | **Windows 10/11 x64** (cible principale). Le code reste portable (Linux, macOS) : aucun appel propre à Windows hors blocs `cfg(windows)`. |
-| Interface | **eframe / egui 0.37.x** (dernière version stable au 2026-11-19; licence MIT/Apache). Rendu par défaut (wgpu). |
+| Plateforme | **Windows 10/11 x64** (cible principale) et **navigateur Web** ([section 3.1](#31-version-web-ajoutée-le-2026-11-19-à-la-demande-de-lutilisateur)). Le code reste portable (Linux, macOS) : aucun appel propre à Windows hors blocs `cfg(windows)`. |
+| Interface | **eframe / egui 0.37.x** (dernière version stable au 2026-11-19; licence MIT/Apache). Rendu par défaut (wgpu) sur le bureau, WebGL (`glow`) dans le navigateur. |
 | Structure | Espace de travail Cargo à **deux crates** : `noyau` (bibliothèque de calcul, aucune dépendance graphique) et `app` (exécutable graphique). |
 | Nombres | `f64` partout, valeurs stockées en unité de base ([section 6](#6-modèle-de-données)). Pas de bibliothèque de précision arbitraire. |
 | Sérialisation | `serde` + `serde_json`, fichiers JSON lisibles. |
 | Dates | `chrono` (heure locale) pour l'horodatage des rubans enregistrés. |
-| Boîte « Enregistrer sous » | `rfd` (export du ruban en `.txt`). |
-| Réseau | **Aucun.** Aucune dépendance réseau, aucune télémétrie. |
+| Boîte « Enregistrer sous » | `rfd` (export du ruban en `.txt`), sur le bureau. Dans le navigateur, le fichier est téléchargé. |
+| Réseau | **Aucun.** Aucune dépendance réseau, aucune télémétrie. La version Web est un site statique : une fois la page chargée, le programme ne fait aucune requête. |
 | Langue | Français seulement. Tous les textes sont centralisés (`textes.rs`) pour permettre une autre langue plus tard, sans l'implémenter maintenant. |
 
-**Dépendances autorisées (liste fermée)** : `eframe`, `serde`, `serde_json`, `chrono`, `rfd`; en `build-dependencies` facultative : `winresource` (icône de l'exécutable). Le crate `noyau` ne dépend que de `serde` (derive). Toute autre dépendance doit être justifiée auprès de l'utilisateur.
+**Dépendances autorisées (liste fermée)** : `eframe`, `serde`, `serde_json`, `chrono`, `rfd`; en `build-dependencies` facultative : `winresource` (icône de l'exécutable). Pour la cible Web seulement, l'accès au navigateur : `wasm-bindgen`, `wasm-bindgen-futures`, `js-sys` et `web-sys` (eframe les utilise déjà, sauf `wasm-bindgen-futures`, qui lance le programme dans la page). Le crate `noyau` ne dépend que de `serde` (derive). Toute autre dépendance doit être justifiée auprès de l'utilisateur.
 
 **Commandes**
 
@@ -203,6 +203,13 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --all
 cargo run -p calculatrice-chantier              # lancer en mode débogage
 cargo build -p calculatrice-chantier --release  # exécutable final : target\release\calculatrice-chantier.exe
+
+# Version Web (section 3.1)
+rustup target add wasm32-unknown-unknown        # une seule fois
+cargo install --locked trunk                    # une seule fois
+cargo clippy --target wasm32-unknown-unknown -p calculatrice-chantier -- -D warnings
+trunk serve                                     # essayer : http://127.0.0.1:8080
+trunk build --release                           # site final, dans dist\
 ```
 
 **Profil de publication** (dans le `Cargo.toml` racine) :
@@ -219,7 +226,29 @@ strip = true
 
 - Masquer la console en version finale : `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` en tête de `app/src/main.rs`.
 - Si le rendu wgpu échoue sur un poste (vieux pilote, machine virtuelle), activer la fonctionnalité `glow` d'eframe et choisir ce moteur de rendu en repli.
+- Exécutable autonome : `.cargo/config.toml` lie la bibliothèque d'exécution C de façon statique (`-C target-feature=+crt-static` pour `x86_64-pc-windows-msvc`), pour que l'exécutable se lance sur un poste sans « Visual C++ Redistributable ».
 - Emplacement du projet : créer l'espace de travail **à la racine du dossier de travail**, à côté des photos. Ajouter un `.gitignore` contenant `target/` et `*.png` à la racine (les photos ne sont pas versionnées). Ne pas initialiser de dépôt git ni faire de commit sans que l'utilisateur le demande.
+
+### 3.1 Version Web (ajoutée le 2026-11-19, à la demande de l'utilisateur)
+
+Le même programme se compile aussi pour le navigateur (cible `wasm32-unknown-unknown`). Les deux versions partagent tout le code : le noyau, l'interface, les textes et le thème. Seul ce qui dépend de la plateforme diffère, et il est isolé dans `app/src/plateforme/` : `bureau.rs` et `web.rs` offrent exactement les mêmes noms, et un seul des deux est compilé.
+
+| Sujet | Bureau | Web |
+|---|---|---|
+| Rendu | wgpu (rendu par défaut d'eframe) | WebGL : eframe sans ses fonctionnalités par défaut, avec `glow` |
+| Polices | Segoe UI du système, avec repli sur les polices intégrées d'egui | polices libres embarquées (`app/polices/`) : **Selawik**, qui a exactement les largeurs de Segoe UI (même mise en page), des extraits d'**Open Sans** (italique; signes `−` `√` `π` `′` `″` et espace insécable) et un extrait de **DejaVu Sans** (`⁻` `→` `↔` `◄` `►` `⌫`). Les polices intégrées d'egui ne sont pas embarquées. |
+| Données (section 17) | fichiers du dossier de données | stockage local du navigateur |
+| Export du ruban | boîte « Enregistrer sous » | téléchargement du fichier |
+| Plein écran | préférence appliquée à la fenêtre; bouton; `F11` | bouton de la barre supérieure, affiché seulement si le navigateur permet le plein écran; pas de préférence, car le navigateur exige un geste de l'utilisateur; `F11` reste celui du navigateur |
+| Menu ☰ | avec « Quitter » | sans « Quitter » (on ferme l'onglet) |
+| Sauvegarde | au plus une écriture par seconde, et à la fermeture | à chaque changement, sans délai (une page se ferme sans préavis) |
+
+- **Page hôte** : `app/index.html` contient le canevas où le programme se dessine, un écran d'attente et un message d'échec (navigateur sans WebAssembly ou sans WebGL).
+- **Construction** : avec **trunk** (`Trunk.toml` à la racine). `trunk serve` pour essayer; `trunk build --release` produit un site statique dans `dist/`.
+- **Hébergement** : GitHub Pages, à l'adresse `https://constructoai.github.io/calculatrice-chantier/`. L'automatisation `.github/workflows/web.yml` reconstruit et publie le site à chaque mise à jour de la branche `main`.
+- **Exécutable de bureau** : l'automatisation `.github/workflows/bureau.yml` compile l'exécutable Windows et le joint à une publication GitHub à chaque étiquette de version (`v0.1.0`, etc.).
+- **Garde-fou des polices** : le test `polices_web_sans_caractere_manquant` relève les caractères des textes du programme et échoue si l'un d'eux n'a pas de glyphe dans les polices embarquées (courant, gras, italique).
+- **Non réalisé** : fonctionnement hors ligne (application Web installable) et synchronisation entre appareils.
 
 ---
 
@@ -1356,7 +1385,7 @@ Un seul écran défilant, intitulé **Préférences**, ouvert par la roue denté
 |---|---|---|
 | **Mode trigonométrique** | désactivé ★ / activé | voir 12.18 |
 | **Fractions rapides** | désactivé ★ / activé | affiche la bande de fractions (7.6) |
-| **Mode plein écran** | désactivé ★ / activé | fenêtre en plein écran sans bordure (aussi `F11`) |
+| **Mode plein écran** | désactivé ★ / activé | fenêtre en plein écran sans bordure (aussi `F11`) — version de bureau seulement (3.1) |
 | **Thème** | Automatique ★ / Clair / Sombre | 16.3 |
 
 ### 13.2 Affichage
@@ -1463,9 +1492,9 @@ Ruban du 19 novembre 2026, 8 h 04
 
 | Élément | Contenu |
 |---|---|
-| **Barre supérieure** | ☰ (menu) · bouton plein écran · titre de l'application · ⚙ (Préférences) |
+| **Barre supérieure** | ☰ (menu) · bouton plein écran (version Web : seulement si le navigateur le permet) · titre de l'application · ⚙ (Préférences) |
 | **Barre inférieure** | trois onglets : **Accueil** (la calculatrice), **Rubans**, **Aide** |
-| **Menu ☰** (tiroir à gauche) | Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Quitter |
+| **Menu ☰** (tiroir à gauche) | Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Quitter (version de bureau seulement) |
 
 `Échap` ferme le tiroir, un dialogue ou un écran secondaire et ramène à l'Accueil.
 
@@ -1557,7 +1586,7 @@ Le thème **Automatique** suit le thème du système (clair ou sombre).
 
 Formes : touches en rectangle arrondi (rayon 7 × échelle), face en dégradé vertical cernée d'un liseré d'un point, reflet clair sous l'arête supérieure, liseré plus foncé de 2 points au bas pour suggérer le relief, et ombre portée douce (teintée de la couleur de la touche pour les touches de couleur). Touche enfoncée : décalée de 1 point vers le bas et assombrie de 12 %. Survol : éclaircie de 6 %. L'afficheur est une carte en dégradé, avec un halo et un filet d'accent de la couleur primaire; ses indicateurs sont des pastilles. Le fond de l'application est un dégradé en diagonale recouvert d'un quadrillage façon plan. Pas d'images : dégradés, ombres et pictogrammes sont dessinés par le code.
 
-Typographie : libellés de touches en **gras**; chiffres plus grands que les libellés; étiquettes secondaires en petit, en italique si la police le permet. Sous Windows, charger au démarrage Segoe UI Gras (`C:\Windows\Fonts\segoeuib.ttf`) comme famille « gras », avec repli sur la police par défaut d'egui si le fichier est absent. Vérifier à l'écran que tous ces caractères s'affichent : `é è ê à ç É È À Ç ² ³ √ π ÷ × − ° ′ ″ ◄ ► ⌫ ⚠ ☰ ⚙ ★`. Remplacer par un dessin vectoriel (lignes, cercles) tout pictogramme absent de la police.
+Typographie : libellés de touches en **gras**; chiffres plus grands que les libellés; étiquettes secondaires en petit, en italique si la police le permet. Sous Windows, charger au démarrage Segoe UI Gras (`C:\Windows\Fonts\segoeuib.ttf`) comme famille « gras », avec repli sur la police par défaut d'egui si le fichier est absent. Vérifier à l'écran que tous ces caractères s'affichent : `é è ê à ç É È À Ç ² ³ √ π ÷ × − ° ′ ″ ◄ ► ⌫ ⚠ ☰ ⚙ ★`. Remplacer par un dessin vectoriel (lignes, cercles) tout pictogramme absent de la police. Dans la version Web, les polices sont embarquées (3.1).
 
 ### 16.4 Touches
 
@@ -1595,6 +1624,8 @@ Les raccourcis agissent quand l'écran Accueil est affiché et qu'aucun champ de
 
 Lettres insensibles à la casse. Les raccourcis sont regroupés dans une seule table (`raccourcis.rs`) et rappelés dans les infobulles.
 
+Dans la version Web, `F11` et `Ctrl+R` restent ceux du navigateur (plein écran, recharger la page); `F1` ouvre l'aide de la calculatrice et non celle du navigateur.
+
 ### 16.6 Comportement
 
 - **Réactivité** : aucune animation continue; l'interface ne se redessine que sur un événement (egui est réactif par défaut). Pour l'appui long, demander un nouveau rendu après 0,6 s (`request_repaint_after`).
@@ -1610,6 +1641,8 @@ Lettres insensibles à la casse. Les raccourcis sont regroupés dans une seule t
 ### 17.1 Emplacement
 
 Dossier de données de l'utilisateur : celui que retourne `eframe::storage_dir(APP_ID)` avec `APP_ID = "CalculatriceChantier"` (sous Windows, dans `%APPDATA%`). Si cette fonction est indisponible, utiliser `%APPDATA%\CalculatriceChantier\`. Le chemin réel est affiché dans « À propos ».
+
+**Version Web** : les mêmes données sont conservées dans le stockage local du navigateur, sous les clés `CalculatriceChantier/etat.json` et `CalculatriceChantier/rubans.json`, en JSON compact (le stockage local est limité à environ 5 Mo par site). « À propos » indique que les données sont dans le navigateur, sur l'appareil, et qu'effacer les données de navigation du site les efface. Si le navigateur refuse le stockage, la calculatrice fonctionne quand même et le signale une fois.
 
 ### 17.2 Fichiers
 
@@ -1634,8 +1667,8 @@ pub struct EtatPersistant {
 
 ### 17.3 Règles
 
-- **R-44** Écriture **atomique** : écrire dans `etat.json.tmp`, puis renommer.
-- **R-45** Sauvegarder quand le moteur émet `Effet::EtatModifie` (au plus une écriture par seconde) et à la fermeture.
+- **R-44** Écriture **atomique** : écrire dans `etat.json.tmp`, puis renommer. (Version Web : l'écriture dans le stockage local est déjà indivisible.)
+- **R-45** Sauvegarder quand le moteur émet `Effet::EtatModifie` (au plus une écriture par seconde) et à la fermeture. (Version Web : sans délai à chaque changement; pas de sauvegarde à la fermeture.)
 - **R-46** Fichier absent : valeurs par défaut. Fichier illisible ou d'une version inconnue : le renommer en `etat.corrompu.json`, repartir des valeurs par défaut et afficher une fois « Les réglages n'ont pas pu être lus; les valeurs par défaut ont été rétablies. »
 - **R-47** Tous les champs sérialisés ont une valeur par défaut (`#[serde(default)]`), pour qu'un fichier d'une version antérieure reste lisible.
 
@@ -1650,8 +1683,11 @@ Calculatrice/                      (dossier de travail)
 ├── CAHIER_DES_CHARGES.md          (ce document)
 ├── 01.png … 06.png                (photos de référence — hors dépôt, hors binaire)
 ├── Cargo.toml                     (espace de travail)
+├── Trunk.toml                     (construction de la version Web, 3.1)
+├── .cargo/config.toml             (exécutable Windows autonome)
+├── .github/                       (publication automatique : site Web et exécutable)
 ├── .gitignore
-├── README.md                      (compilation, lancement, raccourcis — en français)
+├── README.md                      (les deux versions, compilation, raccourcis — en français)
 ├── noyau/
 │   ├── Cargo.toml                 (nom : calculatrice-noyau)
 │   ├── src/
@@ -1699,15 +1735,21 @@ Calculatrice/                      (dossier de travail)
 └── app/
     ├── Cargo.toml                 (nom : calculatrice-chantier — nom de l'exécutable)
     ├── build.rs                   (facultatif : icône de l'exécutable via winresource)
+    ├── index.html                 page hôte de la version Web (3.1)
+    ├── polices/                   polices libres de la version Web, licences, LISEZMOI.md
     └── src/
-        ├── main.rs                point d'entrée, options de fenêtre
+        ├── main.rs                points d'entrée : fenêtre native ou page Web
         ├── application.rs         struct Application : impl eframe::App
         ├── textes.rs              NOM_APPLICATION, libellés, messages (français)
         ├── theme.rs               palettes, polices, échelle
         ├── clavier.rs             grille des touches, dessin, clics, appui long
         ├── afficheur.rs           dessin de l'afficheur (fractions empilées)
         ├── raccourcis.rs          table des raccourcis clavier
-        ├── stockage.rs            lecture/écriture des fichiers JSON (17)
+        ├── stockage.rs            lecture/écriture des données JSON (17)
+        ├── plateforme.rs          ce qui diffère entre le bureau et le navigateur (3.1)
+        ├── plateforme/
+        │   ├── bureau.rs          dossier de données, « Enregistrer sous », plein écran de la fenêtre
+        │   └── web.rs             stockage local, téléchargement, plein écran du navigateur, démarrage
         ├── aide.rs                contenu des fiches (annexe B) + recherche
         └── vues/
             ├── preferences.rs
@@ -1724,7 +1766,7 @@ Calculatrice/                      (dossier de travail)
 - **R-49** `app` ne contient **aucune formule**. Elle transmet des `Touche` au moteur, dessine l'`Ecran` qu'il retourne et exécute les `Effet`.
 - **R-50** `#![forbid(unsafe_code)]` dans les deux crates. Dans `noyau` : pas de `unwrap()`, `expect()` ni `panic!` hors des tests; les erreurs passent par `Result<_, Erreur>`.
 - **R-51** Identifiants en **français sans accents** (`Moteur`, `appuyer`, `hauteur_contremarche`), commentaires en français. Les chaînes visibles par l'utilisateur ont leurs accents.
-- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs` et `app/src/aide.rs`.
+- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs` et `app/src/aide.rs`. Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
 - **R-53** Chaque fonction de la section 12 est une fonction pure, sans accès au `Moteur` :
 
 ```rust
@@ -1742,7 +1784,7 @@ pub struct DonneesEscalier {
 pub fn calculer_escalier(d: &DonneesEscalier) -> Result<Vec<Sortie>, Erreur>;
 ```
 
-- **R-54** Compilation sans avertissement : `cargo clippy --workspace -- -D warnings` et `cargo fmt --all --check` passent.
+- **R-54** Compilation sans avertissement : `cargo clippy --workspace -- -D warnings`, `cargo clippy --target wasm32-unknown-unknown -p calculatrice-chantier -- -D warnings` et `cargo fmt --all --check` passent.
 
 ### 18.3 Boucle de l'application (schéma)
 
@@ -2318,6 +2360,7 @@ Conseils d'exécution :
 
 - [ ] `cargo build --workspace --release` réussit sans avertissement.
 - [ ] `cargo clippy --workspace -- -D warnings` et `cargo fmt --all --check` passent.
+- [ ] Version Web : `cargo clippy --target wasm32-unknown-unknown -p calculatrice-chantier -- -D warnings` passe et `trunk build --release` réussit.
 - [ ] `cargo test --workspace` : 100 % des tests verts, dont **tous** les vecteurs de la section 19.
 - [ ] Aucune dépendance hors de la liste de la section 3.
 - [ ] Aucune chaîne visible par l'utilisateur hors des fichiers prévus (R-52); aucun mot anglais à l'écran (R-10).
@@ -2343,6 +2386,7 @@ Conseils d'exécution :
 - [ ] `F11` bascule le plein écran; redimensionner la fenêtre garde tout lisible; au-delà de 880 points de large, le ruban apparaît à droite.
 - [ ] Thèmes clair et sombre corrects; aucun caractère remplacé par un carré vide.
 - [ ] Le ruban s'enregistre, se rouvre et s'exporte en `.txt` lisible dans le Bloc-notes (accents intacts).
+- [ ] Version Web : la page s'ouvre sur ordinateur et sur téléphone; les mêmes calculs donnent les mêmes résultats; après rechargement de la page, les réglages et les rubans sont toujours là; un ruban s'exporte par téléchargement.
 
 ---
 
@@ -2580,6 +2624,8 @@ Faits **vérifiés le 2026-11-19 dans la documentation en ligne d'eframe 0.37.0 
 - Fonctionnalités par défaut : `accesskit`, `clipboard`, `default_fonts`, `links`, `system_fonts`, `wayland`, `web_screen_reader`, `wgpu`, `x11`. **Non** par défaut : `persistence`, `glow`.
 - `system_fonts` (par défaut) : repli sur les polices du système pour les caractères absents des polices intégrées.
 - La persistance intégrée d'eframe n'est **pas** utilisée (fichiers JSON maison, section 17) : ne pas activer `persistence`.
+- Version Web : `eframe = { default-features = false, features = ["glow"] }` (rendu WebGL, sans `default_fonts`). Avec `glow`, la méthode `App::on_exit` prend un paramètre de plus (`Option<&glow::Context>`) : l'application ne la définit donc que pour le bureau. Démarrage : `eframe::WebRunner::new().start(canevas, eframe::WebOptions::default(), créateur).await`, lancé par `wasm_bindgen_futures::spawn_local`.
+- Version Web : `std::time::Instant` n'existe pas dans le navigateur; mesurer le temps avec l'horloge d'egui (`ctx.input(|i| i.time)`).
 - Compagnon pour les boîtes de dialogue de fichiers : `rfd` (API à vérifier à l'usage : `rfd::FileDialog::new().set_file_name(…).add_filter(…).save_file()`).
 
 ### C.3 Squelette de départ (à valider à la compilation)
@@ -2735,7 +2781,7 @@ Ne pas réaliser, même partiellement :
 - compte utilisateur, synchronisation, toute communication réseau, télémétrie, publicité, achats;
 - assistant conversationnel, notes de projet, calculateurs par formulaires illustrés, vidéos;
 - connexion à des appareils de mesure (télémètres laser);
-- versions mobile et Web (le code doit rester portable, sans plus);
+- applications mobiles natives (la version Web, section 3.1, sert sur téléphone et sur tablette);
 - autres langues que le français;
 - programme d'installation (l'exécutable `--release` suffit);
 - retour haptique et sons;
@@ -2771,7 +2817,7 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 
 | # | Hypothèse | Section |
 |---|---|---|
-| 1 | Cible : application de bureau **Windows** (portable Linux/macOS), pas mobile ni Web. | 3 |
+| 1 | Cible : application de bureau **Windows** (portable Linux/macOS). **Version Web ajoutée à la demande de l'utilisateur le 2026-11-19**; pas d'application mobile native. | 3, 3.1 |
 | 2 | Interface avec **eframe/egui**. | 3 |
 | 3 | Nom provisoire : « **Calculatrice de chantier** ». | 1.3 |
 | 4 | Un nombre sans unité additionné à une longueur est une **erreur** (plutôt qu'une unité devinée). | 9.5 |

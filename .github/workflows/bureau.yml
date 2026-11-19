@@ -1,0 +1,47 @@
+# Version de bureau : à chaque étiquette de version (par exemple v0.1.0),
+# vérifie le programme, compile l'exécutable Windows et le joint à une
+# publication GitHub.
+name: Version de bureau
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Exécutable Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Vérifier que l'étiquette correspond à la version du programme
+        run: |
+          version="$(cargo pkgid -p calculatrice-chantier | sed 's/.*[#@]//')"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::L'étiquette ${GITHUB_REF_NAME} ne correspond pas à la version ${version} de Cargo.toml."
+            exit 1
+          fi
+
+      - name: Vérifier le programme
+        run: cargo test --workspace --locked
+
+      - name: Compiler
+        run: cargo build --release --locked -p calculatrice-chantier
+
+      - name: Publier
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp target/release/calculatrice-chantier.exe calculatrice-chantier-windows-x64.exe
+          gh release create "${GITHUB_REF_NAME}" calculatrice-chantier-windows-x64.exe \
+            --title "Calculatrice de chantier ${GITHUB_REF_NAME#v}" \
+            --notes-file .github/notes-de-version.md

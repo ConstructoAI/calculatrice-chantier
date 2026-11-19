@@ -1,4 +1,7 @@
 //! Calculatrice de chantier — point d'entrée de l'interface graphique.
+//!
+//! Le même programme donne deux versions : une application de bureau et une
+//! page Web (cible `wasm32-unknown-unknown`, page hôte `app/index.html`).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![forbid(unsafe_code)]
 
@@ -6,20 +9,23 @@ mod afficheur;
 mod aide;
 mod application;
 mod clavier;
+mod plateforme;
 mod raccourcis;
 mod stockage;
 mod textes;
 mod theme;
 mod vues;
 
-use eframe::egui;
-
 use application::Application;
 
-/// Côté de l'icône de la fenêtre, en pixels.
-const TAILLE_ICONE: u32 = 64;
-
+/// Version de bureau : une fenêtre native.
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
+    use eframe::egui;
+
+    /// Côté de l'icône de la fenêtre, en pixels.
+    const TAILLE_ICONE: u32 = 64;
+
     let icone = egui::IconData {
         rgba: theme::icone_rvba(TAILLE_ICONE),
         width: TAILLE_ICONE,
@@ -39,4 +45,10 @@ fn main() -> eframe::Result {
         options,
         Box::new(|cc| Ok(Box::new(Application::nouvelle(cc)))),
     )
+}
+
+/// Version Web : l'application se dessine dans le canevas de la page.
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    plateforme::demarrer(Box::new(|cc| Ok(Box::new(Application::nouvelle(cc)))));
 }

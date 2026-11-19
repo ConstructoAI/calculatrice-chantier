@@ -1,0 +1,15 @@
+# Version Web : `trunk build --release` produit le site dans `dist/`,
+# `trunk serve` le sert localement pendant le développement.
+[build]
+target = "app/index.html"
+dist = "dist"
+# Adresses relatives : le site fonctionne tel quel dans un sous-dossier
+# (GitHub Pages le sert sous /calculatrice-chantier/).
+public_url = "./"
+# Pas d'empreintes d'intégrité sur les fichiers du site : ils viennent du même
+# serveur que la page, et les navigateurs les ignorent pour le WebAssembly.
+no_sri = true
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080

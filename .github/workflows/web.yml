@@ -1,0 +1,63 @@
+# Version Web : à chaque mise à jour de la branche principale, construit le
+# site avec trunk et le publie sur GitHub Pages.
+name: Version Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Une seule publication à la fois; celle qui est en cours va jusqu'au bout.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  TRUNK_VERSION: "0.22.2"
+  # Empreinte SHA-256 de trunk-x86_64-unknown-linux-gnu.tar.gz pour cette version.
+  TRUNK_SHA256: 26fca8a9952e46cd7d8b8b9a2e2c1786c090fc14b8e10b6678ab4d0f9f1a385f
+
+jobs:
+  construire:
+    name: Construire le site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Vérifier le noyau de calcul
+        run: cargo test -p calculatrice-noyau --locked
+
+      - name: Installer la cible WebAssembly et trunk
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl -sSfL -o trunk.tar.gz "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${TRUNK_SHA256}  trunk.tar.gz" | sha256sum --check
+          tar -xzf trunk.tar.gz -C "$HOME/.cargo/bin"
+          rm trunk.tar.gz
+
+      - name: Construire
+        run: trunk build --release --locked
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  publier:
+    name: Publier sur GitHub Pages
+    needs: construire
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v5

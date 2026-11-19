@@ -277,6 +277,8 @@ pub const AVIS_REGLAGES_ILLISIBLES: &str =
     "Les réglages n'ont pas pu être lus; les valeurs par défaut ont été rétablies.";
 pub const AVIS_ECRITURE_IMPOSSIBLE: &str =
     "Les données n'ont pas pu être enregistrées sur le disque.";
+/// Version Web : le stockage local du navigateur est plein ou refusé.
+pub const AVIS_ECRITURE_IMPOSSIBLE_WEB: &str = "Les données n'ont pas pu être enregistrées dans ce navigateur. La calculatrice fonctionne, mais vos réglages et vos rubans ne seront pas conservés.";
 pub const AVIS_COLLAGE_REFUSE: &str = "Le texte collé n'est ni un nombre ni une longueur.";
 pub const AVIS_EXPORT_REUSSI: &str = "Ruban exporté.";
 pub const AVIS_EXPORT_ECHEC: &str = "Le fichier n'a pas pu être écrit.";
@@ -626,6 +628,13 @@ pub const AVERTISSEMENT_DEFAUTS: &str = "Les valeurs par défaut (hauteur de con
 pub const DOSSIER_DE_DONNEES: &str = "Dossier de données";
 pub const CONFIDENTIALITE: &str =
     "Aucune donnée ne quitte ce poste : pas de réseau, pas de télémétrie, pas de compte.";
+/// Version Web : où sont les données, et ce que cela implique.
+pub const DONNEES_WEB_TITRE: &str = "Données";
+pub const DONNEES_WEB: &str =
+    "Vos réglages, vos mémoires et vos rubans sont conservés dans ce navigateur, sur cet appareil.";
+pub const CONFIDENTIALITE_WEB: &str = "Rien n'est envoyé sur Internet : pas de télémétrie, pas de compte. Si vous effacez les données de navigation de ce site, elles sont effacées aussi.";
+pub const BIBLIOTHEQUES_WEB: &str = "Ce logiciel utilise les bibliothèques libres eframe et egui, serde, serde_json, chrono, wasm-bindgen, js-sys et web-sys (licences MIT ou Apache 2.0).";
+pub const POLICES_WEB: &str = "Il affiche les polices libres Selawik, Open Sans (licence SIL OFL 1.1) et DejaVu Sans (licence Bitstream Vera).";
 pub const BIBLIOTHEQUES_TITRE: &str = "Bibliothèques libres";
 pub const BIBLIOTHEQUES: &str = "Ce logiciel utilise les bibliothèques libres eframe et egui, serde, serde_json et chrono (licences MIT ou Apache 2.0) ainsi que rfd (licence MIT).";
 

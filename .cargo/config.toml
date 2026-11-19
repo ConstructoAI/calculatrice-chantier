@@ -1,0 +1,5 @@
+# L'exécutable Windows embarque la bibliothèque d'exécution C. Il se lance ainsi
+# sur un poste où le « Visual C++ Redistributable » n'est pas installé : un seul
+# fichier, rien à installer.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
