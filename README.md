@@ -22,7 +22,8 @@ L'exécutable de bureau n'est pas signé. Au premier lancement, Windows peut aff
 « Windows a protégé votre ordinateur » : choisir *Informations complémentaires*, puis
 *Exécuter quand même*.
 
-La calculatrice est gratuite, sans publicité et sans compte. Le comportement complet est
+La calculatrice est gratuite, sans publicité et sans compte : une gracieuseté de
+Sylvain Leduc de Constructo AI. Le comportement complet est
 décrit dans `CAHIER_DES_CHARGES.md`.
 
 > Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le

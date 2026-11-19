@@ -1514,7 +1514,7 @@ Ruban du 19 novembre 2026, 8 h 04
 | **Préférences** | section 13 |
 | **Bienvenue** | présentation en quelques lignes (annexe B.3); affichée automatiquement au premier lancement |
 | **Trucs de pro** | liste d'astuces (annexe B.4) |
-| **À propos** | nom, version, avertissement (1.5), emplacement du dossier de données, mention des bibliothèques libres utilisées et de leurs licences |
+| **À propos** | nom, version, mention « Gracieuseté de Sylvain Leduc de Constructo AI » (demandée par l'utilisateur le 2026-11-19; elle figure aussi au pied du menu ☰ et sur l'écran d'attente de la version Web), avertissement (1.5), emplacement du dossier de données, mention des bibliothèques libres utilisées et de leurs licences |
 
 ### 15.3 Aide contextuelle
 

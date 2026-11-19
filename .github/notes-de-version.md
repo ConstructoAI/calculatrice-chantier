@@ -2,6 +2,8 @@ Calculatrice de construction en pieds-pouces-fractions et en métrique, en fran�
 le clavier du charpentier, plus 25 calculateurs par métier (béton et fondations, plomberie,
 électricité, finition, ventilation, terrassement). Gratuite, sans publicité, sans compte.
 
+Gracieuseté de Sylvain Leduc de Constructo AI.
+
 ## Version de bureau (Windows 10 ou 11, 64 bits)
 
 1. Téléchargez `calculatrice-chantier-windows-x64.exe` ci-dessous.

@@ -25,6 +25,12 @@ pub fn afficher(ui: &mut Ui, p: &Palette, dossier: Option<&str>) -> bool {
         );
         ui.add_space(6.0);
         ui.label(textes::A_PROPOS_DESCRIPTION);
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(textes::GRACIEUSETE)
+                .font(theme::police_grasse(14.5))
+                .color(p.titre),
+        );
 
         section(ui, p, textes::AVERTISSEMENT_TITRE);
         carte(ui, p, |ui| {

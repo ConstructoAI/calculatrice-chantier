@@ -659,6 +659,9 @@ pub const TRUCS: [(&str, &str); 12] = [
 
 pub const A_PROPOS: &str = "À propos";
 pub const A_PROPOS_VERSION: &str = "Version";
+/// Mention demandée par l'auteur : l'application est offerte gratuitement.
+/// La page hôte de la version Web (`app/index.html`) la répète sur son écran d'attente.
+pub const GRACIEUSETE: &str = "Gracieuseté de Sylvain Leduc de Constructo AI";
 pub const A_PROPOS_DESCRIPTION: &str = "Calculatrice de construction en pieds-pouces-fractions et en métrique, avec des calculateurs par métier, pour le chantier et l'estimation. Gratuite, sans publicité, sans compte.";
 pub const AVERTISSEMENT_TITRE: &str = "Avertissement";
 pub const AVERTISSEMENT: &str = "Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.";

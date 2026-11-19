@@ -955,6 +955,18 @@ impl Application {
                         }
                     },
                 );
+                // Au pied du menu : la mention de l'auteur.
+                let mention = ui.painter().layout(
+                    textes::GRACIEUSETE.to_owned(),
+                    theme::police(12.0),
+                    theme::melanger(p.barre_texte, p.pied_fond, 0.30),
+                    panneau.width() - 48.0,
+                );
+                let position = Pos2::new(
+                    panneau.left() + 24.0,
+                    panneau.bottom() - 16.0 - mention.size().y,
+                );
+                ui.painter().galley(position, mention, p.barre_texte);
                 if voile.clicked() {
                     fermer = true;
                 }
