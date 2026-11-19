@@ -240,6 +240,10 @@ pub const MENU_TRUCS: &str = "Trucs de pro";
 pub const MENU_PREFERENCES: &str = "Préférences";
 pub const MENU_A_PROPOS: &str = "À propos";
 pub const MENU_QUITTER: &str = "Quitter";
+/// Version Web : installer l'application sur le téléphone, la tablette ou l'ordinateur.
+pub const MENU_INSTALLER: &str = "Installer l'application";
+// Les espaces insécables gardent chaque guillemet collé à son texte.
+pub const AVIS_INSTALLER: &str = "Pour installer la calculatrice sur cet appareil, passez par le menu de votre navigateur.\n\nSur iPhone ou iPad (Safari) : touchez Partager, puis «\u{00A0}Sur l'écran d'accueil\u{00A0}».\n\nSur Android (Chrome) : touchez les trois points, puis «\u{00A0}Installer l'application\u{00A0}» ou «\u{00A0}Ajouter à l'écran d'accueil\u{00A0}».\n\nUne fois installée, elle s'ouvre comme une application et fonctionne sans réseau.";
 
 pub const INFOBULLE_MENU: &str = "Menu";
 pub const NOM_MENU: &str = "Menu";

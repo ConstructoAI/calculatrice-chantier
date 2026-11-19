@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1)
+> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -227,7 +227,7 @@ strip = true
 - Masquer la console en version finale : `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` en tête de `app/src/main.rs`.
 - Si le rendu wgpu échoue sur un poste (vieux pilote, machine virtuelle), activer la fonctionnalité `glow` d'eframe et choisir ce moteur de rendu en repli.
 - Exécutable autonome : `.cargo/config.toml` lie la bibliothèque d'exécution C de façon statique (`-C target-feature=+crt-static` pour `x86_64-pc-windows-msvc`), pour que l'exécutable se lance sur un poste sans « Visual C++ Redistributable ».
-- Emplacement du projet : créer l'espace de travail **à la racine du dossier de travail**, à côté des photos. Ajouter un `.gitignore` contenant `target/` et `*.png` à la racine (les photos ne sont pas versionnées). Ne pas initialiser de dépôt git ni faire de commit sans que l'utilisateur le demande.
+- Emplacement du projet : créer l'espace de travail **à la racine du dossier de travail**, à côté des photos. Ajouter un `.gitignore` contenant `target/`, `dist/` et `/*.png` à la racine (les photos, à la racine du projet, ne sont pas versionnées; les icônes de `app/icones/` le sont). Ne pas initialiser de dépôt git ni faire de commit sans que l'utilisateur le demande.
 
 ### 3.1 Version Web (ajoutée le 2026-11-19, à la demande de l'utilisateur)
 
@@ -248,7 +248,10 @@ Le même programme se compile aussi pour le navigateur (cible `wasm32-unknown-un
 - **Hébergement** : GitHub Pages, à l'adresse `https://constructoai.github.io/calculatrice-chantier/`. L'automatisation `.github/workflows/web.yml` reconstruit et publie le site à chaque mise à jour de la branche `main`.
 - **Exécutable de bureau** : l'automatisation `.github/workflows/bureau.yml` compile l'exécutable Windows et le joint à une publication GitHub à chaque étiquette de version (`v0.1.0`, etc.).
 - **Garde-fou des polices** : le test `polices_web_sans_caractere_manquant` relève les caractères des textes du programme et échoue si l'un d'eux n'a pas de glyphe dans les polices embarquées (courant, gras, italique).
-- **Non réalisé** : fonctionnement hors ligne (application Web installable) et synchronisation entre appareils.
+- **Application installable** (ajoutée le 2026-11-19, à la demande de l'utilisateur) : la version Web s'installe sur un téléphone, une tablette ou un ordinateur, puis s'ouvre comme une application, sans la barre du navigateur. Elle le doit à son manifeste (`app/manifest.webmanifest` : nom, couleurs, icônes, affichage `standalone`) et à ses icônes PNG (`app/icones/`, produites par `app/outils/icones.py` à partir du dessin de l'icône de fenêtre).
+- **Hors ligne** : un service (`app/sw.js`) garde une copie du site dans l'appareil. La page est demandée au réseau d'abord, pour recevoir les mises à jour, puis prise dans la copie locale si le réseau ne répond pas en 4 secondes; les fichiers du programme, dont le nom porte l'empreinte, sont pris dans la copie locale d'abord. Le service ne porte aucun numéro de version : il lit dans la page la liste des fichiers du programme et retire les anciens.
+- **Menu « Installer l'application »** (version Web, absent si l'application est déjà installée) : quand le navigateur sait installer (Chrome, Edge), l'entrée lance son invitation; sinon (Safari, Firefox), elle affiche la marche à suivre dans le menu du navigateur.
+- **Non réalisé** : synchronisation des données entre appareils.
 
 ---
 
@@ -1494,7 +1497,7 @@ Ruban du 19 novembre 2026, 8 h 04
 |---|---|
 | **Barre supérieure** | ☰ (menu) · bouton plein écran (version Web : seulement si le navigateur le permet) · titre de l'application · ⚙ (Préférences) |
 | **Barre inférieure** | trois onglets : **Accueil** (la calculatrice), **Rubans**, **Aide** |
-| **Menu ☰** (tiroir à gauche) | Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Quitter (version de bureau seulement) |
+| **Menu ☰** (tiroir à gauche) | Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Installer l'application (version Web seulement, 3.1) · Quitter (version de bureau seulement) |
 
 `Échap` ferme le tiroir, un dialogue ou un écran secondaire et ramène à l'Accueil.
 
@@ -1527,7 +1530,7 @@ Chaque fiche comprend : un titre, « À quoi ça sert », « Comment faire » (�
 - Titre : le nom de l'application. Taille initiale **420 × 860** points logiques (format portrait, comme un appareil tenu en main); minimum 340 × 620; redimensionnable.
 - Tout le contenu se met à l'échelle : `echelle = min(largeur ÷ 420, hauteur ÷ 860)` appliquée aux tailles de police, marges et rayons.
 - **Fenêtre large** (largeur ≥ 880 points) : la calculatrice garde son format portrait à gauche (largeur = hauteur × 420 ÷ 860, plafonnée à 520) et le **ruban courant** occupe le reste, à droite.
-- Icône de fenêtre : un pictogramme original simple (une équerre de charpentier stylisée, orange sur fond bleu marine), généré par le code en RVBA — aucun fichier image externe requis.
+- Icône de fenêtre : un pictogramme original simple (une équerre de charpentier stylisée, orange sur fond bleu marine), généré par le code en RVBA — aucun fichier image externe requis. Seule exception : les icônes PNG de l'application Web installable (3.1), qui reprennent le même dessin.
 
 ### 16.2 Zones de l'écran principal
 
@@ -1736,6 +1739,10 @@ Calculatrice/                      (dossier de travail)
     ├── Cargo.toml                 (nom : calculatrice-chantier — nom de l'exécutable)
     ├── build.rs                   (facultatif : icône de l'exécutable via winresource)
     ├── index.html                 page hôte de la version Web (3.1)
+    ├── manifest.webmanifest       manifeste de l'application Web installable (3.1)
+    ├── sw.js                      service qui garde le site utilisable hors ligne (3.1)
+    ├── icones/                    icônes PNG de l'application installable
+    ├── outils/icones.py           script qui dessine ces icônes
     ├── polices/                   polices libres de la version Web, licences, LISEZMOI.md
     └── src/
         ├── main.rs                points d'entrée : fenêtre native ou page Web
@@ -2387,6 +2394,7 @@ Conseils d'exécution :
 - [ ] Thèmes clair et sombre corrects; aucun caractère remplacé par un carré vide.
 - [ ] Le ruban s'enregistre, se rouvre et s'exporte en `.txt` lisible dans le Bloc-notes (accents intacts).
 - [ ] Version Web : la page s'ouvre sur ordinateur et sur téléphone; les mêmes calculs donnent les mêmes résultats; après rechargement de la page, les réglages et les rubans sont toujours là; un ruban s'exporte par téléchargement.
+- [ ] Version Web : le menu « Installer l'application » l'installe (ou explique comment); une fois installée, elle s'ouvre et calcule en mode avion.
 
 ---
 

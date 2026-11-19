@@ -12,6 +12,7 @@
 //! | `Depot` | fichiers du dossier de données | stockage local du site |
 //! | `exporter` | boîte « Enregistrer sous » | téléchargement |
 //! | plein écran | préférence appliquée à la fenêtre | bouton, à la demande |
+//! | installation | sans objet | application Web installable |
 
 #[cfg(not(target_arch = "wasm32"))]
 mod bureau;
@@ -43,6 +44,18 @@ pub struct Fichier<'a> {
     /// Nom de fichier proposé, extension comprise.
     pub nom: &'a str,
     pub contenu: &'a str,
+}
+
+/// Ce que le menu peut offrir pour installer l'application sur l'appareil.
+// Sur le bureau, il n'y a rien à installer : seule la première variante sert.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+pub enum Installation {
+    /// Sans objet : version de bureau, ou application déjà installée.
+    Aucune,
+    /// Le navigateur sait l'installer : il suffit de le lui demander.
+    Proposee,
+    /// Il faut passer par le menu du navigateur : l'application explique comment.
+    Manuelle,
 }
 
 /// Résultat de l'export d'un fichier.

@@ -1,0 +1,19 @@
+{
+    "name": "Calculatrice de chantier",
+    "short_name": "Chantier",
+    "description": "Calculatrice de construction en pieds-pouces-fractions et en métrique, en français du Québec. Gratuite, sans publicité, utilisable hors ligne.",
+    "lang": "fr-CA",
+    "dir": "ltr",
+    "id": "./",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#002050",
+    "theme_color": "#002050",
+    "categories": ["productivity", "utilities"],
+    "icons": [
+        { "src": "icones/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "icones/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "icones/icone-masquable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

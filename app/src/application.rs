@@ -12,7 +12,7 @@ use noyau::{Effet, Moteur, Prefixe, Touche};
 use crate::afficheur::{self, ActionAfficheur};
 use crate::aide;
 use crate::clavier::{self, ActionClavier, Contexte, EtatClavier};
-use crate::plateforme::{self, Depot, Export, Fichier};
+use crate::plateforme::{self, Depot, Export, Fichier, Installation};
 use crate::raccourcis::{self, Action};
 use crate::stockage::{self, MAX_RUBANS, RubanEnregistre};
 use crate::textes;
@@ -45,6 +45,15 @@ enum Vue {
     Bienvenue,
     Trucs,
     APropos,
+}
+
+/// Entrée du menu ☰.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChoixMenu {
+    Aller(Vue),
+    /// Installer l'application sur l'appareil (version Web).
+    Installer,
+    Quitter,
 }
 
 /// Question posée à l'utilisateur avant une action irréversible.
@@ -817,8 +826,25 @@ impl Application {
             return;
         }
         let ecran = ctx.content_rect();
-        let mut choix: Option<Option<Vue>> = None;
+        let mut choix: Option<ChoixMenu> = None;
         let mut fermer = false;
+        // Les entrées du menu dépendent de la plateforme : on ne « quitte » pas
+        // une page Web (on ferme son onglet), et seul un navigateur peut
+        // installer l'application sur l'appareil.
+        let mut elements: Vec<(&str, ChoixMenu)> = vec![
+            (textes::MENU_RUBANS, ChoixMenu::Aller(Vue::Rubans)),
+            (textes::MENU_AIDE, ChoixMenu::Aller(Vue::Aide)),
+            (textes::MENU_BIENVENUE, ChoixMenu::Aller(Vue::Bienvenue)),
+            (textes::MENU_TRUCS, ChoixMenu::Aller(Vue::Trucs)),
+            (textes::MENU_PREFERENCES, ChoixMenu::Aller(Vue::Preferences)),
+            (textes::MENU_A_PROPOS, ChoixMenu::Aller(Vue::APropos)),
+        ];
+        if !matches!(plateforme::installation(), Installation::Aucune) {
+            elements.push((textes::MENU_INSTALLER, ChoixMenu::Installer));
+        }
+        if !plateforme::NAVIGATEUR {
+            elements.push((textes::MENU_QUITTER, ChoixMenu::Quitter));
+        }
         egui::Area::new(egui::Id::unique("tiroir"))
             .order(egui::Order::Foreground)
             .fixed_pos(ecran.min)
@@ -853,20 +879,7 @@ impl Application {
                         );
                         ui.painter().rect_filled(filet, 1, p.barre_accent);
                         ui.add_space(6.0);
-                        let elements: [(&str, Option<Vue>); 7] = [
-                            (textes::MENU_RUBANS, Some(Vue::Rubans)),
-                            (textes::MENU_AIDE, Some(Vue::Aide)),
-                            (textes::MENU_BIENVENUE, Some(Vue::Bienvenue)),
-                            (textes::MENU_TRUCS, Some(Vue::Trucs)),
-                            (textes::MENU_PREFERENCES, Some(Vue::Preferences)),
-                            (textes::MENU_A_PROPOS, Some(Vue::APropos)),
-                            (textes::MENU_QUITTER, None),
-                        ];
-                        for (libelle, vue) in elements {
-                            // On ne « quitte » pas une page Web : on ferme son onglet.
-                            if vue.is_none() && plateforme::NAVIGATEUR {
-                                continue;
-                            }
+                        for (libelle, element) in elements {
                             // Texte blanc; le fond s'éclaire au survol.
                             let (zone, reponse) = ui.allocate_exact_size(
                                 Vec2::new(ui.available_width(), 42.0),
@@ -875,7 +888,7 @@ impl Application {
                             reponse.widget_info(|| {
                                 egui::WidgetInfo::labeled(egui::Role::Button, true, libelle)
                             });
-                            let actif = vue.is_some() && vue == Some(self.vue);
+                            let actif = element == ChoixMenu::Aller(self.vue);
                             if reponse.hovered() || actif {
                                 let voile = if actif { 30 } else { 18 };
                                 ui.painter()
@@ -889,7 +902,7 @@ impl Application {
                                 p.barre_texte,
                             );
                             if reponse.clicked() {
-                                choix = Some(vue);
+                                choix = Some(element);
                             }
                         }
                     },
@@ -899,8 +912,20 @@ impl Application {
                 }
             });
         match choix {
-            Some(Some(vue)) => self.aller(vue),
-            Some(None) => {
+            Some(ChoixMenu::Aller(vue)) => self.aller(vue),
+            Some(ChoixMenu::Installer) => {
+                self.tiroir_ouvert = false;
+                match plateforme::installation() {
+                    // Le navigateur sait installer l'application : on le lui demande.
+                    Installation::Proposee => plateforme::installer(),
+                    // Sinon, on explique où se trouve la commande du navigateur.
+                    Installation::Manuelle => {
+                        self.dialogue = Dialogue::Avis(textes::AVIS_INSTALLER);
+                    }
+                    Installation::Aucune => {}
+                }
+            }
+            Some(ChoixMenu::Quitter) => {
                 self.sauvegarder(ctx);
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }

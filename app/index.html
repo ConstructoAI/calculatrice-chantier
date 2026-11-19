@@ -10,12 +10,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#002050">
+
+    <!-- Application installable sur téléphone, tablette et ordinateur. -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icones/icone-apple-180.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Chantier">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="description"
         content="Calculatrice de construction en pieds-pouces-fractions et en métrique : pentes et chevrons, escaliers, arcs, onglets, quantités de matériaux. En français du Québec.">
     <title>Calculatrice de chantier</title>
 
     <!-- Le programme, compilé en WebAssembly. -->
     <link data-trunk rel="rust" href="Cargo.toml" data-bin="calculatrice-chantier" data-wasm-opt="0">
+
+    <!-- Fichiers copiés tels quels dans le site : manifeste, service hors ligne, icônes. -->
+    <link data-trunk rel="copy-file" href="manifest.webmanifest">
+    <link data-trunk rel="copy-file" href="sw.js">
+    <link data-trunk rel="copy-dir" href="icones">
 
     <!-- Icône : la même équerre que celle de la fenêtre de bureau, dessinée en SVG. -->
     <link rel="icon" type="image/svg+xml"
@@ -169,6 +182,24 @@
             window.addEventListener("error", echecDuChargement, true);
             window.addEventListener("unhandledrejection", echecDuChargement);
         })();
+
+        // Hors ligne : le service garde une copie du site dans l'appareil.
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("sw.js").catch(function () { });
+            });
+        }
+
+        // Installation : Chrome et Edge annoncent quand ils peuvent installer
+        // l'application. On garde l'invitation pour le bouton « Installer » du menu
+        // (voir `app/src/plateforme/web.rs`).
+        window.addEventListener("beforeinstallprompt", function (invitation) {
+            invitation.preventDefault();
+            window.invitationInstallation = invitation;
+        });
+        window.addEventListener("appinstalled", function () {
+            window.invitationInstallation = null;
+        });
     </script>
 </body>
 

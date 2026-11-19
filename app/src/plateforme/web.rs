@@ -9,7 +9,7 @@ use std::io;
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::closure::Closure;
 
-use super::{Export, Fichier, Lecture};
+use super::{Export, Fichier, Installation, Lecture};
 use crate::textes;
 
 /// L'application tourne-t-elle dans un navigateur?
@@ -139,18 +139,67 @@ pub fn basculer_plein_ecran() {
     let Some(racine) = document.document_element() else {
         return;
     };
-    // `requestFullscreen` rend une promesse, rejetée si le navigateur refuse.
-    // On l'attend pour qu'un refus reste silencieux au lieu de s'inscrire
-    // comme une erreur dans la console.
-    let promesse = js_sys::Reflect::get(&racine, &"requestFullscreen".into())
+    appeler_en_silence(&racine, "requestFullscreen");
+}
+
+/// Appelle une méthode du navigateur qui rend une promesse, et attend cette
+/// promesse pour qu'un refus reste silencieux au lieu de s'inscrire comme une
+/// erreur dans la console.
+fn appeler_en_silence(objet: &wasm_bindgen::JsValue, methode: &str) {
+    let promesse = js_sys::Reflect::get(objet, &methode.into())
         .ok()
         .and_then(|fonction| fonction.dyn_into::<js_sys::Function>().ok())
-        .and_then(|fonction| fonction.call0(&racine).ok())
+        .and_then(|fonction| fonction.call0(objet).ok())
         .and_then(|retour| retour.dyn_into::<js_sys::Promise>().ok());
     if let Some(promesse) = promesse {
         wasm_bindgen_futures::spawn_local(async move {
             let _ = wasm_bindgen_futures::JsFuture::from(promesse).await;
         });
+    }
+}
+
+/// Nom de la variable où la page range l'invitation à installer que lui
+/// envoient Chrome et Edge (voir le script de `app/index.html`).
+const INVITATION: &str = "invitationInstallation";
+
+fn invitation() -> Option<wasm_bindgen::JsValue> {
+    let fenetre = web_sys::window()?;
+    let valeur = js_sys::Reflect::get(&fenetre, &INVITATION.into()).ok()?;
+    (!valeur.is_null() && !valeur.is_undefined()).then_some(valeur)
+}
+
+/// Ce que le menu peut offrir pour installer l'application sur l'appareil.
+pub fn installation() -> Installation {
+    let Some(fenetre) = web_sys::window() else {
+        return Installation::Aucune;
+    };
+    // Déjà ouverte comme une application installée : il n'y a rien à offrir.
+    let autonome = fenetre
+        .match_media("(display-mode: standalone)")
+        .ok()
+        .flatten()
+        .is_some_and(|media| media.matches());
+    // Safari sur iPhone et iPad l'indique à sa façon.
+    let autonome_ios = js_sys::Reflect::get(&fenetre.navigator(), &"standalone".into())
+        .is_ok_and(|valeur| valeur.is_truthy());
+    if autonome || autonome_ios {
+        Installation::Aucune
+    } else if invitation().is_some() {
+        Installation::Proposee
+    } else {
+        Installation::Manuelle
+    }
+}
+
+/// Montre l'invitation du navigateur à installer l'application.
+pub fn installer() {
+    let Some(invitation) = invitation() else {
+        return;
+    };
+    appeler_en_silence(&invitation, "prompt");
+    // Une invitation ne sert qu'une fois.
+    if let Some(fenetre) = web_sys::window() {
+        let _ = js_sys::Reflect::set(&fenetre, &INVITATION.into(), &wasm_bindgen::JsValue::NULL);
     }
 }
 

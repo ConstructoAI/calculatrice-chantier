@@ -1,3 +1,4 @@
 target/
 dist/
-*.png
+# Photos de reference, a la racine du projet : jamais dans le depot (cahier des charges, R-03).
+/*.png

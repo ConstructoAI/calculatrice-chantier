@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use super::{Export, Fichier, Lecture};
+use super::{Export, Fichier, Installation, Lecture};
 use crate::textes;
 
 /// L'application tourne-t-elle dans un navigateur?
@@ -124,6 +124,14 @@ pub fn plein_ecran_possible() -> bool {
 /// Sans objet sur le bureau : le plein écran y est une préférence, que
 /// l'application applique elle-même à sa fenêtre.
 pub fn basculer_plein_ecran() {}
+
+/// La version de bureau est déjà un programme du poste : rien à installer.
+pub fn installation() -> Installation {
+    Installation::Aucune
+}
+
+/// Sans objet sur le bureau.
+pub fn installer() {}
 
 #[cfg(test)]
 mod tests {

@@ -17,7 +17,8 @@ Vos réglages, vos mémoires et vos rubans sont conservés dans
 Rien à télécharger : <https://constructoai.github.io/calculatrice-chantier/>
 
 Elle fonctionne sur ordinateur, tablette et téléphone, et conserve ses données dans le
-navigateur.
+navigateur. Elle s'installe aussi sur l'appareil (menu ☰ → *Installer l'application*) et
+fonctionne alors hors ligne.
 
 ---
 

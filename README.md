@@ -10,14 +10,15 @@ Le même programme existe en deux versions :
 
 | Version | Pour l'utiliser |
 |---|---|
-| **Web** — ordinateur, tablette, téléphone | Ouvrir <https://constructoai.github.io/calculatrice-chantier/> : rien à installer. |
+| **Web** — ordinateur, tablette, téléphone | Ouvrir <https://constructoai.github.io/calculatrice-chantier/>. Elle s'utilise telle quelle, ou s'installe sur l'appareil pour servir hors ligne (voir plus bas). |
 | **Bureau** — Windows 10 ou 11 (64 bits) | Télécharger `calculatrice-chantier-windows-x64.exe` depuis la [dernière publication](https://github.com/ConstructoAI/calculatrice-chantier/releases/latest), puis le lancer : rien à installer. |
 
 L'exécutable de bureau n'est pas signé. Au premier lancement, Windows peut afficher
 « Windows a protégé votre ordinateur » : choisir *Informations complémentaires*, puis
 *Exécuter quand même*.
 
-Le comportement complet est décrit dans `CAHIER_DES_CHARGES.md`.
+La calculatrice est gratuite, sans publicité et sans compte. Le comportement complet est
+décrit dans `CAHIER_DES_CHARGES.md`.
 
 > Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le
 > jugement d'une personne compétente, ni les exigences du Code de construction du Québec
@@ -34,6 +35,21 @@ Le comportement complet est décrit dans `CAHIER_DES_CHARGES.md`.
 - Appuyez de nouveau sur une touche de fonction pour faire défiler tous ses résultats.
 - Clic droit ou appui long sur une touche : sa fiche d'aide.
 
+## Installer sur un téléphone ou une tablette
+
+La version Web s'installe comme une application : elle a alors son icône, s'ouvre en
+plein écran et fonctionne sans réseau, même au fond d'un sous-sol.
+
+- **Android (Chrome)** : ouvrir le site, puis menu ☰ de la calculatrice → *Installer
+  l'application*. Ou, dans le menu ⋮ de Chrome : *Installer l'application*.
+- **iPhone et iPad (Safari)** : ouvrir le site, toucher *Partager*, puis *Sur l'écran
+  d'accueil*.
+- **Ordinateur (Chrome ou Edge)** : menu ☰ de la calculatrice → *Installer
+  l'application*, ou l'icône d'installation dans la barre d'adresse.
+
+Les mises à jour arrivent d'elles-mêmes : à chaque ouverture avec du réseau, la
+calculatrice prend la dernière version.
+
 ## Les deux versions en bref
 
 | | Bureau | Web |
@@ -43,6 +59,7 @@ Le comportement complet est décrit dans `CAHIER_DES_CHARGES.md`.
 | Plein écran | préférence, bouton ou `F11` | bouton (là où le navigateur le permet) ou `F11` du navigateur |
 | Police | Segoe UI (Windows) | Selawik, police libre aux mêmes largeurs |
 | Menu « Quitter » | oui | non : on ferme l'onglet |
+| Installation | un fichier `.exe` à lancer | menu « Installer l'application »; utilisable hors ligne ensuite |
 
 Dans les deux cas, aucune donnée n'est envoyée sur Internet : pas de télémétrie, pas de
 compte. Dans la version Web, effacer les données de navigation du site efface aussi les
@@ -144,6 +161,8 @@ jour :
 | `app/` | Interface graphique (`calculatrice-chantier`) avec eframe/egui : clavier, afficheur, préférences, rubans, aide. Ne contient aucune formule. |
 | `app/src/plateforme/` | Tout ce qui diffère entre le bureau (`bureau.rs`) et le navigateur (`web.rs`) : stockage, export, plein écran, démarrage. |
 | `app/index.html` | Page hôte de la version Web. |
+| `app/manifest.webmanifest`, `app/sw.js` | Ce qui rend la version Web installable et utilisable hors ligne. |
+| `app/icones/` | Icônes de l'application installable, dessinées par `app/outils/icones.py`. |
 | `app/polices/` | Polices libres de la version Web, avec leurs licences (`LISEZMOI.md`). |
 
 ## Nom de l'application
