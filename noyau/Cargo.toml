@@ -1,0 +1,12 @@
+[package]
+name = "calculatrice-noyau"
+description = "Noyau de calcul de la calculatrice de chantier (aucune dépendance graphique)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "noyau"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
