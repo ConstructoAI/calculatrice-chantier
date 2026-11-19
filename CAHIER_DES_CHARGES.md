@@ -1547,7 +1547,7 @@ Trois tests gardent le manuel exact : chaque calculateur a un exemple qui donne 
 
 | Version | Ce qui s'ouvre |
 |---|---|
-| Web | la page `manuel.html` du site, dans un nouvel onglet. Elle fait partie des fichiers gardés hors ligne (`app/sw.js`) : installée, la calculatrice montre son manuel sans réseau. |
+| Web | la page `manuel.html` du site, dans un nouvel onglet. Elle fait partie des fichiers gardés hors ligne (`app/sw.js`) : installée, la calculatrice montre son manuel sans réseau. Le service hors ligne ne répond par la page de l'application qu'aux navigations vers cette page; toute autre page du site — le manuel — est servie comme un fichier (sans quoi ouvrir le manuel rouvrirait la calculatrice). |
 | Bureau | le manuel est embarqué dans l'exécutable. Il est copié dans le dossier de données (`manuel.html`), puis ouvert dans le navigateur par une adresse `file:` : il se lit sans réseau. Si la copie échoue, c'est la page publiée qui est ouverte. |
 
 Tout ce qui diffère est dans `app/src/plateforme/` (`adresse_du_manuel`).
@@ -2442,6 +2442,7 @@ Conseils d'exécution :
 - [ ] Le ruban s'enregistre, se rouvre et s'exporte en `.txt` lisible dans le Bloc-notes (accents intacts).
 - [ ] Version Web : la page s'ouvre sur ordinateur et sur téléphone; les mêmes calculs donnent les mêmes résultats; après rechargement de la page, les réglages et les rubans sont toujours là; un ruban s'exporte par téléchargement.
 - [ ] Version Web : le menu « Installer l'application » l'installe (ou explique comment); une fois installée, elle s'ouvre et calcule en mode avion.
+- [ ] Version Web installée, en mode avion : « Manuel d'utilisation » ouvre bien le manuel, et non une seconde calculatrice.
 - [ ] Dans le menu ☰ : « Manuel d'utilisation » ouvre le manuel dans le navigateur; le courriel ouvre un nouveau message à `info@constructoai.ca`; le site ouvre `constructoai.ca`. (Ces ouvertures ne se vérifient pas par les tests automatisés.)
 - [ ] Sur un téléphone : toucher un métier dans la barre au-dessus du clavier, puis `24` `Pieds` `Longueur` `20` `Pieds` `Largeur` `4` `Pouces` `Épaisseur` `Résultat` `Résultat` donne `5,93 vg³ (4,53 m³)` pour la dalle de béton; les touches restent assez grandes pour le doigt.
 

@@ -152,12 +152,24 @@ async function servirUnFichier(evenement) {
     return garde;
 }
 
+// La requête vise-t-elle la page de l'application (la racine du site, ou son
+// `index.html`)?
+function estLaPage(requete) {
+    const chemin = new URL(requete.url).pathname;
+    const racine = new URL(PAGE, self.location.href).pathname;
+    return chemin === racine || chemin === racine + "index.html";
+}
+
 self.addEventListener("fetch", (evenement) => {
     const requete = evenement.request;
     if (requete.method !== "GET" || new URL(requete.url).origin !== self.location.origin) {
         return;
     }
-    if (requete.mode === "navigate") {
+    // Seule la page de l'application suit la règle « le réseau d'abord ». Les
+    // autres pages du site — le manuel d'utilisation — sont des fichiers comme
+    // les autres : sans cette distinction, ouvrir le manuel rouvrirait la
+    // calculatrice.
+    if (requete.mode === "navigate" && estLaPage(requete)) {
         evenement.respondWith(servirLaPage(evenement));
     } else {
         evenement.respondWith(servirUnFichier(evenement));
