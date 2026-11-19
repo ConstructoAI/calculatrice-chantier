@@ -11,6 +11,7 @@ pub mod etiquettes;
 pub mod fonctions;
 pub mod format;
 pub mod memoire;
+pub mod metiers;
 pub mod moteur;
 pub mod persistance;
 pub mod prefs;

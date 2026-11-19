@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1)
+> **Version du document :** 1.2 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -33,6 +33,7 @@ Ce document est **autosuffisant** : il contient tout ce qu'il faut pour écrire,
 19. [Tests et vecteurs de validation](#19-tests-et-vecteurs-de-validation)
 20. [Plan de réalisation par phases](#20-plan-de-réalisation-par-phases)
 21. [Définition de « terminé »](#21-définition-de--terminé-)
+22. [Calculateurs par métier](#22-calculateurs-par-métier)
 
 Annexes : [A. Constantes](#annexe-a--constantes) · [B. Textes d'aide](#annexe-b--textes-daide-français) · [C. Aide-mémoire eframe/egui 0.37](#annexe-c--aide-mémoire-eframeegui-037) · [D. Traçabilité photos → application](#annexe-d--traçabilité-photos--application) · [E. Hors périmètre](#annexe-e--hors-périmètre) · [F. Invite de démarrage](#annexe-f--invite-de-démarrage-de-la-prochaine-session) · [G. Hypothèses retenues](#annexe-g--hypothèses-retenues-à-confirmer-par-lutilisateur-aucune-nest-bloquante)
 
@@ -75,6 +76,8 @@ Le programme offre l'équivalent fonctionnel de tout ce que montrent les six pho
 - toutes les préférences et valeurs mémorisées des écrans de réglages ([section 13](#13-préférences-et-valeurs-mémorisées));
 - le ruban de calcul et les rubans enregistrés ([section 14](#14-ruban-de-calcul));
 - l'aide intégrée et le menu ([section 15](#15-écrans-menu-et-aide)).
+
+S'y ajoutent, à la demande de l'utilisateur (2026-11-19), des **calculateurs par métier** — béton et fondations, plomberie, électricité, finition, ventilation, terrassement — décrits à la [section 22](#22-calculateurs-par-métier). L'utilisateur veut faire de l'application une référence gratuite pour les gens de métier.
 
 L'[annexe D](#annexe-d--traçabilité-photos--application) fait correspondre chaque élément visible sur les photos à son équivalent dans l'application. L'[annexe E](#annexe-e--hors-périmètre) liste ce qui est volontairement exclu.
 
@@ -1496,8 +1499,8 @@ Ruban du 19 novembre 2026, 8 h 04
 | Élément | Contenu |
 |---|---|
 | **Barre supérieure** | ☰ (menu) · bouton plein écran (version Web : seulement si le navigateur le permet) · titre de l'application · ⚙ (Préférences) |
-| **Barre inférieure** | trois onglets : **Accueil** (la calculatrice), **Rubans**, **Aide** |
-| **Menu ☰** (tiroir à gauche) | Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Installer l'application (version Web seulement, 3.1) · Quitter (version de bureau seulement) |
+| **Barre inférieure** | quatre onglets : **Accueil** (la calculatrice), **Métiers** (section 22), **Rubans**, **Aide** |
+| **Menu ☰** (tiroir à gauche) | Calculateurs par métier · Rubans enregistrés · Aide · Bienvenue · Trucs de pro · Préférences · À propos · Installer l'application (version Web seulement, 3.1) · Quitter (version de bureau seulement) |
 
 `Échap` ferme le tiroir, un dialogue ou un écran secondaire et ramène à l'Accueil.
 
@@ -1653,6 +1656,7 @@ Dossier de données de l'utilisateur : celui que retourne `eframe::storage_dir(A
 |---|---|
 | `etat.json` | version du format, préférences (13.1 à 13.3), valeurs mémorisées (13.4), pente mémorisée, mémoire M+ (somme, nombre, genre, format), registres M1–M3, ruban courant, indicateur « bienvenue déjà vue » |
 | `rubans.json` | version du format, liste des rubans enregistrés (identifiant, nom, date ISO 8601, lignes) |
+| `metiers.json` | version du format, dernières saisies de chaque calculateur par métier (section 22). Simple commodité : une donnée illisible est ignorée. |
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -1707,6 +1711,7 @@ Calculatrice/                      (dossier de travail)
 │   │   ├── moteur.rs              Moteur : états, préfixes, opérateurs, cycles (9)
 │   │   ├── conversions.rs         section 10
 │   │   ├── memoire.rs             M+, registres (11)
+│   │   ├── metiers/               calculateurs par métier (22) : mod.rs, puis un fichier par métier
 │   │   ├── ruban.rs               Ruban, LigneRuban, export texte (14)
 │   │   ├── persistance.rs         EtatPersistant (17.2)
 │   │   └── fonctions/
@@ -1734,7 +1739,8 @@ Calculatrice/                      (dossier de travail)
 │       ├── escaliers.rs
 │       ├── cercle_arc.rs
 │       ├── materiaux.rs
-│       └── erreurs.rs
+│       ├── erreurs.rs
+│       └── metiers.rs             valeurs d'essai de la section 22
 └── app/
     ├── Cargo.toml                 (nom : calculatrice-chantier — nom de l'exécutable)
     ├── build.rs                   (facultatif : icône de l'exécutable via winresource)
@@ -1763,6 +1769,7 @@ Calculatrice/                      (dossier de travail)
             ├── rubans.rs
             ├── aide.rs
             ├── bienvenue.rs
+            ├── metiers.rs         écran des calculateurs par métier (22)
             ├── trucs.rs
             └── a_propos.rs
 ```
@@ -1773,7 +1780,7 @@ Calculatrice/                      (dossier de travail)
 - **R-49** `app` ne contient **aucune formule**. Elle transmet des `Touche` au moteur, dessine l'`Ecran` qu'il retourne et exécute les `Effet`.
 - **R-50** `#![forbid(unsafe_code)]` dans les deux crates. Dans `noyau` : pas de `unwrap()`, `expect()` ni `panic!` hors des tests; les erreurs passent par `Result<_, Erreur>`.
 - **R-51** Identifiants en **français sans accents** (`Moteur`, `appuyer`, `hauteur_contremarche`), commentaires en français. Les chaînes visibles par l'utilisateur ont leurs accents.
-- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs` et `app/src/aide.rs`. Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
+- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs`, `app/src/aide.rs` et, pour les libellés des calculateurs par métier, les fichiers de `noyau/src/metiers/`. Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
 - **R-53** Chaque fonction de la section 12 est une fonction pure, sans accès au `Moteur` :
 
 ```rust
@@ -2380,6 +2387,7 @@ Conseils d'exécution :
 - [ ] Ruban courant, enregistrement, renommage, copie, export `.txt`, suppression.
 - [ ] Aide : une fiche par fonction, recherche sans accents, appui long et clic droit.
 - [ ] Écrans Bienvenue, Trucs de pro, À propos (avec l'avertissement de 1.5).
+- [ ] Les 25 calculateurs par métier donnent les valeurs de 22.9; leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
 
 ### 21.3 Recette manuelle (à faire par l'utilisateur)
 
@@ -2395,6 +2403,158 @@ Conseils d'exécution :
 - [ ] Le ruban s'enregistre, se rouvre et s'exporte en `.txt` lisible dans le Bloc-notes (accents intacts).
 - [ ] Version Web : la page s'ouvre sur ordinateur et sur téléphone; les mêmes calculs donnent les mêmes résultats; après rechargement de la page, les réglages et les rubans sont toujours là; un ruban s'exporte par téléchargement.
 - [ ] Version Web : le menu « Installer l'application » l'installe (ou explique comment); une fois installée, elle s'ouvre et calcule en mode avion.
+
+---
+
+## 22. Calculateurs par métier
+
+Ajoutés le 2026-11-19, à la demande de l'utilisateur, pour d'autres corps de métier que la charpente. Ce sont des **formulaires** : des champs à remplir, des résultats qui se recalculent à chaque frappe.
+
+### 22.1 Principes
+
+- **Géométrie et physique seulement.** Aucun calculateur ne reproduit une table de code ni ne se prononce sur la conformité. Là où un code s'applique (pente minimale d'un drain, chute de tension permise, calibre minimal), une note le rappelle sans donner la valeur.
+- **Tout le calcul est dans `noyau`** (R-48, R-49) : `noyau/src/metiers/` décrit chaque calculateur par des données (identifiant, nom, résumé, champs, note) et une fonction pure. L'interface (`app/src/vues/metiers.rs`) dessine n'importe quel calculateur à partir de cette description, sans rien savoir de lui.
+- **Un calculateur = un identifiant stable** (`dalle`, `chute-de-tension`…), qui sert à retrouver les dernières saisies.
+- La charpente, la toiture et les escaliers restent au clavier principal : l'écran des métiers y renvoie.
+
+### 22.2 Règles communes
+
+**Champs.** Quatre natures :
+
+| Nature | Saisie | Refus |
+|---|---|---|
+| Longueur | comme partout ailleurs (7.9) : `12 pi 6 po`, `30 po`, `3,8 m`, `90 mm`. Un nombre seul prend l'unité indiquée à côté du champ (pi ou po). | « Entrez une longueur, par exemple 12 pi 6 po, 30 po ou 3,8 m. » |
+| Nombre | un nombre, virgule ou point; l'unité est écrite à côté du champ | « Entrez un nombre. » |
+| Entier | un nombre entier | « Entrez un nombre entier. » |
+| Choix | une option dans une liste | — |
+
+Sauf mention contraire, une valeur doit être plus grande que zéro (« La valeur doit être plus grande que zéro. »); là où zéro a un sens (pertes, portes, fenêtres), seul le négatif est refusé (« La valeur ne peut pas être négative. »). Un champ vide n'est pas une erreur : tant qu'un champ obligatoire est vide, il n'y a simplement pas de résultat.
+
+**Résultats.** Ils suivent le système de la **première longueur saisie** :
+
+| Grandeur | Saisie impériale | Saisie métrique |
+|---|---|---|
+| Longueur | pieds-pouces à la résolution des préférences; pouces seuls sous un pied | l'unité de la saisie : m à 3 décimales, cm à 1 décimale, mm sans décimale |
+| Aire | `480 pi² (44,6 m²)` | `44,6 m² (480 pi²)` |
+| Volume de béton, de terre, de pierre | `5,93 vg³ (4,53 m³)` | `4,53 m³ (5,93 vg³)` |
+| Volume d'un liquide | `24,7 L (6,53 gal US)` | idem |
+| Masse | `403 lb (183 kg)` | `183 kg (403 lb)` |
+| Masse en vrac | `13,3 tc (12,1 t)` | `12,1 t (13,3 tc)` |
+
+Les nombres s'écrivent avec les **décimales utiles** : aucune à partir de 100, une à partir de 10, deux à partir de 1, trois en dessous. Les quantités à acheter (sacs, tuiles, boîtes, contenants) sont arrondies à l'entier supérieur. Le séparateur décimal et le groupement par milliers suivent les préférences.
+
+**Ruban.** Le bouton `Ajouter au ruban` inscrit un bloc : un filet, le nom du calculateur (ligne de titre), les valeurs saisies remises au propre, les résultats précédés de `=`, un filet. Ce bloc s'enregistre, se copie et s'exporte comme le reste du ruban.
+
+**Persistance.** Les dernières saisies de chaque calculateur sont conservées (`metiers.json`, section 17.2). `Recommencer` remet les valeurs par défaut.
+
+**Constantes.** 1 gal US = 231 po³; 1 L = 61,0237 po³; eau : 1 kg/L et 9,806 65 kPa par mètre de hauteur; 1 lb/po² = 6,894 757 kPa; 1 HP = 746 W; 1 kW = 3 412,142 BTU/h; 1 tonne de réfrigération = 12 000 BTU/h; 1 pi³/min = 0,471 947 L/s.
+
+### 22.3 Béton et fondations
+
+| Calculateur | Champs (unité par défaut; valeur de départ) | Résultats |
+|---|---|---|
+| **Dalle de béton** `dalle` | Longueur (pi), Largeur (pi), Épaisseur (po), Pertes (% ; 10) | Surface = L × l · Volume = L × l × e · À commander = volume × (1 + pertes ÷ 100) |
+| **Semelle filante** `semelle` | Longueur totale (pi), Largeur (po), Épaisseur (po), Pertes (% ; 10) | Volume = L × l × e · À commander |
+| **Mur de fondation** `mur-de-fondation` | Longueur totale (pi), Hauteur (pi), Épaisseur (po), Pertes (% ; 10) | Volume = L × h × e · À commander · Coffrage, deux faces = 2 × L × h |
+| **Colonnes et pieux ronds** `colonnes` | Diamètre (po), Hauteur (pi), Nombre de colonnes (entier ; 1), Pertes (% ; 10), Rendement d'un sac (L ; 14) | Volume = π ÷ 4 × d² × h × n · À commander · Sacs = volume à commander en litres ÷ rendement, arrondi au-dessus |
+| **Armature d'une dalle** `armature` | Longueur (pi), Largeur (pi), Espacement des barres (po ; 16), Barre (10M, 15M, 20M, 25M) | Barres dans le sens de la longueur = ⌊largeur ÷ espacement⌋ + 1 · Barres dans le sens de la largeur = ⌊longueur ÷ espacement⌋ + 1 · Longueur totale · Masse = longueur totale × masse linéique |
+
+Masse linéique des barres : 10M 0,785 kg/m; 15M 1,570; 20M 2,355; 25M 3,925. L'armature ne compte ni chevauchements ni enrobage des rives (une note le dit). Le mur ne déduit pas les ouvertures.
+
+### 22.4 Plomberie
+
+| Calculateur | Champs | Résultats |
+|---|---|---|
+| **Pente d'un drain** `pente-de-drain` | Longueur du tuyau (pi), Pente par pied de longueur (po ; 1/4) | Dénivelé = longueur en pieds × pente · Pente en % = pente ÷ 12 × 100 |
+| **Déport de tuyauterie** `deport` | Déport (po), Angle des raccords (11,25° · 22,5° · 30° · 45° ★ · 60°) | Longueur de parcours = déport ÷ sin θ · Avance = déport ÷ tan θ |
+| **Déport roulé** `deport-roule` | Déport horizontal (po), Déport vertical (po), Angle des raccords | Déport réel = √(h² + v²) · Longueur de parcours et Avance, comme ci-dessus, à partir du déport réel |
+| **Contenance d'un tuyau** `contenance-de-tuyau` | Diamètre intérieur (po), Longueur (pi) | Contenance = π ÷ 4 × d² × L · Masse de l'eau (1 kg par litre) |
+| **Pression d'une colonne d'eau** `pression-d-eau` | Hauteur d'eau (pi) | Pression = hauteur en mètres × 9,806 65 kPa, aussi en lb/po² |
+| **Réservoir cylindrique** `reservoir` | Diamètre intérieur (po), Hauteur ou longueur (po) | Contenance = π ÷ 4 × d² × h |
+
+Les déports se mesurent de centre à centre (une note rappelle de déduire l'emboîtement des raccords).
+
+### 22.5 Électricité
+
+| Calculateur | Champs | Résultats |
+|---|---|---|
+| **Loi d'Ohm et puissance** `loi-d-ohm` | Tension (V), Courant (A), Résistance (Ω), Puissance (W) — tous facultatifs; il en faut **exactement deux** | Les quatre grandeurs : U = R·I, P = U·I. Sinon : « Remplissez exactement deux des quatre champs. » |
+| **Chute de tension** `chute-de-tension` | Tension du circuit (V ; 120), Courant (A), Longueur du parcours, aller simple (pi), Calibre (14 AWG ★ à 4/0 AWG, 250, 350, 500 kcmil), Métal (Cuivre ★, Aluminium), Circuit (Monophasé ou courant continu ★, Triphasé) | Chute = F × K × I × L ÷ S, avec L en pieds, S en mils circulaires, K = 12,9 (cuivre) ou 21,2 (aluminium), F = 2 en monophasé ou √3 en triphasé · Chute en % · Tension à la charge. Si la chute dépasse la tension : « La chute dépasse la tension du circuit : vérifiez les valeurs. » |
+| **Puissance d'un circuit** `puissance` | Tension (V), Courant (A), Facteur de puissance (1), Circuit (Monophasé ★, Triphasé) | Puissance apparente = U × I (× √3 en triphasé) en kVA · Puissance active = apparente × facteur · Équivalent en HP = watts ÷ 746. Facteur supérieur à 1 : « Le facteur de puissance se situe entre 0 et 1. » |
+| **Cintrage d'un conduit : déport** `cintrage` | Hauteur du déport (po), Angle des coudes (10° · 22,5° · 30° ★ · 45° · 60°) | Distance entre les marques = hauteur ÷ sin θ · Raccourcissement = hauteur × tan(θ ÷ 2) |
+| **Coût d'utilisation** `cout-d-energie` | Puissance de l'appareil (W), Utilisation par jour (h), Nombre de jours (entier ; 30), Tarif (¢/kWh) | Énergie = W × h × jours ÷ 1 000 · Coût = énergie × tarif ÷ 100. Plus de 24 h par jour : « Une journée compte 24 heures. » |
+
+Sections en mils circulaires : 14 AWG 4 110; 12 : 6 530; 10 : 10 380; 8 : 16 510; 6 : 26 240; 4 : 41 740; 3 : 52 620; 2 : 66 360; 1 : 83 690; 1/0 : 105 600; 2/0 : 133 100; 3/0 : 167 800; 4/0 : 211 600; puis 250 000, 350 000 et 500 000. K est la résistivité du conducteur à 75 °C, en ohms-mils circulaires par pied.
+
+### 22.6 Finition
+
+| Calculateur | Champs | Résultats |
+|---|---|---|
+| **Peinture d'une pièce** `peinture` | Longueur et Largeur de la pièce (pi), Hauteur des murs (pi ; 8), Portes (entier ; 1), Fenêtres (entier ; 1), Surfaces à peindre (Murs seulement ★, Murs et plafond), Couches (entier ; 2), Rendement d'un contenant de 3,78 L (pi² ; 350) | Surface = 2 × (L + l) × h − 21 pi² par porte − 15 pi² par fenêtre (+ L × l avec le plafond) · Peinture = surface × couches ÷ rendement × 3,78 L · Contenants, arrondi au-dessus. Surface nulle ou négative : « Les ouvertures couvrent toute la surface des murs. » |
+| **Céramique et tuiles** `ceramique` | Longueur et Largeur de la surface (pi), Longueur et Largeur d'une tuile (po), Pertes (% ; 10), Tuiles par boîte (entier, facultatif) | Surface · Tuiles = surface × (1 + pertes ÷ 100) ÷ aire d'une tuile, arrondi au-dessus · Boîtes = tuiles ÷ tuiles par boîte, arrondi au-dessus (si le champ est rempli) |
+| **Revêtement de sol en boîtes** `revetement-de-sol` | Longueur et Largeur du plancher (pi), Pertes (% ; 10), Couverture d'une boîte (pi²) | Surface · Surface à couvrir, pertes comprises · Boîtes, arrondi au-dessus |
+
+### 22.7 Ventilation et chauffage
+
+| Calculateur | Champs | Résultats |
+|---|---|---|
+| **Débit d'un conduit rond** `conduit-rond` | Diamètre (po), Vitesse de l'air (pi/min) | Section = π ÷ 4 × d² · Débit = section en pi² × vitesse, en pi³/min et en L/s |
+| **Débit d'un conduit rectangulaire** `conduit-rectangulaire` | Largeur (po), Hauteur (po), Vitesse de l'air (pi/min) | Section · Débit · Conduit rond équivalent = 1,30 × (a·b)^0,625 ÷ (a + b)^0,25 (formule de Huebscher) |
+| **Puissance de chauffage et de climatisation** `puissance-thermique` | Puissance, Unité (BTU/h ★, kW, tonnes de réfrigération) | La même puissance en BTU/h, en kW et en tonnes |
+
+### 22.8 Terrassement et aménagement
+
+| Calculateur | Champs | Résultats |
+|---|---|---|
+| **Excavation et remblai** `excavation` | Longueur, Largeur, Profondeur (pi), Foisonnement (% ; 25) | Volume en place = L × l × p · Volume à transporter = volume × (1 + foisonnement ÷ 100) |
+| **Pierre, gravier et sable** `granulats` | Longueur (pi), Largeur (pi), Épaisseur (po), Masse volumique (tc/vg³ ; 1,5) | Volume · Masse = volume en vg³ × masse volumique, en tonnes courtes et en tonnes |
+| **Clôture** `cloture` | Longueur totale (pi), Espacement visé des poteaux (pi ; 8) | Sections = longueur ÷ espacement, arrondi au-dessus · Poteaux = sections + 1 · Espacement réel = longueur ÷ sections |
+
+### 22.9 Valeurs d'essai
+
+Calculées à part, hors du programme (comme les vecteurs de la section 19). Elles sont rejouées par `noyau/tests/metiers.rs`. Préférences par défaut.
+
+| Calculateur | Saisies | Résultats attendus |
+|---|---|---|
+| dalle | 24 · 20 · 4 · 10 | `480 pi² (44,6 m²)` · `5,93 vg³ (4,53 m³)` · `6,52 vg³ (4,98 m³)` |
+| dalle | 7,3 m · 6 m · 100 mm · 10 | `43,8 m² (471 pi²)` · `4,38 m³ (5,73 vg³)` · `4,82 m³ (6,30 vg³)` |
+| semelle | 120 · 20 · 8 · 10 | `4,94 vg³ (3,78 m³)` · `5,43 vg³ (4,15 m³)` |
+| mur-de-fondation | 120 · 8 · 8 · 10 | `23,7 vg³ (18,1 m³)` · `26,1 vg³ (19,9 m³)` · `1 920 pi² (178 m²)` |
+| colonnes | 10 · 4 · 6 · 10 · 14 | `0,485 vg³ (0,371 m³)` · `0,533 vg³ (0,408 m³)` · `30 sacs` |
+| armature | 24 · 20 · 16 · 10M | `16 barres` · `19 barres` · `764 pi 0 po` · `403 lb (183 kg)` |
+| pente-de-drain | 40 · 1/4 | `10 po` · `2,08 %` |
+| pente-de-drain | 12 m · 1/4 | `0,250 m` · `2,08 %` |
+| deport | 12 · 45° | `1 pi 5 po` · `1 pi 0 po` |
+| deport | 12 · 22,5° | `2 pi 7 3/8 po` · `2 pi 5 po` |
+| deport-roule | 8 · 6 · 45° | `10 po` · `1 pi 2 1/8 po` · `10 po` |
+| contenance-de-tuyau | 4 · 10 | `24,7 L (6,53 gal US)` · `54,5 lb (24,7 kg)` |
+| pression-d-eau | 30 | `89,7 kPa (13,0 lb/po²)` |
+| reservoir | 20 · 48 | `247 L (65,3 gal US)` |
+| loi-d-ohm | 120 V · 15 A | `120 V` · `15,0 A` · `8,00 Ω` · `1 800 W` |
+| chute-de-tension | 120 · 15 · 100 · 14 AWG · cuivre · monophasé | `9,42 V` · `7,85 %` · `110,6 V` |
+| chute-de-tension | 600 · 100 · 300 · 1/0 AWG · aluminium · triphasé | `10,4 V` · `1,74 %` · `589,6 V` |
+| puissance | 600 · 20 · 0,85 · triphasé | `20,8 kVA` · `17,7 kW` · `23,7 HP` |
+| cintrage | 6 · 30° | `1 pi 0 po` · `1 5/8 po` |
+| cout-d-energie | 1 500 · 8 · 30 · 10 | `360 kWh` · `36,00 $` |
+| peinture | 12 · 10 · 8 · 1 · 1 · murs · 2 · 350 | `316 pi² (29,4 m²)` · `6,83 L` · `2 contenants` |
+| ceramique | 10 · 8 · 24 · 12 · 10 · 8 | `80,0 pi² (7,43 m²)` · `44 tuiles` · `6 boîtes` |
+| revetement-de-sol | 15 · 12 · 10 · 22,5 | `180 pi² (16,7 m²)` · `198 pi² (18,4 m²)` · `9 boîtes` |
+| conduit-rond | 8 · 700 | `0,349 pi² (0,032 m²)` · `244 pi³/min (115 L/s)` |
+| conduit-rectangulaire | 14 · 8 · 900 | `0,778 pi² (0,072 m²)` · `700 pi³/min (330 L/s)` · `11 7/16 po` |
+| puissance-thermique | 36 000 · BTU/h | `36 000 BTU/h` · `10,6 kW` · `3,00 tonnes` |
+| excavation | 30 · 20 · 4 · 25 | `88,9 vg³ (68,0 m³)` · `111 vg³ (85,0 m³)` |
+| granulats | 40 · 12 · 6 · 1,5 | `8,89 vg³ (6,80 m³)` · `13,3 tc (12,1 t)` |
+| cloture | 100 · 8 | `13 sections` · `14 poteaux` · `7 pi 8 5/16 po` |
+
+### 22.10 Écran
+
+Onglet **Métiers** de la barre inférieure (pictogramme : un casque de chantier), aussi dans le menu ☰. Trois niveaux :
+
+1. **Les métiers** : une carte par métier (nom, résumé, nombre de calculateurs), puis une carte « Charpente, toiture et escaliers » qui ramène au clavier principal, puis un rappel : ces calculateurs ne remplacent ni les plans ni les codes en vigueur.
+2. **Les calculateurs d'un métier** : une carte par calculateur (nom, résumé). Bouton `Retour`.
+3. **Le formulaire** : le résumé; les champs (libellé en gras, champ de saisie, unité à droite, message de refus dessous); les résultats (libellé en petit, valeur en gras); la note du calculateur; les boutons `Ajouter au ruban` (actif quand il y a des résultats) et `Recommencer`. Bouton `Retour`.
+
+`Échap` quitte le champ en cours de saisie, puis remonte d'un niveau, puis ramène à l'Accueil. Dans une fenêtre large, le ruban reste visible à droite : les résultats ajoutés s'y inscrivent sous les yeux de l'utilisateur.
 
 ---
 
@@ -2787,7 +2947,8 @@ if reponse.secondary_clicked() { /* ouvrir l'aide */ }
 Ne pas réaliser, même partiellement :
 
 - compte utilisateur, synchronisation, toute communication réseau, télémétrie, publicité, achats;
-- assistant conversationnel, notes de projet, calculateurs par formulaires illustrés, vidéos;
+- assistant conversationnel, notes de projet, vidéos, illustrations des calculateurs (les calculateurs par métier de la section 22 sont des formulaires sans dessin);
+- tout ce qui relève d'un code plutôt que du calcul : tables d'intensité admissible, calibre minimal, remplissage des conduits et des boîtes, facteurs d'alimentation de plomberie, portées des pièces de charpente;
 - connexion à des appareils de mesure (télémètres laser);
 - applications mobiles natives (la version Web, section 3.1, sert sur téléphone et sur tablette);
 - autres langues que le français;
@@ -2837,6 +2998,8 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 10 | Terminologie : « montée / course », « empannon », « coupe latérale », « mur en pente », « gypse », « ruban ». | 4.3 |
 | 11 | Les listes d'empannons n'affichent pas d'élément final de longueur nulle. | 12.3 |
 | 12 | Palette aux couleurs de l'ERP Constructo AI — **choisie par l'utilisateur le 2026-11-19** (elle remplace « Ardoise et ambre »). | 16.3 |
+| 13 | Calculateurs par métier : l'utilisateur a demandé « plomberie, électricien, fondation, etc. »; la liste des 25 calculateurs, leurs valeurs par défaut et leur présentation en formulaires sont un choix de Claude. | 22 |
+| 14 | Les calculateurs par métier ne reproduisent aucune table de code (intensités admissibles, calibres, pentes minimales) : géométrie et physique seulement. | 22.1 |
 
 
 

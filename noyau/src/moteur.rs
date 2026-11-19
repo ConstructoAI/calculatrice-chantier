@@ -304,6 +304,26 @@ impl Moteur {
         self.revision += 1;
     }
 
+    /// Inscrit au ruban un calcul fait dans un calculateur par métier
+    /// (section 22) : un titre, les valeurs saisies, puis les résultats.
+    pub fn consigner(
+        &mut self,
+        titre: &str,
+        entrees: &[(&str, String)],
+        resultats: &[(&str, String)],
+    ) {
+        self.ruban.separateur();
+        self.ruban.titre(titre.to_string());
+        for (libelle, valeur) in entrees {
+            self.ruban.sortie((*libelle).to_string(), valeur.clone());
+        }
+        for (libelle, valeur) in resultats {
+            self.ruban.resultat((*libelle).to_string(), valeur.clone());
+        }
+        self.ruban.separateur();
+        self.revision += 1;
+    }
+
     /// `Effacer tout`, après confirmation par l'interface (section 9.9).
     pub fn effacer_tout(&mut self) {
         self.effacer(true);

@@ -2,7 +2,7 @@
 
 use eframe::egui::{self, Id, RichText, Sense, Ui};
 
-use super::{carte, corps, en_tete, section, texte_a_touches};
+use super::{cadre_de_saisie, carte, corps, en_tete, section, texte_a_touches};
 use crate::aide::{FICHES, Fiche};
 use crate::textes;
 use crate::theme::{self, Palette};
@@ -112,11 +112,12 @@ pub fn afficher(
     });
     ui.horizontal(|ui| {
         ui.add_space(14.0);
-        ui.add(
+        let champ = ui.add(
             egui::TextEdit::singleline(recherche)
                 .hint_text(textes::RECHERCHER)
                 .desired_width(ui.available_width() - 28.0),
         );
+        cadre_de_saisie(ui, p, &champ);
     });
     ui.add_space(2.0);
     ui.separator();

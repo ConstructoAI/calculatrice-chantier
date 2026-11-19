@@ -39,6 +39,8 @@ type Dessin = fn(&Painter, Rect, Color32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Vue {
     Accueil,
+    /// Calculateurs par métier (section 22).
+    Metiers,
     Rubans,
     Aide,
     Preferences,
@@ -103,6 +105,10 @@ pub struct Application {
     recherche: String,
     fiche_ouverte: Option<usize>,
     ruban_ouvert: Option<u64>,
+    /// Écran des métiers : où l'on se trouve, et ce qui a été tapé dans chaque calculateur.
+    position_metiers: vues::metiers::Position,
+    saisies_metiers: vues::metiers::Saisies,
+    saisies_a_sauvegarder: bool,
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
     fugace: Option<(&'static str, f64)>,
     a_sauvegarder: bool,
@@ -123,6 +129,7 @@ impl Application {
         let depot = Depot::ouvrir();
         let chargement = stockage::charger_etat(&depot);
         let rubans = stockage::charger_rubans(&depot);
+        let saisies_metiers = stockage::charger_saisies(&depot);
         let moteur = Moteur::nouveau(chargement.etat);
         let vue = if moteur.bienvenue_vue() {
             Vue::Accueil
@@ -145,6 +152,9 @@ impl Application {
             recherche: String::new(),
             fiche_ouverte: None,
             ruban_ouvert: None,
+            position_metiers: vues::metiers::Position::default(),
+            saisies_metiers,
+            saisies_a_sauvegarder: false,
             fugace: None,
             a_sauvegarder: chargement.illisible,
             // Le premier changement est enregistré sans attendre.
@@ -245,12 +255,18 @@ impl Application {
         if stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant()).is_err() {
             self.signaler_l_echec_d_ecriture();
         }
+        if self.saisies_a_sauvegarder {
+            self.saisies_a_sauvegarder = false;
+            if stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers).is_err() {
+                self.signaler_l_echec_d_ecriture();
+            }
+        }
     }
 
     /// Sur le bureau, au plus une écriture par seconde (R-45); dans un
     /// navigateur, sans délai.
     fn sauvegarder_si_du(&mut self, ctx: &egui::Context) {
-        if !self.a_sauvegarder {
+        if !self.a_sauvegarder && !self.saisies_a_sauvegarder {
             return;
         }
         let ecoule = ctx.input(|i| i.time) - self.derniere_sauvegarde;
@@ -451,6 +467,13 @@ impl Application {
                             self.tiroir_ouvert = false;
                             continue;
                         }
+                        // Dans l'écran des métiers, Échap remonte d'un niveau
+                        // (et commence par quitter le champ en cours de saisie).
+                        if self.vue == Vue::Metiers
+                            && (champ_actif || self.position_metiers.remonter())
+                        {
+                            continue;
+                        }
                         if self.vue != Vue::Accueil {
                             self.aller(Vue::Accueil);
                             continue;
@@ -595,12 +618,13 @@ impl Application {
         let filet = Rect::from_min_size(rect.min, Vec2::new(rect.width(), 1.0));
         ui.painter()
             .rect_filled(filet, 0, Color32::from_white_alpha(22));
-        let onglets: [(Vue, &str, Dessin); 3] = [
+        let onglets: [(Vue, &str, Dessin); 4] = [
             (
                 Vue::Accueil,
                 textes::ONGLET_ACCUEIL,
                 dessiner_onglet_accueil,
             ),
+            (Vue::Metiers, textes::METIERS, dessiner_onglet_metiers),
             (Vue::Rubans, textes::ONGLET_RUBANS, dessiner_onglet_rubans),
             (Vue::Aide, textes::ONGLET_AIDE, dessiner_onglet_aide),
         ];
@@ -746,6 +770,29 @@ impl Application {
                     self.traiter_action_ruban(ui.ctx(), action);
                 }
             }
+            Vue::Metiers => {
+                let action = vues::metiers::afficher(
+                    ui,
+                    p,
+                    &mut self.position_metiers,
+                    &mut self.saisies_metiers,
+                    self.moteur.preferences(),
+                );
+                match action {
+                    Some(vues::metiers::Action::Modifie) => self.saisies_a_sauvegarder = true,
+                    Some(vues::metiers::Action::Consigner {
+                        titre,
+                        entrees,
+                        resultats,
+                    }) => {
+                        self.moteur.consigner(titre, &entrees, &resultats);
+                        self.a_sauvegarder = true;
+                        self.annoncer(ui.ctx(), textes::AVIS_AJOUTE_AU_RUBAN);
+                    }
+                    Some(vues::metiers::Action::Clavier) => self.aller(Vue::Accueil),
+                    None => {}
+                }
+            }
             Vue::Aide => match vues::aide::afficher(ui, p, &mut self.recherche, self.fiche_ouverte)
             {
                 Some(vues::aide::Action::Ouvrir(i)) => self.fiche_ouverte = Some(i),
@@ -832,6 +879,7 @@ impl Application {
         // une page Web (on ferme son onglet), et seul un navigateur peut
         // installer l'application sur l'appareil.
         let mut elements: Vec<(&str, ChoixMenu)> = vec![
+            (textes::MENU_METIERS, ChoixMenu::Aller(Vue::Metiers)),
             (textes::MENU_RUBANS, ChoixMenu::Aller(Vue::Rubans)),
             (textes::MENU_AIDE, ChoixMenu::Aller(Vue::Aide)),
             (textes::MENU_BIENVENUE, ChoixMenu::Aller(Vue::Bienvenue)),
@@ -972,6 +1020,7 @@ impl Application {
                     ui.label(textes::NOM_DU_RUBAN);
                     let champ =
                         ui.add(egui::TextEdit::singleline(&mut texte).desired_width(f32::INFINITY));
+                    vues::cadre_de_saisie(ui, p, &champ);
                     if nouveau {
                         champ.request_focus();
                     }
@@ -1014,6 +1063,7 @@ impl Application {
                     ui.add_space(6.0);
                     let champ =
                         ui.add(egui::TextEdit::singleline(&mut texte).desired_width(f32::INFINITY));
+                    vues::cadre_de_saisie(ui, p, &champ);
                     if nouveau {
                         champ.request_focus();
                     }
@@ -1281,6 +1331,9 @@ impl eframe::App for Application {
     fn on_exit(&mut self) {
         // L'état est sauvegardé à la fermeture (R-45).
         let _ = stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant());
+        if self.saisies_a_sauvegarder {
+            let _ = stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers);
+        }
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
@@ -1443,6 +1496,38 @@ fn dessiner_onglet_accueil(painter: &Painter, r: Rect, couleur: Color32) {
             painter.circle_filled(centre, 1.3, couleur);
         }
     }
+}
+
+fn dessiner_onglet_metiers(painter: &Painter, r: Rect, couleur: Color32) {
+    // Un casque de chantier : la calotte, sa nervure et la visière.
+    let trait_ = Stroke::new(1.7, couleur);
+    let base = r.bottom() - 5.5;
+    let centre = Pos2::new(r.center().x, base);
+    let rayon = r.width() * 0.37;
+    let calotte: Vec<Pos2> = (0..=18)
+        .map(|i| {
+            let angle = std::f32::consts::PI * (1.0 + i as f32 / 18.0);
+            Pos2::new(
+                centre.x + rayon * angle.cos(),
+                centre.y + rayon * angle.sin(),
+            )
+        })
+        .collect();
+    painter.add(egui::Shape::line(calotte, trait_));
+    painter.line_segment(
+        [
+            Pos2::new(centre.x, base - rayon - 2.6),
+            Pos2::new(centre.x, base - rayon * 0.35),
+        ],
+        trait_,
+    );
+    painter.line_segment(
+        [
+            Pos2::new(r.left() + 0.5, base),
+            Pos2::new(r.right() - 0.5, base),
+        ],
+        Stroke::new(2.3, couleur),
+    );
 }
 
 fn dessiner_onglet_rubans(painter: &Painter, r: Rect, couleur: Color32) {

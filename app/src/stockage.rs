@@ -4,6 +4,7 @@
 //! bureau, le stockage local dans un navigateur. C'est l'affaire du `Depot` de
 //! la plateforme.
 
+use std::collections::BTreeMap;
 use std::io;
 
 use chrono::{Datelike, Timelike};
@@ -19,6 +20,9 @@ const FICHIER_RUBANS: &str = "rubans.json";
 const FICHIER_RUBANS_CORROMPU: &str = "rubans.corrompu.json";
 /// Version du format de `rubans.json`.
 const VERSION_RUBANS: u32 = 1;
+const FICHIER_SAISIES: &str = "metiers.json";
+/// Version du format de `metiers.json`.
+const VERSION_SAISIES: u32 = 1;
 /// Nombre maximal de rubans enregistrés (annexe A.2).
 pub const MAX_RUBANS: usize = 200;
 
@@ -124,6 +128,39 @@ pub fn enregistrer_rubans(depot: &Depot, rubans: &[RubanEnregistre]) -> io::Resu
         rubans: rubans.to_vec(),
     };
     depot.ecrire(FICHIER_RUBANS, &en_json(&fichier)?)
+}
+
+/// Saisies des calculateurs par métier (section 22), par identifiant de
+/// calculateur : ce que l'utilisateur a tapé la dernière fois.
+pub type Saisies = BTreeMap<String, Vec<String>>;
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+struct FichierSaisies {
+    version: u32,
+    saisies: Saisies,
+}
+
+/// Lit les dernières saisies; aucune si la donnée est absente, illisible ou
+/// d'une autre version (ce ne sont que des commodités : rien n'est mis de côté).
+pub fn charger_saisies(depot: &Depot) -> Saisies {
+    match depot.lire(FICHIER_SAISIES) {
+        Lecture::Texte(texte) => serde_json::from_str::<FichierSaisies>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_SAISIES)
+            .map(|fichier| fichier.saisies)
+            .unwrap_or_default(),
+        Lecture::Absent | Lecture::Illisible => Saisies::new(),
+    }
+}
+
+/// Enregistre les dernières saisies.
+pub fn enregistrer_saisies(depot: &Depot, saisies: &Saisies) -> io::Result<()> {
+    let fichier = FichierSaisies {
+        version: VERSION_SAISIES,
+        saisies: saisies.clone(),
+    };
+    depot.ecrire(FICHIER_SAISIES, &en_json(&fichier)?)
 }
 
 /// Contenu d'un fichier texte exporté : UTF-8 avec indicateur d'ordre des
@@ -326,6 +363,22 @@ mod tests {
         assert!(charger_rubans(&d.depot()).is_empty());
         assert!(d.0.join("rubans.corrompu.json").exists());
         assert!(!d.0.join("rubans.json").exists());
+    }
+
+    #[test]
+    fn aller_retour_des_saisies() {
+        let d = DossierTemporaire::nouveau("saisies");
+        assert!(charger_saisies(&d.depot()).is_empty());
+        let mut saisies = Saisies::new();
+        saisies.insert(
+            "dalle".to_string(),
+            vec!["24".to_string(), "20".to_string(), "4".to_string()],
+        );
+        enregistrer_saisies(&d.depot(), &saisies).unwrap();
+        assert_eq!(charger_saisies(&d.depot()), saisies);
+        // Une donnée illisible est simplement ignorée.
+        fs::write(d.0.join("metiers.json"), "pas du JSON").unwrap();
+        assert!(charger_saisies(&d.depot()).is_empty());
     }
 
     #[test]

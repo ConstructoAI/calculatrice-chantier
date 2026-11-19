@@ -3,6 +3,7 @@
 pub mod a_propos;
 pub mod aide;
 pub mod bienvenue;
+pub mod metiers;
 pub mod preferences;
 pub mod rubans;
 pub mod trucs;
@@ -46,6 +47,20 @@ pub fn bouton_principal<'a>(p: &Palette, libelle: &'a str, taille: f32) -> egui:
     )
     .fill(p.selection)
     .stroke(egui::Stroke::new(1.0, p.selection))
+}
+
+/// Entoure d'un liseré de la couleur primaire le champ de texte en cours de
+/// saisie. (Le liseré qu'egui dessine de lui-même prend la couleur du texte
+/// sélectionné : blanc sur blanc dans le thème clair.)
+pub fn cadre_de_saisie(ui: &Ui, p: &Palette, champ: &egui::Response) {
+    if champ.has_focus() {
+        ui.painter().rect_stroke(
+            champ.rect,
+            4,
+            egui::Stroke::new(1.5, p.primaire),
+            egui::StrokeKind::Outside,
+        );
+    }
 }
 
 /// Corps défilant d'un écran, avec ses marges.

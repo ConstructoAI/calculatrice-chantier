@@ -33,6 +33,15 @@ pub fn dessiner_lignes(ui: &mut Ui, p: &Palette, lignes: &[LigneRuban]) {
             ui.separator();
             continue;
         }
+        if ligne.genre == GenreLigne::Titre {
+            // Nom d'un calculateur par métier : en tête de son bloc de lignes.
+            ui.label(
+                RichText::new(&ligne.texte)
+                    .font(theme::police_grasse(14.0))
+                    .color(p.titre),
+            );
+            continue;
+        }
         let mut gauche = String::new();
         if let Some(signe) = ligne.signe() {
             gauche.push(signe);

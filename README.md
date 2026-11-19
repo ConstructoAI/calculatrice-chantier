@@ -1,10 +1,15 @@
 # Calculatrice de chantier
 
-Calculatrice de construction en français du Québec. Elle calcule en
-pieds-pouces-fractions et en métrique, et résout les problèmes courants de chantier :
-pentes et chevrons, arêtiers, noues et empannons, escaliers, murs en pente et murs
-cintrés, arcs et cercles, onglets composés, quantités de matériaux (blocs, béton de
-semelle, gypse, bardeaux, montants, bois en pmp), conversions et coûts.
+Calculatrice de construction en français du Québec, pour tous les corps de métier. Elle
+calcule en pieds-pouces-fractions et en métrique, et résout les problèmes courants de
+chantier :
+
+- **au clavier**, comme une calculatrice de charpentier : pentes et chevrons, arêtiers,
+  noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets
+  composés, quantités de matériaux (blocs, béton de semelle, gypse, bardeaux, montants,
+  bois en pmp), conversions et coûts;
+- **par formulaires**, dans l'onglet *Métiers* : 25 calculateurs pour le béton et les
+  fondations, la plomberie, l'électricité, la finition, la ventilation et le terrassement.
 
 Le même programme existe en deux versions :
 
@@ -34,6 +39,25 @@ décrit dans `CAHIER_DES_CHARGES.md`.
   les unités. Un clic sur la petite étiquette fait la même chose.
 - Appuyez de nouveau sur une touche de fonction pour faire défiler tous ses résultats.
 - Clic droit ou appui long sur une touche : sa fiche d'aide.
+
+## Calculateurs par métier
+
+L'onglet *Métiers* réunit des formulaires à remplir. Une mesure s'y tape comme partout
+ailleurs (`12 pi 6 po`, `30 po`, `3,8 m`); les résultats sortent dans les deux systèmes
+et s'ajoutent au ruban d'un clic.
+
+| Métier | Calculateurs |
+|---|---|
+| Béton et fondations | dalle, semelle filante, mur de fondation, colonnes et pieux ronds (volume et sacs), armature d'une dalle |
+| Plomberie | pente d'un drain, déport de tuyauterie, déport roulé, contenance d'un tuyau, pression d'une colonne d'eau, réservoir cylindrique |
+| Électricité | loi d'Ohm et puissance, chute de tension, puissance d'un circuit (monophasé ou triphasé), cintrage d'un conduit, coût d'utilisation |
+| Finition | peinture d'une pièce, céramique et tuiles, revêtement de sol en boîtes |
+| Ventilation et chauffage | débit d'un conduit rond ou rectangulaire, conversion BTU/h, kW et tonnes |
+| Terrassement et aménagement | excavation et remblai, pierre, gravier et sable, clôture |
+
+Ces calculateurs font de la géométrie et de la physique. Ils ne reproduisent aucune table
+de code (intensités admissibles, calibres, pentes minimales) et ne remplacent ni les plans
+ni les codes en vigueur.
 
 ## Installer sur un téléphone ou une tablette
 
@@ -135,7 +159,8 @@ cargo fmt --all --check
 ```
 
 Les tests du noyau rejouent, touche par touche, tous les exemples chiffrés de la
-section 19 du cahier des charges.
+section 19 du cahier des charges, et vérifient chaque calculateur par métier contre des
+valeurs calculées à part (section 22.9).
 
 ## Publication automatique
 
@@ -157,7 +182,7 @@ jour :
 
 | Dossier | Rôle |
 |---|---|
-| `noyau/` | Bibliothèque de calcul (`calculatrice-noyau`) : unités, saisie, formatage, moteur, fonctions de construction. Aucune dépendance graphique; entièrement testée sans écran. |
+| `noyau/` | Bibliothèque de calcul (`calculatrice-noyau`) : unités, saisie, formatage, moteur, fonctions de construction, calculateurs par métier (`noyau/src/metiers/`). Aucune dépendance graphique; entièrement testée sans écran. |
 | `app/` | Interface graphique (`calculatrice-chantier`) avec eframe/egui : clavier, afficheur, préférences, rubans, aide. Ne contient aucune formule. |
 | `app/src/plateforme/` | Tout ce qui diffère entre le bureau (`bureau.rs`) et le navigateur (`web.rs`) : stockage, export, plein écran, démarrage. |
 | `app/index.html` | Page hôte de la version Web. |

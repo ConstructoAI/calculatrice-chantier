@@ -15,6 +15,8 @@ pub enum GenreLigne {
     Conversion,
     Memoire,
     Separateur,
+    /// Titre d'un calcul fait dans un calculateur par métier (section 22).
+    Titre,
 }
 
 /// Une ligne du ruban.
@@ -110,6 +112,26 @@ impl Ruban {
         });
     }
 
+    /// Titre d'un bloc de lignes : le nom d'un calculateur par métier.
+    pub fn titre(&mut self, texte: String) {
+        self.ajouter(LigneRuban {
+            genre: GenreLigne::Titre,
+            operateur: None,
+            etiquette: None,
+            texte,
+        });
+    }
+
+    /// Résultat d'un calculateur par métier : son libellé, puis sa valeur.
+    pub fn resultat(&mut self, etiquette: String, texte: String) {
+        self.ajouter(LigneRuban {
+            genre: GenreLigne::Total,
+            operateur: Some('='),
+            etiquette: Some(etiquette),
+            texte,
+        });
+    }
+
     /// Ajoute un filet de séparation, sauf en tête ou à la suite d'un autre filet.
     pub fn separateur(&mut self) {
         match self.lignes.last() {
@@ -149,12 +171,22 @@ pub fn exporter(titre: &str, lignes: &[LigneRuban]) -> String {
         .map(|l| gauche(l).chars().count())
         .max()
         .unwrap_or(0);
+    // Un titre occupe toute la ligne : il ne compte pas dans la colonne de droite.
     let largeur_droite = lignes
         .iter()
+        .filter(|l| l.genre != GenreLigne::Titre)
         .map(|l| l.texte.chars().count())
         .max()
         .unwrap_or(0);
-    let largeur = (largeur_gauche + 2 + largeur_droite).max(titre.chars().count());
+    let largeur_des_titres = lignes
+        .iter()
+        .filter(|l| l.genre == GenreLigne::Titre)
+        .map(|l| l.texte.chars().count())
+        .max()
+        .unwrap_or(0);
+    let largeur = (largeur_gauche + 2 + largeur_droite)
+        .max(titre.chars().count())
+        .max(largeur_des_titres);
     let filet: String = "-".repeat(largeur);
     let mut sortie = String::new();
     sortie.push_str(titre);
@@ -164,6 +196,11 @@ pub fn exporter(titre: &str, lignes: &[LigneRuban]) -> String {
     for l in lignes {
         if l.genre == GenreLigne::Separateur {
             sortie.push_str(&filet);
+            sortie.push('\n');
+            continue;
+        }
+        if l.genre == GenreLigne::Titre {
+            sortie.push_str(&l.texte);
             sortie.push('\n');
             continue;
         }
@@ -189,6 +226,25 @@ mod tests {
         }
         assert_eq!(r.lignes.len(), MAX_LIGNES);
         assert_eq!(r.lignes[0].texte, "25");
+    }
+
+    #[test]
+    fn export_d_un_calcul_de_metier() {
+        let mut r = Ruban::default();
+        r.operande(None, "12".into());
+        r.separateur();
+        r.titre("Dalle de béton".into());
+        r.sortie("Longueur".into(), "24 pi 0 po".into());
+        r.resultat("Volume de béton".into(), "5,93 vg³ (4,53 m³)".into());
+        let texte = r.en_texte("Ruban");
+        let lignes: Vec<&str> = texte.lines().collect();
+        // Le titre est à gauche, sur toute la ligne; les valeurs restent alignées à droite.
+        assert_eq!(lignes[4], "Dalle de béton");
+        assert!(lignes[5].starts_with("Longueur ") && lignes[5].ends_with(" 24 pi 0 po"));
+        assert_eq!(lignes[6], "= Volume de béton  5,93 vg³ (4,53 m³)");
+        let largeur = lignes[1].chars().count();
+        assert_eq!(lignes[5].chars().count(), largeur);
+        assert_eq!(lignes[6].chars().count(), largeur);
     }
 
     #[test]

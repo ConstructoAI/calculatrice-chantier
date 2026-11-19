@@ -8,7 +8,7 @@ Segoe UI, déjà présente sous Windows.
 |---|---|---|---|
 | `selawk.ttf`, `selawkb.ttf` | texte courant et gras | Selawik 1.01, Microsoft — fichiers d'origine, non modifiés | SIL OFL 1.1 (`Selawik-LICENCE.txt`) |
 | `OpenSans-Italic-extrait.ttf` | italique (étiquettes secondaires des touches) | Open Sans Italic — extrait | SIL OFL 1.1 (`OpenSans-LICENCE.txt`) |
-| `OpenSans-Regular-signes.ttf`, `OpenSans-Bold-signes.ttf` | signes absents de Selawik : `−` `√` `π` `′` `″` et l'espace insécable | Open Sans — extraits | SIL OFL 1.1 (`OpenSans-LICENCE.txt`) |
+| `OpenSans-Regular-signes.ttf`, `OpenSans-Bold-signes.ttf` | signes absents de Selawik : `−` `√` `π` `Ω` `′` `″` et l'espace insécable | Open Sans — extraits | SIL OFL 1.1 (`OpenSans-LICENCE.txt`) |
 | `DejaVuSans-symboles.ttf` | symboles absents de Selawik : `⁻` `→` `↔` `◄` `►` `⌫` | DejaVu Sans 2.37 — extrait | licence Bitstream Vera et domaine public (`DejaVu-LICENCE.txt`) |
 
 Pourquoi Selawik : ses caractères ont exactement les largeurs de ceux de Segoe UI. La
@@ -26,7 +26,7 @@ Les extraits ne gardent que les caractères utiles, pour alléger la page. Ils s
 avec `pyftsubset` (paquet Python `fonttools`), à partir des fichiers d'origine :
 
 ```sh
-SIGNES="U+00A0,U+03C0,U+2032,U+2033,U+2212,U+221A"
+SIGNES="U+00A0,U+03A9,U+03C0,U+2032,U+2033,U+2212,U+221A"
 pyftsubset OpenSans-Regular.ttf --unicodes="$SIGNES" --name-IDs='*' \
     --output-file=OpenSans-Regular-signes.ttf
 pyftsubset OpenSans-Bold.ttf --unicodes="$SIGNES" --name-IDs='*' \

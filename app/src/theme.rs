@@ -487,7 +487,7 @@ pub fn installer_les_polices(ctx: &egui::Context) {
 /// du programme n'y manque.
 ///
 /// Selawik a exactement les largeurs de Segoe UI : la mise en page est donc la
-/// même que sur le bureau. Il lui manque quelques signes (− √ π ′ ″ et l'espace
+/// même que sur le bureau. Il lui manque quelques signes (− √ π Ω ′ ″ et l'espace
 /// insécable), pris dans Open Sans, et quelques symboles (⁻ → ↔ ◄ ► ⌫), pris
 /// dans DejaVu Sans. Selawik n'a pas d'italique : Open Sans le fournit.
 #[cfg(any(target_arch = "wasm32", test))]

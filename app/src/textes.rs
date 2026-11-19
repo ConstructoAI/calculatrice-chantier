@@ -240,6 +240,7 @@ pub const MENU_TRUCS: &str = "Trucs de pro";
 pub const MENU_PREFERENCES: &str = "Préférences";
 pub const MENU_A_PROPOS: &str = "À propos";
 pub const MENU_QUITTER: &str = "Quitter";
+pub const MENU_METIERS: &str = "Calculateurs par métier";
 /// Version Web : installer l'application sur le téléphone, la tablette ou l'ordinateur.
 pub const MENU_INSTALLER: &str = "Installer l'application";
 // Les espaces insécables gardent chaque guillemet collé à son texte.
@@ -546,7 +547,7 @@ pub const FONCTIONS_SECONDAIRES: &str = "Fonctions secondaires (avec Conv)";
 pub const BIENVENUE_TITRE: &str = "Bienvenue!";
 pub const BIENVENUE_INTRO: &str = "Cette calculatrice parle le langage du chantier : pieds, pouces et fractions, mais aussi mètres et millimètres.";
 /// Chaque point : (titre en gras, suite du texte).
-pub const BIENVENUE_POINTS: [(&str, &str); 4] = [
+pub const BIENVENUE_POINTS: [(&str, &str); 5] = [
     (
         "Tapez une mesure comme vous la dites",
         ": 5 Pieds 7 Pouces 1 / 2.",
@@ -563,7 +564,40 @@ pub const BIENVENUE_POINTS: [(&str, &str); 4] = [
         "Besoin d'aide?",
         "Maintenez une touche enfoncée, ou faites un clic droit, pour afficher sa fiche.",
     ),
+    (
+        "Plombier, électricien, cimentier?",
+        "L'onglet Métiers réunit des calculateurs à remplir, par corps de métier.",
+    ),
 ];
+
+// ----------------------------------------------------------------------
+// Calculateurs par métier (section 22)
+// ----------------------------------------------------------------------
+
+pub const METIERS: &str = "Métiers";
+pub const METIERS_INTRODUCTION: &str =
+    "Des calculateurs à remplir, par corps de métier. Les résultats s'ajoutent au ruban.";
+pub const METIERS_CHARPENTE: &str = "Charpente, toiture et escaliers";
+pub const METIERS_CHARPENTE_RESUME: &str =
+    "Pentes, chevrons, arêtiers, escaliers, arcs, matériaux : au clavier principal.";
+pub const METIERS_CHARPENTE_MENTION: &str = "Clavier";
+pub const METIERS_AVERTISSEMENT: &str = "Ces calculateurs font de la géométrie et de la physique. Ils ne remplacent ni les plans ni les codes en vigueur : vérifiez toujours les exigences qui s'appliquent à vos travaux.";
+pub const RESULTATS: &str = "Résultats";
+pub const AJOUTER_AU_RUBAN: &str = "Ajouter au ruban";
+pub const RECOMMENCER: &str = "Recommencer";
+pub const AVIS_AJOUTE_AU_RUBAN: &str = "Ajouté au ruban.";
+/// Exemples montrés dans un champ de longueur vide.
+pub const INDICE_PIEDS: &str = "ex. 12 pi 6 po ou 3,8 m";
+pub const INDICE_POUCES: &str = "ex. 3 1/2 ou 90 mm";
+
+/// Mention d'un métier : « 5 calculateurs ».
+pub fn nombre_de_calculateurs(nombre: usize) -> String {
+    if nombre > 1 {
+        format!("{nombre} calculateurs")
+    } else {
+        format!("{nombre} calculateur")
+    }
+}
 
 // ----------------------------------------------------------------------
 // Trucs de pro (annexe B.4)
@@ -625,7 +659,7 @@ pub const TRUCS: [(&str, &str); 12] = [
 
 pub const A_PROPOS: &str = "À propos";
 pub const A_PROPOS_VERSION: &str = "Version";
-pub const A_PROPOS_DESCRIPTION: &str = "Calculatrice de construction en pieds-pouces-fractions et en métrique, pour le chantier et l'estimation.";
+pub const A_PROPOS_DESCRIPTION: &str = "Calculatrice de construction en pieds-pouces-fractions et en métrique, avec des calculateurs par métier, pour le chantier et l'estimation. Gratuite, sans publicité, sans compte.";
 pub const AVERTISSEMENT_TITRE: &str = "Avertissement";
 pub const AVERTISSEMENT: &str = "Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.";
 pub const AVERTISSEMENT_DEFAUTS: &str = "Les valeurs par défaut (hauteur de contremarche, giron, échappée) sont des points de départ modifiables et ne constituent pas un avis de conformité au Code.";
