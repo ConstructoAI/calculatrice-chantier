@@ -1823,7 +1823,7 @@ Calculatrice/                      (dossier de travail)
 - **R-49** `app` ne contient **aucune formule**. Elle transmet des `Touche` au moteur, dessine l'`Ecran` qu'il retourne et exécute les `Effet`.
 - **R-50** `#![forbid(unsafe_code)]` dans les deux crates. Dans `noyau` : pas de `unwrap()`, `expect()` ni `panic!` hors des tests; les erreurs passent par `Result<_, Erreur>`.
 - **R-51** Identifiants en **français sans accents** (`Moteur`, `appuyer`, `hauteur_contremarche`), commentaires en français. Les chaînes visibles par l'utilisateur ont leurs accents.
-- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs`, `app/src/aide.rs` et, pour les libellés des calculateurs par métier, les fichiers de `noyau/src/metiers/`. Chaque texte y est écrit dans les deux langues, côte à côte (R-62). Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
+- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs`, `app/src/aide.rs` et, pour les libellés des calculateurs par métier, les fichiers de `noyau/src/metiers/`. Chaque texte y est écrit dans les deux langues, côte à côte (R-62). Le nom et le code de chaque langue (« Français », « English », `FR`, `EN`) sont dans `noyau/src/langue.rs`. Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
 - **R-53** Chaque fonction de la section 12 est une fonction pure, sans accès au `Moteur` :
 
 ```rust
