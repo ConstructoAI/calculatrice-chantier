@@ -10,6 +10,7 @@ pub mod erreurs;
 pub mod etiquettes;
 pub mod fonctions;
 pub mod format;
+pub mod langue;
 pub mod memoire;
 pub mod metiers;
 pub mod moteur;
@@ -23,6 +24,7 @@ pub mod valeur;
 
 pub use erreurs::Erreur;
 pub use format::{Segment, TexteValeur};
+pub use langue::{Langue, Texte};
 pub use moteur::{Ecran, Effet, Moteur, Prefixe, ToucheOutil};
 pub use persistance::EtatPersistant;
 pub use prefs::{Preferences, ValeursMemorisees};

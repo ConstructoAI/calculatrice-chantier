@@ -5,149 +5,205 @@ use std::f64::consts::PI;
 use super::{
     Calcul, Calculateur, Champ, Lues, Metier, PO3_PAR_L, Quantite, Resultat, arrondi_au_dessus,
 };
+use crate::langue::{Texte, t, tel};
 use crate::unites::{Format, KG_PAR_LB, PO_PAR_M};
 
 /// Béton perdu ou en trop, en pourcentage du volume théorique.
-const PERTES: Champ = Champ::nombre("Pertes", "%").defaut("10").nul_permis();
+const PERTES: Champ = Champ::nombre(t("Pertes", "Waste"), tel("%"))
+    .defaut("10")
+    .nul_permis();
 
 /// Barres d'armature métriques : désignation et masse linéique en kg/m
 /// (aire nominale × 7 850 kg/m³).
-const BARRES: &[&str] = &["10M", "15M", "20M", "25M"];
+const BARRES: &[Texte] = &[tel("10M"), tel("15M"), tel("20M"), tel("25M")];
 const MASSE_DES_BARRES: [f64; 4] = [0.785, 1.570, 2.355, 3.925];
 
 pub const CALCULATEURS: &[Calculateur] = &[
     Calculateur {
         id: "dalle",
         metier: Metier::Beton,
-        nom: "Dalle de béton",
-        resume: "Le volume de béton d'une dalle rectangulaire.",
+        nom: t("Dalle de béton", "Concrete slab"),
+        resume: t(
+            "Le volume de béton d'une dalle rectangulaire.",
+            "The volume of concrete for a rectangular slab.",
+        ),
         champs: &[
-            Champ::longueur("Longueur", Format::PiPo),
-            Champ::longueur("Largeur", Format::PiPo),
-            Champ::longueur("Épaisseur", Format::PoFrac),
+            Champ::longueur(t("Longueur", "Length"), Format::PiPo),
+            Champ::longueur(t("Largeur", "Width"), Format::PiPo),
+            Champ::longueur(t("Épaisseur", "Thickness"), Format::PoFrac),
             PERTES,
         ],
-        note: "",
+        note: Texte::VIDE,
         calcul: dalle,
     },
     Calculateur {
         id: "semelle",
         metier: Metier::Beton,
-        nom: "Semelle filante",
-        resume: "Le volume de béton d'une semelle continue, sous un mur.",
+        nom: t("Semelle filante", "Strip footing"),
+        resume: t(
+            "Le volume de béton d'une semelle continue, sous un mur.",
+            "The volume of concrete for a continuous footing under a wall.",
+        ),
         champs: &[
-            Champ::longueur("Longueur totale", Format::PiPo).court("Longueur"),
-            Champ::longueur("Largeur", Format::PoFrac),
-            Champ::longueur("Épaisseur", Format::PoFrac),
+            Champ::longueur(t("Longueur totale", "Total length"), Format::PiPo)
+                .court(t("Longueur", "Length")),
+            Champ::longueur(t("Largeur", "Width"), Format::PoFrac),
+            Champ::longueur(t("Épaisseur", "Thickness"), Format::PoFrac),
             PERTES,
         ],
-        note: "",
+        note: Texte::VIDE,
         calcul: semelle,
     },
     Calculateur {
         id: "mur-de-fondation",
         metier: Metier::Beton,
-        nom: "Mur de fondation",
-        resume: "Le volume de béton d'un mur et la surface de son coffrage.",
+        nom: t("Mur de fondation", "Foundation wall"),
+        resume: t(
+            "Le volume de béton d'un mur et la surface de son coffrage.",
+            "The volume of concrete for a wall and the area of its formwork.",
+        ),
         champs: &[
-            Champ::longueur("Longueur totale", Format::PiPo).court("Longueur"),
-            Champ::longueur("Hauteur", Format::PiPo),
-            Champ::longueur("Épaisseur", Format::PoFrac),
+            Champ::longueur(t("Longueur totale", "Total length"), Format::PiPo)
+                .court(t("Longueur", "Length")),
+            Champ::longueur(t("Hauteur", "Height"), Format::PiPo),
+            Champ::longueur(t("Épaisseur", "Thickness"), Format::PoFrac),
             PERTES,
         ],
-        note: "Les ouvertures ne sont pas déduites.",
+        note: t(
+            "Les ouvertures ne sont pas déduites.",
+            "Openings are not deducted.",
+        ),
         calcul: mur,
     },
     Calculateur {
         id: "colonnes",
         metier: Metier::Beton,
-        nom: "Colonnes et pieux ronds",
-        resume: "Le béton de colonnes rondes coulées dans des tubes, en volume et en sacs.",
+        nom: t("Colonnes et pieux ronds", "Round columns and piers"),
+        resume: t(
+            "Le béton de colonnes rondes coulées dans des tubes, en volume et en sacs.",
+            "The concrete for round columns poured in form tubes, by volume and in bags.",
+        ),
         champs: &[
-            Champ::longueur("Diamètre", Format::PoFrac),
-            Champ::longueur("Hauteur", Format::PiPo),
-            Champ::entier("Nombre de colonnes", "")
-                .court("Nombre")
+            Champ::longueur(t("Diamètre", "Diameter"), Format::PoFrac),
+            Champ::longueur(t("Hauteur", "Height"), Format::PiPo),
+            Champ::entier(t("Nombre de colonnes", "Number of columns"), Texte::VIDE)
+                .court(t("Nombre", "Count"))
                 .defaut("1"),
             PERTES,
-            Champ::nombre("Rendement d'un sac", "L")
-                .court("Sac")
+            Champ::nombre(t("Rendement d'un sac", "Yield per bag"), tel("L"))
+                .court(t("Sac", "Bag"))
                 .defaut("14"),
         ],
-        note: "Le rendement est inscrit sur le sac : environ 14 L pour un sac de 30 kg de béton prémélangé.",
+        note: t(
+            "Le rendement est inscrit sur le sac : environ 14 L pour un sac de 30 kg de béton prémélangé.",
+            "The yield is printed on the bag: about 14 L for a 30 kg bag of premixed concrete.",
+        ),
         calcul: colonnes,
     },
     Calculateur {
         id: "armature",
         metier: Metier::Beton,
-        nom: "Armature d'une dalle",
-        resume: "Les barres d'armature d'une dalle, posées dans les deux sens à espacement régulier.",
+        nom: t("Armature d'une dalle", "Slab rebar"),
+        resume: t(
+            "Les barres d'armature d'une dalle, posées dans les deux sens à espacement régulier.",
+            "The rebar for a slab, laid both ways at regular spacing.",
+        ),
         champs: &[
-            Champ::longueur("Longueur", Format::PiPo),
-            Champ::longueur("Largeur", Format::PiPo),
-            Champ::longueur("Espacement des barres", Format::PoFrac)
-                .court("Espacement")
+            Champ::longueur(t("Longueur", "Length"), Format::PiPo),
+            Champ::longueur(t("Largeur", "Width"), Format::PiPo),
+            Champ::longueur(t("Espacement des barres", "Bar spacing"), Format::PoFrac)
+                .court(t("Espacement", "Spacing"))
                 .defaut("16"),
-            Champ::choix("Barre", BARRES),
+            Champ::choix(t("Barre", "Bar"), BARRES),
         ],
-        note: "Sans les chevauchements ni l'enrobage des rives : ajoutez-les selon les plans.",
+        note: t(
+            "Sans les chevauchements ni l'enrobage des rives : ajoutez-les selon les plans.",
+            "Laps and edge cover are not included: add them as the drawings require.",
+        ),
         calcul: armature,
     },
     Calculateur {
         id: "sacs-de-beton",
         metier: Metier::Beton,
-        nom: "Béton en sacs",
-        resume: "Le nombre de sacs de béton prémélangé pour un petit ouvrage rectangulaire.",
+        nom: t("Béton en sacs", "Bagged concrete"),
+        resume: t(
+            "Le nombre de sacs de béton prémélangé pour un petit ouvrage rectangulaire.",
+            "The number of bags of premixed concrete for a small rectangular pour.",
+        ),
         champs: &[
-            Champ::longueur("Longueur", Format::PiPo),
-            Champ::longueur("Largeur", Format::PiPo),
-            Champ::longueur("Épaisseur", Format::PoFrac),
+            Champ::longueur(t("Longueur", "Length"), Format::PiPo),
+            Champ::longueur(t("Largeur", "Width"), Format::PiPo),
+            Champ::longueur(t("Épaisseur", "Thickness"), Format::PoFrac),
             PERTES,
-            Champ::nombre("Rendement d'un sac", "L")
+            Champ::nombre(t("Rendement d'un sac", "Yield per bag"), tel("L"))
                 .defaut("14")
-                .court("Sac"),
+                .court(t("Sac", "Bag")),
         ],
-        note: "Le rendement est inscrit sur le sac : environ 14 L pour un sac de 30 kg de béton prémélangé.",
+        note: t(
+            "Le rendement est inscrit sur le sac : environ 14 L pour un sac de 30 kg de béton prémélangé.",
+            "The yield is printed on the bag: about 14 L for a 30 kg bag of premixed concrete.",
+        ),
         calcul: sacs_de_beton,
     },
     Calculateur {
         id: "escalier-de-beton",
         metier: Metier::Beton,
-        nom: "Escalier de béton",
-        resume: "Le volume de béton d'un escalier droit coulé sur une paillasse inclinée.",
+        nom: t("Escalier de béton", "Concrete stairs"),
+        resume: t(
+            "Le volume de béton d'un escalier droit coulé sur une paillasse inclinée.",
+            "The volume of concrete for a straight stair poured on a sloped waist slab.",
+        ),
         champs: &[
-            Champ::entier("Nombre de marches", "").court("Marches"),
-            Champ::longueur("Hauteur d'une contremarche", Format::PoFrac).court("Contremarche"),
-            Champ::longueur("Giron", Format::PoFrac),
-            Champ::longueur("Largeur de l'escalier", Format::PiPo).court("Largeur"),
-            Champ::longueur("Épaisseur de la paillasse", Format::PoFrac)
-                .nul_permis()
-                .court("Paillasse"),
+            Champ::entier(t("Nombre de marches", "Number of steps"), Texte::VIDE)
+                .court(t("Marches", "Steps")),
+            Champ::longueur(
+                t("Hauteur d'une contremarche", "Riser height"),
+                Format::PoFrac,
+            )
+            .court(t("Contremarche", "Riser")),
+            Champ::longueur(t("Giron", "Tread depth"), Format::PoFrac),
+            Champ::longueur(t("Largeur de l'escalier", "Stair width"), Format::PiPo)
+                .court(t("Largeur", "Width")),
+            Champ::longueur(
+                t("Épaisseur de la paillasse", "Waist slab thickness"),
+                Format::PoFrac,
+            )
+            .nul_permis()
+            .court(t("Paillasse", "Waist slab")),
             PERTES,
         ],
-        note: "La paillasse est la dalle inclinée sous les marches; son épaisseur se mesure perpendiculairement à la pente. Mettez 0 pour des marches coulées sur un sol en pente.",
+        note: t(
+            "La paillasse est la dalle inclinée sous les marches; son épaisseur se mesure perpendiculairement à la pente. Mettez 0 pour des marches coulées sur un sol en pente.",
+            "The waist slab is the sloped slab under the steps; its thickness is measured perpendicular to the slope. Enter 0 for steps poured on sloped ground.",
+        ),
         calcul: escalier_de_beton,
     },
     Calculateur {
         id: "treillis",
         metier: Metier::Beton,
-        nom: "Treillis métallique",
-        resume: "Le nombre de feuilles de treillis pour armer une dalle, chevauchements compris.",
+        nom: t("Treillis métallique", "Welded wire mesh"),
+        resume: t(
+            "Le nombre de feuilles de treillis pour armer une dalle, chevauchements compris.",
+            "The number of mesh sheets to reinforce a slab, overlaps included.",
+        ),
         champs: &[
-            Champ::longueur("Longueur", Format::PiPo),
-            Champ::longueur("Largeur", Format::PiPo),
-            Champ::longueur("Longueur d'une feuille", Format::PiPo)
+            Champ::longueur(t("Longueur", "Length"), Format::PiPo),
+            Champ::longueur(t("Largeur", "Width"), Format::PiPo),
+            Champ::longueur(t("Longueur d'une feuille", "Sheet length"), Format::PiPo)
                 .defaut("8")
-                .court("Longueur\nfeuille"),
-            Champ::longueur("Largeur d'une feuille", Format::PiPo)
+                .court(t("Longueur\nfeuille", "Sheet\nlength")),
+            Champ::longueur(t("Largeur d'une feuille", "Sheet width"), Format::PiPo)
                 .defaut("4")
-                .court("Largeur\nfeuille"),
-            Champ::longueur("Chevauchement", Format::PoFrac)
+                .court(t("Largeur\nfeuille", "Sheet\nwidth")),
+            Champ::longueur(t("Chevauchement", "Overlap"), Format::PoFrac)
                 .defaut("6")
                 .nul_permis()
-                .court("Chevauch."),
+                .court(t("Chevauch.", "Overlap")),
         ],
-        note: "Chaque feuille perd la largeur d'un chevauchement sur deux de ses côtés.",
+        note: t(
+            "Chaque feuille perd la largeur d'un chevauchement sur deux de ses côtés.",
+            "Each sheet loses one overlap width along two of its sides.",
+        ),
         calcul: treillis,
     },
 ];
@@ -155,9 +211,12 @@ pub const CALCULATEURS: &[Calculateur] = &[
 /// Les deux lignes communes : le volume, puis le volume à commander.
 fn volumes(volume: f64, pertes: f64) -> [Resultat; 2] {
     [
-        Resultat::nouveau("Volume de béton", Quantite::Vrac(volume)),
         Resultat::nouveau(
-            "À commander, pertes comprises",
+            t("Volume de béton", "Concrete volume"),
+            Quantite::Vrac(volume),
+        ),
+        Resultat::nouveau(
+            t("À commander, pertes comprises", "To order, waste included"),
             Quantite::Vrac(volume * (1.0 + pertes / 100.0)),
         ),
     ]
@@ -165,7 +224,10 @@ fn volumes(volume: f64, pertes: f64) -> [Resultat; 2] {
 
 fn dalle(e: &Lues) -> Calcul {
     let aire = e.longueur(0) * e.longueur(1);
-    let mut resultats = vec![Resultat::nouveau("Surface", Quantite::Aire(aire))];
+    let mut resultats = vec![Resultat::nouveau(
+        t("Surface", "Area"),
+        Quantite::Aire(aire),
+    )];
     resultats.extend(volumes(aire * e.longueur(2), e.nombre(3)));
     Ok(resultats)
 }
@@ -179,7 +241,7 @@ fn mur(e: &Lues) -> Calcul {
     let face = e.longueur(0) * e.longueur(1);
     let mut resultats = volumes(face * e.longueur(2), e.nombre(3)).to_vec();
     resultats.push(Resultat::nouveau(
-        "Coffrage, deux faces",
+        t("Coffrage, deux faces", "Formwork, both faces"),
         Quantite::Aire(2.0 * face),
     ));
     Ok(resultats)
@@ -191,10 +253,10 @@ fn colonnes(e: &Lues) -> Calcul {
     let a_commander = volume * (1.0 + e.nombre(3) / 100.0);
     let mut resultats = volumes(volume, e.nombre(3)).to_vec();
     resultats.push(Resultat::nouveau(
-        "Sacs de béton prémélangé",
+        t("Sacs de béton prémélangé", "Bags of premixed concrete"),
         Quantite::Compte(
             arrondi_au_dessus(a_commander / PO3_PAR_L / e.nombre(4)),
-            "sacs",
+            t("sacs", "bags"),
         ),
     ));
     Ok(resultats)
@@ -214,15 +276,27 @@ fn armature(e: &Lues) -> Calcul {
     let masse_kg = total / PO_PAR_M * masse_lineique;
     Ok(vec![
         Resultat::nouveau(
-            "Barres dans le sens de la longueur",
-            Quantite::Compte(dans_la_longueur, "barres"),
+            t(
+                "Barres dans le sens de la longueur",
+                "Bars running lengthwise",
+            ),
+            Quantite::Compte(dans_la_longueur, t("barres", "bars")),
         ),
         Resultat::nouveau(
-            "Barres dans le sens de la largeur",
-            Quantite::Compte(dans_la_largeur, "barres"),
+            t(
+                "Barres dans le sens de la largeur",
+                "Bars running crosswise",
+            ),
+            Quantite::Compte(dans_la_largeur, t("barres", "bars")),
         ),
-        Resultat::nouveau("Longueur totale de barres", Quantite::Longueur(total)),
-        Resultat::nouveau("Masse d'acier", Quantite::Masse(masse_kg / KG_PAR_LB)),
+        Resultat::nouveau(
+            t("Longueur totale de barres", "Total bar length"),
+            Quantite::Longueur(total),
+        ),
+        Resultat::nouveau(
+            t("Masse d'acier", "Steel weight"),
+            Quantite::Masse(masse_kg / KG_PAR_LB),
+        ),
     ])
 }
 
@@ -230,14 +304,20 @@ fn sacs_de_beton(e: &Lues) -> Calcul {
     let volume = e.longueur(0) * e.longueur(1) * e.longueur(2);
     let litres = volume * (1.0 + e.nombre(3) / 100.0) / PO3_PAR_L;
     Ok(vec![
-        Resultat::nouveau("Volume de béton", Quantite::Vrac(volume)),
         Resultat::nouveau(
-            "Volume à préparer, pertes comprises",
-            Quantite::Mesure(litres, "L"),
+            t("Volume de béton", "Concrete volume"),
+            Quantite::Vrac(volume),
         ),
         Resultat::nouveau(
-            "Sacs de béton prémélangé",
-            Quantite::Compte(arrondi_au_dessus(litres / e.nombre(4)), "sacs"),
+            t(
+                "Volume à préparer, pertes comprises",
+                "Volume to mix, waste included",
+            ),
+            Quantite::Mesure(litres, tel("L")),
+        ),
+        Resultat::nouveau(
+            t("Sacs de béton prémélangé", "Bags of premixed concrete"),
+            Quantite::Compte(arrondi_au_dessus(litres / e.nombre(4)), t("sacs", "bags")),
         ),
     ])
 }
@@ -254,15 +334,18 @@ fn escalier_de_beton(e: &Lues) -> Calcul {
 fn treillis(e: &Lues) -> Calcul {
     let chevauchement = e.longueur(4);
     if chevauchement >= e.longueur(2).min(e.longueur(3)) {
-        return Err("Le chevauchement dépasse la feuille.");
+        return Err(t(
+            "Le chevauchement dépasse la feuille.",
+            "The overlap is larger than the sheet.",
+        ));
     }
     let surface = e.longueur(0) * e.longueur(1);
     let utile = (e.longueur(2) - chevauchement) * (e.longueur(3) - chevauchement);
     Ok(vec![
-        Resultat::nouveau("Surface", Quantite::Aire(surface)),
+        Resultat::nouveau(t("Surface", "Area"), Quantite::Aire(surface)),
         Resultat::nouveau(
-            "Feuilles de treillis",
-            Quantite::Compte(arrondi_au_dessus(surface / utile), "feuilles"),
+            t("Feuilles de treillis", "Mesh sheets"),
+            Quantite::Compte(arrondi_au_dessus(surface / utile), t("feuilles", "sheets")),
         ),
     ])
 }

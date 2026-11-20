@@ -1,7 +1,7 @@
 {
     "name": "Calculatrice de chantier",
     "short_name": "Chantier",
-    "description": "Calculatrice de construction en pieds-pouces-fractions et en métrique, avec des calculateurs par métier, en français du Québec. Gratuite, sans publicité, utilisable hors ligne.",
+    "description": "Calculatrice de construction en pieds-pouces-fractions et en métrique, avec des calculateurs par métier, en français et en anglais. Gratuite, sans publicité, utilisable hors ligne.",
     "lang": "fr-CA",
     "dir": "ltr",
     "id": "./",

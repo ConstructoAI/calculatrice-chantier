@@ -12,6 +12,7 @@ use eframe::egui::text::{LayoutJob, TextFormat};
 use eframe::egui::{
     self, Align, Layout, Margin, Pos2, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
 };
+use noyau::langue::{self, Langue};
 
 use crate::theme::{self, Palette};
 
@@ -136,7 +137,12 @@ pub fn texte_a_touches(p: &Palette, accroche: &str, texte: &str, taille: f32) ->
     let mut job = LayoutJob::default();
     if !accroche.is_empty() {
         job.append(accroche, 0.0, gras);
-        job.append(" ", 0.0, courant.clone());
+        // En français, une espace précède le deux-points qui ouvre la suite;
+        // en anglais, le deux-points se colle au mot.
+        let colle = texte.starts_with(':') && langue::en_cours() == Langue::Anglais;
+        if !colle {
+            job.append(" ", 0.0, courant.clone());
+        }
     }
     for (i, morceau) in texte.split('`').enumerate() {
         if morceau.is_empty() {

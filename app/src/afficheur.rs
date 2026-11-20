@@ -276,7 +276,7 @@ pub fn dessiner(
             egui::Id::unique("afficheur-valeur"),
             Sense::CLICK,
         )
-        .on_hover_text(textes::INFOBULLE_VALEUR);
+        .on_hover_text(textes::INFOBULLE_VALEUR.traduit());
     if reponse_valeur.double_clicked() {
         action = Some(ActionAfficheur::Copier);
     }
@@ -286,9 +286,9 @@ pub fn dessiner(
     let police_indicateur = theme::police_grasse(11.5);
     let mut x = interieur.left();
     let prefixe = match ecran.prefixe {
-        Prefixe::Conv => Some(textes::INDICATEUR_CONV),
-        Prefixe::Stocker => Some(textes::INDICATEUR_STOCKER),
-        Prefixe::Rappel => Some(textes::INDICATEUR_RAPPEL),
+        Prefixe::Conv => Some(textes::INDICATEUR_CONV.traduit()),
+        Prefixe::Stocker => Some(textes::INDICATEUR_STOCKER.traduit()),
+        Prefixe::Rappel => Some(textes::INDICATEUR_RAPPEL.traduit()),
         Prefixe::Aucun => None,
     };
     // Chaque indicateur est une pastille; `vers_la_droite` dit de quel côté
@@ -322,7 +322,7 @@ pub fn dessiner(
     }
     if ecran.memoire_active {
         x = pastille(
-            textes::INDICATEUR_MEMOIRE,
+            textes::INDICATEUR_MEMOIRE.traduit(),
             p.selection,
             p.selection_texte,
             x,
@@ -336,7 +336,7 @@ pub fn dessiner(
     let mut droite = interieur.right();
     if ecran.memorise {
         droite = pastille(
-            textes::INDICATEUR_MEMORISE,
+            textes::INDICATEUR_MEMORISE.traduit(),
             fond_discret,
             p.ecran_etiquette,
             droite,
@@ -360,7 +360,7 @@ pub fn dessiner(
         painter.text(
             Pos2::new(droite, ligne1),
             Align2::RIGHT_CENTER,
-            textes::COPIE,
+            textes::COPIE.traduit(),
             theme::police(11.5),
             p.ecran_secondaire,
         );
@@ -436,7 +436,7 @@ pub fn dessiner(
             egui::Id::unique("afficheur-retour-arriere"),
             Sense::CLICK,
         )
-        .on_hover_text(textes::INFOBULLE_RETOUR_ARRIERE);
+        .on_hover_text(textes::INFOBULLE_RETOUR_ARRIERE.traduit());
     reponse.widget_info(|| {
         egui::WidgetInfo::labeled(
             egui::Role::Button,

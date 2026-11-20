@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en-CA">
+<!--
+    Gabarit anglais du manuel d'utilisation. NE PAS MODIFIER `app/manual.html` À LA
+    MAIN : cette page est produite à partir de ce gabarit et du contenu même du
+    programme (fiches d'aide, calculateurs par métier, exemples calculés par le
+    noyau) par
+
+        cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored
+
+    Les repères entre crochets doubles sont remplacés par le générateur
+    (`app/src/manuel.rs`).
+
+    Ce gabarit suit `manuel-gabarit.html`, le gabarit français : la même feuille de
+    style, les mêmes chapitres et les mêmes nombres, ce qu'un test vérifie. Toute
+    retouche se fait dans les deux.
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User manual — Jobsite Calculator</title>
+<meta name="description" content="User manual for the Jobsite Calculator: feet-inches-fractions, framing, and the tools of eleven trades.">
+<meta name="theme-color" content="#002050">
+<style>
+:root {
+    --fond: #f3f7fc;
+    --carte: #ffffff;
+    --bord: #d5deeb;
+    --texte: #17202e;
+    --attenue: #55637a;
+    --marine: #002050;
+    --primaire: #0078d4;
+    --titre: #0b5cab;
+    --accent: #f97316;
+    --touche: #e3edf9;
+    --touche-texte: #0b3d7a;
+    --note: #fff7ed;
+    --note-bord: #fdba74;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fond: #0d1524;
+        --carte: #162033;
+        --bord: #2a3a55;
+        --texte: #e6edf7;
+        --attenue: #9fb0c8;
+        --marine: #001a40;
+        --primaire: #4aa3ee;
+        --titre: #7cc0ff;
+        --touche: #22344f;
+        --touche-texte: #cfe4ff;
+        --note: #2b2113;
+        --note-bord: #9a5a1b;
+    }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--texte);
+    font: 16px/1.55 "Segoe UI", Selawik, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+}
+.entete {
+    background: linear-gradient(180deg, #003a8c, var(--marine));
+    color: #fff;
+    padding: 28px 20px 24px;
+    border-bottom: 4px solid var(--accent);
+}
+.entete > * { max-width: 860px; margin-left: auto; margin-right: auto; }
+.marque { margin: 0; font-weight: 700; letter-spacing: .02em; opacity: .9; }
+.marque::before { content: ""; display: inline-block; width: 12px; height: 16px; margin-right: 8px; border-left: 5px solid var(--accent); border-bottom: 5px solid var(--accent); vertical-align: -2px; }
+h1 { margin: 6px auto 4px; font-size: 2rem; line-height: 1.2; }
+.sous-titre { margin: 0 auto 14px; opacity: .85; }
+.bouton {
+    display: inline-block; background: var(--accent); color: #1b1203; font-weight: 700;
+    padding: 9px 16px; border-radius: 8px; text-decoration: none;
+}
+.autre-langue { display: inline-block; margin-left: 14px; color: #fff; font-weight: 700; }
+main, nav, footer { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+nav { margin-top: 22px; }
+nav ol { margin: 6px 0 0; padding-left: 1.4em; columns: 2 300px; column-gap: 32px; }
+nav li { margin: 3px 0; break-inside: avoid; }
+nav ul { margin: 2px 0 6px; padding-left: 1.1em; list-style: none; font-size: .93em; }
+a { color: var(--primaire); }
+h2 {
+    margin: 44px 0 10px; padding-top: 12px; font-size: 1.5rem; line-height: 1.25; color: var(--titre);
+    border-top: 2px solid var(--bord);
+}
+h3 { margin: 28px 0 8px; font-size: 1.2rem; }
+h4 { margin: 0 0 6px; font-size: 1.05rem; }
+p { margin: 8px 0; }
+ul, ol { padding-left: 1.4em; }
+li { margin: 4px 0; }
+kbd {
+    display: inline-block; font: inherit; font-size: .88em; font-weight: 700; white-space: nowrap;
+    background: var(--touche); color: var(--touche-texte); border: 1px solid var(--bord);
+    border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; margin: 1px 0;
+}
+.ecran {
+    display: inline-block; font-weight: 700; background: var(--carte); border: 1px solid var(--bord);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+}
+.carte, article {
+    background: var(--carte); border: 1px solid var(--bord); border-radius: 10px;
+    padding: 14px 16px; margin: 12px 0;
+}
+.avis { background: var(--note); border: 1px solid var(--note-bord); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.exemple { background: var(--fond); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 10px 0 4px; }
+.exemple .mot { font-size: .8em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--attenue); margin-right: 6px; }
+.note { color: var(--attenue); font-size: .94em; }
+.acces { font-weight: 400; font-size: .9em; color: var(--attenue); margin-left: 6px; }
+.table { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .95em; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--bord); }
+th { color: var(--attenue); font-size: .85em; text-transform: uppercase; letter-spacing: .03em; }
+tr:last-child td { border-bottom: 0; }
+.haut { font-size: .85rem; font-weight: 400; float: right; margin-top: 8px; }
+footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 2px solid var(--bord); color: var(--attenue); font-size: .94em; }
+@media (max-width: 520px) {
+    h1 { font-size: 1.6rem; }
+    main, nav, footer { padding: 0 14px; }
+    .haut { float: none; display: block; }
+}
+@media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .entete { background: none; color: #000; border-bottom: 2px solid #000; padding: 0 0 8px; }
+    .bouton, .haut, .autre-langue { display: none; }
+    article, .carte, .exemple, tr { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<header class="entete" id="haut">
+    <p class="marque">Jobsite Calculator</p>
+    <h1>User manual</h1>
+    <p class="sous-titre">Courtesy of Sylvain Leduc of Constructo AI</p>
+    <p><a class="bouton" href="https://constructoai.github.io/calculatrice-chantier/">Open the calculator</a> <a class="autre-langue" href="manuel.html" hreflang="fr" lang="fr">Version française</a></p>
+</header>
+
+<nav aria-label="Contents">
+    <h2 id="sommaire">Contents</h2>
+    <ol>
+        <li><a href="#presentation">Overview</a></li>
+        <li><a href="#installer">Installing and opening</a></li>
+        <li><a href="#ecran">The screen at a glance</a></li>
+        <li><a href="#calculer">Entering a measurement and calculating</a></li>
+        <li><a href="#memoires">Memories</a></li>
+        <li><a href="#charpente">The framing keypad</a></li>
+        <li><a href="#metier">The keypad of your trade</a></li>
+        <li><a href="#ruban">The calculation tape</a></li>
+        <li><a href="#preferences">Preferences</a></li>
+        <li><a href="#raccourcis">Keyboard shortcuts</a></li>
+        <li><a href="#trucs">Pro tips</a></li>
+        <li><a href="#depannage">Messages and troubleshooting</a></li>
+        <li><a href="#fonctions">Directory of keys and functions</a></li>
+        <li><a href="#outils">Directory of tools by trade</a>
+            <ul>
+[[SOMMAIRE_DES_METIERS]]
+            </ul>
+        </li>
+        <li><a href="#licence">Disclaimer, licence and contact</a></li>
+    </ol>
+</nav>
+
+<main>
+
+<h2 id="presentation">1. Overview</h2>
+<p>The Jobsite Calculator works the way people talk on a jobsite: in feet, inches and fractions, as well as in metres and millimetres. It brings three things together.</p>
+<ul>
+    <li><strong>The framer's keypad</strong>: pitches and rafters, hips, valleys and jack rafters, stairs, rake walls and arched walls, arcs and circles, compound mitres, material quantities, conversions and costs.</li>
+    <li><strong>The keypad of your trade</strong>: [[NOMBRE_D_OUTILS]] tools for [[NOMBRE_DE_METIERS]] other trades. Tap your trade above the keypad, and the top keys become those of its tools.</li>
+    <li><strong>The calculation tape</strong>, which keeps a record of everything that was entered and calculated, so you can review it, save it or share it.</li>
+</ul>
+<p>The calculator is free, with no ads and no account. Nothing is sent over the Internet: your settings, memories and tapes stay on your device.</p>
+<div class="avis">
+    <p><strong>Disclaimer.</strong> This calculator is a calculation aid. It does not replace the drawings, the judgment of a qualified person, or the requirements of the building code in force where you work (in Québec, the Construction Code) and of municipal regulations. Always check your results before cutting or ordering.</p>
+    <p>The trade tools do geometry, physics and arithmetic. They do not reproduce any code table (ampacities, minimum wire sizes, minimum slopes, permitted fill) and contain no prices: you enter your own costs and rates.</p>
+</div>
+
+<h2 id="installer">2. Installing and opening <a class="haut" href="#sommaire">Contents</a></h2>
+<h3>On the Web: computer, tablet, phone</h3>
+<p>Open <a href="https://constructoai.github.io/calculatrice-chantier/">constructoai.github.io/calculatrice-chantier</a>. The calculator runs as is, in the browser.</p>
+<h3>Installing it on a phone or tablet</h3>
+<p>Once installed, the calculator has its own icon, opens full screen and works offline, even at the far end of a basement.</p>
+<ul>
+    <li><strong>Android (Chrome)</strong>: open the site, then the calculator's <kbd>☰</kbd> menu, and tap <em>Install the app</em>. Or, in Chrome's menu: <em>Install app</em>.</li>
+    <li><strong>iPhone and iPad (Safari)</strong>: open the site, tap <em>Share</em>, then <em>Add to Home Screen</em>.</li>
+    <li><strong>Computer (Chrome or Edge)</strong>: the calculator's <kbd>☰</kbd> menu, <em>Install the app</em>, or the install icon in the address bar.</li>
+</ul>
+<p>Updates arrive on their own: each time it opens with a network connection, the calculator picks up the latest version. The current version is written at the bottom of the <kbd>☰</kbd> menu.</p>
+<h3>On Windows, without a browser</h3>
+<p>Download <code>calculatrice-chantier-windows-x64.exe</code> from the <a href="https://github.com/ConstructoAI/calculatrice-chantier/releases/latest">latest release</a>, then run it: there is nothing to install. The executable is not signed; the first time you run it, Windows may display "Windows protected your PC": choose <em>More info</em>, then <em>Run anyway</em>.</p>
+<h3>Where your data is kept</h3>
+<div class="table"><table>
+    <thead><tr><th></th><th>Web version</th><th>Windows version</th></tr></thead>
+    <tbody>
+        <tr><td>Settings, memories, tapes</td><td>in the browser, on the device</td><td>in the <code>%APPDATA%\CalculatriceChantier\</code> folder</td></tr>
+        <tr><td>Exporting a tape</td><td>a <code>.txt</code> file is downloaded</td><td>"Save as" dialog</td></tr>
+        <tr><td>Full screen</td><td>button in the top bar, where the browser allows it</td><td>button, preference or <kbd>F11</kbd></td></tr>
+    </tbody>
+</table></div>
+<p class="note">In the Web version, clearing the site's browsing data also erases your settings and your saved tapes.</p>
+
+<h2 id="ecran">3. The screen at a glance <a class="haut" href="#sommaire">Contents</a></h2>
+<div class="table"><table>
+    <tbody>
+        <tr><td><strong>Top bar</strong></td><td>The <kbd>☰</kbd> menu, the full-screen button, the calculator's name, the language button <kbd>FR</kbd> | <kbd>EN</kbd> and the gear wheel for preferences.</td></tr>
+        <tr><td><strong>Display</strong></td><td>In small type, the indicators: <span class="ecran">CONV</span>, <span class="ecran">STORE</span> or <span class="ecran">RECALL</span> when one of those keys is waiting for the next one; <span class="ecran">M</span> when the cumulative memory is not empty; the pending operation; <span class="ecran">MEM</span> for a stored value. In the middle, the label of what is displayed. In large type, the value, with stacked fractions. In the corner, the backspace key <kbd>⌫</kbd>. Double-clicking the value copies it.</td></tr>
+        <tr><td><strong>Quick fractions</strong></td><td>A strip of keys <kbd>1/8</kbd>, <kbd>1/4</kbd>, <kbd>3/8</kbd>… that you turn on in preferences.</td></tr>
+        <tr><td><strong>Trade bar</strong></td><td>The trade you chose, then its tools. See <a href="#metier">The keypad of your trade</a>.</td></tr>
+        <tr><td><strong>Keypad</strong></td><td>The keys. In small type above each one: its second function, reached with <kbd>Conv</kbd>.</td></tr>
+        <tr><td><strong>Bottom bar</strong></td><td>Four tabs: <em>Home</em> (the calculator), <em>Trades</em> (the tools as forms), <em>Tapes</em> and <em>Help</em>.</td></tr>
+    </tbody>
+</table></div>
+<p>The <kbd>☰</kbd> menu leads to the trade calculators, the saved tapes, the help, this manual, the welcome screen, the pro tips, the preferences and the <em>About</em> screen. At the bottom of the menu: the email and website of Constructo AI, and the calculator's version.</p>
+<p><strong>Help on a key:</strong> press and hold it, or right-click it. Its help topic opens, with an example. The <em>Help</em> tab gathers all the topics and lets you search them for a word.</p>
+
+<h2 id="calculer">4. Entering a measurement and calculating <a class="haut" href="#sommaire">Contents</a></h2>
+<h3>Measurements</h3>
+<p>Enter a measurement the way you say it: the number, then the unit.</p>
+<div class="table"><table>
+    <thead><tr><th>To enter</th><th>Keys</th></tr></thead>
+    <tbody>
+        <tr><td>5 ft 7 1/2 in</td><td><kbd>5</kbd> <kbd>Feet</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd></td></tr>
+        <tr><td>3/4 in</td><td><kbd>3</kbd> <kbd>/</kbd> <kbd>4</kbd></td></tr>
+        <tr><td>7.3 m</td><td><kbd>7</kbd> <kbd>.</kbd> <kbd>3</kbd> <kbd>m</kbd></td></tr>
+        <tr><td>centimetres, millimetres</td><td>the number, then <kbd>Conv</kbd> <kbd>7</kbd> (cm) or <kbd>Conv</kbd> <kbd>9</kbd> (mm)</td></tr>
+        <tr><td>square feet, cubic feet</td><td>the number, then <kbd>Feet</kbd> twice, or three times</td></tr>
+        <tr><td>a weight</td><td>the number, then <kbd>Conv</kbd> <kbd>4</kbd> (lb), <kbd>Conv</kbd> <kbd>1</kbd> (kg), <kbd>Conv</kbd> <kbd>6</kbd> (short ton) or <kbd>Conv</kbd> <kbd>3</kbd> (metric tonne)</td></tr>
+    </tbody>
+</table></div>
+<p>If you do not type the denominator of a fraction, the current resolution is used: <kbd>15</kbd> <kbd>/</kbd> means 15/16. The <kbd>⌫</kbd> key erases the last character typed.</p>
+<h3>Operations</h3>
+<p>The <kbd>+</kbd> <kbd>−</kbd> <kbd>×</kbd> <kbd>÷</kbd> and <kbd>=</kbd> keys work as on any calculator, with measurements as well as with numbers. Calculations chain from left to right.</p>
+<p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Feet</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>+</kbd> <kbd>18</kbd> <kbd>Feet</kbd> <kbd>8</kbd> <kbd>Inch</kbd> <kbd>=</kbd> → <span class="ecran">24 ft 3 1/2 in</span></p>
+<p>A length times a length gives an area; an area times a length gives a volume.</p>
+<p class="exemple"><span class="mot">Example</span> <kbd>40</kbd> <kbd>Feet</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Feet</kbd> <kbd>=</kbd> → <span class="ecran">1,400 ft²</span></p>
+<h3>Percentages</h3>
+<p><kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> adds 10% to the value — your waste, in one move. <kbd>−</kbd> <kbd>20</kbd> <kbd>%</kbd> takes 20% off, <kbd>×</kbd> <kbd>18</kbd> <kbd>%</kbd> calculates 18% of it, <kbd>÷</kbd> <kbd>80</kbd> <kbd>%</kbd> divides it by 0.80.</p>
+<h3>Conversions</h3>
+<p>With a value displayed, press the unit you want: <kbd>m</kbd> converts it to metres, <kbd>Feet</kbd> to feet, <kbd>Conv</kbd> <kbd>9</kbd> to millimetres. <kbd>Feet</kbd> toggles between feet-inches and decimal feet, <kbd>Inch</kbd> between fraction and decimals.</p>
+<h3>The Conv key</h3>
+<p><kbd>Conv</kbd> is the conversion and second-function key. Followed by a key, it runs the function written in small type above that key; followed by a unit, it converts the displayed value. You can also tap the small label directly.</p>
+<h3>Clearing</h3>
+<ul>
+    <li><kbd>Clear</kbd>, once: clears the display and any error.</li>
+    <li><kbd>Clear</kbd>, twice: also clears the temporary values (rise, run, length, diameter…). Do this before a new problem. The entered pitch, the memories and the stored values are kept.</li>
+    <li><kbd>Conv</kbd> <kbd>×</kbd> (<em>Clear all</em>): restores the calculator to new, after confirmation — memories, tape, stored values and the fields of the trade tool. Preferences are kept.</li>
+</ul>
+<h3>Copying and pasting</h3>
+<p>Double-clicking the displayed value copies it (or <kbd>Ctrl</kbd>+<kbd>C</kbd>). <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes a number or a length written out: <code>12 ft 6 in</code>, <code>30 in</code>, <code>3.8 m</code>.</p>
+
+<h2 id="memoires">5. Memories <a class="haut" href="#sommaire">Contents</a></h2>
+<ul>
+    <li><strong>The cumulative memory.</strong> Each press of <kbd>M+</kbd> adds the displayed value to the total; <kbd>Conv</kbd> <kbd>M+</kbd> subtracts it. <kbd>Recall</kbd> <kbd>M+</kbd> shows the total; <kbd>M+</kbd> after that shows the average, then the number of values. <kbd>Recall</kbd> <kbd>Recall</kbd> shows the total and clears the memory.</li>
+    <li><strong>Three free registers.</strong> <kbd>Store</kbd> <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd> stores the displayed value; <kbd>Recall</kbd> <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd> brings it back.</li>
+    <li><strong>The calculator's stored values.</strong> <kbd>Store</kbd> <kbd>4</kbd> to <kbd>9</kbd> and <kbd>0</kbd> set the block, the on-centre spacing, the footing section, the target riser, the floor thickness, the target tread and the density. They can also be changed in <a href="#preferences">preferences</a>.</li>
+    <li><strong>Recalling what a key holds in memory.</strong> <kbd>Recall</kbd> followed by a function key shows its last value: <kbd>Recall</kbd> <kbd>Run</kbd> shows the last run.</li>
+</ul>
+
+<h2 id="charpente">6. The framing keypad <a class="haut" href="#sommaire">Contents</a></h2>
+<p>This is the basic keypad, the one the calculator shows when the trade bar reads <em>Framing</em>. Its function keys all follow the same rule: <strong>a value typed, then the key, stores the value; the key alone calculates</strong>. Press a key again to cycle through all its results.</p>
+<p class="exemple"><span class="mot">Example</span> A rafter: <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> · <kbd>8</kbd> <kbd>Feet</kbd> <kbd>5</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> · <kbd>Diag</kbd> → <span class="ecran">9 ft 8 15/16 in</span>, then <kbd>Hip Valley</kbd> → <span class="ecran">12 ft 10 1/2 in</span></p>
+<p>The top keys solve the right triangle: enter two values among <kbd>Pitch</kbd>, <kbd>Rise</kbd>, <kbd>Run</kbd> and <kbd>Diag</kbd>, then press the third. The pitch stays in memory: no need to enter it again for the next rafter. To send a result to another function, press <kbd>=</kbd> first.</p>
+<p>Each key and each second function has its own topic, with a worked example, in the <a href="#fonctions">directory of keys and functions</a> below.</p>
+
+<h2 id="metier">7. The keypad of your trade <a class="haut" href="#sommaire">Contents</a></h2>
+<p>Above the keypad, the <strong>trade bar</strong> starts with a solid chip: the current trade (<em>Framing</em>, at first). To its right, a row of chips scrolls sideways.</p>
+<ul>
+    <li><strong>Choosing your trade:</strong> tap it in the row, or tap the solid chip to open the <em>Your trade</em> list.</li>
+    <li><strong>Changing tools:</strong> once the trade is chosen, the row shows its tools. One tap is all it takes.</li>
+    <li><strong>Going back to framing:</strong> tap the solid chip, then <em>Framing, roofing and stairs</em>.</li>
+</ul>
+<p>The calculator remembers the current tool: you find it again the next time you open it.</p>
+<h3>Filling in a tool</h3>
+<p>The tool's fields become the <strong>top keys</strong>. Above each key is written the content of its field; when the field is empty, you read there, in parentheses, the unit of a number typed without a unit: <span class="ecran">(ft)</span>, <span class="ecran">(in)</span>, <span class="ecran">(A)</span>.</p>
+<ol>
+    <li><strong>Type a value, then press the key of the field</strong> where you want to store it. A bare number takes the field's unit: <kbd>24</kbd> on a field in feet gives 24 ft 0 in.</li>
+    <li><strong>A dark key</strong> cycles through the options of a list: the angle of a fitting, the size of a conductor.</li>
+    <li><strong>Press <kbd>Result</kbd>.</strong> The calculation is recorded on the tape and the first result is displayed, with its rank: <span class="ecran">2 of 3</span>. Press again to see the next one.</li>
+</ol>
+<p class="exemple"><span class="mot">Example</span> A slab 24 ft by 20 ft, 4 in thick. <em>Concrete</em> trade, <em>Concrete slab</em> tool: <kbd>24</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> · <kbd>20</kbd> <kbd>Feet</kbd> <kbd>Width</kbd> · <kbd>4</kbd> <kbd>Inch</kbd> <kbd>Thickness</kbd> · <kbd>Result</kbd> → <span class="ecran">480 ft² (44.6 m²)</span> · <kbd>Result</kbd> → <span class="ecran">5.93 yd³ (4.53 m³)</span> · <kbd>Result</kbd> → <span class="ecran">6.52 yd³ (4.98 m³)</span> to order, 10% waste included.</p>
+<p class="exemple"><span class="mot">Example</span> A 12 in offset with 45° fittings. <em>Plumbing</em> trade, <em>Pipe offset</em> tool: <kbd>12</kbd> <kbd>Inch</kbd> <kbd>Offset</kbd> · <kbd>Result</kbd> → <span class="ecran">1 ft 5 in</span> of travel · <kbd>Result</kbd> → <span class="ecran">1 ft 0 in</span> of run. For another angle, press the dark <kbd>Angle</kbd> key until you reach the angle you want.</p>
+<p class="exemple"><span class="mot">Example</span> The voltage drop of a 120 V, 15 A circuit, 100 ft long, in 14 AWG copper. <em>Electrical</em> trade, <em>Voltage drop</em> tool: <kbd>15</kbd> <kbd>Current</kbd> · <kbd>100</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> · <kbd>Result</kbd> → <span class="ecran">9.42 V</span> · <kbd>Result</kbd> → <span class="ecran">7.85%</span> · <kbd>Result</kbd> → <span class="ecran">110.6 V</span> at the load.</p>
+<h3>Good to know</h3>
+<ul>
+    <li><strong>Recalling a field:</strong> its key, with nothing typed, displays its value.</li>
+    <li><strong>Resetting a field to its starting value:</strong> <kbd>Conv</kbd>, then its key. <strong>All the fields:</strong> tap the <em>Start over</em> label above <kbd>Result</kbd>.</li>
+    <li><strong>A value is missing?</strong> The display names it: <span class="ecran">MISSING: WIDTH</span>.</li>
+    <li><strong>Keep calculating:</strong> a displayed result is a value like any other. <kbd>×</kbd> <kbd>2</kbd> <kbd>=</kbd>, <kbd>M+</kbd> and <kbd>Store</kbd> all use it.</li>
+    <li><strong>From one tool to the next:</strong> the displayed value follows you when you change tools. The loose volume of a trench, for example, goes into the <em>Volume</em> field of the truckloads tool with one press.</li>
+    <li><strong>An area calculated on the keypad</strong> goes into a field in square feet: <kbd>40</kbd> <kbd>Feet</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Feet</kbd> <kbd>=</kbd>, then <kbd>Area</kbd>.</li>
+    <li><strong>How to use a tool:</strong> press and hold one of its keys.</li>
+</ul>
+<h3>The same tools as forms</h3>
+<p>The <em>Trades</em> tab presents each tool as a form: all the fields and all the results at a glance, recalculated with every keystroke. A measurement is written out in full there (<code>12 ft 6 in</code>, <code>30 in</code>, <code>3.8 m</code>). The <em>Add to tape</em> button records the calculation; <em>On keypad</em> plugs the tool into the keys of the home screen. The form and the keypad share the same values.</p>
+<p>Results follow the system of the first length you entered: in feet-inches or in metric for lengths, in both systems for areas, volumes and weights. Quantities to buy (bags, boxes, sheets) are rounded up to the next whole unit.</p>
+<p>All the tools are described, with an example, in the <a href="#outils">directory of tools by trade</a>.</p>
+
+<h2 id="ruban">8. The calculation tape <a class="haut" href="#sommaire">Contents</a></h2>
+<p>The tape keeps a record of your calculations: the operations and their totals, the values given to functions and their results, the conversions, and the details of each trade tool calculation, under its title.</p>
+<ul>
+    <li><strong>Viewing it:</strong> the <em>Tapes</em> tab, or <kbd>Conv</kbd> <kbd>=</kbd>. In a wide window, it stays on screen to the right of the calculator.</li>
+    <li><strong>Saving:</strong> give it a name — the client's or the jobsite's. Saved tapes can be reopened, renamed, copied, exported and deleted from the <em>Tapes</em> tab.</li>
+    <li><strong>Copying:</strong> the text of the tape goes to the clipboard, ready to paste into an email or a text message.</li>
+    <li><strong>Exporting:</strong> a <code>.txt</code> file.</li>
+    <li><strong>Clearing:</strong> erases the current tape, after confirmation.</li>
+</ul>
+<p class="note">The current tape keeps the last 500 lines. <kbd>Clear</kbd> twice draws a separator line on it; <em>Clear all</em> empties it.</p>
+
+<h2 id="preferences">9. Preferences <a class="haut" href="#sommaire">Contents</a></h2>
+<p>The gear wheel, or <kbd>Conv</kbd> <kbd>Store</kbd>, opens the preferences. Changes apply right away and are kept.</p>
+<div class="table"><table>
+    <thead><tr><th>Preference</th><th>Choices (in bold: the default)</th></tr></thead>
+    <tbody>
+        <tr><td>Language</td><td><strong>the device's language</strong> the first time: Français, English</td></tr>
+        <tr><td>Trigonometric mode</td><td><strong>off</strong>, on: the <kbd>Length</kbd>, <kbd>Width</kbd> and <kbd>Height</kbd> keys become <kbd>sin</kbd>, <kbd>cos</kbd> and <kbd>tan</kbd></td></tr>
+        <tr><td>Quick fractions</td><td><strong>off</strong>, on: shows the strip of fractions</td></tr>
+        <tr><td>Full-screen mode</td><td><strong>off</strong>, on (Windows version)</td></tr>
+        <tr><td>Theme</td><td><strong>Automatic</strong>, Light, Dark</td></tr>
+        <tr><td>Fraction resolution</td><td>1/2, 1/4, 1/8, <strong>1/16</strong>, 1/32, 1/64</td></tr>
+        <tr><td>Fraction mode</td><td><strong>Standard</strong> (reduced fraction), Constant (fixed denominator)</td></tr>
+        <tr><td>Exponential notation</td><td><strong>off</strong>, on</td></tr>
+        <tr><td>Area display</td><td><strong>Standard</strong>, Square feet, Square yards, Square metres</td></tr>
+        <tr><td>Volume display</td><td><strong>Standard</strong>, Cubic yards, Cubic feet, Cubic metres</td></tr>
+        <tr><td>Metres (lengths)</td><td><strong>0.000</strong>, Floating</td></tr>
+        <tr><td>Decimal degrees</td><td><strong>0.00</strong>, Floating</td></tr>
+        <tr><td>Thousands separator</td><td><strong>on</strong> (a comma), off</td></tr>
+        <tr><td>Decimal separator</td><td>in English, always the <strong>point</strong>; in French, Comma or Point</td></tr>
+        <tr><td>Decimals (unitless values)</td><td><strong>Floating</strong>, 0, 1, 2, 3, 4</td></tr>
+        <tr><td>Rake wall</td><td><strong>Descending</strong> (longest to shortest), Ascending</td></tr>
+        <tr><td>Arched wall</td><td><strong>Outside</strong> (above the arc), Inside (below the arc)</td></tr>
+        <tr><td>Jack rafters</td><td><strong>Descending</strong>, Ascending</td></tr>
+        <tr><td>Irregular jack rafters</td><td><strong>Constant on-centre spacing</strong>, Mated</td></tr>
+    </tbody>
+</table></div>
+<h3>The language</h3>
+<p>The <kbd>FR</kbd> | <kbd>EN</kbd> button in the top bar switches the whole calculator from French to English and back: the keys, the display, the tools, the help and this manual. The way numbers are written and the unit symbols follow the language: <span class="ecran">1 234,5 pi²</span> in French, <span class="ecran">1,234.5 ft²</span> in English. Your values do not change: what you typed in a tool is rewritten in the new language. The first time it opens, the calculator takes the language of the device if it is French or English; after that, it keeps the one you chose.</p>
+<p class="note">In English, the decimal separator is always the point, and a comma typed between groups of three digits separates thousands: <code>1,500</code> is one thousand five hundred. In French, the comma is always the decimal separator. Units, however, can be typed in either language: <code>12 pi 6 po</code> as well as <code>12 ft 6 in</code>.</p>
+<h3>Stored values</h3>
+<p>These are the starting points of the framing functions. Tap a line in the preferences to change it.</p>
+<div class="table"><table>
+    <thead><tr><th>Value</th><th>Default</th><th>Also with</th><th>Used for</th></tr></thead>
+    <tbody>
+        <tr><td>Headroom</td><td>6 ft 8 in</td><td></td><td>stairwell opening</td></tr>
+        <tr><td>Target riser height</td><td>7 1/2 in</td><td><kbd>Store</kbd> <kbd>7</kbd></td><td>stair</td></tr>
+        <tr><td>Floor thickness</td><td>10 in</td><td><kbd>Store</kbd> <kbd>8</kbd></td><td>stairwell opening</td></tr>
+        <tr><td>Target tread depth</td><td>10 in</td><td><kbd>Store</kbd> <kbd>9</kbd></td><td>stair</td></tr>
+        <tr><td>Block area and length</td><td>128 in² and 16 in</td><td><kbd>Store</kbd> <kbd>4</kbd></td><td>blocks</td></tr>
+        <tr><td>Crown moulding angle</td><td>45.00°</td><td><kbd>Store</kbd> <kbd>Compound Mitre</kbd></td><td>compound mitre</td></tr>
+        <tr><td>On-centre spacing</td><td>16 in</td><td><kbd>Store</kbd> <kbd>5</kbd></td><td>jack rafters, walls, studs</td></tr>
+        <tr><td>Footing section</td><td>264 in²</td><td><kbd>Store</kbd> <kbd>6</kbd></td><td>footing</td></tr>
+        <tr><td>Density</td><td>1.5 ton/yd³</td><td><kbd>Store</kbd> <kbd>0</kbd></td><td>going from a volume to a weight</td></tr>
+        <tr><td>Shingle bundles per square</td><td>3</td><td></td><td>roof</td></tr>
+    </tbody>
+</table></div>
+<p class="avis">These starting values, like those of the trade tools (waste, yields, spacings), are starting points that you can change. They are not a statement of code compliance.</p>
+<p>The <em>Reset data and preferences</em> button restores everything to new, after confirmation. The language stays the one you chose.</p>
+
+<h2 id="raccourcis">10. Keyboard shortcuts <a class="haut" href="#sommaire">Contents</a></h2>
+<p>On a computer, the calculator responds to the keyboard. The shortcuts are the same in both languages.</p>
+<div class="table"><table>
+    <thead><tr><th>Keyboard key</th><th>Action</th><th>Keyboard key</th><th>Action</th></tr></thead>
+    <tbody>
+        <tr><td><kbd>0</kbd> to <kbd>9</kbd></td><td>digits</td><td><kbd>'</kbd></td><td>Feet</td></tr>
+        <tr><td><kbd>,</kbd> or <kbd>.</kbd></td><td>decimal point</td><td><kbd>"</kbd></td><td>Inch</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd></td><td>+ − ×</td><td><kbd>V</kbd></td><td>Yards</td></tr>
+        <tr><td><kbd>:</kbd></td><td>÷</td><td><kbd>M</kbd></td><td>m</td></tr>
+        <tr><td><kbd>/</kbd></td><td>fraction bar</td><td><kbd>%</kbd></td><td>%</td></tr>
+        <tr><td><kbd>Enter</kbd> or <kbd>=</kbd></td><td>=</td><td><kbd>Space</kbd></td><td>Conv</td></tr>
+        <tr><td><kbd>Backspace</kbd></td><td>⌫</td><td><kbd>S</kbd></td><td>Store</td></tr>
+        <tr><td><kbd>Esc</kbd> or <kbd>Del</kbd></td><td>Clear</td><td><kbd>R</kbd></td><td>Recall</td></tr>
+        <tr><td><kbd>P</kbd> <kbd>T</kbd> <kbd>C</kbd> <kbd>D</kbd></td><td>Pitch, Rise, Run, Diag</td><td><kbd>Ins</kbd></td><td>M+</td></tr>
+        <tr><td><kbd>A</kbd> <kbd>O</kbd> <kbd>E</kbd></td><td>Hip Valley, Compound Mitre, Stair</td><td><kbd>F1</kbd></td><td>Help</td></tr>
+        <tr><td><kbd>B</kbd> <kbd>I</kbd> <kbd>J</kbd></td><td>Arc, Circle, Jack</td><td><kbd>F11</kbd></td><td>full screen</td></tr>
+        <tr><td><kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd></td><td>Length, Width, Height</td><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Preferences</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>copy the displayed value</td><td><kbd>Ctrl</kbd>+<kbd>R</kbd></td><td>tape</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>paste a number or a length</td><td></td><td></td></tr>
+    </tbody>
+</table></div>
+<p class="note">In the Web version, <kbd>F11</kbd> and <kbd>Ctrl</kbd>+<kbd>R</kbd> remain the browser's. With a trade tool on the keypad, the shortcuts of the framing keys (from <kbd>P</kbd> to <kbd>J</kbd>, and <kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd>) have no effect.</p>
+
+<h2 id="trucs">11. Pro tips <a class="haut" href="#sommaire">Contents</a></h2>
+<ol>
+[[TRUCS]]
+</ol>
+
+<h2 id="depannage">12. Messages and troubleshooting <a class="haut" href="#sommaire">Contents</a></h2>
+<div class="table"><table>
+    <thead><tr><th>The display shows</th><th>What it means</th></tr></thead>
+    <tbody>
+        <tr><td><span class="ecran">NO VALUE</span></td><td>The key has nothing to recall or calculate: it is missing a value. Type it, then press again.</td></tr>
+        <tr><td><span class="ecran">MISSING: …</span></td><td>The trade tool is still waiting for the value of the field named.</td></tr>
+        <tr><td><span class="ecran">PLEASE FIX: …</span></td><td>The field named holds an entry the tool cannot read. Type its value again.</td></tr>
+        <tr><td><span class="ecran">ERROR – unit mismatch</span></td><td>The units do not go together: a length added to a bare number, a length in a field that expects amperes. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – invalid entry</span></td><td>The value makes no sense here: zero where a measurement is needed, a decimal number where a whole number is needed. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – cannot calculate</span></td><td>The calculation has no result: a division by zero, an impossible triangle. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – trigonometry</span></td><td>The value is outside the function's domain: an inverse sine greater than 1, for example. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – overflow</span></td><td>The result is too large for the display. Press <kbd>Clear</kbd>.</td></tr>
+    </tbody>
+</table></div>
+<ul>
+    <li><strong>A result looks rounded.</strong> Lengths are displayed at the fraction resolution chosen in preferences (to 1/16 of an inch, at first); the calculation itself keeps its full precision.</li>
+    <li><strong>A framing function gives an unexpected result.</strong> A value from an earlier calculation may still be in memory: press <kbd>Clear</kbd> twice and start again.</li>
+    <li><strong>The framing keys have disappeared.</strong> A trade tool is on the keypad: tap the trade chip, then <em>Framing, roofing and stairs</em>.</li>
+    <li><strong>The calculator is in the wrong language.</strong> Tap <kbd>FR</kbd> or <kbd>EN</kbd> in the top bar.</li>
+    <li><strong>The installed calculator does not have the latest version.</strong> Open it once with a network connection, close it, then open it again. The version is shown at the bottom of the <kbd>☰</kbd> menu.</li>
+    <li><strong>My tapes have disappeared (Web version).</strong> They are kept in the browser: they are erased along with the site's browsing data, and do not follow you from one device to another. Export the ones that matter.</li>
+</ul>
+
+<h2 id="fonctions">13. Directory of keys and functions <a class="haut" href="#sommaire">Contents</a></h2>
+<p>These are the topics of the <em>Help</em> tab: one for each key and each second function of the framing keypad, with a worked example.</p>
+[[FONCTIONS]]
+
+<h2 id="outils">14. Directory of tools by trade <a class="haut" href="#sommaire">Contents</a></h2>
+<p>For each tool: its fields — which are also its keys —, the unit of a number typed without a unit, the default value, and an example calculated by the calculator. When the key carries a shorter label than the field, it is given in parentheses.</p>
+[[OUTILS]]
+
+<h2 id="licence">15. Disclaimer, licence and contact <a class="haut" href="#sommaire">Contents</a></h2>
+<p>This calculator is a calculation aid. It does not replace the drawings, the judgment of a qualified person, or the requirements of the building code in force where you work (in Québec, the Construction Code) and of municipal regulations. Always check your results before cutting or ordering.</p>
+<p>The Jobsite Calculator is free software, distributed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>. Its source code is public: <a href="https://github.com/ConstructoAI/calculatrice-chantier">github.com/ConstructoAI/calculatrice-chantier</a>. The software is provided "as is", without warranty of any kind.</p>
+<p>A question, an error to report, a tool missing for your trade? Write to <a href="mailto:info@constructoai.ca">info@constructoai.ca</a>, or visit <a href="https://constructoai.ca/">constructoai.ca</a>.</p>
+
+</main>
+
+<footer>
+    <p>Jobsite Calculator — courtesy of Sylvain Leduc of Constructo AI. <a href="#haut">Top of the page</a></p>
+</footer>
+</body>
+</html>

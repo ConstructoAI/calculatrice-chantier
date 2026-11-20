@@ -1,8 +1,14 @@
 # Calculatrice de chantier
 
-Calculatrice de construction en français du Québec, pour tous les corps de métier. Elle
-calcule en pieds-pouces-fractions et en métrique, et résout les problèmes courants de
-chantier :
+> **English** — *Jobsite Calculator* is a free construction calculator for every trade:
+> feet-inches-fractions and metric, a framer's keypad, and 76 tools for eleven other
+> trades. The whole app is available in English: tap **EN** in the top bar.
+> [Open the calculator](https://constructoai.github.io/calculatrice-chantier/) ·
+> [User manual](https://constructoai.github.io/calculatrice-chantier/manual.html)
+
+Calculatrice de construction en français du Québec et en anglais, pour tous les corps de
+métier. Elle calcule en pieds-pouces-fractions et en métrique, et résout les problèmes
+courants de chantier :
 
 - **au clavier**, comme une calculatrice de charpentier : pentes et chevrons, arêtiers,
   noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets
@@ -31,8 +37,9 @@ licence Apache 2.0.
 
 **Le [manuel d'utilisation](https://constructoai.github.io/calculatrice-chantier/manuel.html)**
 explique tout, exemples à l'appui : il s'ouvre aussi depuis le menu ☰ de la calculatrice
-et se lit sans réseau. Le comportement complet du programme est décrit dans
-`CAHIER_DES_CHARGES.md`.
+et se lit sans réseau. Il existe aussi
+[en anglais](https://constructoai.github.io/calculatrice-chantier/manual.html). Le
+comportement complet du programme est décrit dans `CAHIER_DES_CHARGES.md`.
 
 > Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le
 > jugement d'une personne compétente, ni les exigences du Code de construction du Québec
@@ -50,6 +57,25 @@ et se lit sans réseau. Le comportement complet du programme est décrit dans
 - Clic droit ou appui long sur une touche : sa fiche d'aide.
 - Votre métier n'est pas la charpente? Touchez son nom dans la barre au-dessus du
   clavier (voir ci-dessous).
+
+## En français ou en anglais
+
+Le bouton **FR | EN**, dans la barre du haut, fait passer toute la calculatrice d'une
+langue à l'autre : les touches, l'afficheur, les 76 outils, l'aide et le manuel. Le choix
+se fait aussi dans les Préférences, et il est conservé.
+
+| | Français | English |
+|---|---|---|
+| Touches | `Pente` `Montée` `Course` `Pieds` `Pouces` | `Pitch` `Rise` `Run` `Feet` `Inch` |
+| Mesures | `5 pi 7 1/2 po`, `480 pi²`, `5,93 vg³` | `5 ft 7 1/2 in`, `480 ft²`, `5.93 yd³` |
+| Nombres | `1 234,56` | `1,234.56` |
+| Montants | `1 283,06 $` | `$1,283.06` |
+
+Vos valeurs ne changent pas avec la langue : ce qui est tapé dans un outil est récrit dans
+la nouvelle langue (`2,032 m` devient `2.032 m`). Les unités se tapent dans les deux
+langues, quelle que soit celle de l'écran : `12 pi 6 po` comme `12 ft 6 in`. Au premier
+lancement, la calculatrice prend la langue de l'appareil si c'est le français ou
+l'anglais.
 
 ## Le clavier de votre métier
 
@@ -158,7 +184,7 @@ fichier image.
 | `J` | Empannon | | `H` | Hauteur |
 
 Dans la version Web, `F11` et `Ctrl+R` restent ceux du navigateur (plein écran,
-recharger la page).
+recharger la page). Les raccourcis sont les mêmes en anglais.
 
 ## Compiler soi-même
 
@@ -202,10 +228,14 @@ valeurs calculées à part (section 22.14). Ils rejouent aussi les outils de mé
 clavier (section 23.9) et soumettent chacun des 76 outils à des milliers de touches au
 hasard.
 
-Le manuel d'utilisation (`app/manuel.html`) est produit à partir d'un gabarit
-(`app/outils/manuel-gabarit.html`) et du contenu même du programme : fiches d'aide,
-calculateurs, exemples calculés par le noyau. Un test échoue s'il n'est plus à jour;
-pour le refaire :
+Les deux langues ont leurs propres tests (`noyau/tests/langue.rs`) : chaque texte existe
+en français et en anglais, les libellés tiennent sur les touches dans les deux langues,
+et changer de langue ne change aucune valeur.
+
+Le manuel d'utilisation (`app/manuel.html`, et `app/manual.html` en anglais) est produit
+à partir d'un gabarit (`app/outils/manuel-gabarit.html`, `manuel-gabarit-en.html`) et du
+contenu même du programme : fiches d'aide, calculateurs, exemples calculés par le noyau.
+Un test échoue s'il n'est plus à jour; pour refaire les deux pages :
 
 ```powershell
 cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored
@@ -232,13 +262,14 @@ jour :
 | Dossier | Rôle |
 |---|---|
 | `noyau/` | Bibliothèque de calcul (`calculatrice-noyau`) : unités, saisie, formatage, moteur, fonctions de construction, calculateurs par métier (`noyau/src/metiers/`) et leur branchement sur le clavier (`noyau/src/moteur/outils.rs`). Aucune dépendance graphique; entièrement testée sans écran. |
-| `app/` | Interface graphique (`calculatrice-chantier`) avec eframe/egui : clavier, afficheur, préférences, rubans, aide. Ne contient aucune formule. |
+| `noyau/src/langue.rs` | Les deux langues : chaque texte du programme est écrit en français et en anglais au même endroit, `t("Longueur", "Length")`, et se lit dans la langue en cours. Un texte sans version anglaise ne compile pas. |
+| `app/` | Interface graphique (`calculatrice-chantier`) avec eframe/egui : clavier, afficheur, préférences, rubans, aide. Ne contient aucune formule. Ses textes sont dans `app/src/textes.rs` et `app/src/aide.rs`. |
 | `app/src/plateforme/` | Tout ce qui diffère entre le bureau (`bureau.rs`) et le navigateur (`web.rs`) : stockage, export, plein écran, démarrage. |
 | `app/index.html` | Page hôte de la version Web. |
 | `app/manifest.webmanifest`, `app/sw.js` | Ce qui rend la version Web installable et utilisable hors ligne. |
 | `app/icones/` | Icônes de l'application installable, dessinées par `app/outils/icones.py`. |
 | `app/polices/` | Polices libres de la version Web, avec leurs licences (`LISEZMOI.md`). |
-| `app/manuel.html` | Manuel d'utilisation : une page du site, aussi embarquée dans l'exécutable de bureau. Produite par `app/src/manuel.rs` à partir de `app/outils/manuel-gabarit.html`. |
+| `app/manuel.html`, `app/manual.html` | Manuel d'utilisation, en français et en anglais : deux pages du site, aussi embarquées dans l'exécutable de bureau. Produites par `app/src/manuel.rs` à partir des gabarits de `app/outils/`. |
 | `app/build.rs` | Inscrit dans le programme la révision du code source (l'identifiant du commit), affichée au bas du menu. |
 | `LICENSE`, `NOTICE` | Licence Apache 2.0 et avis de droit d'auteur. |
 
@@ -260,6 +291,6 @@ voir `app/polices/LISEZMOI.md`.
 
 ## Nom de l'application
 
-Le nom affiché est défini par la constante `NOM_APPLICATION` de `app/src/textes.rs`. La
-page hôte de la version Web (`app/index.html`) le répète dans son titre et sur son écran
-d'attente.
+Le nom affiché est défini par la constante `NOM_APPLICATION` de `app/src/textes.rs` :
+« Calculatrice de chantier » en français, « Jobsite Calculator » en anglais. La page hôte
+de la version Web (`app/index.html`) le répète dans son titre et sur son écran d'attente.

@@ -112,10 +112,10 @@ fn titre(ui: &mut Ui, p: &Palette, texte: &str) {
 
 fn liste_des_metiers(ui: &mut Ui, p: &Palette, position: &mut Position) -> Option<Action> {
     let mut action = None;
-    titre(ui, p, textes::METIERS);
+    titre(ui, p, textes::METIERS.traduit());
     corps(ui, "metiers", |ui| {
         ui.add_space(4.0);
-        ui.label(RichText::new(textes::METIERS_INTRODUCTION).color(p.texte_attenue));
+        ui.label(RichText::new(textes::METIERS_INTRODUCTION.traduit()).color(p.texte_attenue));
         ui.add_space(6.0);
         for metier in Metier::TOUS {
             let nombre = textes::nombre_de_calculateurs(metier.calculateurs().len());
@@ -135,15 +135,15 @@ fn liste_des_metiers(ui: &mut Ui, p: &Palette, position: &mut Position) -> Optio
             ui,
             p,
             "metier-charpente",
-            textes::METIERS_CHARPENTE,
-            textes::METIERS_CHARPENTE_RESUME,
-            textes::METIERS_CHARPENTE_MENTION,
+            textes::METIERS_CHARPENTE.traduit(),
+            textes::METIERS_CHARPENTE_RESUME.traduit(),
+            textes::METIERS_CHARPENTE_MENTION.traduit(),
         ) {
             action = Some(Action::Clavier);
         }
         ui.add_space(8.0);
         ui.label(
-            RichText::new(textes::METIERS_AVERTISSEMENT)
+            RichText::new(textes::METIERS_AVERTISSEMENT.traduit())
                 .size(12.5)
                 .color(p.texte_attenue),
         );
@@ -153,13 +153,20 @@ fn liste_des_metiers(ui: &mut Ui, p: &Palette, position: &mut Position) -> Optio
 }
 
 fn liste_des_calculateurs(ui: &mut Ui, p: &Palette, position: &mut Position, metier: Metier) {
-    if en_tete(ui, p, metier.nom(), textes::RETOUR) {
+    if en_tete(ui, p, metier.nom(), textes::RETOUR.traduit()) {
         position.metier = None;
     }
     corps(ui, "metiers-calculateurs", |ui| {
         ui.add_space(6.0);
         for c in metier.calculateurs() {
-            if carte_cliquable(ui, p, ("calculateur", c.id), c.nom, c.resume, "") {
+            if carte_cliquable(
+                ui,
+                p,
+                ("calculateur", c.id),
+                c.nom.traduit(),
+                c.resume.traduit(),
+                "",
+            ) {
                 position.calculateur = Some(c.id);
             }
         }
@@ -170,8 +177,8 @@ fn liste_des_calculateurs(ui: &mut Ui, p: &Palette, position: &mut Position, met
 /// Exemple de saisie montré dans un champ de longueur encore vide.
 fn indice(nature: Nature) -> &'static str {
     match nature {
-        Nature::Longueur(Format::PoFrac) => textes::INDICE_POUCES,
-        Nature::Longueur(_) => textes::INDICE_PIEDS,
+        Nature::Longueur(Format::PoFrac) => textes::INDICE_POUCES.traduit(),
+        Nature::Longueur(_) => textes::INDICE_PIEDS.traduit(),
         _ => "",
     }
 }
@@ -198,11 +205,11 @@ fn champs(
                     .min(options.len().saturating_sub(1));
                 let mut rang = avant;
                 egui::ComboBox::from_id_salt(("metier-choix", c.id, i))
-                    .selected_text(options.get(rang).copied().unwrap_or(""))
+                    .selected_text(options.get(rang).map_or("", |option| option.traduit()))
                     .width(ui.available_width().min(320.0))
                     .show_ui(ui, |ui| {
                         for (k, option) in options.iter().enumerate() {
-                            ui.selectable_value(&mut rang, k, *option);
+                            ui.selectable_value(&mut rang, k, option.traduit());
                         }
                     });
                 if rang != avant {
@@ -246,7 +253,7 @@ fn formulaire(
     prefs: &Preferences,
 ) -> Option<Action> {
     let mut action = None;
-    if en_tete(ui, p, c.nom, textes::RETOUR) {
+    if en_tete(ui, p, c.nom.traduit(), textes::RETOUR.traduit()) {
         position.calculateur = None;
     }
     corps(ui, "metiers-formulaire", |ui| {
@@ -271,7 +278,7 @@ fn formulaire(
             ui.label(RichText::new(avis).color(p.avertissement));
         }
         if !evaluation.resultats.is_empty() {
-            section(ui, p, textes::RESULTATS);
+            section(ui, p, textes::RESULTATS.traduit());
             carte(ui, p, |ui| {
                 let dernier = evaluation.resultats.len() - 1;
                 for (i, (libelle, valeur)) in evaluation.resultats.iter().enumerate() {
@@ -288,7 +295,7 @@ fn formulaire(
                 }
             });
         }
-        if !c.note.is_empty() {
+        if !c.note.est_vide() {
             ui.add_space(8.0);
             ui.label(RichText::new(c.note).size(12.5).color(p.texte_attenue));
         }
@@ -296,22 +303,22 @@ fn formulaire(
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             let pret = !evaluation.resultats.is_empty();
-            let ajouter = bouton_principal(p, textes::AJOUTER_AU_RUBAN, 14.5);
+            let ajouter = bouton_principal(p, textes::AJOUTER_AU_RUBAN.traduit(), 14.5);
             if ui.add_enabled(pret, ajouter).clicked() {
                 action = Some(Action::Consigner {
-                    titre: c.nom,
+                    titre: c.nom.traduit(),
                     entrees: evaluation.entrees.clone(),
                     resultats: evaluation.resultats.clone(),
                 });
             }
             if ui
-                .button(textes::AU_CLAVIER)
-                .on_hover_text(textes::INFOBULLE_AU_CLAVIER)
+                .button(textes::AU_CLAVIER.traduit())
+                .on_hover_text(textes::INFOBULLE_AU_CLAVIER.traduit())
                 .clicked()
             {
                 action = Some(Action::AuClavier(c.id));
             }
-            if ui.button(textes::RECOMMENCER).clicked() {
+            if ui.button(textes::RECOMMENCER.traduit()).clicked() {
                 *saisies = c.saisies_par_defaut();
                 modifie = true;
             }

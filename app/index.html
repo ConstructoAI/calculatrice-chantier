@@ -5,6 +5,10 @@
     Elle ne contient que le canevas où le programme se dessine, un écran
     d'attente et un message d'échec. Les identifiants `calculatrice`,
     `chargement` et `echec` sont ceux qu'attend `app/src/plateforme/web.rs`.
+
+    La page est écrite en français; l'attribut `data-en` d'un élément porte son
+    texte anglais, que le premier script met en place quand la calculatrice est
+    en anglais (cahier des charges, section 24).
 -->
 <head>
     <meta charset="utf-8">
@@ -19,7 +23,7 @@
     <meta name="apple-mobile-web-app-title" content="Chantier">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="description"
-        content="Calculatrice de construction gratuite, en français du Québec : pieds-pouces-fractions et métrique, charpente, escaliers, béton, plomberie, électricité, finition. Installable et utilisable hors ligne.">
+        content="Calculatrice de construction gratuite, en français et en anglais : pieds-pouces-fractions et métrique, charpente, escaliers, béton, plomberie, électricité, finition. Installable et utilisable hors ligne. Free construction calculator, in English and French: feet-inches-fractions and metric, framing, stairs, concrete, plumbing, electrical, finishing.">
     <meta name="author" content="Sylvain Leduc, Constructo AI">
     <title>Calculatrice de chantier</title>
 
@@ -30,6 +34,7 @@
     <link data-trunk rel="copy-file" href="manifest.webmanifest">
     <link data-trunk rel="copy-file" href="sw.js">
     <link data-trunk rel="copy-file" href="manuel.html">
+    <link data-trunk rel="copy-file" href="manual.html">
     <link data-trunk rel="copy-dir" href="icones">
 
     <!-- Icône : la même équerre que celle de la fenêtre de bureau, dessinée en SVG. -->
@@ -158,23 +163,66 @@
             <path fill="#00224F"
                 d="M34 26.8h8v2.4h-8zM34 36.8h8v2.4h-8zM34 46.8h8v2.4h-8zM50.8 64h2.4v8h-2.4zM60.8 64h2.4v8h-2.4zM70.8 64h2.4v8h-2.4z" />
         </svg>
-        <h1>Calculatrice de chantier</h1>
-        <div class="barre" role="progressbar" aria-label="Chargement"></div>
-        <p class="gracieusete">Gracieuseté de Sylvain Leduc de Constructo AI</p>
+        <h1 data-en="Jobsite Calculator">Calculatrice de chantier</h1>
+        <div class="barre" role="progressbar" aria-label="Chargement" data-en-aria-label="Loading"></div>
+        <p class="gracieusete" data-en="Courtesy of Sylvain Leduc of Constructo AI">Gracieuseté de Sylvain Leduc
+            de Constructo AI</p>
         <noscript>
             <p>Cette calculatrice a besoin de JavaScript. Activez-le dans les réglages de votre navigateur, puis
                 rechargez la page.</p>
+            <p lang="en">This calculator needs JavaScript. Turn it on in your browser's settings, then reload the
+                page.</p>
         </noscript>
     </div>
 
     <!-- Message d'échec : montré si le programme ne peut pas démarrer. -->
     <div id="echec" class="message" hidden>
-        <h1>La calculatrice n'a pas pu démarrer</h1>
-        <p>Rechargez la page. Si le problème persiste, mettez votre navigateur à jour ou essayez-en un autre : la
+        <h1 data-en="The calculator could not start">La calculatrice n'a pas pu démarrer</h1>
+        <p
+            data-en="Reload the page. If the problem persists, update your browser or try another one: the calculator needs WebAssembly and WebGL (a recent Chrome, Edge, Firefox or Safari).">
+            Rechargez la page. Si le problème persiste, mettez votre navigateur à jour ou essayez-en un autre : la
             calculatrice a besoin de WebAssembly et de WebGL (Chrome, Edge, Firefox ou Safari récents).</p>
     </div>
 
     <script>
+        // Langue de l'écran d'attente et du message d'échec : celle que l'utilisateur a
+        // choisie dans la calculatrice; à la première visite, celle du navigateur si
+        // c'est le français ou l'anglais (la même règle que le programme, section 24).
+        (function () {
+            function langue() {
+                try {
+                    var etat = JSON.parse(localStorage.getItem("CalculatriceChantier/etat.json") || "null");
+                    if (etat) {
+                        // Un état sans langue vient d'une version où tout était en français.
+                        return etat.preferences && etat.preferences.langue === "Anglais" ? "en" : "fr";
+                    }
+                } catch (erreur) { }
+                var preferees = navigator.languages && navigator.languages.length
+                    ? navigator.languages
+                    : [navigator.language || ""];
+                for (var i = 0; i < preferees.length; i++) {
+                    var code = String(preferees[i]).slice(0, 2).toLowerCase();
+                    if (code === "fr" || code === "en") {
+                        return code;
+                    }
+                }
+                return "fr";
+            }
+            if (langue() !== "en") {
+                return;
+            }
+            document.documentElement.lang = "en-CA";
+            document.title = "Jobsite Calculator";
+            var elements = document.querySelectorAll("[data-en]");
+            for (var i = 0; i < elements.length; i++) {
+                elements[i].textContent = elements[i].getAttribute("data-en");
+            }
+            var barre = document.querySelector("[data-en-aria-label]");
+            if (barre) {
+                barre.setAttribute("aria-label", barre.getAttribute("data-en-aria-label"));
+            }
+        })();
+
         // Si le programme ne peut même pas se charger (navigateur trop ancien, réseau coupé),
         // montrer le message d'échec plutôt qu'une attente sans fin. Une fois l'écran
         // d'attente retiré par le programme, ce code ne fait plus rien.

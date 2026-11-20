@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::io;
 
 use chrono::{Datelike, Timelike};
+use noyau::langue::Langue;
 use noyau::{EtatPersistant, LigneRuban};
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +42,8 @@ pub struct Chargement {
     pub etat: EtatPersistant,
     /// La donnée existait mais n'a pas pu être lue : elle a été mise de côté (R-46).
     pub illisible: bool,
+    /// Rien n'avait encore été enregistré : c'est le premier lancement.
+    pub premiere_fois: bool,
 }
 
 /// Lit l'état conservé. Donnée absente : valeurs par défaut. Donnée illisible
@@ -53,6 +56,7 @@ pub fn charger_etat(depot: &Depot) -> Chargement {
         Chargement {
             etat: EtatPersistant::default(),
             illisible,
+            premiere_fois: !illisible,
         }
     };
     let texte = match depot.lire(FICHIER_ETAT) {
@@ -64,6 +68,7 @@ pub fn charger_etat(depot: &Depot) -> Chargement {
         Ok(etat) if etat.version_connue() => Chargement {
             etat,
             illisible: false,
+            premiere_fois: false,
         },
         _ => par_defaut(true),
     }
@@ -141,32 +146,39 @@ struct FichierSaisies {
     saisies: Saisies,
     /// Identifiant du calculateur branché sur le clavier (section 23).
     outil: Option<String>,
+    /// Langue dans laquelle les saisies sont écrites (section 24) : une
+    /// virgule n'y a pas le même sens en français et en anglais.
+    langue: Langue,
 }
 
 /// Lit les dernières saisies; aucune si la donnée est absente, illisible ou
 /// d'une autre version (ce ne sont que des commodités : rien n'est mis de côté).
-/// Retourne aussi l'identifiant du calculateur branché sur le clavier.
-pub fn charger_saisies(depot: &Depot) -> (Saisies, Option<String>) {
+/// Retourne aussi l'identifiant du calculateur branché sur le clavier, et la
+/// langue dans laquelle les saisies sont écrites.
+pub fn charger_saisies(depot: &Depot) -> (Saisies, Option<String>, Langue) {
     match depot.lire(FICHIER_SAISIES) {
         Lecture::Texte(texte) => serde_json::from_str::<FichierSaisies>(&texte)
             .ok()
             .filter(|fichier| fichier.version == VERSION_SAISIES)
-            .map(|fichier| (fichier.saisies, fichier.outil))
+            .map(|fichier| (fichier.saisies, fichier.outil, fichier.langue))
             .unwrap_or_default(),
-        Lecture::Absent | Lecture::Illisible => (Saisies::new(), None),
+        Lecture::Absent | Lecture::Illisible => (Saisies::new(), None, Langue::default()),
     }
 }
 
-/// Enregistre les dernières saisies et l'outil branché sur le clavier.
+/// Enregistre les dernières saisies, l'outil branché sur le clavier et la
+/// langue dans laquelle les saisies sont écrites.
 pub fn enregistrer_saisies(
     depot: &Depot,
     saisies: &Saisies,
     outil: Option<&str>,
+    langue: Langue,
 ) -> io::Result<()> {
     let fichier = FichierSaisies {
         version: VERSION_SAISIES,
         saisies: saisies.clone(),
         outil: outil.map(str::to_string),
+        langue,
     };
     depot.ecrire(FICHIER_SAISIES, &en_json(&fichier)?)
 }
@@ -204,7 +216,7 @@ pub fn nom_de_fichier(nom: &str) -> String {
         .collect();
     let propre = propre.trim().trim_end_matches('.').to_string();
     let base = if propre.is_empty() {
-        textes::FICHIER_PAR_DEFAUT
+        textes::FICHIER_PAR_DEFAUT.traduit()
     } else {
         &propre
     };
@@ -376,22 +388,67 @@ mod tests {
     #[test]
     fn aller_retour_des_saisies() {
         let d = DossierTemporaire::nouveau("saisies");
-        assert_eq!(charger_saisies(&d.depot()), (Saisies::new(), None));
+        let rien = (Saisies::new(), None, Langue::Francais);
+        assert_eq!(charger_saisies(&d.depot()), rien);
         let mut saisies = Saisies::new();
         saisies.insert(
             "dalle".to_string(),
             vec!["24".to_string(), "20".to_string(), "4".to_string()],
         );
-        enregistrer_saisies(&d.depot(), &saisies, Some("dalle")).unwrap();
+        enregistrer_saisies(&d.depot(), &saisies, Some("dalle"), Langue::Francais).unwrap();
         assert_eq!(
             charger_saisies(&d.depot()),
-            (saisies.clone(), Some("dalle".to_string()))
+            (saisies.clone(), Some("dalle".to_string()), Langue::Francais)
         );
-        enregistrer_saisies(&d.depot(), &saisies, None).unwrap();
-        assert_eq!(charger_saisies(&d.depot()), (saisies, None));
+        // La langue dans laquelle les saisies sont écrites est conservée avec elles.
+        enregistrer_saisies(&d.depot(), &saisies, None, Langue::Anglais).unwrap();
+        assert_eq!(
+            charger_saisies(&d.depot()),
+            (saisies.clone(), None, Langue::Anglais)
+        );
+        // Un fichier d'une version précédente, sans langue : il est en français.
+        fs::write(
+            d.0.join("metiers.json"),
+            "{ \"version\": 1, \"saisies\": { \"dalle\": [\"24\", \"20\", \"4\"] }, \"outil\": null }",
+        )
+        .unwrap();
+        assert_eq!(
+            charger_saisies(&d.depot()),
+            (saisies, None, Langue::Francais)
+        );
         // Une donnée illisible est simplement ignorée.
         fs::write(d.0.join("metiers.json"), "pas du JSON").unwrap();
-        assert_eq!(charger_saisies(&d.depot()), (Saisies::new(), None));
+        assert_eq!(charger_saisies(&d.depot()), rien);
+    }
+
+    #[test]
+    fn premier_lancement_et_langue_conservee() {
+        let d = DossierTemporaire::nouveau("langue");
+        // Rien n'a encore été enregistré : c'est le premier lancement.
+        let c = charger_etat(&d.depot());
+        assert!(c.premiere_fois && !c.illisible);
+        assert_eq!(c.etat.preferences.langue, Langue::Francais);
+        // La langue choisie est conservée avec les préférences.
+        let mut etat = c.etat;
+        etat.preferences.langue = Langue::Anglais;
+        enregistrer_etat(&d.depot(), &etat).unwrap();
+        let relu = charger_etat(&d.depot());
+        assert!(!relu.premiere_fois && !relu.illisible);
+        assert_eq!(relu.etat.preferences.langue, Langue::Anglais);
+        // Un état d'une version précédente, sans langue : il est en français.
+        fs::write(
+            d.0.join("etat.json"),
+            "{ \"version\": 1, \"preferences\": { \"mode_trigo\": true } }",
+        )
+        .unwrap();
+        let ancien = charger_etat(&d.depot());
+        assert!(!ancien.premiere_fois && !ancien.illisible);
+        assert_eq!(ancien.etat.preferences.langue, Langue::Francais);
+        assert!(ancien.etat.preferences.mode_trigo);
+        // Un état illisible n'est pas un premier lancement.
+        fs::write(d.0.join("etat.json"), "pas du JSON").unwrap();
+        let illisible = charger_etat(&d.depot());
+        assert!(illisible.illisible && !illisible.premiere_fois);
     }
 
     #[test]

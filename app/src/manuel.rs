@@ -1,12 +1,14 @@
-//! Manuel d'utilisation (`app/manuel.html`).
+//! Manuel d'utilisation : `app/manuel.html` en français, `app/manual.html` en
+//! anglais (section 24).
 //!
-//! La page est produite à partir d'un gabarit (`app/outils/manuel-gabarit.html`)
-//! et du contenu même du programme : les fiches d'aide, les trucs de pro, les
-//! calculateurs par métier et, pour chacun, un exemple calculé par le noyau.
-//! Elle ne peut donc pas s'écarter de ce que fait la calculatrice.
+//! Chaque page est produite à partir d'un gabarit (`app/outils/manuel-gabarit.html`,
+//! `app/outils/manuel-gabarit-en.html`) et du contenu même du programme : les
+//! fiches d'aide, les trucs de pro, les calculateurs par métier et, pour chacun,
+//! un exemple calculé par le noyau. Elle ne peut donc pas s'écarter de ce que
+//! fait la calculatrice.
 //!
-//! Ce module n'existe que pour les tests : l'un vérifie que la page publiée est
-//! à jour, l'autre la refait.
+//! Ce module n'existe que pour les tests : l'un vérifie que les pages publiées
+//! sont à jour, l'autre les refait.
 //!
 //! ```text
 //! cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored
@@ -15,16 +17,30 @@
 use std::path::{Path, PathBuf};
 
 use noyau::Preferences;
+use noyau::langue::{self, Langue, selon};
 use noyau::metiers::{Calculateur, Metier, Nature, calculateur};
 
 use crate::aide::{FICHES, Fiche};
 use crate::textes;
 
-const GABARIT: &str = include_str!("../outils/manuel-gabarit.html");
-const MANUEL: &str = include_str!("../manuel.html");
+/// Le gabarit et la page publiée, dans une langue.
+fn gabarit(langue: Langue) -> &'static str {
+    match langue {
+        Langue::Francais => include_str!("../outils/manuel-gabarit.html"),
+        Langue::Anglais => include_str!("../outils/manuel-gabarit-en.html"),
+    }
+}
+
+fn page_publiee(langue: Langue) -> &'static str {
+    match langue {
+        Langue::Francais => include_str!("../manuel.html"),
+        Langue::Anglais => include_str!("../manual.html"),
+    }
+}
 
 /// Un exemple par calculateur : les saisies d'une valeur d'essai du cahier des
-/// charges (section 22.14), vérifiée par les tests du noyau.
+/// charges (section 22.14), vérifiée par les tests du noyau. Elles sont
+/// écrites à la française; le manuel anglais les récrit à l'anglaise.
 const EXEMPLES: &[(&str, &[&str])] = &[
     ("soumission", &["100000", "3", "12", "15", "5", "9,975"]),
     (
@@ -158,8 +174,16 @@ fn ancre(texte: &str) -> String {
     ancre.trim_matches('-').to_string()
 }
 
+/// L'ancre d'un métier : la même dans les deux langues, d'après son nom français.
 fn ancre_du_metier(metier: Metier) -> String {
+    let _francais = langue::pour_la_portee(Langue::Francais);
     format!("metier-{}", ancre(metier.nom_court()))
+}
+
+/// Un libellé et sa valeur : le deux-points est précédé d'une espace en
+/// français seulement.
+fn deux_points(libelle: &str, valeur: &str) -> String {
+    format!("{libelle}{} {valeur}", selon(" :", ":"))
 }
 
 /// Les entrées du sommaire : un lien par métier.
@@ -185,8 +209,8 @@ fn trucs() -> String {
         .map(|(titre, texte)| {
             format!(
                 "    <li><strong>{}</strong> {}</li>\n",
-                echapper(titre),
-                echapper(texte)
+                echapper(titre.traduit()),
+                echapper(texte.traduit())
             )
         })
         .collect::<String>()
@@ -197,31 +221,31 @@ fn trucs() -> String {
 /// Une fiche d'aide.
 fn fiche(f: &Fiche) -> String {
     let mut html = String::from("<article>\n");
-    html.push_str(&format!("    <h4>{}", echapper(f.titre)));
-    if !f.acces.is_empty() {
+    html.push_str(&format!("    <h4>{}", echapper(f.titre.traduit())));
+    if !f.acces.est_vide() {
         html.push_str(&format!(
             " <span class=\"acces\">{}</span>",
-            avec_touches(f.acces)
+            avec_touches(f.acces.traduit())
         ));
     }
     html.push_str("</h4>\n");
     html.push_str(&format!(
         "    <p><strong>{}</strong> {}</p>\n",
-        avec_touches(f.resume),
-        avec_touches(f.mode_emploi)
+        avec_touches(f.resume.traduit()),
+        avec_touches(f.mode_emploi.traduit())
     ));
     if let Some((frappes, resultat)) = f.exemple {
         html.push_str(&format!(
             "    <p class=\"exemple\"><span class=\"mot\">{}</span> {} → <strong>{}</strong></p>\n",
-            textes::EXEMPLE,
-            avec_touches(frappes),
-            echapper(resultat)
+            textes::EXEMPLE.traduit(),
+            avec_touches(frappes.traduit()),
+            echapper(resultat.traduit())
         ));
     }
     if let Some(note) = f.note {
         html.push_str(&format!(
             "    <p class=\"note\">{}</p>\n",
-            avec_touches(note)
+            avec_touches(note.traduit())
         ));
     }
     html.push_str("</article>\n");
@@ -234,11 +258,17 @@ type DuGroupe = fn(&Fiche) -> bool;
 /// Les fiches d'aide, en trois groupes.
 fn fonctions() -> String {
     let groupes: [(&str, DuGroupe); 3] = [
-        ("Les touches principales", |f| {
+        (selon("Les touches principales", "The main keys"), |f| {
             !f.secondaire && !f.trigo && !f.touches.is_empty()
         }),
-        ("Les secondes fonctions, avec Conv", |f| f.secondaire),
-        ("Les autres fonctions", |f| {
+        (
+            selon(
+                "Les secondes fonctions, avec Conv",
+                "The second functions, with Conv",
+            ),
+            |f| f.secondaire,
+        ),
+        (selon("Les autres fonctions", "Other functions"), |f| {
             !f.secondaire && (f.trigo || f.touches.is_empty())
         }),
     ];
@@ -252,12 +282,13 @@ fn fonctions() -> String {
     html.trim_end().to_string()
 }
 
-/// Les saisies de l'exemple d'un calculateur.
-fn exemple_de(id: &str) -> Option<Vec<String>> {
-    EXEMPLES
-        .iter()
-        .find(|(identifiant, _)| *identifiant == id)
-        .map(|(_, saisies)| saisies.iter().map(|s| (*s).to_string()).collect())
+/// Les saisies de l'exemple d'un calculateur, telles qu'elles se tapent dans
+/// la langue en cours.
+fn exemple_de(c: &Calculateur, prefs: &Preferences) -> Option<Vec<String>> {
+    let (_, saisies) = EXEMPLES.iter().find(|(id, _)| *id == c.id)?;
+    let mut saisies: Vec<String> = saisies.iter().map(|s| (*s).to_string()).collect();
+    c.transposer_les_saisies(&mut saisies, Langue::Francais, langue::en_cours(), prefs);
+    Some(saisies)
 }
 
 /// Le tableau des champs d'un calculateur : ce sont aussi ses touches.
@@ -265,20 +296,27 @@ fn champs(c: &Calculateur, prefs: &Preferences) -> String {
     // Les valeurs de départ, remises au propre par le calculateur lui-même.
     let depart = c.evaluer(&c.saisies_par_defaut(), prefs);
     let mut au_propre = depart.entrees.iter();
-    let mut html = String::from(
-        "    <div class=\"table\"><table>\n        <thead><tr><th>Champ</th><th>Unité</th><th>Au départ</th></tr></thead>\n        <tbody>\n",
+    let mut html = format!(
+        "    <div class=\"table\"><table>\n        <thead><tr><th>{}</th><th>{}</th><th>{}</th></tr></thead>\n        <tbody>\n",
+        selon("Champ", "Field"),
+        selon("Unité", "Unit"),
+        selon("Au départ", "Default"),
     );
     for champ in c.champs {
-        let mut nom = echapper(champ.libelle);
+        let libelle = champ.libelle.traduit();
+        let mut nom = echapper(libelle);
         let court = champ.libelle_court().replace('\n', " ");
-        if court != champ.libelle {
+        if court != libelle {
             nom.push_str(&format!(
-                " <span class=\"acces\">(touche : {})</span>",
-                echapper(&court)
+                " <span class=\"acces\">({})</span>",
+                deux_points(selon("touche", "key"), &echapper(&court))
             ));
         }
         if champ.facultatif {
-            nom.push_str(" <span class=\"acces\">— facultatif</span>");
+            nom.push_str(&format!(
+                " <span class=\"acces\">— {}</span>",
+                selon("facultatif", "optional")
+            ));
         }
         let (unite, valeur) = match champ.nature {
             Nature::Choix(options) => {
@@ -289,19 +327,20 @@ fn champs(c: &Calculateur, prefs: &Preferences) -> String {
                     .enumerate()
                     .map(|(rang, option)| {
                         if rang == choisi {
-                            format!("<strong>{}</strong>", echapper(option))
+                            format!("<strong>{}</strong>", echapper(option.traduit()))
                         } else {
-                            echapper(option)
+                            echapper(option.traduit())
                         }
                     })
                     .collect::<Vec<_>>()
                     .join(" · ");
-                ("liste".to_string(), liste)
+                (selon("liste", "list").to_string(), liste)
             }
             nature => {
+                let entier = selon("nombre entier", "whole number");
                 let unite = match nature {
-                    Nature::Entier("") => "nombre entier".to_string(),
-                    Nature::Entier(unite) => format!("{unite}, nombre entier"),
+                    Nature::Entier(unite) if unite.est_vide() => entier.to_string(),
+                    Nature::Entier(unite) => format!("{}, {entier}", unite.traduit()),
                     _ => champ.unite().to_string(),
                 };
                 let valeur = if champ.defaut.is_empty() {
@@ -326,23 +365,22 @@ fn champs(c: &Calculateur, prefs: &Preferences) -> String {
 /// Un outil : son résumé, ses champs, un exemple calculé et sa note.
 fn outil(c: &Calculateur, prefs: &Preferences) -> String {
     let mut html = format!("<article id=\"outil-{}\">\n", c.id);
-    html.push_str(&format!("    <h4>{}</h4>\n", echapper(c.nom)));
-    html.push_str(&format!("    <p>{}</p>\n", echapper(c.resume)));
+    html.push_str(&format!("    <h4>{}</h4>\n", echapper(c.nom.traduit())));
+    html.push_str(&format!("    <p>{}</p>\n", echapper(c.resume.traduit())));
     html.push_str(&champs(c, prefs));
-    if let Some(saisies) = exemple_de(c.id) {
+    if let Some(saisies) = exemple_de(c, prefs) {
         let e = c.evaluer(&saisies, prefs);
         let liste = |lignes: &[(&str, String)], gras: bool| {
             lignes
                 .iter()
                 .map(|(libelle, valeur)| {
                     if gras {
-                        format!(
-                            "{} : <strong>{}</strong>",
-                            echapper(libelle),
-                            echapper(valeur)
+                        deux_points(
+                            &echapper(libelle),
+                            &format!("<strong>{}</strong>", echapper(valeur)),
                         )
                     } else {
-                        format!("{} : {}", echapper(libelle), echapper(valeur))
+                        deux_points(&echapper(libelle), &echapper(valeur))
                     }
                 })
                 .collect::<Vec<_>>()
@@ -350,13 +388,16 @@ fn outil(c: &Calculateur, prefs: &Preferences) -> String {
         };
         html.push_str(&format!(
             "    <p class=\"exemple\"><span class=\"mot\">{}</span> {} → {}</p>\n",
-            textes::EXEMPLE,
+            textes::EXEMPLE.traduit(),
             liste(&e.entrees, false),
             liste(&e.resultats, true)
         ));
     }
-    if !c.note.is_empty() {
-        html.push_str(&format!("    <p class=\"note\">{}</p>\n", echapper(c.note)));
+    if !c.note.est_vide() {
+        html.push_str(&format!(
+            "    <p class=\"note\">{}</p>\n",
+            echapper(c.note.traduit())
+        ));
     }
     html.push_str("</article>\n");
     html
@@ -380,13 +421,14 @@ fn outils() -> String {
     html.trim_end().to_string()
 }
 
-/// La page complète.
-fn generer() -> String {
+/// La page complète, dans une langue.
+fn generer(langue: Langue) -> String {
+    let _langue = langue::pour_la_portee(langue);
     let nombre_d_outils: usize = Metier::TOUS
         .iter()
         .map(|metier| metier.calculateurs().len())
         .sum();
-    let page = GABARIT
+    let page = gabarit(langue)
         .replace("\r\n", "\n")
         .replace("[[NOMBRE_D_OUTILS]]", &nombre_d_outils.to_string())
         .replace("[[NOMBRE_DE_METIERS]]", &Metier::TOUS.len().to_string())
@@ -407,21 +449,30 @@ fn generer() -> String {
     }
 }
 
-fn chemin_du_manuel() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("manuel.html")
+fn chemin_du_manuel(langue: Langue) -> PathBuf {
+    let _langue = langue::pour_la_portee(langue);
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(textes::FICHIER_DU_MANUEL.traduit())
 }
 
 #[test]
 fn chaque_calculateur_a_son_exemple() {
     let prefs = Preferences::default();
-    for metier in Metier::TOUS {
-        for c in metier.calculateurs() {
-            let saisies = exemple_de(c.id).unwrap_or_else(|| panic!("pas d'exemple pour {}", c.id));
-            assert_eq!(saisies.len(), c.champs.len(), "{}", c.id);
-            let e = c.evaluer(&saisies, &prefs);
-            assert!(e.erreurs.iter().all(Option::is_none), "{}", c.id);
-            assert_eq!(e.avis, None, "{}", c.id);
-            assert!(!e.resultats.is_empty(), "{}", c.id);
+    for langue in Langue::TOUTES {
+        let _langue = langue::pour_la_portee(langue);
+        for metier in Metier::TOUS {
+            for c in metier.calculateurs() {
+                let saisies =
+                    exemple_de(c, &prefs).unwrap_or_else(|| panic!("pas d'exemple pour {}", c.id));
+                assert_eq!(saisies.len(), c.champs.len(), "{}", c.id);
+                let e = c.evaluer(&saisies, &prefs);
+                assert!(
+                    e.erreurs.iter().all(Option::is_none),
+                    "{langue:?}, {}",
+                    c.id
+                );
+                assert_eq!(e.avis, None, "{langue:?}, {}", c.id);
+                assert!(!e.resultats.is_empty(), "{langue:?}, {}", c.id);
+            }
         }
     }
     // Aucun exemple orphelin.
@@ -431,45 +482,181 @@ fn chaque_calculateur_a_son_exemple() {
 }
 
 #[test]
-fn le_manuel_est_complet() {
-    let page = generer();
-    assert!(
-        !page.contains("[["),
-        "un repère du gabarit n'a pas été remplacé"
-    );
-    assert!(!page.contains("<!--"));
+fn les_exemples_donnent_les_memes_grandeurs_dans_les_deux_langues() {
+    let prefs = Preferences::default();
     for metier in Metier::TOUS {
-        assert!(page.contains(&echapper(metier.nom())));
         for c in metier.calculateurs() {
-            assert!(page.contains(&format!("id=\"outil-{}\"", c.id)), "{}", c.id);
+            let evaluer = |langue: Langue| {
+                let _langue = langue::pour_la_portee(langue);
+                let saisies = exemple_de(c, &prefs).unwrap_or_default();
+                let e = c.evaluer(&saisies, &prefs);
+                e.quantites
+                    .iter()
+                    .map(|quantite| quantite.valeur(e.modele))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(
+                evaluer(Langue::Francais),
+                evaluer(Langue::Anglais),
+                "{}",
+                c.id
+            );
         }
     }
-    for f in FICHES {
-        assert!(page.contains(&echapper(f.titre)), "{}", f.titre);
-    }
-    // Les ancres du sommaire mènent quelque part.
-    for cible in page.split("href=\"#").skip(1) {
-        let cible = cible.split('"').next().unwrap_or_default();
+}
+
+#[test]
+fn le_manuel_est_complet() {
+    for langue in Langue::TOUTES {
+        let page = generer(langue);
+        let _langue = langue::pour_la_portee(langue);
         assert!(
-            page.contains(&format!("id=\"{cible}\"")),
-            "ancre sans cible : {cible}"
+            !page.contains("[["),
+            "un repère du gabarit n'a pas été remplacé"
+        );
+        assert!(!page.contains("<!--"));
+        for metier in Metier::TOUS {
+            assert!(page.contains(&echapper(metier.nom())));
+            for c in metier.calculateurs() {
+                assert!(page.contains(&format!("id=\"outil-{}\"", c.id)), "{}", c.id);
+                assert!(page.contains(&echapper(c.nom.traduit())), "{}", c.id);
+            }
+        }
+        for f in FICHES {
+            assert!(
+                page.contains(&echapper(f.titre.traduit())),
+                "{}",
+                f.titre.traduit()
+            );
+        }
+        // Les ancres du sommaire mènent quelque part.
+        for cible in page.split("href=\"#").skip(1) {
+            let cible = cible.split('"').next().unwrap_or_default();
+            assert!(
+                page.contains(&format!("id=\"{cible}\"")),
+                "ancre sans cible : {cible}"
+            );
+        }
+    }
+    // Chaque manuel mène à l'autre.
+    assert!(generer(Langue::Francais).contains("href=\"manual.html\""));
+    assert!(generer(Langue::Anglais).contains("href=\"manuel.html\""));
+}
+
+/// Ce qui suit chaque occurrence d'un repère, jusqu'à un guillemet : la liste
+/// des identifiants d'une page, par exemple.
+fn valeurs_apres<'a>(page: &'a str, repere: &str) -> Vec<&'a str> {
+    page.split(repere)
+        .skip(1)
+        .map(|suite| suite.split('"').next().unwrap_or_default())
+        .collect()
+}
+
+#[test]
+fn les_deux_gabarits_se_suivent() {
+    let francais = gabarit(Langue::Francais).replace("\r\n", "\n");
+    let anglais = gabarit(Langue::Anglais).replace("\r\n", "\n");
+    // La même feuille de style.
+    let style = |page: &str| {
+        let debut = page.find("<style>").expect("feuille de style");
+        let fin = page.find("</style>").expect("feuille de style");
+        page[debut..fin].to_string()
+    };
+    assert!(
+        style(&francais) == style(&anglais),
+        "feuilles de style différentes"
+    );
+    // Les mêmes chapitres, les mêmes repères et autant de touches.
+    assert_eq!(
+        valeurs_apres(&francais, "id=\""),
+        valeurs_apres(&anglais, "id=\"")
+    );
+    let reperes = |page: &str| -> Vec<String> {
+        page.split("[[")
+            .skip(1)
+            .map(|suite| suite.split("]]").next().unwrap_or_default().to_string())
+            .collect()
+    };
+    assert_eq!(reperes(&francais), reperes(&anglais));
+    for balise in ["<kbd>", "<li>", "<tr>", "<h3>", "<p", "class=\"ecran\""] {
+        assert_eq!(
+            francais.matches(balise).count(),
+            anglais.matches(balise).count(),
+            "{balise}"
+        );
+    }
+    // Les mêmes nombres : seule leur écriture change d'une langue à l'autre.
+    let chiffres = |page: &str| -> String { page.chars().filter(char::is_ascii_digit).collect() };
+    let (a, b) = (chiffres(&francais), chiffres(&anglais));
+    if a != b {
+        let commun = a.bytes().zip(b.bytes()).take_while(|(x, y)| x == y).count();
+        let suite = |texte: &str| texte[commun..(commun + 24).min(texte.len())].to_string();
+        panic!(
+            "les nombres diffèrent après {commun} chiffres : « {} » en français, « {} » en anglais",
+            suite(&a),
+            suite(&b)
         );
     }
 }
 
 #[test]
-fn le_manuel_est_a_jour() {
-    assert!(
-        MANUEL.replace("\r\n", "\n") == generer(),
-        "app/manuel.html n'est plus à jour : relancez \
-         `cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored`"
-    );
+fn chaque_gabarit_cite_les_messages_de_son_afficheur() {
+    use noyau::Erreur;
+    for langue in Langue::TOUTES {
+        let _langue = langue::pour_la_portee(langue);
+        let page = gabarit(langue);
+        for erreur in [
+            Erreur::Depassement,
+            Erreur::Calcul,
+            Erreur::Unites,
+            Erreur::Saisie,
+            Erreur::Trigonometrie,
+            Erreur::AucuneValeur,
+        ] {
+            assert!(
+                page.contains(erreur.texte()),
+                "{langue:?} : {}",
+                erreur.texte()
+            );
+        }
+        // « IL MANQUE : LARGEUR », « MISSING: WIDTH ».
+        let manque = noyau::erreurs::valeur_manquante(selon("Largeur", "Width"));
+        assert!(page.contains(&manque), "{langue:?} : {manque}");
+        let a_corriger = noyau::erreurs::valeur_a_corriger("…");
+        assert!(page.contains(&a_corriger), "{langue:?} : {a_corriger}");
+        // Les indicateurs de l'afficheur et le nom de la calculatrice.
+        for texte in [
+            textes::INDICATEUR_STOCKER,
+            textes::INDICATEUR_RAPPEL,
+            textes::INDICATEUR_MEMORISE,
+            textes::NOM_APPLICATION,
+            textes::GRACIEUSETE,
+        ] {
+            assert!(page.contains(texte.traduit()), "{langue:?} : {texte}");
+        }
+    }
 }
 
-/// Refait `app/manuel.html`. À lancer après avoir modifié le gabarit, une fiche
-/// d'aide ou un calculateur.
 #[test]
-#[ignore = "refait app/manuel.html"]
+fn le_manuel_est_a_jour() {
+    for langue in Langue::TOUTES {
+        assert!(
+            page_publiee(langue).replace("\r\n", "\n") == generer(langue),
+            "{} n'est plus à jour : relancez \
+             `cargo test -p calculatrice-chantier regenerer_le_manuel -- --ignored`",
+            chemin_du_manuel(langue).display()
+        );
+    }
+}
+
+/// Refait `app/manuel.html` et `app/manual.html`. À lancer après avoir modifié
+/// un gabarit, une fiche d'aide ou un calculateur.
+#[test]
+#[ignore = "refait app/manuel.html et app/manual.html"]
 fn regenerer_le_manuel() {
-    std::fs::write(chemin_du_manuel(), generer()).expect("écriture de app/manuel.html");
+    for langue in Langue::TOUTES {
+        let chemin = chemin_du_manuel(langue);
+        std::fs::write(&chemin, generer(langue))
+            .unwrap_or_else(|erreur| panic!("écriture de {} : {erreur}", chemin.display()));
+    }
 }

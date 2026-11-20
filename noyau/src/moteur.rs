@@ -375,10 +375,14 @@ impl Moteur {
         self.revision += 1;
     }
 
-    /// `Effacer tout`, plus la remise des préférences à leurs valeurs par défaut.
+    /// `Effacer tout`, plus la remise des préférences à leurs valeurs par
+    /// défaut. La langue de l'interface, elle, reste celle qui est choisie.
     pub fn reinitialiser(&mut self) {
         self.effacer_tout();
-        self.prefs = Preferences::default();
+        self.prefs = Preferences {
+            langue: self.prefs.langue,
+            ..Preferences::default()
+        };
     }
 
     /// État à conserver d'une séance à l'autre.

@@ -3,6 +3,7 @@
 use eframe::egui::{self, Align, Layout, RichText, Ui};
 use noyau::analyse::{analyser_aire, analyser_longueur, analyser_nombre};
 use noyau::format::{OptionsFormat, en_texte, nombre_flottant};
+use noyau::langue::Langue;
 use noyau::prefs::{
     AffichageAires, AffichageVolumes, EmpannonsIrreguliers, ModeFractions, MurCintre, Ordre,
     Preferences, RESOLUTIONS, SeparateurDecimal, Theme, ValeursMemorisees,
@@ -48,43 +49,43 @@ impl Memorisee {
 
     pub fn nom(self) -> &'static str {
         match self {
-            Memorisee::Echappee => textes::MEMO_ECHAPPEE,
-            Memorisee::Contremarche => textes::MEMO_CONTREMARCHE,
-            Memorisee::Plancher => textes::MEMO_PLANCHER,
-            Memorisee::Giron => textes::MEMO_GIRON,
-            Memorisee::AireBloc => textes::MEMO_AIRE_BLOC,
-            Memorisee::LongueurBloc => textes::MEMO_LONGUEUR_BLOC,
-            Memorisee::AngleMoulure => textes::MEMO_ANGLE_MOULURE,
-            Memorisee::Entraxe => textes::MEMO_ENTRAXE,
-            Memorisee::SectionSemelle => textes::MEMO_SECTION_SEMELLE,
-            Memorisee::MasseVolumique => textes::MEMO_MASSE_VOLUMIQUE,
-            Memorisee::Paquets => textes::MEMO_PAQUETS,
+            Memorisee::Echappee => textes::MEMO_ECHAPPEE.traduit(),
+            Memorisee::Contremarche => textes::MEMO_CONTREMARCHE.traduit(),
+            Memorisee::Plancher => textes::MEMO_PLANCHER.traduit(),
+            Memorisee::Giron => textes::MEMO_GIRON.traduit(),
+            Memorisee::AireBloc => textes::MEMO_AIRE_BLOC.traduit(),
+            Memorisee::LongueurBloc => textes::MEMO_LONGUEUR_BLOC.traduit(),
+            Memorisee::AngleMoulure => textes::MEMO_ANGLE_MOULURE.traduit(),
+            Memorisee::Entraxe => textes::MEMO_ENTRAXE.traduit(),
+            Memorisee::SectionSemelle => textes::MEMO_SECTION_SEMELLE.traduit(),
+            Memorisee::MasseVolumique => textes::MEMO_MASSE_VOLUMIQUE.traduit(),
+            Memorisee::Paquets => textes::MEMO_PAQUETS.traduit(),
         }
     }
 
     fn usage(self) -> &'static str {
         match self {
-            Memorisee::Echappee => textes::MEMO_USAGE_ECHAPPEE,
-            Memorisee::Contremarche => textes::MEMO_USAGE_CONTREMARCHE,
-            Memorisee::Plancher => textes::MEMO_USAGE_PLANCHER,
-            Memorisee::Giron => textes::MEMO_USAGE_GIRON,
-            Memorisee::AireBloc => textes::MEMO_USAGE_AIRE_BLOC,
-            Memorisee::LongueurBloc => textes::MEMO_USAGE_LONGUEUR_BLOC,
-            Memorisee::AngleMoulure => textes::MEMO_USAGE_ANGLE_MOULURE,
-            Memorisee::Entraxe => textes::MEMO_USAGE_ENTRAXE,
-            Memorisee::SectionSemelle => textes::MEMO_USAGE_SECTION_SEMELLE,
-            Memorisee::MasseVolumique => textes::MEMO_USAGE_MASSE_VOLUMIQUE,
-            Memorisee::Paquets => textes::MEMO_USAGE_PAQUETS,
+            Memorisee::Echappee => textes::MEMO_USAGE_ECHAPPEE.traduit(),
+            Memorisee::Contremarche => textes::MEMO_USAGE_CONTREMARCHE.traduit(),
+            Memorisee::Plancher => textes::MEMO_USAGE_PLANCHER.traduit(),
+            Memorisee::Giron => textes::MEMO_USAGE_GIRON.traduit(),
+            Memorisee::AireBloc => textes::MEMO_USAGE_AIRE_BLOC.traduit(),
+            Memorisee::LongueurBloc => textes::MEMO_USAGE_LONGUEUR_BLOC.traduit(),
+            Memorisee::AngleMoulure => textes::MEMO_USAGE_ANGLE_MOULURE.traduit(),
+            Memorisee::Entraxe => textes::MEMO_USAGE_ENTRAXE.traduit(),
+            Memorisee::SectionSemelle => textes::MEMO_USAGE_SECTION_SEMELLE.traduit(),
+            Memorisee::MasseVolumique => textes::MEMO_USAGE_MASSE_VOLUMIQUE.traduit(),
+            Memorisee::Paquets => textes::MEMO_USAGE_PAQUETS.traduit(),
         }
     }
 
     /// Indication montrée sous le champ de saisie.
     pub fn exemples(self) -> &'static str {
         match self {
-            Memorisee::AireBloc | Memorisee::SectionSemelle => textes::EXEMPLES_AIRE,
-            Memorisee::AngleMoulure => textes::EXEMPLES_ANGLE,
-            Memorisee::MasseVolumique | Memorisee::Paquets => textes::EXEMPLES_NOMBRE,
-            _ => textes::EXEMPLES_LONGUEUR,
+            Memorisee::AireBloc | Memorisee::SectionSemelle => textes::EXEMPLES_AIRE.traduit(),
+            Memorisee::AngleMoulure => textes::EXEMPLES_ANGLE.traduit(),
+            Memorisee::MasseVolumique | Memorisee::Paquets => textes::EXEMPLES_NOMBRE.traduit(),
+            _ => textes::EXEMPLES_LONGUEUR.traduit(),
         }
     }
 
@@ -161,6 +162,8 @@ pub enum Action {
     Terminer,
     Modifier(Memorisee),
     Reinitialiser,
+    /// Changer la langue de l'interface (section 24).
+    Langue(Langue),
 }
 
 /// Case à cocher suivie de son explication.
@@ -195,25 +198,43 @@ fn choix<T: Copy + PartialEq>(
 /// Affiche les préférences. Les changements s'appliquent immédiatement.
 pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action> {
     let mut action = None;
-    if en_tete(ui, p, textes::PREFERENCES, textes::TERMINE) {
+    if en_tete(
+        ui,
+        p,
+        textes::PREFERENCES.traduit(),
+        textes::TERMINE.traduit(),
+    ) {
         action = Some(Action::Terminer);
     }
     let mut prefs = moteur.preferences().clone();
     corps(ui, "preferences", |ui| {
-        section(ui, p, textes::SECTION_GENERAL);
+        section(ui, p, textes::SECTION_GENERAL.traduit());
         carte(ui, p, |ui| {
+            // La langue ne se change pas ici même : l'application récrit
+            // d'abord les saisies comme elles se tapent dans la nouvelle langue.
+            let mut langue = prefs.langue;
+            choix(
+                ui,
+                textes::LANGUE.traduit(),
+                &mut langue,
+                &Langue::TOUTES,
+                |l| l.nom().to_string(),
+            );
+            if langue != prefs.langue {
+                action = Some(Action::Langue(langue));
+            }
             bascule(
                 ui,
                 p,
-                textes::PREF_TRIGO,
-                textes::PREF_TRIGO_AIDE,
+                textes::PREF_TRIGO.traduit(),
+                textes::PREF_TRIGO_AIDE.traduit(),
                 &mut prefs.mode_trigo,
             );
             bascule(
                 ui,
                 p,
-                textes::PREF_FRACTIONS_RAPIDES,
-                textes::PREF_FRACTIONS_RAPIDES_AIDE,
+                textes::PREF_FRACTIONS_RAPIDES.traduit(),
+                textes::PREF_FRACTIONS_RAPIDES_AIDE.traduit(),
                 &mut prefs.fractions_rapides,
             );
             // Dans un navigateur, le plein écran se demande par le bouton de la
@@ -222,32 +243,32 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
                 bascule(
                     ui,
                     p,
-                    textes::PREF_PLEIN_ECRAN,
-                    textes::PREF_PLEIN_ECRAN_AIDE,
+                    textes::PREF_PLEIN_ECRAN.traduit(),
+                    textes::PREF_PLEIN_ECRAN_AIDE.traduit(),
                     &mut prefs.plein_ecran,
                 );
             }
             choix(
                 ui,
-                textes::PREF_THEME,
+                textes::PREF_THEME.traduit(),
                 &mut prefs.theme,
                 &[Theme::Automatique, Theme::Clair, Theme::Sombre],
                 |t| textes::theme(t).to_string(),
             );
         });
 
-        section(ui, p, textes::SECTION_AFFICHAGE);
+        section(ui, p, textes::SECTION_AFFICHAGE.traduit());
         carte(ui, p, |ui| {
             choix(
                 ui,
-                textes::PREF_RESOLUTION,
+                textes::PREF_RESOLUTION.traduit(),
                 &mut prefs.resolution,
                 &RESOLUTIONS,
                 textes::resolution,
             );
             choix(
                 ui,
-                textes::PREF_MODE_FRACTIONS,
+                textes::PREF_MODE_FRACTIONS.traduit(),
                 &mut prefs.mode_fractions,
                 &[ModeFractions::Standard, ModeFractions::Constant],
                 |m| textes::mode_fractions(m).to_string(),
@@ -255,13 +276,13 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
             bascule(
                 ui,
                 p,
-                textes::PREF_EXPONENTIELLE,
-                textes::PREF_EXPONENTIELLE_AIDE,
+                textes::PREF_EXPONENTIELLE.traduit(),
+                textes::PREF_EXPONENTIELLE_AIDE.traduit(),
                 &mut prefs.exponentielle,
             );
             choix(
                 ui,
-                textes::PREF_AIRES,
+                textes::PREF_AIRES.traduit(),
                 &mut prefs.affichage_aires,
                 &[
                     AffichageAires::Standard,
@@ -273,7 +294,7 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
             );
             choix(
                 ui,
-                textes::PREF_VOLUMES,
+                textes::PREF_VOLUMES.traduit(),
                 &mut prefs.affichage_volumes,
                 &[
                     AffichageVolumes::Standard,
@@ -288,74 +309,77 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
                     if b {
                         fixe.to_string()
                     } else {
-                        textes::FLOTTANT.to_string()
+                        textes::FLOTTANT.traduit().to_string()
                     }
                 }
             };
             choix(
                 ui,
-                textes::PREF_METRES,
+                textes::PREF_METRES.traduit(),
                 &mut prefs.metres_fixes,
                 &[true, false],
-                fixe_ou_flottant(textes::METRES_FIXES),
+                fixe_ou_flottant(textes::METRES_FIXES.traduit()),
             );
             choix(
                 ui,
-                textes::PREF_DEGRES,
+                textes::PREF_DEGRES.traduit(),
                 &mut prefs.degres_fixes,
                 &[true, false],
-                fixe_ou_flottant(textes::DEGRES_FIXES),
+                fixe_ou_flottant(textes::DEGRES_FIXES.traduit()),
             );
             bascule(
                 ui,
                 p,
-                textes::PREF_MILLIERS,
-                textes::PREF_MILLIERS_AIDE,
+                textes::PREF_MILLIERS.traduit(),
+                textes::PREF_MILLIERS_AIDE.traduit(),
                 &mut prefs.separateur_milliers,
             );
+            // En anglais, le séparateur décimal est toujours le point.
+            if prefs.langue == Langue::Francais {
+                choix(
+                    ui,
+                    textes::PREF_DECIMAL.traduit(),
+                    &mut prefs.separateur_decimal,
+                    &[SeparateurDecimal::Virgule, SeparateurDecimal::Point],
+                    |s| textes::separateur_decimal(s).to_string(),
+                );
+            }
             choix(
                 ui,
-                textes::PREF_DECIMAL,
-                &mut prefs.separateur_decimal,
-                &[SeparateurDecimal::Virgule, SeparateurDecimal::Point],
-                |s| textes::separateur_decimal(s).to_string(),
-            );
-            choix(
-                ui,
-                textes::PREF_DECIMALES,
+                textes::PREF_DECIMALES.traduit(),
                 &mut prefs.decimales_sans_unite,
                 &[None, Some(0), Some(1), Some(2), Some(3), Some(4)],
                 textes::decimales,
             );
         });
 
-        section(ui, p, textes::SECTION_FONCTIONS);
+        section(ui, p, textes::SECTION_FONCTIONS.traduit());
         carte(ui, p, |ui| {
             let ordres = [Ordre::Decroissant, Ordre::Croissant];
             choix(
                 ui,
-                textes::PREF_MUR_PENTE,
+                textes::PREF_MUR_PENTE.traduit(),
                 &mut prefs.mur_pente,
                 &ordres,
                 |o| textes::ordre(o).to_string(),
             );
             choix(
                 ui,
-                textes::PREF_MUR_CINTRE,
+                textes::PREF_MUR_CINTRE.traduit(),
                 &mut prefs.mur_cintre,
                 &[MurCintre::Exterieur, MurCintre::Interieur],
                 |m| textes::mur_cintre(m).to_string(),
             );
             choix(
                 ui,
-                textes::PREF_EMPANNONS,
+                textes::PREF_EMPANNONS.traduit(),
                 &mut prefs.empannons,
                 &ordres,
                 |o| textes::ordre(o).to_string(),
             );
             choix(
                 ui,
-                textes::PREF_EMPANNONS_IRREGULIERS,
+                textes::PREF_EMPANNONS_IRREGULIERS.traduit(),
                 &mut prefs.empannons_irreguliers,
                 &[
                     EmpannonsIrreguliers::EntraxeConstant,
@@ -365,7 +389,7 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
             );
         });
 
-        section(ui, p, textes::SECTION_MEMORISEES);
+        section(ui, p, textes::SECTION_MEMORISEES.traduit());
         carte(ui, p, |ui| {
             for (i, quoi) in Memorisee::TOUTES.iter().copied().enumerate() {
                 if i > 0 {
@@ -389,7 +413,7 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
                         );
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if ui.button(textes::MODIFIER).clicked() {
+                        if ui.button(textes::MODIFIER.traduit()).clicked() {
                             action = Some(Action::Modifier(quoi));
                         }
                         ui.label(RichText::new(texte).font(theme::police_grasse(14.5)));
@@ -398,9 +422,10 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
             }
         });
 
-        section(ui, p, textes::SECTION_REINITIALISATION);
-        let bouton =
-            egui::Button::new(RichText::new(textes::BOUTON_REINITIALISER_TOUT).color(p.erreur));
+        section(ui, p, textes::SECTION_REINITIALISATION.traduit());
+        let bouton = egui::Button::new(
+            RichText::new(textes::BOUTON_REINITIALISER_TOUT.traduit()).color(p.erreur),
+        );
         if ui.add(bouton).clicked() {
             action = Some(Action::Reinitialiser);
         }

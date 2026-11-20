@@ -72,10 +72,10 @@ fn actions_du_ruban_courant(ui: &mut Ui, vide: bool) -> Option<Action> {
     let mut action = None;
     ui.horizontal_wrapped(|ui| {
         for (libelle, a) in [
-            (textes::ENREGISTRER, Action::Enregistrer),
-            (textes::COPIER, Action::Copier),
-            (textes::EXPORTER, Action::Exporter),
-            (textes::VIDER, Action::Vider),
+            (textes::ENREGISTRER.traduit(), Action::Enregistrer),
+            (textes::COPIER.traduit(), Action::Copier),
+            (textes::EXPORTER.traduit(), Action::Exporter),
+            (textes::VIDER.traduit(), Action::Vider),
         ] {
             if ui.add_enabled(!vide, egui::Button::new(libelle)).clicked() {
                 action = Some(a);
@@ -97,7 +97,7 @@ pub fn ruban_courant(
     ui.add_space(2.0);
     carte(ui, p, |ui| {
         if ruban.est_vide() {
-            ui.label(RichText::new(textes::RUBAN_VIDE).color(p.texte_attenue));
+            ui.label(RichText::new(textes::RUBAN_VIDE.traduit()).color(p.texte_attenue));
             return;
         }
         egui::ScrollArea::vertical()
@@ -122,23 +122,23 @@ pub fn afficher(
 
     // Un ruban enregistré, ouvert en lecture seule.
     if let Some(r) = ouvert {
-        if en_tete(ui, p, &r.nom, textes::RETOUR) {
+        if en_tete(ui, p, &r.nom, textes::RETOUR.traduit()) {
             action = Some(Action::FermerLecture);
         }
         corps(ui, "ruban-lecture", |ui| {
             ui.label(
                 RichText::new(textes::avec_tiret(
                     &r.date_en_clair(),
-                    textes::LECTURE_SEULE,
+                    textes::LECTURE_SEULE.traduit(),
                 ))
                 .color(p.texte_attenue),
             );
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                if ui.button(textes::COPIER).clicked() {
+                if ui.button(textes::COPIER.traduit()).clicked() {
                     action = Some(Action::CopierEnregistre(r.id));
                 }
-                if ui.button(textes::EXPORTER).clicked() {
+                if ui.button(textes::EXPORTER.traduit()).clicked() {
                     action = Some(Action::ExporterEnregistre(r.id));
                 }
             });
@@ -153,7 +153,7 @@ pub fn afficher(
     ui.horizontal(|ui| {
         ui.add_space(14.0);
         ui.label(
-            RichText::new(textes::ONGLET_RUBANS)
+            RichText::new(textes::ONGLET_RUBANS.traduit())
                 .font(theme::police_grasse(20.0))
                 .color(p.entete),
         );
@@ -161,14 +161,16 @@ pub fn afficher(
     ui.add_space(4.0);
     ui.separator();
     corps(ui, "rubans", |ui| {
-        section(ui, p, textes::RUBAN_COURANT);
+        section(ui, p, textes::RUBAN_COURANT.traduit());
         if let Some(a) = ruban_courant(ui, p, ruban, 300.0) {
             action = Some(a);
         }
 
-        section(ui, p, textes::RUBANS_ENREGISTRES);
+        section(ui, p, textes::RUBANS_ENREGISTRES.traduit());
         if enregistres.is_empty() {
-            ui.label(RichText::new(textes::AUCUN_RUBAN_ENREGISTRE).color(p.texte_attenue));
+            ui.label(
+                RichText::new(textes::AUCUN_RUBAN_ENREGISTRE.traduit()).color(p.texte_attenue),
+            );
         }
         for r in enregistres {
             carte(ui, p, |ui| {
@@ -183,11 +185,11 @@ pub fn afficher(
                 );
                 ui.horizontal_wrapped(|ui| {
                     for (libelle, a) in [
-                        (textes::OUVRIR, Action::Ouvrir(r.id)),
-                        (textes::RENOMMER, Action::Renommer(r.id)),
-                        (textes::COPIER, Action::CopierEnregistre(r.id)),
-                        (textes::EXPORTER, Action::ExporterEnregistre(r.id)),
-                        (textes::SUPPRIMER, Action::Supprimer(r.id)),
+                        (textes::OUVRIR.traduit(), Action::Ouvrir(r.id)),
+                        (textes::RENOMMER.traduit(), Action::Renommer(r.id)),
+                        (textes::COPIER.traduit(), Action::CopierEnregistre(r.id)),
+                        (textes::EXPORTER.traduit(), Action::ExporterEnregistre(r.id)),
+                        (textes::SUPPRIMER.traduit(), Action::Supprimer(r.id)),
                     ] {
                         if ui.small_button(libelle).clicked() {
                             action = Some(a);

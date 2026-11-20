@@ -35,7 +35,7 @@ fn main() -> eframe::Result {
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title(textes::NOM_APPLICATION)
+            .with_title(textes::NOM_APPLICATION.traduit())
             .with_inner_size([420.0, 860.0])
             .with_min_inner_size([340.0, 620.0])
             .with_app_id(textes::APP_ID)
@@ -43,7 +43,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        textes::NOM_APPLICATION,
+        textes::NOM_APPLICATION.traduit(),
         options,
         Box::new(|cc| Ok(Box::new(Application::nouvelle(cc)))),
     )

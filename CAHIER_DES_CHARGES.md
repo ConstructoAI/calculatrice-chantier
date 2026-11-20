@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.7 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1)
+> **Version du document :** 1.8 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -35,6 +35,7 @@ Ce document est **autosuffisant** : il contient tout ce qu'il faut pour écrire,
 21. [Définition de « terminé »](#21-définition-de--terminé-)
 22. [Calculateurs par métier](#22-calculateurs-par-métier)
 23. [Clavier adapté au métier](#23-clavier-adapté-au-métier)
+24. [Français et anglais](#24-français-et-anglais)
 
 Annexes : [A. Constantes](#annexe-a--constantes) · [B. Textes d'aide](#annexe-b--textes-daide-français) · [C. Aide-mémoire eframe/egui 0.37](#annexe-c--aide-mémoire-eframeegui-037) · [D. Traçabilité photos → application](#annexe-d--traçabilité-photos--application) · [E. Hors périmètre](#annexe-e--hors-périmètre) · [F. Invite de démarrage](#annexe-f--invite-de-démarrage-de-la-prochaine-session) · [G. Hypothèses retenues](#annexe-g--hypothèses-retenues-à-confirmer-par-lutilisateur-aucune-nest-bloquante)
 
@@ -196,7 +197,7 @@ Ces choix sont arrêtés. S'en écarter seulement en cas d'impossibilité techni
 | Boîte « Enregistrer sous » | `rfd` (export du ruban en `.txt`), sur le bureau. Dans le navigateur, le fichier est téléchargé. |
 | Réseau | **Aucun.** Aucune dépendance réseau, aucune télémétrie. La version Web est un site statique : une fois la page chargée, le programme ne fait aucune requête. Les liens du menu et de l'écran « À propos » (courriel, site, manuel, code source) s'ouvrent dans le navigateur ou le logiciel de courriel de l'utilisateur : le programme lui-même ne contacte rien. |
 | Licence | **Apache 2.0**, choisie par l'utilisateur le 2026-11-19. Fichiers `LICENSE` (texte officiel, non modifié) et `NOTICE` (avis de droit d'auteur) à la racine; champ `license = "Apache-2.0"` des manifestes. Les polices de `app/polices/` gardent leur propre licence. |
-| Langue | Français seulement. Tous les textes sont centralisés (`textes.rs`) pour permettre une autre langue plus tard, sans l'implémenter maintenant. |
+| Langue | **Français du Québec et anglais du Canada**, au choix de l'utilisateur ([section 24](#24-français-et-anglais), ajoutée le 2026-11-19 à sa demande). Le français reste la langue de référence : c'est celle du présent cahier, du code et de ses commentaires, et celle des valeurs d'essai des sections 19, 22.14 et 23.9. |
 
 **Dépendances autorisées (liste fermée)** : `eframe`, `serde`, `serde_json`, `chrono`, `rfd`; en `build-dependencies` facultative : `winresource` (icône de l'exécutable). Pour la cible Web seulement, l'accès au navigateur : `wasm-bindgen`, `wasm-bindgen-futures`, `js-sys` et `web-sys` (eframe les utilise déjà, sauf `wasm-bindgen-futures`, qui lance le programme dans la page). Le crate `noyau` ne dépend que de `serde` (derive). Toute autre dépendance doit être justifiée auprès de l'utilisateur.
 
@@ -264,13 +265,13 @@ Le même programme se compile aussi pour le navigateur (cible `wasm32-unknown-un
 
 ### 4.1 Règles de langue (normatives)
 
-- **R-04** Séparateur décimal : la **virgule**. Séparateur de milliers : l'**espace insécable** (U+00A0). Exemples : `1 234,56`, `0,5`.
+- **R-04** Séparateur décimal : la **virgule**. Séparateur de milliers : l'**espace insécable** (U+00A0). Exemples : `1 234,56`, `0,5`. (En anglais : le point et la virgule, `1,234.56` — section 24.3.)
 - **R-05** Une espace insécable entre le nombre et son symbole : `12 pi`, `7 1/2 po`, `2,5 m`, `75 %`, `283,06 $`. Exception : le degré est collé (`36,87°`), de même que minutes et secondes d'angle (`23°42′39″`).
 - **R-06** Le symbole du dollar suit le montant : `18,00 $`.
 - **R-07** Les symboles d'unités ne prennent ni point ni marque du pluriel : `pi`, `po`, `vg`, `lb`, `pmp`.
 - **R-08** Signe moins typographique `−` (U+2212) à l'affichage; `×` et `÷` pour les opérateurs.
 - **R-09** Majuscules accentuées obligatoires : `MONTÉE`, `ARÊTIER`, `À propos`, `Échappée`.
-- **R-10** Aucun mot anglais dans l'interface. Les termes de chantier anglais courants (« stud », « jack », « footing », « pitch ») n'apparaissent que dans l'aide, entre guillemets, comme repère pour l'utilisateur.
+- **R-10** Aucun mot anglais dans l'interface française (et aucun mot français dans l'interface anglaise, section 24). Les termes de chantier anglais courants (« stud », « jack », « footing », « pitch ») n'apparaissent que dans l'aide, entre guillemets, comme repère pour l'utilisateur.
 
 ### 4.2 Unités et symboles
 
@@ -1393,6 +1394,7 @@ Un seul écran défilant, intitulé **Préférences**, ouvert par la roue denté
 
 | Préférence | Options | Effet |
 |---|---|---|
+| **Langue** | Français / English — au premier lancement, celle de l'appareil ★ | section 24; aussi par le bouton `FR \| EN` de la barre supérieure |
 | **Mode trigonométrique** | désactivé ★ / activé | voir 12.18 |
 | **Fractions rapides** | désactivé ★ / activé | affiche la bande de fractions (7.6) |
 | **Mode plein écran** | désactivé ★ / activé | fenêtre en plein écran sans bordure (aussi `F11`) — version de bureau seulement (3.1) |
@@ -1410,7 +1412,7 @@ Un seul écran défilant, intitulé **Préférences**, ouvert par la roue denté
 | **Mètres (longueurs)** | 0,000 ★ / Flottant | 8.4 |
 | **Degrés décimaux** | 0,00 ★ / Flottant | 8.6 |
 | **Séparateur de milliers** | activé ★ (espace) / désactivé | R-04 |
-| **Séparateur décimal** | Virgule ★ / Point | pour qui préfère le point; n'affecte que l'affichage et la touche décimale |
+| **Séparateur décimal** | Virgule ★ / Point | pour qui préfère le point; n'affecte que l'affichage et la touche décimale. En anglais, c'est toujours le point : la préférence n'est pas montrée, et son réglage français est conservé (24.3) |
 | **Décimales (valeurs sans unité)** | Flottant ★ / 0 / 1 / 2 / 3 / 4 | 8.6 |
 
 ### 13.3 Fonctions
@@ -1502,7 +1504,7 @@ Ruban du 19 novembre 2026, 8 h 04
 
 | Élément | Contenu |
 |---|---|
-| **Barre supérieure** | ☰ (menu) · bouton plein écran (version Web : seulement si le navigateur le permet) · titre de l'application · ⚙ (Préférences) |
+| **Barre supérieure** | ☰ (menu) · bouton plein écran (version Web : seulement si le navigateur le permet) · titre de l'application · bouton de langue `FR \| EN` (24.2) · ⚙ (Préférences) |
 | **Barre inférieure** | quatre onglets : **Accueil** (la calculatrice), **Métiers** (section 22), **Rubans**, **Aide** |
 | **Menu ☰** (tiroir à gauche) | Calculateurs par métier · Rubans enregistrés · Aide · Manuel d'utilisation (15.4) · Bienvenue · Trucs de pro · Préférences · À propos · Installer l'application (version Web seulement, 3.1) · Quitter (version de bureau seulement). **Au pied du tiroir**, de haut en bas : la mention « Gracieuseté de Sylvain Leduc de Constructo AI »; le courriel `info@constructoai.ca` (lien `mailto:`) et le site `constructoai.ca` (lien vers `https://constructoai.ca/`, ouvert dans un nouvel onglet), demandés par l'utilisateur le 2026-11-19; la version et la révision : `Version 0.5.0 · révision 1a2b3c4`. La révision est l'identifiant court du commit git, inscrit à la compilation par `app/build.rs`; sans dépôt git, seule la version s'affiche. Si le tiroir est trop bas pour tout montrer, les entrées du menu passent d'abord. |
 
@@ -1531,11 +1533,11 @@ Chaque fiche comprend : un titre, « À quoi ça sert », « Comment faire » (�
 
 ### 15.4 Manuel d'utilisation
 
-Ajouté le 2026-11-19, à la demande de l'utilisateur, qui voulait « un manuel d'utilisation complet ». C'est une page Web autonome, `app/manuel.html` : sans script ni ressource externe, lisible sur un téléphone, en thème clair ou sombre, et imprimable.
+Ajouté le 2026-11-19, à la demande de l'utilisateur, qui voulait « un manuel d'utilisation complet ». C'est une page Web autonome, `app/manuel.html` : sans script ni ressource externe, lisible sur un téléphone, en thème clair ou sombre, et imprimable. Le manuel existe aussi **en anglais**, `app/manual.html` (24.7) : le menu ouvre celui de la langue en cours, et chacun porte un lien vers l'autre.
 
 **Contenu.** Quinze chapitres : présentation et avertissement; installer et ouvrir; l'écran; taper une mesure et calculer; les mémoires; le clavier de charpente; le clavier de votre métier; le ruban; les préférences; les raccourcis clavier; les trucs de pro; les messages et le dépannage; le répertoire des touches et des fonctions; le répertoire des outils par métier; l'avertissement, la licence et les coordonnées.
 
-**R-61** Le manuel ne s'écrit pas à la main : il est **produit** à partir d'un gabarit (`app/outils/manuel-gabarit.html`, qui porte la mise en page et les chapitres rédigés) et du contenu même du programme. Le générateur (`app/src/manuel.rs`, compilé pour les tests seulement) y insère :
+**R-61** Le manuel ne s'écrit pas à la main : il est **produit** à partir d'un gabarit (`app/outils/manuel-gabarit.html`, qui porte la mise en page et les chapitres rédigés; `manuel-gabarit-en.html` pour l'anglais) et du contenu même du programme. Le générateur (`app/src/manuel.rs`, compilé pour les tests seulement) y insère :
 
 - les trucs de pro (annexe B.4);
 - toutes les fiches d'aide (annexe B), en trois groupes : touches principales, secondes fonctions, autres fonctions;
@@ -1547,8 +1549,8 @@ Trois tests gardent le manuel exact : chaque calculateur a un exemple qui donne 
 
 | Version | Ce qui s'ouvre |
 |---|---|
-| Web | la page `manuel.html` du site, dans un nouvel onglet. Elle fait partie des fichiers gardés hors ligne (`app/sw.js`) : installée, la calculatrice montre son manuel sans réseau. Le service hors ligne ne répond par la page de l'application qu'aux navigations vers cette page; toute autre page du site — le manuel — est servie comme un fichier (sans quoi ouvrir le manuel rouvrirait la calculatrice). |
-| Bureau | le manuel est embarqué dans l'exécutable. Il est copié dans le dossier de données (`manuel.html`), puis ouvert dans le navigateur par une adresse `file:` : il se lit sans réseau. Si la copie échoue, c'est la page publiée qui est ouverte. |
+| Web | la page `manuel.html` du site (`manual.html` en anglais), dans un nouvel onglet. Les deux font partie des fichiers gardés hors ligne (`app/sw.js`) : installée, la calculatrice montre son manuel sans réseau. Le service hors ligne ne répond par la page de l'application qu'aux navigations vers cette page; une autre page du site — le manuel — est demandée au réseau d'abord, pour lire la version du jour, puis prise dans sa propre copie locale (sans quoi ouvrir le manuel hors ligne rouvrirait la calculatrice). |
+| Bureau | les deux manuels sont embarqués dans l'exécutable. Celui de la langue en cours est copié dans le dossier de données (`manuel.html` ou `manual.html`), puis ouvert dans le navigateur par une adresse `file:` : il se lit sans réseau. Si la copie échoue, c'est la page publiée qui est ouverte. |
 
 Tout ce qui diffère est dans `app/src/plateforme/` (`adresse_du_manuel`).
 
@@ -1683,9 +1685,9 @@ Dossier de données de l'utilisateur : celui que retourne `eframe::storage_dir(A
 
 | Fichier | Contenu |
 |---|---|
-| `etat.json` | version du format, préférences (13.1 à 13.3), valeurs mémorisées (13.4), pente mémorisée, mémoire M+ (somme, nombre, genre, format), registres M1–M3, ruban courant, indicateur « bienvenue déjà vue » |
+| `etat.json` | version du format, préférences (13.1 à 13.3, dont la **langue**, section 24), valeurs mémorisées (13.4), pente mémorisée, mémoire M+ (somme, nombre, genre, format), registres M1–M3, ruban courant, indicateur « bienvenue déjà vue » |
 | `rubans.json` | version du format, liste des rubans enregistrés (identifiant, nom, date ISO 8601, lignes) |
-| `metiers.json` | version du format, dernières saisies de chaque calculateur par métier (section 22) et, s'il y en a un, identifiant de l'outil branché sur le clavier (`outil`, section 23). Simple commodité : une donnée illisible est ignorée. |
+| `metiers.json` | version du format, dernières saisies de chaque calculateur par métier (section 22), identifiant de l'outil branché sur le clavier s'il y en a un (`outil`, section 23), et **langue dans laquelle les saisies sont écrites** (`langue`, 24.4). Simple commodité : une donnée illisible est ignorée. |
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -1733,6 +1735,7 @@ Calculatrice/                      (dossier de travail)
 │   │   ├── unites.rs              facteurs, Genre, Format, famille, système
 │   │   ├── valeur.rs              Valeur + arithmétique dimensionnelle (9.5)
 │   │   ├── format.rs              formatage (section 8), TexteValeur
+│   │   ├── langue.rs              Langue, langue en cours, Texte : un texte dans les deux langues (24)
 │   │   ├── analyse.rs             analyser_longueur, analyser_aire (7.9)
 │   │   ├── saisie.rs              machine de saisie (section 7)
 │   │   ├── touches.rs             enum Touche
@@ -1774,22 +1777,25 @@ Calculatrice/                      (dossier de travail)
 │       ├── erreurs.rs
 │       ├── metiers.rs             valeurs d'essai de la section 22
 │       ├── metiers_suite.rs       valeurs d'essai des calculateurs ajoutés à la version 0.4 (22.14)
-│       └── outils.rs              outils de métier au clavier (23.9)
+│       ├── outils.rs              outils de métier au clavier (23.9)
+│       └── langue.rs              les deux langues : textes, nombres, saisies, changement de langue (24.8)
 └── app/
     ├── Cargo.toml                 (nom : calculatrice-chantier — nom de l'exécutable)
     ├── build.rs                   inscrit la révision du code source (identifiant du commit) dans le programme
     ├── manuel.html                manuel d'utilisation, produit par src/manuel.rs (15.4)
+    ├── manual.html                le même, en anglais (24.7)
     ├── index.html                 page hôte de la version Web (3.1)
     ├── manifest.webmanifest       manifeste de l'application Web installable (3.1)
     ├── sw.js                      service qui garde le site utilisable hors ligne (3.1)
     ├── icones/                    icônes PNG de l'application installable
     ├── outils/icones.py           script qui dessine ces icônes
     ├── outils/manuel-gabarit.html gabarit du manuel d'utilisation (15.4)
+    ├── outils/manuel-gabarit-en.html  gabarit du manuel anglais (24.7)
     ├── polices/                   polices libres de la version Web, licences, LISEZMOI.md
     └── src/
         ├── main.rs                points d'entrée : fenêtre native ou page Web
         ├── application.rs         struct Application : impl eframe::App
-        ├── textes.rs              NOM_APPLICATION, libellés, messages (français)
+        ├── textes.rs              NOM_APPLICATION, libellés, messages (français et anglais)
         ├── theme.rs               palettes, polices, échelle
         ├── clavier.rs             grille des touches, clavier d'un outil de métier (23.3), dessin, clics, appui long
         ├── afficheur.rs           dessin de l'afficheur (fractions empilées)
@@ -1799,7 +1805,7 @@ Calculatrice/                      (dossier de travail)
         ├── plateforme/
         │   ├── bureau.rs          dossier de données, « Enregistrer sous », plein écran de la fenêtre
         │   └── web.rs             stockage local, téléchargement, plein écran du navigateur, démarrage
-        ├── aide.rs                contenu des fiches (annexe B) + recherche
+        ├── aide.rs                contenu des fiches (annexe B), dans les deux langues, + recherche
         ├── manuel.rs              générateur du manuel d'utilisation et ses tests (15.4)
         └── vues/
             ├── preferences.rs
@@ -1817,7 +1823,7 @@ Calculatrice/                      (dossier de travail)
 - **R-49** `app` ne contient **aucune formule**. Elle transmet des `Touche` au moteur, dessine l'`Ecran` qu'il retourne et exécute les `Effet`.
 - **R-50** `#![forbid(unsafe_code)]` dans les deux crates. Dans `noyau` : pas de `unwrap()`, `expect()` ni `panic!` hors des tests; les erreurs passent par `Result<_, Erreur>`.
 - **R-51** Identifiants en **français sans accents** (`Moteur`, `appuyer`, `hauteur_contremarche`), commentaires en français. Les chaînes visibles par l'utilisateur ont leurs accents.
-- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs`, `app/src/aide.rs` et, pour les libellés des calculateurs par métier, les fichiers de `noyau/src/metiers/`. Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
+- **R-52** Aucune chaîne visible par l'utilisateur en dehors de `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs`, `app/src/textes.rs`, `app/src/aide.rs` et, pour les libellés des calculateurs par métier, les fichiers de `noyau/src/metiers/`. Chaque texte y est écrit dans les deux langues, côte à côte (R-62). Seule exception : la page hôte de la version Web (`app/index.html`) porte les textes affichés avant que le programme soit chargé (titre de la page, écran d'attente, message d'échec).
 - **R-53** Chaque fonction de la section 12 est une fonction pure, sans accès au `Moteur` :
 
 ```rust
@@ -2414,7 +2420,7 @@ Conseils d'exécution :
 - [ ] Version Web : `cargo clippy --target wasm32-unknown-unknown -p calculatrice-chantier -- -D warnings` passe et `trunk build --release` réussit.
 - [ ] `cargo test --workspace` : 100 % des tests verts, dont **tous** les vecteurs de la section 19.
 - [ ] Aucune dépendance hors de la liste de la section 3.
-- [ ] Aucune chaîne visible par l'utilisateur hors des fichiers prévus (R-52); aucun mot anglais à l'écran (R-10).
+- [ ] Aucune chaîne visible par l'utilisateur hors des fichiers prévus (R-52); aucun mot anglais à l'écran en français, aucun mot français à l'écran en anglais (R-10, R-62).
 - [ ] Aucune mention du nom, de la marque ou du site de l'application de référence (R-01); l'adresse courriel de la photo `05.png` n'apparaît nulle part.
 
 ### 21.2 Fonctions
@@ -2427,10 +2433,13 @@ Conseils d'exécution :
 - [ ] Les 76 calculateurs par métier donnent les valeurs de 22.14; leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
 - [ ] Le manuel d'utilisation est à jour (test `le_manuel_est_a_jour`) et s'ouvre depuis le menu (15.4); le pied du menu montre la mention, le courriel, le site, la version et la révision (15.1).
 - [ ] Le clavier s'adapte au métier (section 23) : chaque calculateur se branche sur le clavier, se remplit avec les touches et donne les mêmes résultats que son formulaire; l'outil branché est repris à la réouverture.
+- [ ] Les deux langues (section 24) : le bouton `FR | EN` change toute l'interface; les nombres et les unités suivent; les valeurs saisies restent les mêmes; les deux manuels sont à jour; la langue choisie est reprise à la réouverture.
 
 ### 21.3 Recette manuelle (à faire par l'utilisateur)
 
-- [ ] La fenêtre s'ouvre en moins d'une seconde, en français, avec la virgule sur la touche décimale.
+- [ ] La fenêtre s'ouvre en moins d'une seconde, en français (sur un appareil en français), avec la virgule sur la touche décimale.
+- [ ] Le bouton `EN` met toute la calculatrice en anglais : touches (`Pitch`, `Rise`, `Run`, `Feet`, `Inch`), point sur la touche décimale, `5 ft 7 1/2 in + 18 ft 8 in =` affiche `24 ft 3 1/2 in`; le bouton `FR` la remet en français. Après fermeture et réouverture, la langue choisie est conservée.
+- [ ] Sur un téléphone ou un ordinateur réglé en anglais, la première visite du site s'ouvre en anglais.
 - [ ] `5 pi 7 1/2 po + 18 pi 8 po =` affiche `24 pi 3 1/2 po`, la fraction **empilée**.
 - [ ] `7 po Pente`, `8 pi 5 po Course`, `Diag` : `9 pi 8 15/16 po`; `Arêtier Noue` : `12 pi 10 1/2 po`.
 - [ ] `9 pi 11 po Montée`, `Escalier` ×11 : les valeurs de la colonne A de 19.11.
@@ -2895,7 +2904,142 @@ Rejouées par `noyau/tests/outils.rs`. Entre crochets : une touche de l'outil. P
 | calibre-pour-chute | `20` `[Courant]` `100` `Pieds` `[Longueur]` `[Résultat]` | `CALIBRE SUFFISANT · 1 de 4 │ 8 AWG` |
 | tranchee, puis voyages-de-camion | `100` `Pieds` `[Longueur]` `2` `Pieds` `[Largeur au fond]` `6` `Pieds` `[Largeur en haut]` `4` `Pieds` `[Profondeur]` `[Résultat]` `[Résultat]`, changement d'outil, `[Volume]` `12` `[Camion]` `[Résultat]` | `VOLUME À TRANSPORTER, FOISONNÉ │ 74,1 vg³ (56,6 m³)`, puis `74,07407 vg³`, `VOLUME À TRANSPORTER │ 74,07407 vg³` et `VOYAGES │ 7 voyages` |
 
-Un test de robustesse joue des milliers de touches au hasard sur chacun des 76 outils : aucune suite de touches ne fait planter le moteur, et l'afficheur reste toujours présentable. Un autre vérifie que chaque calculateur a dix champs au plus et que chaque libellé court tient sur une touche.
+Un test de robustesse joue des milliers de touches au hasard sur chacun des 76 outils : aucune suite de touches ne fait planter le moteur, et l'afficheur reste toujours présentable. Un autre vérifie que chaque calculateur a dix champs au plus et que chaque libellé court tient sur une touche, dans les deux langues (24.8).
+
+---
+
+## 24. Français et anglais
+
+Ajoutée le 2026-11-19, à la demande de l'utilisateur : « le bouton fr/en avec la traduction en anglais ». Toute la calculatrice se lit en **français du Québec** ou en **anglais du Canada**, et on passe de l'un à l'autre d'un toucher.
+
+### 24.1 Principe
+
+- **R-62** Chaque texte visible existe dans les deux langues, **écrit au même endroit** : un `Texte { fr, en }` (`noyau/src/langue.rs`), créé par `t("français", "English")` — ou par `tel("kW")` quand il s'écrit de la même façon dans les deux langues. Il se lit par `traduit()`, dans la langue en cours. Un texte sans version anglaise ne compile pas : il n'y a ni table de traduction à part, ni texte oublié. Dans une fonction qui choisit un texte (un `match`), on écrit `selon("français", "English")`.
+- **R-63** Le français est la langue de référence. Sans réglage, tout le programme parle français : **aucun** test ni aucune valeur d'essai des sections 19, 22.14 et 23.9 ne change.
+- **R-64** Changer de langue ne change **aucune valeur** : ni les mémoires, ni les registres, ni ce qui est saisi dans les outils. Seule l'écriture change.
+- L'anglais est celui du Canada : *metre*, *millimetre*, *centre*, *labour*, *mitre*, *moulding*, *licence* (le nom), *tonne* (métrique). Les termes sont ceux des chantiers : `Pitch`, `Rise`, `Run`, `Hip/Valley`, `Jack`, `Stud`, `On centre`, `Plumb cut`, `Riser`, `Tread`, `Stringer`, `Drywall`, `Footing`, `Waste` (les pertes), `Tape` (le ruban).
+- Le nom anglais de l'application est « **Jobsite Calculator** » (titre de la fenêtre et de la page, barre supérieure, « About », manuel).
+- La règle R-01 vaut en anglais comme en français : aucun nom, aucune marque et aucun texte de l'application de référence.
+
+### 24.2 Choisir la langue
+
+| Où | Quoi |
+|---|---|
+| **Barre supérieure** | une pastille à deux moitiés, `FR` et `EN`, entre le titre et la roue dentée. La langue en cours est en évidence (fond clair, texte foncé). Toucher l'autre moitié change la langue sur-le-champ; chaque moitié se touche sur toute la hauteur de la barre. Nom accessible de chaque moitié : « Français », « English ». |
+| **Préférences** | première ligne de « Général » : **Langue**, avec les choix « Français » et « English » (chaque langue est nommée dans sa propre langue). |
+| **Premier lancement** | la langue de l'appareil, si c'est le français ou l'anglais : la première des langues préférées du système (bureau) ou du navigateur (Web) qui est l'une des deux; sinon le français. Ensuite, la langue choisie est conservée avec les préférences (`etat.json`). Un état d'une version précédente, sans langue, reste en français. |
+| **Réinitialisation** | « Réinitialiser les données et les préférences » garde la langue en cours. |
+
+Le changement est immédiat et complet : titre de la fenêtre (ou de la page, avec son attribut `lang`), barres, clavier, afficheur, barre des métiers, formulaires, aide, dialogues, date des rubans.
+
+### 24.3 Nombres et unités
+
+| | Français | Anglais |
+|---|---|---|
+| Séparateur décimal | la virgule, ou le point si la préférence le demande (13.2) | **toujours le point**; la préférence n'est pas montrée, son réglage français est conservé |
+| Milliers | l'espace insécable : `1 234 567` | la virgule : `1,234,567` |
+| Touche décimale | `,` (ou `.`) | `.` |
+| Pieds, pouces, verges | `pi`, `po`, `vg` — `5 pi 7 1/2 po` | `ft`, `in`, `yd` — `5 ft 7 1/2 in` |
+| Aires et volumes | `pi²`, `po²`, `vg²`, `pi³`, `po³`, `vg³` | `ft²`, `in²`, `yd²`, `ft³`, `in³`, `yd³` |
+| Pied mesure de planche | `pmp` | `bd ft` |
+| Tonne courte, tonne métrique | `tc`, `t` | `ton`, `t` |
+| Masse volumique | `tc/vg³`, `lb/vg³`, `lb/pi³` | `ton/yd³`, `lb/yd³`, `lb/ft³` |
+| Monnaie | `1 283,06 $` | `$1,283.06` (le signe moins devant : `−$0.13`) |
+| Pourcentage | `47,25 %` | `47.25%` |
+| Unités des outils | `pi/min`, `pi³/min`, `gal US/min`, `lb/po²`, `pi/s`, `lb/pi`, `$/pi²`, `sur 12` | `ft/min`, `CFM`, `US gal/min`, `psi`, `ft/s`, `lb/ft`, `$/ft²`, `in 12` |
+| Rang d'un résultat | `2 de 3` | `2 of 3` |
+| Date d'un ruban | `19 novembre 2026, 8 h 04` | `November 19, 2026, 8:04 AM` |
+
+Les unités métriques, les degrés et les fractions s'écrivent de la même façon dans les deux langues. Ce qui est déjà au ruban y reste tel qu'il a été écrit.
+
+**Lecture d'une saisie tapée** (formulaires, valeurs mémorisées, collage) :
+
+- les **unités se lisent dans les deux langues**, quelle que soit la langue en cours : `6 pi 8 po`, `6 ft 8 in`, `6'8"`, `3 vg`, `3 yd`, `128 po²`, `128 in²`, `2 sq ft`;
+- la **virgule** est le séparateur décimal en français (`2,032 m`). En anglais, une virgule suivie d'exactement trois chiffres, après un à trois chiffres dont le premier n'est pas zéro, **sépare les milliers** : `1,500` vaut 1500, `25,000` vaut 25 000, `1,234.5` vaut 1234,5. Toute autre virgule reste un séparateur décimal (`1,5` vaut 1,5; `0,500` vaut 0,5). Le point est un séparateur décimal dans les deux langues.
+
+### 24.4 Les saisies changent d'écriture, pas de valeur
+
+Une virgule n'a pas le même sens dans les deux langues : `3,500 m` vaut trois mètres et demi en français, trois mille cinq cents mètres en anglais.
+
+- **R-65** Au changement de langue, toutes les saisies des outils — celles des formulaires comme celles de l'outil branché sur le clavier — sont **récrites** comme elles se tapent dans la nouvelle langue (`noyau::analyse::transposer`) : le séparateur décimal, les milliers et les symboles d'unités changent, la valeur reste. `3,500 m` devient `3.500 m`, `12 pi 6 1/2 po` devient `12 ft 6 1/2 in`, `1 250 pi 6 po` devient `1250 ft 6 in`, et inversement (`1,500` redevient `1500`). Une saisie qui ne se lit pas est laissée telle quelle; le rang d'un choix dans une liste ne change pas.
+- `metiers.json` porte la langue dans laquelle ses saisies sont écrites : si elle n'est pas celle de la calculatrice à l'ouverture, elles sont récrites.
+- Les valeurs de départ des outils sont écrites à la française dans le catalogue (`9,975`); elles sont proposées à l'anglaise en anglais (`9.975`).
+- **L'afficheur** : une étiquette de charpente (`PENTE` → `PITCH`), un message de la calculatrice et une valeur changent de langue sur-le-champ. Un **résultat d'outil** montré est récrit dans la nouvelle langue, au même rang (`SURFACE · 1 de 3` → `AREA · 1 of 3`), sans être inscrit de nouveau au ruban. Le contenu d'un champ ou un message d'outil laissent la place à la valeur seule (ou à zéro), comme en changeant d'outil (23.6).
+
+### 24.5 Textes anglais
+
+| Texte | Où |
+|---|---|
+| Étiquettes de l'afficheur, symboles d'unités, messages et erreurs | `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs` |
+| Métiers, calculateurs, champs, libellés courts, options, unités, résultats, avis et notes des 76 outils | `noyau/src/metiers/` |
+| Touches, menus, dialogues, préférences, écrans | `app/src/textes.rs` |
+| Fiches d'aide | `app/src/aide.rs` |
+| Chapitres du manuel | `app/outils/manuel-gabarit-en.html` |
+| Écran d'attente et message d'échec de la version Web | attributs `data-en` de `app/index.html` (24.6) |
+
+- Un libellé court de touche respecte la même limite dans les deux langues : deux lignes au plus, de douze caractères au plus (23.4). Il peut n'exister que dans une langue : `t("", "Tread")`.
+- Dans les fiches d'aide, les touches portent leur nom anglais (`Pitch`, `Feet`, `Inch`, `Store`, `Recall`, `Clear`, `Result`) et les exemples sont écrits à l'anglaise.
+- Les mots-clés de recherche d'une fiche réunissent les mots français et anglais : la recherche répond aux deux, quelle que soit la langue de l'écran.
+- Clavier anglais : `Pitch`, `Rise`, `Run`, `Diag`, `Hip Valley`, `Compound Mitre`, `Stair`, `Arc`, `Circle`, `Jack`, `m`, `Length`, `Width`, `Height`, `%`, `Yards`, `Feet`, `Inch`, `/`, `Clear`, `Conv`, `Store`, `Recall`, `M+`; secondes fonctions : `Ratio`, `Rake wall`, `Polygon`, `Roof`, `Irreg. pitch`, `Crown angle`, `Riser limit`, `Radius`, `Column/Cone`, `Irreg. jack`, `Blocks`, `Footing`, `Drywall`, `bd ft`, `Prefs`, `Studs`, `ton`, `Clear all`, `tonne`, `Cost`, `dms◄►dec`, `Tape`.
+- Les onze métiers : Estimating and bidding, Earthwork and landscaping, Concrete and foundations, Masonry and paving, Roofing and siding, Drywall and insulation, Finishing, Plumbing, Electrical, Ventilation and heating (pastille : HVAC), Steel and welding; le clavier de base : Framing.
+
+### 24.6 Ce qui ne change pas
+
+- Les **raccourcis clavier** (16.5) sont les mêmes dans les deux langues.
+- Les **identifiants** des calculateurs, les noms de fichiers de données et le format des données.
+- Le **manifeste** de l'application installable (`app/manifest.webmanifest`) : un manifeste n'a qu'une langue; il reste en français, et sa description dit que la calculatrice est offerte en français et en anglais.
+- La **page hôte** de la version Web (`app/index.html`) est écrite en français; l'attribut `data-en` d'un élément porte son texte anglais. Avant que le programme soit chargé, un court script met ces textes en place quand la calculatrice est en anglais : la langue conservée dans `CalculatriceChantier/etat.json` ou, à la première visite, celle du navigateur — la même règle que le programme (24.2). Le message « JavaScript requis » est écrit dans les deux langues.
+
+### 24.7 Manuel anglais
+
+`app/manual.html` est produit par le même générateur que `app/manuel.html` (R-61), à partir de `app/outils/manuel-gabarit-en.html` et des textes anglais du programme; ses exemples sont calculés par le noyau en anglais.
+
+- **R-66** Les deux gabarits se suivent : la même feuille de style, les mêmes chapitres et les mêmes ancres, les mêmes repères, autant de touches et de lignes, et **les mêmes nombres** (seule leur écriture change). Un test le vérifie; toute retouche d'un gabarit se fait dans les deux.
+- Chaque gabarit cite les messages de l'afficheur de sa langue, tels que le programme les écrit (un test le vérifie).
+- Chaque manuel porte, dans son en-tête, un lien vers l'autre. Les ancres des métiers sont les mêmes dans les deux (`#metier-beton`).
+- Version Web : une navigation vers un manuel suit la règle « le réseau d'abord », comme la page de l'application, puis se rabat sur la copie locale de ce manuel (15.4). Vérifié le 2026-11-19, serveur arrêté : la calculatrice et les deux manuels s'ouvrent.
+- Les deux pages font partie des fichiers gardés hors ligne par la version Web.
+
+### 24.8 Réalisation et essais
+
+| Où | Quoi |
+|---|---|
+| `noyau/src/langue.rs` | `Langue { Francais, Anglais }` (`code()`, `nom()`, `autre()`, `d_apres("fr-CA")`); la langue en cours, propre au fil d'exécution : `en_cours()`, `choisir()`, `pour_la_portee()` (la langue précédente revient à la fin de la portée); `Texte`, `t()`, `tel()`, `selon()` |
+| `noyau/src/prefs.rs` | `Preferences.langue` |
+| `noyau/src/format.rs` | `separateur_decimal()`, `separateur_de_milliers()`, `nombre_et_unite()`; `TexteValeur::espaces()` (le dollar devant, le pourcentage collé) |
+| `noyau/src/analyse.rs` | unités des deux langues, virgule des milliers en anglais, `transposer()` |
+| `noyau/src/metiers/mod.rs` | `Champ::depart()`, `Champ::transposer()`, `Calculateur::transposer_les_saisies()` |
+| `noyau/src/moteur/outils.rs` | `Moteur::changer_de_langue()` |
+| `app/src/application.rs` | `bouton_de_langue()`, `changer_de_langue()`, la langue du premier lancement, le titre de la fenêtre |
+| `app/src/plateforme/` | `langue_de_l_appareil()`, `regler_la_page()`, `adresse_du_manuel()` |
+| `app/src/stockage.rs` | `Chargement.premiere_fois`; la langue des saisies dans `metiers.json` |
+
+- **R-67** La langue en cours est propre au fil d'exécution. L'application la règle d'après les préférences au début de chaque image; un test qui a besoin de l'anglais le demande par `langue::pour_la_portee(Langue::Anglais)`, sans nuire aux autres tests.
+
+Essais (`noyau/tests/langue.rs`, et dans `app` : `textes.rs`, `aide.rs`, `manuel.rs`, `stockage.rs`) :
+
+| Essai | Ce qu'il garantit |
+|---|---|
+| chaque texte du catalogue existe dans les deux langues | aucun libellé, option ou note sans version anglaise |
+| aucun texte anglais n'est resté en français | ni lettre accentuée, ni symbole `pi`, `po`, `vg`, `tc` dans ce que les 76 outils écrivent en anglais |
+| les libellés tiennent sur les touches | dans les deux langues |
+| les valeurs de départ se lisent dans les deux langues | et donnent les mêmes grandeurs |
+| changer de langue garde les valeurs | `3,500 m`, `1 250 pi 6 po`, `4,5 po`, `7,5` ↔ `3.500 m`, `1250 ft 6 in`, `4.5 in`, `7.5`; le même résultat, récrit |
+| la virgule sépare les milliers en anglais seulement | `1,500` : 1,5 en français, 1500 en anglais |
+| les fiches d'aide et les gabarits du manuel citent les mêmes nombres et les mêmes touches dans les deux langues | une erreur de transcription d'un exemple est détectée |
+| les deux manuels sont à jour | `manuel.html` et `manual.html` sont identiques à ce que le générateur produit |
+
+Valeurs d'essai en anglais (préférences par défaut) :
+
+| Outil ou touches | Résultat |
+|---|---|
+| dalle : `24`, `20`, `4`, `10` | `Area │ 480 ft² (44.6 m²)` · `Concrete volume │ 5.93 yd³ (4.53 m³)` · `To order, waste included │ 6.52 yd³ (4.98 m³)` |
+| soumission : `100,000`, `3`, `12`, `15`, `5`, `9.975` | `Administration │ $3,000.00` · `Contingency │ $12,000.00` · `Profit │ $15,000.00` · `Price before taxes │ $130,000.00` · `GST │ $6,500.00` · `QST │ $12,967.50` · `Price, taxes included │ $149,467.50` |
+| pression-d-eau : `30` | `Pressure │ 89.7 kPa (13.0 psi)` |
+| conduit-rond : `8`, `900` | `Cross-section │ 0.349 ft² (0.032 m²)` · `Airflow │ 314 CFM (148 L/s)` |
+| rangs-de-maconnerie : `8`, `7 5/8`, `3/8` | `Course height, joint included │ 8 in` · `Courses │ 12 courses` · `Height reached │ 8 ft 0 in` |
+| `7` `Inch` `Pitch` · `7` `Feet` `2` `Inch` `Run` · `Diag` ×3 | `PITCH │ 7 in` (in 12) · `RUN │ 7 ft 2 in` · `DIAGONAL │ 8 ft 3 9/16 in` · `PLUMB CUT │ 30.26°` · `LEVEL CUT │ 59.74°` |
+| dalle au clavier : `24` `Feet` `[Length]` `[Result]` | `MISSING: WIDTH` |
 
 ---
 
@@ -2955,7 +3099,7 @@ Préférences : voir les ★ de la section 13. Valeurs mémorisées : échappée
 
 ## Annexe B — Textes d'aide (français)
 
-Textes originaux, à reprendre tels quels dans `app/src/aide.rs`. Chaque fiche : **titre**, *résumé*, mode d'emploi. L'exemple chiffré de chaque fiche est tiré de la section 19 (même numéro de sous-section que la fonction). Les mots-clés entre crochets servent à la recherche et ne sont pas affichés.
+Textes originaux, à reprendre tels quels dans `app/src/aide.rs`. Leur version anglaise est écrite à côté de chacun, dans le même fichier (section 24) : elle n'est pas reproduite ici. Chaque fiche : **titre**, *résumé*, mode d'emploi. L'exemple chiffré de chaque fiche est tiré de la section 19 (même numéro de sous-section que la fonction). Les mots-clés entre crochets servent à la recherche et ne sont pas affichés.
 
 ### B.1 Touches principales
 
@@ -3105,6 +3249,7 @@ Textes originaux, à reprendre tels quels dans `app/src/aide.rs`. Chaque fiche :
 12. **Au clavier.** L'apostrophe pour les pieds, le guillemet pour les pouces, la barre d'espace pour `Conv`.
 13. **Votre métier au bout des doigts.** Touchez le nom du métier, au-dessus du clavier, pour que les touches du haut deviennent celles de vos outils.
 14. **D'un outil à l'autre.** Un résultat affiché vous suit quand vous changez d'outil : appuyez sur la touche du champ où le ranger.
+15. **En français ou en anglais.** Le bouton FR | EN, en haut de l'écran, change la langue sur-le-champ : les nombres et les unités suivent (1 234,5 pi² devient 1,234.5 ft²), et vos valeurs restent les mêmes.
 
 ---
 
@@ -3314,7 +3459,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-61, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-67, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 
@@ -3353,6 +3498,10 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 19 | Licence : l'utilisateur a choisi **Apache 2.0** le 2026-11-19. Le titulaire du droit d'auteur inscrit dans `NOTICE` et dans le README — « Sylvain Leduc, Constructo AI » — reprend la mention publique de l'auteur; à confirmer (la personne ou l'entreprise). | 3 |
 | 20 | « Révision » au pied du menu : l'utilisateur a demandé « la révision »; Claude affiche la version du programme suivie de l'identifiant court du commit git. | 15.1 |
 | 21 | Manuel d'utilisation : sa forme (une page Web produite à partir du programme, ouverte depuis le menu) et son plan sont un choix de Claude. | 15.4 |
+| 22 | Anglais : l'utilisateur a demandé un bouton de langue « avec la traduction en anglais ». L'anglais retenu est celui **du Canada** (*metre*, *centre*, *labour*, *mitre*, *moulding*), le nom anglais de l'application est « **Jobsite Calculator** », et les taxes s'y appellent GST et QST. | 24.1, 24.5 |
+| 23 | En anglais, les nombres s'écrivent à l'anglaise (`1,234.5`, `$1,283.06`, `47.25%`) et les unités impériales portent leurs symboles anglais (`ft`, `in`, `yd`, `ft²`, `yd³`, `bd ft`, `ton`). Une virgule tapée entre des groupes de trois chiffres y sépare les milliers. | 24.3 |
+| 24 | Au premier lancement, la langue est celle de l'appareil si c'est le français ou l'anglais, sinon le français. Un utilisateur qui avait déjà la calculatrice (en français) la garde en français. | 24.2 |
+| 25 | Les raccourcis clavier restent les mêmes dans les deux langues (`P` pour `Pitch`, `T` pour `Rise`, `C` pour `Run`…) : ils ne sont pas refaits d'après les mots anglais. Le manifeste de l'application installable reste en français (un manifeste n'a qu'une langue). | 24.6 |
 
 
 

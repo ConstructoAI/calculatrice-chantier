@@ -6,6 +6,7 @@
 
 use std::io;
 
+use noyau::langue::Langue;
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::closure::Closure;
 
@@ -120,13 +121,42 @@ fn telecharger(nom: &str, contenu: &str) -> Option<()> {
     Some(())
 }
 
-/// Le navigateur permet-il le plein écran? (Pas sur tous les téléphones.)
-/// Adresse du manuel d'utilisation : une page du site, à côté de celle de
-/// l'application, gardée hors ligne avec elle (`app/sw.js`).
+/// Adresse du manuel d'utilisation, dans la langue en cours : une page du
+/// site, à côté de celle de l'application, gardée hors ligne avec elle
+/// (`app/sw.js`).
 pub fn adresse_du_manuel(_depot: &Depot) -> String {
-    textes::FICHIER_DU_MANUEL.to_string()
+    textes::FICHIER_DU_MANUEL.traduit().to_string()
 }
 
+/// Langue du navigateur, si c'est le français ou l'anglais : elle sert au
+/// premier lancement seulement (section 24). Les langues préférées sont
+/// examinées dans l'ordre.
+pub fn langue_de_l_appareil() -> Option<Langue> {
+    let navigateur = web_sys::window()?.navigator();
+    navigateur
+        .languages()
+        .iter()
+        .filter_map(|langue| langue.as_string())
+        .chain(navigateur.language())
+        .find_map(|langue| Langue::d_apres(&langue))
+}
+
+/// Écrit le titre de la page et sa langue, pour le navigateur et les lecteurs d'écran.
+pub fn regler_la_page(langue: Langue, titre: &str) {
+    let Some(document) = document() else {
+        return;
+    };
+    document.set_title(titre);
+    if let Some(racine) = document.document_element() {
+        let code = match langue {
+            Langue::Francais => "fr-CA",
+            Langue::Anglais => "en-CA",
+        };
+        let _ = racine.set_attribute("lang", code);
+    }
+}
+
+/// Le navigateur permet-il le plein écran? (Pas sur tous les téléphones.)
 pub fn plein_ecran_possible() -> bool {
     document().is_some_and(|d| d.fullscreen_enabled())
 }
@@ -228,7 +258,7 @@ pub fn demarrer(creer: eframe::AppCreator<'static>) {
         let Some(document) = document() else {
             return;
         };
-        document.set_title(textes::NOM_APPLICATION);
+        document.set_title(textes::NOM_APPLICATION.traduit());
         let canevas = document
             .get_element_by_id(ID_CANEVAS)
             .and_then(|e| e.dyn_into::<web_sys::HtmlCanvasElement>().ok());

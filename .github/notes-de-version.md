@@ -1,23 +1,29 @@
-Calculatrice de construction en pieds-pouces-fractions et en métrique, en français du Québec.
-Son clavier s'adapte au métier : celui du charpentier, ou celui de l'un des onze autres corps
-de métier — 76 outils pour l'estimation, le terrassement, le béton, la maçonnerie, la toiture,
-le gypse et l'isolation, la finition, la plomberie, l'électricité, la ventilation et l'acier.
-Gratuite, sans publicité, sans compte.
+Calculatrice de construction en pieds-pouces-fractions et en métrique, en français du Québec
+et en anglais. Son clavier s'adapte au métier : celui du charpentier, ou celui de l'un des onze
+autres corps de métier — 76 outils pour l'estimation, le terrassement, le béton, la maçonnerie,
+la toiture, le gypse et l'isolation, la finition, la plomberie, l'électricité, la ventilation et
+l'acier. Gratuite, sans publicité, sans compte.
 
 Gracieuseté de Sylvain Leduc de Constructo AI.
 
-## Nouveautés de la version 0.5
+*English: Jobsite Calculator is a free construction calculator in feet-inches-fractions and
+metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
-- **Un manuel d'utilisation complet** : menu ☰ → *Manuel d'utilisation*, ou
-  <https://constructoai.github.io/calculatrice-chantier/manuel.html>. Il explique chaque
-  touche et chacun des 76 outils, exemples à l'appui, et se lit sans réseau.
-- **Au bas du menu** : le courriel et le site de Constructo AI, la version et la révision
-  de la calculatrice.
-- **Logiciel libre** : la calculatrice est maintenant distribuée sous la licence Apache 2.0.
+## Nouveautés de la version 0.6
 
-Depuis la version 0.4, le clavier s'adapte à votre métier : touchez « Plomberie »,
-« Électricité » ou « Béton » au-dessus du clavier, et les touches du haut deviennent celles
-de vos outils — 76 outils pour onze corps de métier.
+- **En français ou en anglais** : le bouton **FR | EN**, dans la barre du haut, fait passer
+  toute la calculatrice d'une langue à l'autre — les touches, l'afficheur, les 76 outils,
+  l'aide et le manuel. Le choix se fait aussi dans les Préférences, et il est conservé.
+- **Les nombres et les unités suivent la langue** : `1 234,5 pi²` en français, `1,234.5 ft²`
+  en anglais; `1 283,06 $` et `$1,283.06`. Vos valeurs, elles, ne changent pas.
+- **Un manuel en anglais** : <https://constructoai.github.io/calculatrice-chantier/manual.html>.
+- Au premier lancement, la calculatrice prend la langue de l'appareil si c'est le français
+  ou l'anglais.
+
+Depuis la version 0.5 : un manuel d'utilisation complet (menu ☰ → *Manuel d'utilisation*), le
+courriel et le site de Constructo AI au bas du menu, et la licence Apache 2.0. Depuis la
+version 0.4, le clavier s'adapte à votre métier : touchez « Plomberie », « Électricité » ou
+« Béton » au-dessus du clavier, et les touches du haut deviennent celles de vos outils.
 
 ## Version de bureau (Windows 10 ou 11, 64 bits)
 

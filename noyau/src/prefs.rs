@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::langue::Langue;
 use crate::unites::{Format, MasseVolumique};
 use crate::valeur::Valeur;
 
@@ -80,6 +81,8 @@ pub const RESOLUTIONS: [u32; 6] = [2, 4, 8, 16, 32, 64];
 #[serde(default)]
 pub struct Preferences {
     // Général
+    /// Langue de l'interface (section 24).
+    pub langue: Langue,
     pub mode_trigo: bool,
     pub fractions_rapides: bool,
     pub plein_ecran: bool,
@@ -108,6 +111,7 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Preferences {
+            langue: Langue::Francais,
             mode_trigo: false,
             fractions_rapides: false,
             plein_ecran: false,

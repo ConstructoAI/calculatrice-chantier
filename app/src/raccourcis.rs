@@ -85,14 +85,17 @@ pub fn raccourci(touche: Touche) -> Option<String> {
     match touche {
         Touche::Chiffre(c) => Some(c.to_string()),
         Touche::Virgule => Some(textes::l_un_ou_l_autre(",", ".")),
-        Touche::Egal => Some(textes::l_un_ou_l_autre(textes::TOUCHE_ENTREE, "=")),
-        Touche::Effacer => Some(textes::l_un_ou_l_autre(
-            textes::TOUCHE_ECHAP,
-            textes::TOUCHE_SUPPR,
+        Touche::Egal => Some(textes::l_un_ou_l_autre(
+            textes::TOUCHE_ENTREE.traduit(),
+            "=",
         )),
-        Touche::MPlus => Some(textes::TOUCHE_INSER.to_string()),
-        Touche::RetourArriere => Some(textes::TOUCHE_RETOUR_ARRIERE.to_string()),
-        Touche::Conv => Some(textes::TOUCHE_ESPACE.to_string()),
+        Touche::Effacer => Some(textes::l_un_ou_l_autre(
+            textes::TOUCHE_ECHAP.traduit(),
+            textes::TOUCHE_SUPPR.traduit(),
+        )),
+        Touche::MPlus => Some(textes::TOUCHE_INSER.traduit().to_string()),
+        Touche::RetourArriere => Some(textes::TOUCHE_RETOUR_ARRIERE.traduit().to_string()),
+        Touche::Conv => Some(textes::TOUCHE_ESPACE.traduit().to_string()),
         autre => CARACTERES
             .iter()
             .find(|(_, t)| *t == autre)

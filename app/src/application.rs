@@ -5,8 +5,9 @@ use std::time::Duration;
 
 use eframe::egui::{self, Align2, Color32, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use noyau::analyse::analyser_collage;
+use noyau::langue::{Langue, Texte};
 use noyau::metiers::Metier;
-use noyau::prefs::{SeparateurDecimal, Theme, ValeursMemorisees};
+use noyau::prefs::{Preferences, Theme, ValeursMemorisees};
 use noyau::unites::UniteMasseVolumique;
 use noyau::{Effet, Moteur, Prefixe, Touche};
 
@@ -32,6 +33,8 @@ const HAUTEUR_BARRE_SUPERIEURE: f32 = 48.0;
 const HAUTEUR_BARRE_INFERIEURE: f32 = 56.0;
 /// Hauteur de la barre des métiers, au-dessus du clavier (section 23).
 const HAUTEUR_BARRE_DES_METIERS: f32 = 34.0;
+/// Largeur du bouton de langue « FR | EN », dans la barre supérieure (section 24).
+const LARGEUR_BOUTON_DE_LANGUE: f32 = 60.0;
 /// Durée d'affichage des confirmations discrètes, en secondes.
 const DUREE_FUGACE: f64 = 1.8;
 
@@ -77,7 +80,7 @@ enum Confirmation {
 /// Dialogue ouvert par-dessus l'écran.
 enum Dialogue {
     Aucun,
-    Avis(&'static str),
+    Avis(Texte),
     Confirmer(Confirmation),
     NommerRuban {
         texte: String,
@@ -123,13 +126,15 @@ pub struct Application {
     /// La pastille de l'outil branché doit être amenée en vue dans la barre.
     outil_a_montrer: bool,
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
-    fugace: Option<(&'static str, f64)>,
+    fugace: Option<(Texte, f64)>,
     a_sauvegarder: bool,
     /// Moment de la dernière écriture de l'état, en secondes de l'horloge d'egui.
     derniere_sauvegarde: f64,
     echec_d_ecriture_signale: bool,
     plein_ecran_applique: bool,
     sombre_applique: Option<bool>,
+    /// Langue pour laquelle le titre de la fenêtre (ou de la page) est écrit.
+    langue_appliquee: Option<Langue>,
     /// Texture des dégradés; elle doit vivre aussi longtemps que l'application.
     _rampe: egui::TextureHandle,
 }
@@ -140,9 +145,27 @@ impl Application {
         // L'échelle suit la taille de la fenêtre : pas de zoom au clavier.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         let depot = Depot::ouvrir();
-        let chargement = stockage::charger_etat(&depot);
+        let mut chargement = stockage::charger_etat(&depot);
+        // Au premier lancement, la langue est celle de l'appareil, si c'est le
+        // français ou l'anglais; ensuite, celle que l'utilisateur a choisie
+        // (section 24).
+        if (chargement.premiere_fois || chargement.illisible)
+            && let Some(langue) = plateforme::langue_de_l_appareil()
+        {
+            chargement.etat.preferences.langue = langue;
+        }
+        let langue = chargement.etat.preferences.langue;
+        noyau::langue::choisir(langue);
         let rubans = stockage::charger_rubans(&depot);
-        let (saisies_metiers, outil) = stockage::charger_saisies(&depot);
+        let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
+        // Des saisies écrites dans l'autre langue sont récrites dans celle-ci.
+        let saisies_a_sauvegarder = langue_des_saisies != langue;
+        transposer_les_saisies(
+            &mut saisies_metiers,
+            langue_des_saisies,
+            langue,
+            &chargement.etat.preferences,
+        );
         let mut moteur = Moteur::nouveau(chargement.etat);
         // L'outil de métier branché sur le clavier à la dernière séance (section 23).
         if let Some(id) = outil.as_deref() {
@@ -171,7 +194,7 @@ impl Application {
             ruban_ouvert: None,
             position_metiers: vues::metiers::Position::default(),
             saisies_metiers,
-            saisies_a_sauvegarder: false,
+            saisies_a_sauvegarder,
             derniers_outils: Vec::new(),
             outil_a_montrer: true,
             fugace: None,
@@ -181,6 +204,7 @@ impl Application {
             echec_d_ecriture_signale: false,
             plein_ecran_applique: false,
             sombre_applique: None,
+            langue_appliquee: None,
             _rampe: theme::creer_la_rampe(&cc.egui_ctx),
         }
     }
@@ -239,6 +263,38 @@ impl Application {
         }
     }
 
+    /// Change la langue de l'interface (section 24). Les saisies des
+    /// calculateurs sont récrites comme elles se tapent dans la nouvelle
+    /// langue : « 2,032 m » devient « 2.032 m », et la valeur reste la même.
+    fn changer_de_langue(&mut self, langue: Langue) {
+        let ancienne = self.moteur.preferences().langue;
+        if ancienne == langue {
+            return;
+        }
+        transposer_les_saisies(
+            &mut self.saisies_metiers,
+            ancienne,
+            langue,
+            self.moteur.preferences(),
+        );
+        self.moteur.changer_de_langue(langue);
+        self.saisies_a_sauvegarder = true;
+        self.a_sauvegarder = true;
+    }
+
+    /// Règle la langue en cours d'après les préférences, et récrit le titre de
+    /// la fenêtre (ou de la page) quand la langue a changé.
+    fn appliquer_la_langue(&mut self, ctx: &egui::Context) {
+        let langue = self.moteur.preferences().langue;
+        noyau::langue::choisir(langue);
+        if self.langue_appliquee != Some(langue) {
+            self.langue_appliquee = Some(langue);
+            let titre = textes::NOM_APPLICATION.traduit();
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(titre.to_owned()));
+            plateforme::regler_la_page(langue, titre);
+        }
+    }
+
     /// Adapte le clavier à un métier : son dernier outil utilisé, ou le
     /// premier de sa liste; `None` revient au clavier de charpente.
     fn choisir_metier(&mut self, metier: Option<Metier>) {
@@ -282,9 +338,10 @@ impl Application {
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
             |ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
-                let nom = outil.map_or(textes::METIER_CHARPENTE, |c| c.metier.nom_court());
+                let nom =
+                    outil.map_or(textes::METIER_CHARPENTE.traduit(), |c| c.metier.nom_court());
                 if vues::pastille(ui, p, nom, vues::Pastille::Menu)
-                    .on_hover_text(textes::INFOBULLE_METIER)
+                    .on_hover_text(textes::INFOBULLE_METIER.traduit())
                     .clicked()
                 {
                     choix = Some(Choix::ListeDesMetiers);
@@ -309,8 +366,8 @@ impl Application {
                                     } else {
                                         vues::Pastille::Ordinaire
                                     };
-                                    let reponse =
-                                        vues::pastille(ui, p, c.nom, genre).on_hover_text(c.resume);
+                                    let reponse = vues::pastille(ui, p, c.nom.traduit(), genre)
+                                        .on_hover_text(c.resume.traduit());
                                     if c.id == actif.id && montrer {
                                         reponse.scroll_to_me(Some(egui::Align::Center));
                                     }
@@ -351,7 +408,7 @@ impl Application {
         !matches!(self.dialogue, Dialogue::Aucun)
     }
 
-    fn annoncer(&mut self, ctx: &egui::Context, texte: &'static str) {
+    fn annoncer(&mut self, ctx: &egui::Context, texte: Texte) {
         let maintenant = ctx.input(|i| i.time);
         self.fugace = Some((texte, maintenant + DUREE_FUGACE));
         ctx.request_repaint_after(Duration::from_secs_f64(DUREE_FUGACE + 0.1));
@@ -407,7 +464,10 @@ impl Application {
         if self.saisies_a_sauvegarder {
             self.saisies_a_sauvegarder = false;
             let outil = self.moteur.outil().map(|c| c.id);
-            if stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil).is_err() {
+            let langue = self.moteur.preferences().langue;
+            if stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil, langue)
+                .is_err()
+            {
                 self.signaler_l_echec_d_ecriture();
             }
         }
@@ -492,8 +552,8 @@ impl Application {
         };
         // Bureau : boîte « Enregistrer sous »; navigateur : téléchargement.
         let fichier = Fichier {
-            titre: textes::TITRE_EXPORTER,
-            filtre: textes::FILTRE_TEXTE,
+            titre: textes::TITRE_EXPORTER.traduit(),
+            filtre: textes::FILTRE_TEXTE.traduit(),
             nom: &stockage::nom_de_fichier(&nom),
             contenu: &stockage::contenu_exporte(&texte),
         };
@@ -695,8 +755,8 @@ impl Application {
         if bouton_icone(
             ui,
             case(0.0),
-            textes::NOM_MENU,
-            textes::INFOBULLE_MENU,
+            textes::NOM_MENU.traduit(),
+            textes::INFOBULLE_MENU.traduit(),
             p,
             dessiner_menu,
         ) {
@@ -708,8 +768,8 @@ impl Application {
             && bouton_icone(
                 ui,
                 case(1.0),
-                textes::NOM_PLEIN_ECRAN,
-                textes::INFOBULLE_PLEIN_ECRAN,
+                textes::NOM_PLEIN_ECRAN.traduit(),
+                textes::INFOBULLE_PLEIN_ECRAN.traduit(),
                 p,
                 dessiner_plein_ecran,
             )
@@ -724,8 +784,8 @@ impl Application {
         if bouton_icone(
             ui,
             droite,
-            textes::PREFERENCES,
-            textes::INFOBULLE_PREFERENCES,
+            textes::PREFERENCES.traduit(),
+            textes::INFOBULLE_PREFERENCES.traduit(),
             p,
             dessiner_roue,
         ) {
@@ -735,6 +795,16 @@ impl Application {
                 Vue::Preferences
             };
             self.aller(vue);
+        }
+        // Bouton de langue, à gauche des préférences (section 24).
+        let zone_langue = Rect::from_min_max(
+            Pos2::new(droite.left() - LARGEUR_BOUTON_DE_LANGUE, rect.top()),
+            droite.left_bottom(),
+        );
+        let en_cours = self.moteur.preferences().langue;
+        if let Some(langue) = bouton_de_langue(ui, zone_langue, p, en_cours) {
+            self.changer_de_langue(langue);
+            ui.ctx().request_repaint();
         }
         // Logo : la petite équerre orange de l'icône.
         let logo = Rect::from_center_size(
@@ -747,11 +817,11 @@ impl Application {
         dessiner_equerre(ui.painter(), logo, p.barre_accent);
         let zone_titre = Rect::from_min_max(
             Pos2::new(logo.right() + 9.0, rect.top()),
-            droite.left_bottom(),
+            Pos2::new(zone_langue.left() - 4.0, rect.bottom()),
         );
         let police = theme::police_grasse(16.5);
         let g = ui.painter().layout_no_wrap(
-            textes::NOM_APPLICATION.to_owned(),
+            textes::NOM_APPLICATION.traduit().to_owned(),
             police.clone(),
             p.barre_texte,
         );
@@ -766,7 +836,7 @@ impl Application {
         ui.painter().text(
             zone_titre.left_center(),
             Align2::LEFT_CENTER,
-            textes::NOM_APPLICATION,
+            textes::NOM_APPLICATION.traduit(),
             police,
             p.barre_texte,
         );
@@ -782,12 +852,24 @@ impl Application {
         let onglets: [(Vue, &str, Dessin); 4] = [
             (
                 Vue::Accueil,
-                textes::ONGLET_ACCUEIL,
+                textes::ONGLET_ACCUEIL.traduit(),
                 dessiner_onglet_accueil,
             ),
-            (Vue::Metiers, textes::METIERS, dessiner_onglet_metiers),
-            (Vue::Rubans, textes::ONGLET_RUBANS, dessiner_onglet_rubans),
-            (Vue::Aide, textes::ONGLET_AIDE, dessiner_onglet_aide),
+            (
+                Vue::Metiers,
+                textes::METIERS.traduit(),
+                dessiner_onglet_metiers,
+            ),
+            (
+                Vue::Rubans,
+                textes::ONGLET_RUBANS.traduit(),
+                dessiner_onglet_rubans,
+            ),
+            (
+                Vue::Aide,
+                textes::ONGLET_AIDE.traduit(),
+                dessiner_onglet_aide,
+            ),
         ];
         let largeur = rect.width() / onglets.len() as f32;
         for (i, (vue, libelle, dessin)) in onglets.into_iter().enumerate() {
@@ -850,9 +932,10 @@ impl Application {
         ui.allocate_rect(rect, Sense::hover());
         let prefs = self.moteur.preferences();
         let resolution = prefs.resolution_valide();
+        // La touche décimale porte le séparateur de la langue en cours.
         let contexte_base = (
             prefs.mode_trigo,
-            prefs.separateur_decimal == SeparateurDecimal::Point,
+            noyau::format::separateur_decimal(prefs) == '.',
         );
         let hauteur_afficheur = (rect.height() * 0.20).clamp(118.0, 240.0);
         let hauteur_fractions = if prefs.fractions_rapides {
@@ -1010,6 +1093,10 @@ impl Application {
                     Some(vues::preferences::Action::Reinitialiser) => {
                         self.dialogue = Dialogue::Confirmer(Confirmation::Reinitialiser);
                     }
+                    Some(vues::preferences::Action::Langue(langue)) => {
+                        self.changer_de_langue(langue);
+                        ui.ctx().request_repaint();
+                    }
                     None => {}
                 }
             }
@@ -1041,7 +1128,7 @@ impl Application {
             .show(ui, |ui| {
                 ui.add_space(14.0);
                 ui.label(
-                    RichText::new(textes::RUBAN_COURANT)
+                    RichText::new(textes::RUBAN_COURANT.traduit())
                         .font(theme::police_grasse(18.0))
                         .color(p.titre),
                 );
@@ -1072,20 +1159,32 @@ impl Application {
         // une page Web (on ferme son onglet), et seul un navigateur peut
         // installer l'application sur l'appareil.
         let mut elements: Vec<(&str, ChoixMenu)> = vec![
-            (textes::MENU_METIERS, ChoixMenu::Aller(Vue::Metiers)),
-            (textes::MENU_RUBANS, ChoixMenu::Aller(Vue::Rubans)),
-            (textes::MENU_AIDE, ChoixMenu::Aller(Vue::Aide)),
-            (textes::MENU_MANUEL, ChoixMenu::Manuel),
-            (textes::MENU_BIENVENUE, ChoixMenu::Aller(Vue::Bienvenue)),
-            (textes::MENU_TRUCS, ChoixMenu::Aller(Vue::Trucs)),
-            (textes::MENU_PREFERENCES, ChoixMenu::Aller(Vue::Preferences)),
-            (textes::MENU_A_PROPOS, ChoixMenu::Aller(Vue::APropos)),
+            (
+                textes::MENU_METIERS.traduit(),
+                ChoixMenu::Aller(Vue::Metiers),
+            ),
+            (textes::MENU_RUBANS.traduit(), ChoixMenu::Aller(Vue::Rubans)),
+            (textes::MENU_AIDE.traduit(), ChoixMenu::Aller(Vue::Aide)),
+            (textes::MENU_MANUEL.traduit(), ChoixMenu::Manuel),
+            (
+                textes::MENU_BIENVENUE.traduit(),
+                ChoixMenu::Aller(Vue::Bienvenue),
+            ),
+            (textes::MENU_TRUCS.traduit(), ChoixMenu::Aller(Vue::Trucs)),
+            (
+                textes::MENU_PREFERENCES.traduit(),
+                ChoixMenu::Aller(Vue::Preferences),
+            ),
+            (
+                textes::MENU_A_PROPOS.traduit(),
+                ChoixMenu::Aller(Vue::APropos),
+            ),
         ];
         if !matches!(plateforme::installation(), Installation::Aucune) {
-            elements.push((textes::MENU_INSTALLER, ChoixMenu::Installer));
+            elements.push((textes::MENU_INSTALLER.traduit(), ChoixMenu::Installer));
         }
         if !plateforme::NAVIGATEUR {
-            elements.push((textes::MENU_QUITTER, ChoixMenu::Quitter));
+            elements.push((textes::MENU_QUITTER.traduit(), ChoixMenu::Quitter));
         }
         egui::Area::new(egui::Id::unique("tiroir"))
             .order(egui::Order::Foreground)
@@ -1111,7 +1210,7 @@ impl Application {
                     egui::UiBuilder::new().max_rect(panneau.shrink2(Vec2::new(12.0, 14.0))),
                     |ui| {
                         ui.label(
-                            RichText::new(textes::NOM_APPLICATION)
+                            RichText::new(textes::NOM_APPLICATION.traduit())
                                 .font(theme::police_grasse(17.0))
                                 .color(p.barre_texte),
                         );
@@ -1161,7 +1260,7 @@ impl Application {
                     attenue,
                 );
                 let mention = ui.painter().layout(
-                    textes::GRACIEUSETE.to_owned(),
+                    textes::GRACIEUSETE.traduit().to_owned(),
                     theme::police(12.0),
                     attenue,
                     panneau.width() - 48.0,
@@ -1171,13 +1270,13 @@ impl Application {
                     (
                         textes::SITE_CONSTRUCTO,
                         textes::LIEN_SITE_CONSTRUCTO,
-                        textes::INFOBULLE_SITE,
+                        textes::INFOBULLE_SITE.traduit(),
                         true,
                     ),
                     (
                         textes::COURRIEL_CONSTRUCTO,
                         textes::LIEN_COURRIEL_CONSTRUCTO,
-                        textes::INFOBULLE_COURRIEL,
+                        textes::INFOBULLE_COURRIEL.traduit(),
                         false,
                     ),
                 ];
@@ -1283,9 +1382,9 @@ impl Application {
             Dialogue::Aucun => Dialogue::Aucun,
             Dialogue::Avis(texte) => {
                 let (ok, fermee) = modale(ctx, 300.0, |ui| {
-                    ui.label(texte);
+                    ui.label(texte.traduit());
                     ui.add_space(10.0);
-                    ui.vertical_centered(|ui| ui.button(textes::OK).clicked())
+                    ui.vertical_centered(|ui| ui.button(textes::OK.traduit()).clicked())
                         .inner
                 });
                 if ok || fermee {
@@ -1301,14 +1400,14 @@ impl Application {
                 nouveau,
             } => {
                 let titre = if renommer.is_some() {
-                    textes::TITRE_RENOMMER_RUBAN
+                    textes::TITRE_RENOMMER_RUBAN.traduit()
                 } else {
-                    textes::TITRE_ENREGISTRER_RUBAN
+                    textes::TITRE_ENREGISTRER_RUBAN.traduit()
                 };
                 let (choix, fermee) = modale(ctx, 320.0, |ui| {
                     ui.label(RichText::new(titre).font(theme::police_grasse(17.0)));
                     ui.add_space(6.0);
-                    ui.label(textes::NOM_DU_RUBAN);
+                    ui.label(textes::NOM_DU_RUBAN.traduit());
                     let champ =
                         ui.add(egui::TextEdit::singleline(&mut texte).desired_width(f32::INFINITY));
                     vues::cadre_de_saisie(ui, p, &champ);
@@ -1317,7 +1416,7 @@ impl Application {
                     }
                     let entree = ui.input(|i| i.key_pressed(egui::Key::Enter));
                     ui.add_space(10.0);
-                    boutons(ui, p, textes::ENREGISTRER, false).or(entree.then_some(true))
+                    boutons(ui, p, textes::ENREGISTRER.traduit(), false).or(entree.then_some(true))
                 });
                 let nom = texte.trim().to_string();
                 match choix {
@@ -1363,7 +1462,7 @@ impl Application {
                     }
                     if quoi == Memorisee::MasseVolumique {
                         ui.horizontal(|ui| {
-                            ui.label(textes::UNITE);
+                            ui.label(textes::UNITE.traduit());
                             egui::ComboBox::from_id_salt("unite-masse-volumique")
                                 .selected_text(textes::unite_masse_volumique(unite))
                                 .show_ui(ui, |ui| {
@@ -1383,9 +1482,11 @@ impl Application {
                             .color(p.texte_attenue),
                     );
                     if refusee {
-                        ui.label(RichText::new(textes::VALEUR_NON_RECONNUE).color(p.erreur));
+                        ui.label(
+                            RichText::new(textes::VALEUR_NON_RECONNUE.traduit()).color(p.erreur),
+                        );
                     }
-                    if ui.link(textes::VALEUR_PAR_DEFAUT).clicked() {
+                    if ui.link(textes::VALEUR_PAR_DEFAUT.traduit()).clicked() {
                         let defaut = ValeursMemorisees::default();
                         texte = quoi.texte(&defaut, self.moteur.preferences());
                         unite = defaut.masse_volumique.unite;
@@ -1393,7 +1494,7 @@ impl Application {
                     }
                     let entree = ui.input(|i| i.key_pressed(egui::Key::Enter));
                     ui.add_space(10.0);
-                    boutons(ui, p, textes::ENREGISTRER, false).or(entree.then_some(true))
+                    boutons(ui, p, textes::ENREGISTRER.traduit(), false).or(entree.then_some(true))
                 });
                 match choix {
                     Some(true) => {
@@ -1437,9 +1538,13 @@ impl Application {
                             ui.selectable_value(
                                 &mut secondaire,
                                 false,
-                                textes::FONCTION_PRINCIPALE,
+                                textes::FONCTION_PRINCIPALE.traduit(),
                             );
-                            ui.selectable_value(&mut secondaire, true, textes::FONCTION_SECONDAIRE);
+                            ui.selectable_value(
+                                &mut secondaire,
+                                true,
+                                textes::FONCTION_SECONDAIRE.traduit(),
+                            );
                         });
                         ui.separator();
                     }
@@ -1453,11 +1558,11 @@ impl Application {
                         .show(ui, |ui| match fiche {
                             Some(f) => vues::aide::dessiner_fiche(ui, p, f),
                             None => {
-                                ui.label(textes::AUCUNE_FICHE);
+                                ui.label(textes::AUCUNE_FICHE.traduit());
                             }
                         });
                     ui.add_space(8.0);
-                    ui.vertical_centered(|ui| ui.button(textes::FERMER).clicked())
+                    ui.vertical_centered(|ui| ui.button(textes::FERMER.traduit()).clicked())
                         .inner
                 });
                 if fermer || fermee {
@@ -1470,18 +1575,22 @@ impl Application {
                 let actuel = self.moteur.outil().map(|c| c.metier);
                 let hauteur = (ctx.content_rect().height() * 0.62).max(200.0);
                 let mention = |en_cours: bool| {
-                    if en_cours { textes::METIER_ACTUEL } else { "" }
+                    if en_cours {
+                        textes::METIER_ACTUEL.traduit()
+                    } else {
+                        ""
+                    }
                 };
                 let ((choix, fermer), fermee) = modale(ctx, 350.0, |ui| {
                     // `Some(None)` : le clavier de charpente.
                     let mut choix: Option<Option<Metier>> = None;
                     ui.label(
-                        RichText::new(textes::TITRE_CHOISIR_METIER)
+                        RichText::new(textes::TITRE_CHOISIR_METIER.traduit())
                             .font(theme::police_grasse(17.0)),
                     );
                     ui.add_space(4.0);
                     ui.label(
-                        RichText::new(textes::CHOISIR_METIER_EXPLICATION)
+                        RichText::new(textes::CHOISIR_METIER_EXPLICATION.traduit())
                             .size(13.0)
                             .color(p.texte_attenue),
                     );
@@ -1494,8 +1603,8 @@ impl Application {
                                 ui,
                                 p,
                                 "metier-charpente",
-                                textes::CHARPENTE_NOM,
-                                textes::CHARPENTE_RESUME,
+                                textes::CHARPENTE_NOM.traduit(),
+                                textes::CHARPENTE_RESUME.traduit(),
                                 mention(actuel.is_none()),
                             ) {
                                 choix = Some(None);
@@ -1515,7 +1624,7 @@ impl Application {
                         });
                     ui.add_space(8.0);
                     let fermer = ui
-                        .vertical_centered(|ui| ui.button(textes::FERMER).clicked())
+                        .vertical_centered(|ui| ui.button(textes::FERMER.traduit()).clicked())
                         .inner;
                     (choix, fermer)
                 });
@@ -1539,18 +1648,24 @@ impl Application {
                             .max_height(hauteur)
                             .auto_shrink([false, true])
                             .show(ui, |ui| {
-                                ui.label(c.resume);
+                                ui.label(c.resume.traduit());
                                 ui.add_space(8.0);
                                 ui.label(
-                                    RichText::new(textes::AIDE_OUTIL_TITRE)
+                                    RichText::new(textes::AIDE_OUTIL_TITRE.traduit())
                                         .font(theme::police_grasse(14.5))
                                         .color(p.titre),
                                 );
                                 ui.add_space(4.0);
                                 for (i, (titre, texte)) in textes::AIDE_OUTIL.iter().enumerate() {
-                                    vues::point_numerote(ui, p, i + 1, titre, texte);
+                                    vues::point_numerote(
+                                        ui,
+                                        p,
+                                        i + 1,
+                                        titre.traduit(),
+                                        texte.traduit(),
+                                    );
                                 }
-                                if !c.note.is_empty() {
+                                if !c.note.est_vide() {
                                     ui.add_space(6.0);
                                     ui.label(
                                         RichText::new(c.note).size(13.0).color(p.texte_attenue),
@@ -1561,10 +1676,10 @@ impl Application {
                         let mut fermer = false;
                         let mut formulaire = false;
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            fermer = ui.button(textes::FERMER).clicked();
+                            fermer = ui.button(textes::FERMER.traduit()).clicked();
                             formulaire = ui
-                                .button(textes::OUVRIR_LE_FORMULAIRE)
-                                .on_hover_text(textes::INFOBULLE_OUVRIR_LE_FORMULAIRE)
+                                .button(textes::OUVRIR_LE_FORMULAIRE.traduit())
+                                .on_hover_text(textes::INFOBULLE_OUVRIR_LE_FORMULAIRE.traduit())
                                 .clicked();
                         });
                         (fermer, formulaire)
@@ -1598,29 +1713,29 @@ impl Application {
     ) -> Dialogue {
         let (titre, message, bouton) = match &question {
             Confirmation::EffacerTout => (
-                textes::TITRE_EFFACER_TOUT,
-                textes::CONFIRMER_EFFACER_TOUT,
-                textes::BOUTON_EFFACER_TOUT,
+                textes::TITRE_EFFACER_TOUT.traduit(),
+                textes::CONFIRMER_EFFACER_TOUT.traduit(),
+                textes::BOUTON_EFFACER_TOUT.traduit(),
             ),
             Confirmation::Reinitialiser => (
-                textes::TITRE_REINITIALISER,
-                textes::CONFIRMER_REINITIALISER,
-                textes::BOUTON_REINITIALISER,
+                textes::TITRE_REINITIALISER.traduit(),
+                textes::CONFIRMER_REINITIALISER.traduit(),
+                textes::BOUTON_REINITIALISER.traduit(),
             ),
             Confirmation::ViderRuban => (
-                textes::TITRE_VIDER_RUBAN,
-                textes::CONFIRMER_VIDER_RUBAN,
-                textes::VIDER,
+                textes::TITRE_VIDER_RUBAN.traduit(),
+                textes::CONFIRMER_VIDER_RUBAN.traduit(),
+                textes::VIDER.traduit(),
             ),
             Confirmation::SupprimerRuban(_) => (
-                textes::TITRE_SUPPRIMER_RUBAN,
-                textes::CONFIRMER_SUPPRIMER_RUBAN,
-                textes::SUPPRIMER,
+                textes::TITRE_SUPPRIMER_RUBAN.traduit(),
+                textes::CONFIRMER_SUPPRIMER_RUBAN.traduit(),
+                textes::SUPPRIMER.traduit(),
             ),
             Confirmation::TropDeRubans(_) => (
-                textes::TITRE_ENREGISTRER_RUBAN,
-                textes::TROP_DE_RUBANS,
-                textes::SUPPRIMER_LES_PLUS_ANCIENS,
+                textes::TITRE_ENREGISTRER_RUBAN.traduit(),
+                textes::TROP_DE_RUBANS.traduit(),
+                textes::SUPPRIMER_LES_PLUS_ANCIENS.traduit(),
             ),
         };
         let (choix, fermee) = modale(ctx, 320.0, |ui| {
@@ -1687,7 +1802,7 @@ impl Application {
                     .corner_radius(16)
                     .inner_margin(egui::Margin::symmetric(14, 8))
                     .show(ui, |ui| {
-                        ui.label(RichText::new(texte).color(p.barre_texte));
+                        ui.label(RichText::new(texte.traduit()).color(p.barre_texte));
                     });
             });
     }
@@ -1696,6 +1811,7 @@ impl Application {
 impl eframe::App for Application {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        self.appliquer_la_langue(&ctx);
         let large = self.regler_echelle(&ctx);
         let p = self.appliquer_theme(&ctx);
         self.appliquer_plein_ecran(&ctx);
@@ -1741,7 +1857,9 @@ impl eframe::App for Application {
         let _ = stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant());
         if self.saisies_a_sauvegarder {
             let outil = self.moteur.outil().map(|c| c.id);
-            let _ = stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil);
+            let langue = self.moteur.preferences().langue;
+            let _ =
+                stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil, langue);
         }
     }
 
@@ -1773,6 +1891,82 @@ fn modale<T>(ctx: &egui::Context, largeur: f32, contenu: impl FnOnce(&mut Ui) ->
     (reponse.inner, fermee)
 }
 
+/// Récrit toutes les saisies des calculateurs comme elles se tapent dans une
+/// autre langue (section 24). Sans effet si les deux langues sont les mêmes.
+fn transposer_les_saisies(
+    saisies: &mut stockage::Saisies,
+    de: Langue,
+    vers: Langue,
+    prefs: &Preferences,
+) {
+    if de == vers {
+        return;
+    }
+    for (id, textes) in saisies.iter_mut() {
+        if let Some(c) = noyau::metiers::calculateur(id) {
+            c.transposer_les_saisies(textes, de, vers, prefs);
+        }
+    }
+}
+
+/// Bouton de langue de la barre supérieure : « FR | EN », la langue en cours
+/// en évidence. Retourne la langue touchée, si ce n'est pas celle en cours.
+fn bouton_de_langue(ui: &mut Ui, zone: Rect, p: &Palette, en_cours: Langue) -> Option<Langue> {
+    let pastille = Rect::from_center_size(zone.center(), Vec2::new(zone.width() - 8.0, 26.0));
+    let moitie = pastille.width() / Langue::TOUTES.len() as f32;
+    let mut choisie = None;
+    // Le contour de la pastille.
+    ui.painter().rect_stroke(
+        pastille,
+        13,
+        Stroke::new(1.0, Color32::from_white_alpha(110)),
+        egui::StrokeKind::Inside,
+    );
+    for (i, langue) in Langue::TOUTES.into_iter().enumerate() {
+        // Chaque moitié se touche sur toute la hauteur de la barre.
+        let gauche = pastille.left() + moitie * i as f32;
+        let touchable = Rect::from_min_max(
+            Pos2::new(gauche, zone.top()),
+            Pos2::new(gauche + moitie, zone.bottom()),
+        );
+        let reponse = ui
+            .interact(
+                touchable,
+                egui::Id::unique(("bouton-de-langue", langue)),
+                Sense::CLICK,
+            )
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, langue.nom()));
+        let active = langue == en_cours;
+        let case = Rect::from_min_size(
+            Pos2::new(gauche, pastille.top()),
+            Vec2::new(moitie, pastille.height()),
+        );
+        let (fond, encre) = if active {
+            (Some(p.barre_texte), p.barre_fond)
+        } else if reponse.hovered() {
+            (Some(Color32::from_white_alpha(40)), p.barre_texte)
+        } else {
+            (None, theme::melanger(p.barre_texte, p.barre_fond, 0.25))
+        };
+        if let Some(fond) = fond {
+            ui.painter().rect_filled(case.shrink(2.0), 11, fond);
+        }
+        ui.painter().text(
+            case.center(),
+            Align2::CENTER_CENTER,
+            langue.code(),
+            theme::police_grasse(12.5),
+            encre,
+        );
+        if reponse.clicked() && !active {
+            choisie = Some(langue);
+        }
+        reponse.on_hover_text(textes::infobulle_de_langue(en_cours));
+    }
+    choisie
+}
+
 /// Rangée de boutons d'un dialogue : `Annuler` et l'action. Retourne
 /// `Some(true)` pour l'action, `Some(false)` pour l'annulation.
 fn boutons(ui: &mut Ui, p: &Palette, action: &str, destructive: bool) -> Option<bool> {
@@ -1793,7 +1987,7 @@ fn boutons(ui: &mut Ui, p: &Palette, action: &str, destructive: bool) -> Option<
         if ui.add(bouton).clicked() {
             choix = Some(true);
         }
-        if ui.button(textes::ANNULER).clicked() {
+        if ui.button(textes::ANNULER.traduit()).clicked() {
             choix = Some(false);
         }
     });

@@ -1,6 +1,7 @@
 //! Formatage des valeurs pour l'afficheur (section 8).
 
 use crate::etiquettes::{DEGRE, INSECABLE, MINUTE, MOINS, SECONDE, symbole};
+use crate::langue::{self, Langue};
 use crate::prefs::{ModeFractions, Preferences, SeparateurDecimal};
 use crate::unites::{EPS, Format, Genre};
 use crate::valeur::Valeur;
@@ -25,28 +26,40 @@ impl TexteValeur {
         TexteValeur(vec![Segment::Texte(texte.into())])
     }
 
+    /// Pour chaque morceau : vrai s'il est séparé du précédent par une espace.
+    ///
+    /// Un signe seul se colle à ce qui suit (« −5/16 po »). En anglais, le
+    /// signe de dollar précède le nombre et s'y colle (« $283.06 »), et le
+    /// signe de pourcentage suit le nombre sans espace (« 47.25% »).
+    pub fn espaces(&self) -> Vec<bool> {
+        let anglais = langue::en_cours() == Langue::Anglais;
+        let mut colle = true;
+        self.0
+            .iter()
+            .map(|segment| {
+                let (espace, colle_ensuite) = match segment {
+                    Segment::Texte(t) => (!colle, t.chars().count() == 1 && t.starts_with(MOINS)),
+                    Segment::Unite(u) if anglais && u == "$" => (!colle, true),
+                    Segment::Unite(u) if anglais && u == "%" => (false, false),
+                    Segment::Unite(_) | Segment::Fraction { .. } => (!colle, false),
+                };
+                colle = colle_ensuite;
+                espace
+            })
+            .collect()
+    }
+
     /// Texte à plat, avec espaces insécables : « 5 pi 7 1/2 po ».
     pub fn en_texte(&self) -> String {
         let mut sortie = String::new();
-        let mut colle = true;
-        for segment in &self.0 {
-            if !colle {
+        for (segment, espace) in self.0.iter().zip(self.espaces()) {
+            if espace {
                 sortie.push(INSECABLE);
             }
             match segment {
-                Segment::Texte(t) => {
-                    sortie.push_str(t);
-                    // Un signe seul se colle à ce qui suit (« −5/16 po »).
-                    colle = t.chars().count() == 1 && t.starts_with(MOINS);
-                }
-                Segment::Fraction { num, den } => {
-                    sortie.push_str(&format!("{num}/{den}"));
-                    colle = false;
-                }
-                Segment::Unite(u) => {
-                    sortie.push_str(u);
-                    colle = false;
-                }
+                Segment::Texte(t) => sortie.push_str(t),
+                Segment::Fraction { num, den } => sortie.push_str(&format!("{num}/{den}")),
+                Segment::Unite(u) => sortie.push_str(u),
             }
         }
         sortie
@@ -154,28 +167,68 @@ fn habiller(chiffres: &str, negatif: bool, prefs: &Preferences) -> String {
     sortie
 }
 
-/// Caractère du séparateur décimal selon les préférences.
+/// Caractère du séparateur décimal : en français, celui des préférences; en
+/// anglais, toujours le point (section 24).
 pub fn separateur_decimal(prefs: &Preferences) -> char {
-    match prefs.separateur_decimal {
-        SeparateurDecimal::Virgule => ',',
-        SeparateurDecimal::Point => '.',
+    separateur_decimal_en(prefs, langue::en_cours())
+}
+
+/// Caractère du séparateur décimal dans une langue donnée.
+pub fn separateur_decimal_en(prefs: &Preferences, langue: Langue) -> char {
+    match (langue, prefs.separateur_decimal) {
+        (Langue::Anglais, _) | (Langue::Francais, SeparateurDecimal::Point) => '.',
+        (Langue::Francais, SeparateurDecimal::Virgule) => ',',
     }
 }
 
-/// Groupe des chiffres par trois avec l'espace insécable (R-04).
+/// Caractère qui sépare les groupes de trois chiffres : l'espace insécable en
+/// français (R-04), la virgule en anglais.
+pub fn separateur_de_milliers() -> char {
+    match langue::en_cours() {
+        Langue::Francais => INSECABLE,
+        Langue::Anglais => ',',
+    }
+}
+
+/// Groupe des chiffres par trois (R-04) : « 1 234 567 », « 1,234,567 » en anglais.
 pub fn grouper(entier: &str, prefs: &Preferences) -> String {
     if !prefs.separateur_milliers {
         return entier.to_string();
     }
+    let separateur = separateur_de_milliers();
     let n = entier.chars().count();
     let mut sortie = String::with_capacity(n + n / 3);
     for (i, c) in entier.chars().enumerate() {
         if i > 0 && (n - i).is_multiple_of(3) {
-            sortie.push(INSECABLE);
+            sortie.push(separateur);
         }
         sortie.push(c);
     }
     sortie
+}
+
+/// Un nombre déjà écrit et son unité, à plat : « 12,5 pi² », « 45° »; en
+/// anglais, « $1,234.56 », « $25.00/ft² », « 10% » et « 8.5¢/kWh ».
+pub fn nombre_et_unite(nombre: &str, unite: &str) -> String {
+    if unite.is_empty() {
+        return nombre.to_string();
+    }
+    if unite == "°" {
+        return format!("{nombre}°");
+    }
+    if langue::en_cours() == Langue::Anglais {
+        if let Some(suite) = unite.strip_prefix('$') {
+            // Le signe du nombre passe devant le signe de dollar.
+            return match nombre.strip_prefix(MOINS) {
+                Some(absolu) => format!("{MOINS}${absolu}{suite}"),
+                None => format!("${nombre}{suite}"),
+            };
+        }
+        if unite == "%" || unite.starts_with('¢') {
+            return format!("{nombre}{unite}");
+        }
+    }
+    format!("{nombre}{INSECABLE}{unite}")
 }
 
 /// Notation scientifique : « 2,5 E9 », « 1,2 E−7 ».
@@ -368,7 +421,22 @@ pub fn formater(v: &Valeur, rendu: Rendu, o: &OptionsFormat) -> TexteValeur {
     let format = format_effectif(v, prefs);
     let numerique = v.base / format.facteur();
     let unite = symbole(format);
+    let dollar_devant = format == Format::Monnaie && langue::en_cours() == Langue::Anglais;
     let avec_unite = |nombre: String| -> TexteValeur {
+        if dollar_devant {
+            // « $283.06 », « −$283.06 ».
+            let mut segments = Vec::with_capacity(3);
+            let absolu = match nombre.strip_prefix(MOINS) {
+                Some(absolu) => {
+                    segments.push(Segment::Texte(MOINS.to_string()));
+                    absolu.to_string()
+                }
+                None => nombre,
+            };
+            segments.push(Segment::Unite(unite.to_string()));
+            segments.push(Segment::Texte(absolu));
+            return TexteValeur(segments);
+        }
         let mut segments = vec![Segment::Texte(nombre)];
         if !unite.is_empty() {
             segments.push(Segment::Unite(unite.to_string()));
@@ -557,6 +625,74 @@ mod tests {
             en_texte(&Valeur::en_base(45.0 / 64.0, Format::PoFrac), &o).replace(INSECABLE, " "),
             "45/64 po"
         );
+    }
+
+    #[test]
+    fn en_anglais_le_point_la_virgule_et_les_symboles_anglais() {
+        let _anglais = langue::pour_la_portee(Langue::Anglais);
+        let p = Preferences::default();
+        // Le point décimal s'impose, quelle que soit la préférence.
+        assert_eq!(separateur_decimal(&p), '.');
+        assert_eq!(t(Valeur::nombre(1234.5), &p), "1,234.5");
+        assert_eq!(t(Valeur::nombre(1_234_567.891), &p), "1,234,568");
+        assert_eq!(t(Valeur::nombre(-0.5), &p), "−0.5");
+        let sans_milliers = Preferences {
+            separateur_milliers: false,
+            ..Preferences::default()
+        };
+        assert_eq!(t(Valeur::nombre(1234.5), &sans_milliers), "1234.5");
+        assert_eq!(
+            t(Valeur::en_base(-63.5, Format::PiPo), &p),
+            "−5 ft 3 1/2 in"
+        );
+        assert_eq!(
+            t(Valeur::en_base(15006.0, Format::PiPo), &p),
+            "1,250 ft 6 in"
+        );
+        assert_eq!(t(Valeur::en_base(0.5, Format::PoFrac), &p), "1/2 in");
+        assert_eq!(t(Valeur::en_base(96.0, Format::M), &p), "2.438 m");
+        assert_eq!(
+            t(Valeur::avec_format(1234.5, Format::Pi2), &p),
+            "1,234.5 ft²"
+        );
+        assert_eq!(t(Valeur::avec_format(2.5, Format::Vg3), &p), "2.5 yd³");
+        assert_eq!(t(Valeur::avec_format(12.0, Format::Pmp), &p), "12 bd ft");
+        assert_eq!(t(Valeur::avec_format(1.5, Format::Tc), &p), "1.5 ton");
+        let sans = |base: f64, format: Format| Valeur {
+            base,
+            genre: Genre::SansUnite,
+            format,
+        };
+        // Le dollar devant, le pourcentage collé.
+        assert_eq!(t(sans(1283.0633, Format::Monnaie), &p), "$1,283.06");
+        assert_eq!(t(sans(-0.125, Format::Monnaie), &p), "−$0.13");
+        assert_eq!(t(sans(0.4725, Format::Pourcent), &p), "47.25%");
+        assert_eq!(t(sans(36.869_897, Format::Degres), &p), "36.87°");
+        let exp = Preferences {
+            exponentielle: true,
+            ..Preferences::default()
+        };
+        assert_eq!(t(Valeur::nombre(2.5e9), &exp), "2.5 E9");
+    }
+
+    #[test]
+    fn nombre_et_unite_selon_la_langue() {
+        assert_eq!(nombre_et_unite("12,5", "pi²"), "12,5\u{a0}pi²");
+        assert_eq!(nombre_et_unite("45,00", "°"), "45,00°");
+        assert_eq!(
+            nombre_et_unite("1\u{a0}234,56", "$"),
+            "1\u{a0}234,56\u{a0}$"
+        );
+        assert_eq!(nombre_et_unite("10", "%"), "10\u{a0}%");
+        assert_eq!(nombre_et_unite("12", ""), "12");
+        let _anglais = langue::pour_la_portee(Langue::Anglais);
+        assert_eq!(nombre_et_unite("12.5", "ft²"), "12.5\u{a0}ft²");
+        assert_eq!(nombre_et_unite("1,234.56", "$"), "$1,234.56");
+        assert_eq!(nombre_et_unite("−5.00", "$"), "−$5.00");
+        assert_eq!(nombre_et_unite("25.00", "$/ft²"), "$25.00/ft²");
+        assert_eq!(nombre_et_unite("10", "%"), "10%");
+        assert_eq!(nombre_et_unite("8.5", "¢/kWh"), "8.5¢/kWh");
+        assert_eq!(nombre_et_unite("5", "°C"), "5\u{a0}°C");
     }
 
     #[test]

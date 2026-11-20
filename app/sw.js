@@ -2,7 +2,8 @@
 // que la calculatrice s'ouvre hors ligne, sur un chantier sans réseau.
 //
 // - La page est demandée au réseau d'abord (pour recevoir les mises à jour),
-//   et prise dans la copie locale si le réseau ne répond pas.
+//   et prise dans la copie locale si le réseau ne répond pas. Il en va de même
+//   du manuel d'utilisation, dans chacune des deux langues.
 // - Le programme (fichiers .js et .wasm, dont le nom change à chaque version)
 //   et les fichiers fixes sont pris dans la copie locale d'abord.
 //
@@ -13,7 +14,9 @@ const COPIE = "calculatrice-chantier";
 const PAGE = "./";
 const FICHIERS_FIXES = [
     "manifest.webmanifest",
+    // Le manuel d'utilisation, en français et en anglais.
     "manuel.html",
+    "manual.html",
     "icones/icone-192.png",
     "icones/icone-512.png",
     "icones/icone-masquable-512.png",
@@ -152,6 +155,24 @@ async function servirUnFichier(evenement) {
     return garde;
 }
 
+// Une autre page du site — le manuel d'utilisation, dans l'une ou l'autre
+// langue : le réseau d'abord, pour lire la version du jour, la copie locale
+// sinon (elle y est depuis l'installation du service).
+async function servirUneAutrePage(evenement) {
+    const requete = evenement.request;
+    const copie = await caches.open(COPIE);
+    try {
+        const reponse = await reseauAvecDelai(requete.url);
+        if (reponse.ok) {
+            evenement.waitUntil(copie.put(requete.url, reponse.clone()));
+            return reponse;
+        }
+    } catch (_) {
+        // Hors ligne ou réseau trop lent : on sert la copie locale.
+    }
+    return (await copie.match(requete.url, { ignoreSearch: true })) || Response.error();
+}
+
 // La requête vise-t-elle la page de l'application (la racine du site, ou son
 // `index.html`)?
 function estLaPage(requete) {
@@ -165,13 +186,15 @@ self.addEventListener("fetch", (evenement) => {
     if (requete.method !== "GET" || new URL(requete.url).origin !== self.location.origin) {
         return;
     }
-    // Seule la page de l'application suit la règle « le réseau d'abord ». Les
-    // autres pages du site — le manuel d'utilisation — sont des fichiers comme
-    // les autres : sans cette distinction, ouvrir le manuel rouvrirait la
-    // calculatrice.
-    if (requete.mode === "navigate" && estLaPage(requete)) {
+    // La page de l'application et les autres pages du site — le manuel
+    // d'utilisation — suivent toutes la règle « le réseau d'abord », mais
+    // chacune avec sa propre copie locale : sans cette distinction, ouvrir le
+    // manuel hors ligne rouvrirait la calculatrice.
+    if (requete.mode !== "navigate") {
+        evenement.respondWith(servirUnFichier(evenement));
+    } else if (estLaPage(requete)) {
         evenement.respondWith(servirLaPage(evenement));
     } else {
-        evenement.respondWith(servirUnFichier(evenement));
+        evenement.respondWith(servirUneAutrePage(evenement));
     }
 });

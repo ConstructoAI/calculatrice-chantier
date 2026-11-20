@@ -16,6 +16,8 @@ serde_json = "1.0.154"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eframe = "0.37.0"
 rfd = "0.18.0"
+# Langue du système, pour le premier lancement (déjà une dépendance d'eframe).
+sys-locale = "0.3.2"
 
 # Version Web : rendu WebGL, sans les polices intégrées d'egui (les polices
 # libres du dossier `polices/` les remplacent), et accès au navigateur.

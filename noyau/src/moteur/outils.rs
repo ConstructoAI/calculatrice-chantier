@@ -12,9 +12,9 @@
 use super::{Message, Moteur, Presentation, Provenance};
 use crate::erreurs::{Erreur, Information};
 use crate::etiquettes::{rang_parmi, symbole};
-use crate::format::Rendu;
+use crate::format::{Rendu, separateur_decimal};
+use crate::langue::{self, Langue, Texte};
 use crate::metiers::{self, Calculateur, Champ, Lecture, Lue, Nature};
-use crate::prefs::SeparateurDecimal;
 use crate::touches::Touche;
 use crate::unites::Format;
 use crate::valeur::Valeur;
@@ -69,30 +69,83 @@ impl Moteur {
         // suivant (le volume d'une tranchée vers les voyages de camion).
         let change = self.outil.as_ref().map(|o| o.id) != nouveau.as_ref().map(|o| o.id);
         if change {
-            let message_d_outil = matches!(
-                self.message,
-                Some(
-                    Message::Avis(_)
-                        | Message::Manque(_)
-                        | Message::ACorriger(_)
-                        | Message::Information(
-                            Information::ChampVide | Information::OutilRecommence
-                        )
-                )
-            );
-            if message_d_outil {
+            self.quitter_l_affichage_d_outil();
+        }
+        self.outil = nouveau;
+    }
+
+    /// Retire de l'afficheur ce qu'il tient d'un outil : son libellé, son
+    /// texte, ses messages. La valeur montrée reste, comme une valeur ordinaire.
+    fn quitter_l_affichage_d_outil(&mut self) {
+        let message_d_outil = matches!(
+            self.message,
+            Some(
+                Message::Avis(_)
+                    | Message::Manque(_)
+                    | Message::ACorriger(_)
+                    | Message::Information(Information::ChampVide | Information::OutilRecommence)
+            )
+        );
+        if message_d_outil {
+            self.mettre_a_zero();
+        } else if self.presentation.libre.is_some() {
+            // Un choix dans une liste ou un mot n'ont pas de valeur à garder.
+            if self.courant.base == 0.0 {
                 self.mettre_a_zero();
-            } else if self.presentation.libre.is_some() {
-                // Un choix dans une liste ou un mot n'ont pas de valeur à garder.
-                if self.courant.base == 0.0 {
-                    self.mettre_a_zero();
-                } else {
-                    let valeur = self.courant;
-                    self.montrer_resultat(valeur);
+            } else {
+                let valeur = self.courant;
+                self.montrer_resultat(valeur);
+            }
+        }
+    }
+
+    /// Change la langue de l'interface (section 24), y compris la langue en
+    /// cours sur ce fil d'exécution.
+    ///
+    /// Les saisies de l'outil branché sont récrites comme elles se tapent dans
+    /// la nouvelle langue : leurs valeurs ne changent pas. Un résultat d'outil
+    /// montré à l'afficheur y est récrit dans la nouvelle langue; le contenu
+    /// d'un champ ou un message laissent la place à la valeur seule, comme en
+    /// changeant d'outil : rien ne reste écrit dans l'ancienne langue.
+    pub fn changer_de_langue(&mut self, nouvelle: Langue) {
+        let ancienne = self.prefs.langue;
+        langue::choisir(nouvelle);
+        if ancienne == nouvelle {
+            return;
+        }
+        self.prefs.langue = nouvelle;
+        // Le rang du résultat d'outil que l'afficheur montre, s'il en montre un.
+        let resultat_montre = self
+            .outil
+            .as_ref()
+            .and_then(|outil| outil.rang)
+            .filter(|_| self.presentation.libre.is_some() && self.message.is_none());
+        self.quitter_l_affichage_d_outil();
+        let mut a_remontrer = None;
+        if let Some(outil) = self.outil.as_mut()
+            && let Some(c) = metiers::calculateur(outil.id)
+        {
+            c.transposer_les_saisies(&mut outil.saisies, ancienne, nouvelle, &self.prefs);
+            outil.rang = None;
+            if let Some(rang) = resultat_montre {
+                let nombre = c.evaluer(&outil.saisies, &self.prefs).resultats.len();
+                if nombre > 0 {
+                    // La touche `Résultat` passe au résultat suivant : on se
+                    // place donc juste avant celui qui était montré.
+                    outil.rang = Some((rang + nombre - 1) % nombre);
+                    a_remontrer = Some(c);
                 }
             }
         }
-        self.outil = nouveau;
+        // Le même résultat, redemandé comme par la touche `Résultat` : le calcul
+        // est déjà au ruban, il n'y est pas inscrit de nouveau.
+        if let Some(c) = a_remontrer
+            && self.resultats_d_outil(c).is_err()
+            && let Some(outil) = self.outil.as_mut()
+        {
+            outil.rang = None;
+        }
+        self.revision += 1;
     }
 
     /// Le calculateur branché sur le clavier, s'il y en a un.
@@ -125,7 +178,7 @@ impl Moteur {
                 };
                 ToucheOutil {
                     libelle: champ.libelle_court(),
-                    nom: champ.libelle,
+                    nom: champ.libelle.traduit(),
                     valeur,
                     unite: champ.unite(),
                     choix: matches!(champ.nature, Nature::Choix(_)),
@@ -223,7 +276,7 @@ impl Moteur {
             Lue::Nombre(x) => (Valeur::nombre(x), Some(lecture.texte)),
             Lue::Choix(_) | Lue::Vide => (Valeur::nombre(0.0), Some(lecture.texte)),
         };
-        self.montrer_outil(champ.libelle, valeur, (texte, None), true);
+        self.montrer_outil(champ.libelle.traduit(), valeur, (texte, None), true);
         // Une seconde pression rappelle le champ au lieu de le réécrire (R-37).
         self.rappel_de = Some(touche);
     }
@@ -255,8 +308,10 @@ impl Moteur {
         if texte.contains('.') {
             texte.truncate(texte.trim_end_matches('0').trim_end_matches('.').len());
         }
-        if self.prefs.separateur_decimal == SeparateurDecimal::Virgule {
-            texte = texte.replace('.', ",");
+        // Le séparateur décimal de la langue en cours.
+        let decimal = separateur_decimal(&self.prefs);
+        if decimal != '.' {
+            texte = texte.replace('.', &decimal.to_string());
         }
         Ok(texte)
     }
@@ -317,12 +372,12 @@ impl Moteur {
     }
 
     /// Montre l'option choisie dans une liste, avec son rang.
-    fn montrer_choix(&mut self, champ: &Champ, options: &[&'static str], rang: usize) {
-        let texte = options.get(rang).copied().unwrap_or("").to_string();
+    fn montrer_choix(&mut self, champ: &Champ, options: &[Texte], rang: usize) {
+        let texte = options.get(rang).map_or("", |o| o.traduit()).to_string();
         let note = rang_parmi(rang + 1, options.len());
         // Le rang d'une option n'est pas une valeur : rien à reprendre dans un calcul.
         self.montrer_outil(
-            champ.libelle,
+            champ.libelle.traduit(),
             Valeur::nombre(0.0),
             (Some(texte), Some(note)),
             true,
@@ -345,13 +400,15 @@ impl Moteur {
         let Some(champ) = c.champs.get(rang) else {
             return Ok(());
         };
-        self.ecrire_saisie_d_outil(rang, champ.defaut.to_string());
-        if champ.defaut.is_empty() {
+        // La valeur de départ, telle qu'elle se tape dans la langue en cours.
+        let depart = champ.depart();
+        self.ecrire_saisie_d_outil(rang, depart.clone());
+        if depart.is_empty() {
             self.montrer_message_d_outil(Message::Information(Information::ChampVide));
         } else if let Nature::Choix(options) = champ.nature {
-            let rang_du_choix = champ.defaut.parse::<usize>().unwrap_or(0);
+            let rang_du_choix = depart.parse::<usize>().unwrap_or(0);
             self.montrer_choix(champ, options, rang_du_choix);
-        } else if let Ok(lecture) = champ.lire(champ.defaut, &self.prefs) {
+        } else if let Ok(lecture) = champ.lire(&depart, &self.prefs) {
             self.montrer_champ(champ, lecture, touche);
         }
         Ok(())
@@ -395,7 +452,7 @@ impl Moteur {
         let rang = match deja_montre {
             Some(precedent) => (precedent + 1) % nombre,
             None => {
-                self.consigner(c.nom, &evaluation.entrees, &evaluation.resultats);
+                self.consigner(c.nom.traduit(), &evaluation.entrees, &evaluation.resultats);
                 0
             }
         };

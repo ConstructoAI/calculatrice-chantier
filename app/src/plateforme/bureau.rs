@@ -5,6 +5,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use noyau::langue::Langue;
+
 use super::{Export, Fichier, Installation, Lecture};
 use crate::textes;
 
@@ -100,21 +102,39 @@ impl Depot {
     }
 }
 
-/// Le manuel d'utilisation, embarqué dans le programme.
+/// Le manuel d'utilisation, embarqué dans le programme, dans chaque langue.
 const MANUEL: &str = include_str!("../../manuel.html");
+const MANUEL_ANGLAIS: &str = include_str!("../../manual.html");
 
-/// Adresse du manuel d'utilisation, à ouvrir dans le navigateur. La page est
-/// d'abord copiée dans le dossier de données : elle se lit ainsi sans réseau.
-/// Si la copie échoue, c'est l'adresse de la page publiée qui est rendue.
+/// Adresse du manuel d'utilisation, dans la langue en cours, à ouvrir dans le
+/// navigateur. La page est d'abord copiée dans le dossier de données : elle se
+/// lit ainsi sans réseau. Si la copie échoue, c'est l'adresse de la page
+/// publiée qui est rendue.
 pub fn adresse_du_manuel(depot: &Depot) -> String {
-    match depot.ecrire(textes::FICHIER_DU_MANUEL, MANUEL) {
+    let nom = textes::FICHIER_DU_MANUEL.traduit();
+    let page = match noyau::langue::en_cours() {
+        Langue::Francais => MANUEL,
+        Langue::Anglais => MANUEL_ANGLAIS,
+    };
+    match depot.ecrire(nom, page) {
         Ok(()) => {
-            let chemin = depot.dossier.join(textes::FICHIER_DU_MANUEL);
+            let chemin = depot.dossier.join(nom);
             adresse_de_fichier(&std::path::absolute(&chemin).unwrap_or(chemin))
         }
-        Err(_) => textes::ADRESSE_DU_MANUEL.to_string(),
+        Err(_) => textes::ADRESSE_DU_MANUEL.traduit().to_string(),
     }
 }
+
+/// Langue du système, si c'est le français ou l'anglais : elle sert au premier
+/// lancement seulement (section 24). Les langues préférées sont examinées dans
+/// l'ordre.
+pub fn langue_de_l_appareil() -> Option<Langue> {
+    sys_locale::get_locales().find_map(|langue| Langue::d_apres(&langue))
+}
+
+/// Sur le bureau, le titre de la fenêtre est écrit par l'application : rien
+/// d'autre ne dépend de la langue.
+pub fn regler_la_page(_langue: Langue, _titre: &str) {}
 
 /// Adresse `file:` d'un fichier du poste : les barres obliques inverses de
 /// Windows deviennent des barres obliques, et tout caractère hors des lettres,

@@ -11,20 +11,20 @@ use crate::theme::{self, Palette};
 /// navigateur, qui les conserve lui-même. Retourne vrai quand l'utilisateur
 /// ferme l'écran.
 pub fn afficher(ui: &mut Ui, p: &Palette, dossier: Option<&str>) -> bool {
-    let fermer = en_tete(ui, p, textes::A_PROPOS, textes::FERMER);
+    let fermer = en_tete(ui, p, textes::A_PROPOS.traduit(), textes::FERMER.traduit());
     corps(ui, "a-propos", |ui| {
         ui.add_space(8.0);
         ui.label(
-            RichText::new(textes::NOM_APPLICATION)
+            RichText::new(textes::NOM_APPLICATION.traduit())
                 .font(theme::police_grasse(22.0))
                 .color(p.entete),
         );
         ui.label(RichText::new(textes::version_et_revision()).color(p.texte_attenue));
         ui.add_space(6.0);
-        ui.label(textes::A_PROPOS_DESCRIPTION);
+        ui.label(textes::A_PROPOS_DESCRIPTION.traduit());
         ui.add_space(4.0);
         ui.label(
-            RichText::new(textes::GRACIEUSETE)
+            RichText::new(textes::GRACIEUSETE.traduit())
                 .font(theme::police_grasse(14.5))
                 .color(p.titre),
         );
@@ -42,40 +42,45 @@ pub fn afficher(ui: &mut Ui, p: &Palette, dossier: Option<&str>) -> bool {
             .open_in_new_tab(true),
         );
 
-        section(ui, p, textes::AVERTISSEMENT_TITRE);
+        section(ui, p, textes::AVERTISSEMENT_TITRE.traduit());
         carte(ui, p, |ui| {
-            ui.label(textes::AVERTISSEMENT);
+            ui.label(textes::AVERTISSEMENT.traduit());
             ui.add_space(6.0);
-            ui.label(RichText::new(textes::AVERTISSEMENT_DEFAUTS).color(p.texte_attenue));
+            ui.label(RichText::new(textes::AVERTISSEMENT_DEFAUTS.traduit()).color(p.texte_attenue));
         });
 
         match dossier {
             Some(dossier) => {
-                section(ui, p, textes::DOSSIER_DE_DONNEES);
+                section(ui, p, textes::DOSSIER_DE_DONNEES.traduit());
                 ui.label(RichText::new(dossier).monospace());
-                ui.label(RichText::new(textes::CONFIDENTIALITE).color(p.texte_attenue));
+                ui.label(RichText::new(textes::CONFIDENTIALITE.traduit()).color(p.texte_attenue));
             }
             None => {
-                section(ui, p, textes::DONNEES_WEB_TITRE);
-                ui.label(textes::DONNEES_WEB);
-                ui.label(RichText::new(textes::CONFIDENTIALITE_WEB).color(p.texte_attenue));
+                section(ui, p, textes::DONNEES_WEB_TITRE.traduit());
+                ui.label(textes::DONNEES_WEB.traduit());
+                ui.label(
+                    RichText::new(textes::CONFIDENTIALITE_WEB.traduit()).color(p.texte_attenue),
+                );
             }
         }
 
-        section(ui, p, textes::LICENCE_TITRE);
-        ui.label(textes::LICENCE);
+        section(ui, p, textes::LICENCE_TITRE.traduit());
+        ui.label(textes::LICENCE.traduit());
         ui.add(
-            egui::Hyperlink::from_label_and_url(textes::CODE_SOURCE, textes::LIEN_CODE_SOURCE)
-                .open_in_new_tab(true),
+            egui::Hyperlink::from_label_and_url(
+                textes::CODE_SOURCE.traduit(),
+                textes::LIEN_CODE_SOURCE,
+            )
+            .open_in_new_tab(true),
         );
 
-        section(ui, p, textes::BIBLIOTHEQUES_TITRE);
+        section(ui, p, textes::BIBLIOTHEQUES_TITRE.traduit());
         if plateforme::NAVIGATEUR {
-            ui.label(textes::BIBLIOTHEQUES_WEB);
+            ui.label(textes::BIBLIOTHEQUES_WEB.traduit());
             ui.add_space(4.0);
-            ui.label(textes::POLICES_WEB);
+            ui.label(textes::POLICES_WEB.traduit());
         } else {
-            ui.label(textes::BIBLIOTHEQUES);
+            ui.label(textes::BIBLIOTHEQUES.traduit());
         }
         ui.add_space(12.0);
     });

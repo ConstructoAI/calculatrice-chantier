@@ -1,0 +1,1905 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User manual — Jobsite Calculator</title>
+<meta name="description" content="User manual for the Jobsite Calculator: feet-inches-fractions, framing, and the tools of eleven trades.">
+<meta name="theme-color" content="#002050">
+<style>
+:root {
+    --fond: #f3f7fc;
+    --carte: #ffffff;
+    --bord: #d5deeb;
+    --texte: #17202e;
+    --attenue: #55637a;
+    --marine: #002050;
+    --primaire: #0078d4;
+    --titre: #0b5cab;
+    --accent: #f97316;
+    --touche: #e3edf9;
+    --touche-texte: #0b3d7a;
+    --note: #fff7ed;
+    --note-bord: #fdba74;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fond: #0d1524;
+        --carte: #162033;
+        --bord: #2a3a55;
+        --texte: #e6edf7;
+        --attenue: #9fb0c8;
+        --marine: #001a40;
+        --primaire: #4aa3ee;
+        --titre: #7cc0ff;
+        --touche: #22344f;
+        --touche-texte: #cfe4ff;
+        --note: #2b2113;
+        --note-bord: #9a5a1b;
+    }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--texte);
+    font: 16px/1.55 "Segoe UI", Selawik, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+}
+.entete {
+    background: linear-gradient(180deg, #003a8c, var(--marine));
+    color: #fff;
+    padding: 28px 20px 24px;
+    border-bottom: 4px solid var(--accent);
+}
+.entete > * { max-width: 860px; margin-left: auto; margin-right: auto; }
+.marque { margin: 0; font-weight: 700; letter-spacing: .02em; opacity: .9; }
+.marque::before { content: ""; display: inline-block; width: 12px; height: 16px; margin-right: 8px; border-left: 5px solid var(--accent); border-bottom: 5px solid var(--accent); vertical-align: -2px; }
+h1 { margin: 6px auto 4px; font-size: 2rem; line-height: 1.2; }
+.sous-titre { margin: 0 auto 14px; opacity: .85; }
+.bouton {
+    display: inline-block; background: var(--accent); color: #1b1203; font-weight: 700;
+    padding: 9px 16px; border-radius: 8px; text-decoration: none;
+}
+.autre-langue { display: inline-block; margin-left: 14px; color: #fff; font-weight: 700; }
+main, nav, footer { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+nav { margin-top: 22px; }
+nav ol { margin: 6px 0 0; padding-left: 1.4em; columns: 2 300px; column-gap: 32px; }
+nav li { margin: 3px 0; break-inside: avoid; }
+nav ul { margin: 2px 0 6px; padding-left: 1.1em; list-style: none; font-size: .93em; }
+a { color: var(--primaire); }
+h2 {
+    margin: 44px 0 10px; padding-top: 12px; font-size: 1.5rem; line-height: 1.25; color: var(--titre);
+    border-top: 2px solid var(--bord);
+}
+h3 { margin: 28px 0 8px; font-size: 1.2rem; }
+h4 { margin: 0 0 6px; font-size: 1.05rem; }
+p { margin: 8px 0; }
+ul, ol { padding-left: 1.4em; }
+li { margin: 4px 0; }
+kbd {
+    display: inline-block; font: inherit; font-size: .88em; font-weight: 700; white-space: nowrap;
+    background: var(--touche); color: var(--touche-texte); border: 1px solid var(--bord);
+    border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; margin: 1px 0;
+}
+.ecran {
+    display: inline-block; font-weight: 700; background: var(--carte); border: 1px solid var(--bord);
+    border-radius: 5px; padding: 0 6px; white-space: nowrap;
+}
+.carte, article {
+    background: var(--carte); border: 1px solid var(--bord); border-radius: 10px;
+    padding: 14px 16px; margin: 12px 0;
+}
+.avis { background: var(--note); border: 1px solid var(--note-bord); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.exemple { background: var(--fond); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 10px 0 4px; }
+.exemple .mot { font-size: .8em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--attenue); margin-right: 6px; }
+.note { color: var(--attenue); font-size: .94em; }
+.acces { font-weight: 400; font-size: .9em; color: var(--attenue); margin-left: 6px; }
+.table { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .95em; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--bord); }
+th { color: var(--attenue); font-size: .85em; text-transform: uppercase; letter-spacing: .03em; }
+tr:last-child td { border-bottom: 0; }
+.haut { font-size: .85rem; font-weight: 400; float: right; margin-top: 8px; }
+footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 2px solid var(--bord); color: var(--attenue); font-size: .94em; }
+@media (max-width: 520px) {
+    h1 { font-size: 1.6rem; }
+    main, nav, footer { padding: 0 14px; }
+    .haut { float: none; display: block; }
+}
+@media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .entete { background: none; color: #000; border-bottom: 2px solid #000; padding: 0 0 8px; }
+    .bouton, .haut, .autre-langue { display: none; }
+    article, .carte, .exemple, tr { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<header class="entete" id="haut">
+    <p class="marque">Jobsite Calculator</p>
+    <h1>User manual</h1>
+    <p class="sous-titre">Courtesy of Sylvain Leduc of Constructo AI</p>
+    <p><a class="bouton" href="https://constructoai.github.io/calculatrice-chantier/">Open the calculator</a> <a class="autre-langue" href="manuel.html" hreflang="fr" lang="fr">Version française</a></p>
+</header>
+
+<nav aria-label="Contents">
+    <h2 id="sommaire">Contents</h2>
+    <ol>
+        <li><a href="#presentation">Overview</a></li>
+        <li><a href="#installer">Installing and opening</a></li>
+        <li><a href="#ecran">The screen at a glance</a></li>
+        <li><a href="#calculer">Entering a measurement and calculating</a></li>
+        <li><a href="#memoires">Memories</a></li>
+        <li><a href="#charpente">The framing keypad</a></li>
+        <li><a href="#metier">The keypad of your trade</a></li>
+        <li><a href="#ruban">The calculation tape</a></li>
+        <li><a href="#preferences">Preferences</a></li>
+        <li><a href="#raccourcis">Keyboard shortcuts</a></li>
+        <li><a href="#trucs">Pro tips</a></li>
+        <li><a href="#depannage">Messages and troubleshooting</a></li>
+        <li><a href="#fonctions">Directory of keys and functions</a></li>
+        <li><a href="#outils">Directory of tools by trade</a>
+            <ul>
+                <li><a href="#metier-estimation">Estimating and bidding</a></li>
+                <li><a href="#metier-terrassement">Earthwork and landscaping</a></li>
+                <li><a href="#metier-beton">Concrete and foundations</a></li>
+                <li><a href="#metier-maconnerie">Masonry and paving</a></li>
+                <li><a href="#metier-toiture">Roofing and siding</a></li>
+                <li><a href="#metier-gypse">Drywall and insulation</a></li>
+                <li><a href="#metier-finition">Finishing</a></li>
+                <li><a href="#metier-plomberie">Plumbing</a></li>
+                <li><a href="#metier-electricite">Electrical</a></li>
+                <li><a href="#metier-ventilation">Ventilation and heating</a></li>
+                <li><a href="#metier-acier">Steel and welding</a></li>
+            </ul>
+        </li>
+        <li><a href="#licence">Disclaimer, licence and contact</a></li>
+    </ol>
+</nav>
+
+<main>
+
+<h2 id="presentation">1. Overview</h2>
+<p>The Jobsite Calculator works the way people talk on a jobsite: in feet, inches and fractions, as well as in metres and millimetres. It brings three things together.</p>
+<ul>
+    <li><strong>The framer's keypad</strong>: pitches and rafters, hips, valleys and jack rafters, stairs, rake walls and arched walls, arcs and circles, compound mitres, material quantities, conversions and costs.</li>
+    <li><strong>The keypad of your trade</strong>: 76 tools for 11 other trades. Tap your trade above the keypad, and the top keys become those of its tools.</li>
+    <li><strong>The calculation tape</strong>, which keeps a record of everything that was entered and calculated, so you can review it, save it or share it.</li>
+</ul>
+<p>The calculator is free, with no ads and no account. Nothing is sent over the Internet: your settings, memories and tapes stay on your device.</p>
+<div class="avis">
+    <p><strong>Disclaimer.</strong> This calculator is a calculation aid. It does not replace the drawings, the judgment of a qualified person, or the requirements of the building code in force where you work (in Québec, the Construction Code) and of municipal regulations. Always check your results before cutting or ordering.</p>
+    <p>The trade tools do geometry, physics and arithmetic. They do not reproduce any code table (ampacities, minimum wire sizes, minimum slopes, permitted fill) and contain no prices: you enter your own costs and rates.</p>
+</div>
+
+<h2 id="installer">2. Installing and opening <a class="haut" href="#sommaire">Contents</a></h2>
+<h3>On the Web: computer, tablet, phone</h3>
+<p>Open <a href="https://constructoai.github.io/calculatrice-chantier/">constructoai.github.io/calculatrice-chantier</a>. The calculator runs as is, in the browser.</p>
+<h3>Installing it on a phone or tablet</h3>
+<p>Once installed, the calculator has its own icon, opens full screen and works offline, even at the far end of a basement.</p>
+<ul>
+    <li><strong>Android (Chrome)</strong>: open the site, then the calculator's <kbd>☰</kbd> menu, and tap <em>Install the app</em>. Or, in Chrome's menu: <em>Install app</em>.</li>
+    <li><strong>iPhone and iPad (Safari)</strong>: open the site, tap <em>Share</em>, then <em>Add to Home Screen</em>.</li>
+    <li><strong>Computer (Chrome or Edge)</strong>: the calculator's <kbd>☰</kbd> menu, <em>Install the app</em>, or the install icon in the address bar.</li>
+</ul>
+<p>Updates arrive on their own: each time it opens with a network connection, the calculator picks up the latest version. The current version is written at the bottom of the <kbd>☰</kbd> menu.</p>
+<h3>On Windows, without a browser</h3>
+<p>Download <code>calculatrice-chantier-windows-x64.exe</code> from the <a href="https://github.com/ConstructoAI/calculatrice-chantier/releases/latest">latest release</a>, then run it: there is nothing to install. The executable is not signed; the first time you run it, Windows may display "Windows protected your PC": choose <em>More info</em>, then <em>Run anyway</em>.</p>
+<h3>Where your data is kept</h3>
+<div class="table"><table>
+    <thead><tr><th></th><th>Web version</th><th>Windows version</th></tr></thead>
+    <tbody>
+        <tr><td>Settings, memories, tapes</td><td>in the browser, on the device</td><td>in the <code>%APPDATA%\CalculatriceChantier\</code> folder</td></tr>
+        <tr><td>Exporting a tape</td><td>a <code>.txt</code> file is downloaded</td><td>"Save as" dialog</td></tr>
+        <tr><td>Full screen</td><td>button in the top bar, where the browser allows it</td><td>button, preference or <kbd>F11</kbd></td></tr>
+    </tbody>
+</table></div>
+<p class="note">In the Web version, clearing the site's browsing data also erases your settings and your saved tapes.</p>
+
+<h2 id="ecran">3. The screen at a glance <a class="haut" href="#sommaire">Contents</a></h2>
+<div class="table"><table>
+    <tbody>
+        <tr><td><strong>Top bar</strong></td><td>The <kbd>☰</kbd> menu, the full-screen button, the calculator's name, the language button <kbd>FR</kbd> | <kbd>EN</kbd> and the gear wheel for preferences.</td></tr>
+        <tr><td><strong>Display</strong></td><td>In small type, the indicators: <span class="ecran">CONV</span>, <span class="ecran">STORE</span> or <span class="ecran">RECALL</span> when one of those keys is waiting for the next one; <span class="ecran">M</span> when the cumulative memory is not empty; the pending operation; <span class="ecran">MEM</span> for a stored value. In the middle, the label of what is displayed. In large type, the value, with stacked fractions. In the corner, the backspace key <kbd>⌫</kbd>. Double-clicking the value copies it.</td></tr>
+        <tr><td><strong>Quick fractions</strong></td><td>A strip of keys <kbd>1/8</kbd>, <kbd>1/4</kbd>, <kbd>3/8</kbd>… that you turn on in preferences.</td></tr>
+        <tr><td><strong>Trade bar</strong></td><td>The trade you chose, then its tools. See <a href="#metier">The keypad of your trade</a>.</td></tr>
+        <tr><td><strong>Keypad</strong></td><td>The keys. In small type above each one: its second function, reached with <kbd>Conv</kbd>.</td></tr>
+        <tr><td><strong>Bottom bar</strong></td><td>Four tabs: <em>Home</em> (the calculator), <em>Trades</em> (the tools as forms), <em>Tapes</em> and <em>Help</em>.</td></tr>
+    </tbody>
+</table></div>
+<p>The <kbd>☰</kbd> menu leads to the trade calculators, the saved tapes, the help, this manual, the welcome screen, the pro tips, the preferences and the <em>About</em> screen. At the bottom of the menu: the email and website of Constructo AI, and the calculator's version.</p>
+<p><strong>Help on a key:</strong> press and hold it, or right-click it. Its help topic opens, with an example. The <em>Help</em> tab gathers all the topics and lets you search them for a word.</p>
+
+<h2 id="calculer">4. Entering a measurement and calculating <a class="haut" href="#sommaire">Contents</a></h2>
+<h3>Measurements</h3>
+<p>Enter a measurement the way you say it: the number, then the unit.</p>
+<div class="table"><table>
+    <thead><tr><th>To enter</th><th>Keys</th></tr></thead>
+    <tbody>
+        <tr><td>5 ft 7 1/2 in</td><td><kbd>5</kbd> <kbd>Feet</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd></td></tr>
+        <tr><td>3/4 in</td><td><kbd>3</kbd> <kbd>/</kbd> <kbd>4</kbd></td></tr>
+        <tr><td>7.3 m</td><td><kbd>7</kbd> <kbd>.</kbd> <kbd>3</kbd> <kbd>m</kbd></td></tr>
+        <tr><td>centimetres, millimetres</td><td>the number, then <kbd>Conv</kbd> <kbd>7</kbd> (cm) or <kbd>Conv</kbd> <kbd>9</kbd> (mm)</td></tr>
+        <tr><td>square feet, cubic feet</td><td>the number, then <kbd>Feet</kbd> twice, or three times</td></tr>
+        <tr><td>a weight</td><td>the number, then <kbd>Conv</kbd> <kbd>4</kbd> (lb), <kbd>Conv</kbd> <kbd>1</kbd> (kg), <kbd>Conv</kbd> <kbd>6</kbd> (short ton) or <kbd>Conv</kbd> <kbd>3</kbd> (metric tonne)</td></tr>
+    </tbody>
+</table></div>
+<p>If you do not type the denominator of a fraction, the current resolution is used: <kbd>15</kbd> <kbd>/</kbd> means 15/16. The <kbd>⌫</kbd> key erases the last character typed.</p>
+<h3>Operations</h3>
+<p>The <kbd>+</kbd> <kbd>−</kbd> <kbd>×</kbd> <kbd>÷</kbd> and <kbd>=</kbd> keys work as on any calculator, with measurements as well as with numbers. Calculations chain from left to right.</p>
+<p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Feet</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>+</kbd> <kbd>18</kbd> <kbd>Feet</kbd> <kbd>8</kbd> <kbd>Inch</kbd> <kbd>=</kbd> → <span class="ecran">24 ft 3 1/2 in</span></p>
+<p>A length times a length gives an area; an area times a length gives a volume.</p>
+<p class="exemple"><span class="mot">Example</span> <kbd>40</kbd> <kbd>Feet</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Feet</kbd> <kbd>=</kbd> → <span class="ecran">1,400 ft²</span></p>
+<h3>Percentages</h3>
+<p><kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> adds 10% to the value — your waste, in one move. <kbd>−</kbd> <kbd>20</kbd> <kbd>%</kbd> takes 20% off, <kbd>×</kbd> <kbd>18</kbd> <kbd>%</kbd> calculates 18% of it, <kbd>÷</kbd> <kbd>80</kbd> <kbd>%</kbd> divides it by 0.80.</p>
+<h3>Conversions</h3>
+<p>With a value displayed, press the unit you want: <kbd>m</kbd> converts it to metres, <kbd>Feet</kbd> to feet, <kbd>Conv</kbd> <kbd>9</kbd> to millimetres. <kbd>Feet</kbd> toggles between feet-inches and decimal feet, <kbd>Inch</kbd> between fraction and decimals.</p>
+<h3>The Conv key</h3>
+<p><kbd>Conv</kbd> is the conversion and second-function key. Followed by a key, it runs the function written in small type above that key; followed by a unit, it converts the displayed value. You can also tap the small label directly.</p>
+<h3>Clearing</h3>
+<ul>
+    <li><kbd>Clear</kbd>, once: clears the display and any error.</li>
+    <li><kbd>Clear</kbd>, twice: also clears the temporary values (rise, run, length, diameter…). Do this before a new problem. The entered pitch, the memories and the stored values are kept.</li>
+    <li><kbd>Conv</kbd> <kbd>×</kbd> (<em>Clear all</em>): restores the calculator to new, after confirmation — memories, tape, stored values and the fields of the trade tool. Preferences are kept.</li>
+</ul>
+<h3>Copying and pasting</h3>
+<p>Double-clicking the displayed value copies it (or <kbd>Ctrl</kbd>+<kbd>C</kbd>). <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes a number or a length written out: <code>12 ft 6 in</code>, <code>30 in</code>, <code>3.8 m</code>.</p>
+
+<h2 id="memoires">5. Memories <a class="haut" href="#sommaire">Contents</a></h2>
+<ul>
+    <li><strong>The cumulative memory.</strong> Each press of <kbd>M+</kbd> adds the displayed value to the total; <kbd>Conv</kbd> <kbd>M+</kbd> subtracts it. <kbd>Recall</kbd> <kbd>M+</kbd> shows the total; <kbd>M+</kbd> after that shows the average, then the number of values. <kbd>Recall</kbd> <kbd>Recall</kbd> shows the total and clears the memory.</li>
+    <li><strong>Three free registers.</strong> <kbd>Store</kbd> <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd> stores the displayed value; <kbd>Recall</kbd> <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd> brings it back.</li>
+    <li><strong>The calculator's stored values.</strong> <kbd>Store</kbd> <kbd>4</kbd> to <kbd>9</kbd> and <kbd>0</kbd> set the block, the on-centre spacing, the footing section, the target riser, the floor thickness, the target tread and the density. They can also be changed in <a href="#preferences">preferences</a>.</li>
+    <li><strong>Recalling what a key holds in memory.</strong> <kbd>Recall</kbd> followed by a function key shows its last value: <kbd>Recall</kbd> <kbd>Run</kbd> shows the last run.</li>
+</ul>
+
+<h2 id="charpente">6. The framing keypad <a class="haut" href="#sommaire">Contents</a></h2>
+<p>This is the basic keypad, the one the calculator shows when the trade bar reads <em>Framing</em>. Its function keys all follow the same rule: <strong>a value typed, then the key, stores the value; the key alone calculates</strong>. Press a key again to cycle through all its results.</p>
+<p class="exemple"><span class="mot">Example</span> A rafter: <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> · <kbd>8</kbd> <kbd>Feet</kbd> <kbd>5</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> · <kbd>Diag</kbd> → <span class="ecran">9 ft 8 15/16 in</span>, then <kbd>Hip Valley</kbd> → <span class="ecran">12 ft 10 1/2 in</span></p>
+<p>The top keys solve the right triangle: enter two values among <kbd>Pitch</kbd>, <kbd>Rise</kbd>, <kbd>Run</kbd> and <kbd>Diag</kbd>, then press the third. The pitch stays in memory: no need to enter it again for the next rafter. To send a result to another function, press <kbd>=</kbd> first.</p>
+<p>Each key and each second function has its own topic, with a worked example, in the <a href="#fonctions">directory of keys and functions</a> below.</p>
+
+<h2 id="metier">7. The keypad of your trade <a class="haut" href="#sommaire">Contents</a></h2>
+<p>Above the keypad, the <strong>trade bar</strong> starts with a solid chip: the current trade (<em>Framing</em>, at first). To its right, a row of chips scrolls sideways.</p>
+<ul>
+    <li><strong>Choosing your trade:</strong> tap it in the row, or tap the solid chip to open the <em>Your trade</em> list.</li>
+    <li><strong>Changing tools:</strong> once the trade is chosen, the row shows its tools. One tap is all it takes.</li>
+    <li><strong>Going back to framing:</strong> tap the solid chip, then <em>Framing, roofing and stairs</em>.</li>
+</ul>
+<p>The calculator remembers the current tool: you find it again the next time you open it.</p>
+<h3>Filling in a tool</h3>
+<p>The tool's fields become the <strong>top keys</strong>. Above each key is written the content of its field; when the field is empty, you read there, in parentheses, the unit of a number typed without a unit: <span class="ecran">(ft)</span>, <span class="ecran">(in)</span>, <span class="ecran">(A)</span>.</p>
+<ol>
+    <li><strong>Type a value, then press the key of the field</strong> where you want to store it. A bare number takes the field's unit: <kbd>24</kbd> on a field in feet gives 24 ft 0 in.</li>
+    <li><strong>A dark key</strong> cycles through the options of a list: the angle of a fitting, the size of a conductor.</li>
+    <li><strong>Press <kbd>Result</kbd>.</strong> The calculation is recorded on the tape and the first result is displayed, with its rank: <span class="ecran">2 of 3</span>. Press again to see the next one.</li>
+</ol>
+<p class="exemple"><span class="mot">Example</span> A slab 24 ft by 20 ft, 4 in thick. <em>Concrete</em> trade, <em>Concrete slab</em> tool: <kbd>24</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> · <kbd>20</kbd> <kbd>Feet</kbd> <kbd>Width</kbd> · <kbd>4</kbd> <kbd>Inch</kbd> <kbd>Thickness</kbd> · <kbd>Result</kbd> → <span class="ecran">480 ft² (44.6 m²)</span> · <kbd>Result</kbd> → <span class="ecran">5.93 yd³ (4.53 m³)</span> · <kbd>Result</kbd> → <span class="ecran">6.52 yd³ (4.98 m³)</span> to order, 10% waste included.</p>
+<p class="exemple"><span class="mot">Example</span> A 12 in offset with 45° fittings. <em>Plumbing</em> trade, <em>Pipe offset</em> tool: <kbd>12</kbd> <kbd>Inch</kbd> <kbd>Offset</kbd> · <kbd>Result</kbd> → <span class="ecran">1 ft 5 in</span> of travel · <kbd>Result</kbd> → <span class="ecran">1 ft 0 in</span> of run. For another angle, press the dark <kbd>Angle</kbd> key until you reach the angle you want.</p>
+<p class="exemple"><span class="mot">Example</span> The voltage drop of a 120 V, 15 A circuit, 100 ft long, in 14 AWG copper. <em>Electrical</em> trade, <em>Voltage drop</em> tool: <kbd>15</kbd> <kbd>Current</kbd> · <kbd>100</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> · <kbd>Result</kbd> → <span class="ecran">9.42 V</span> · <kbd>Result</kbd> → <span class="ecran">7.85%</span> · <kbd>Result</kbd> → <span class="ecran">110.6 V</span> at the load.</p>
+<h3>Good to know</h3>
+<ul>
+    <li><strong>Recalling a field:</strong> its key, with nothing typed, displays its value.</li>
+    <li><strong>Resetting a field to its starting value:</strong> <kbd>Conv</kbd>, then its key. <strong>All the fields:</strong> tap the <em>Start over</em> label above <kbd>Result</kbd>.</li>
+    <li><strong>A value is missing?</strong> The display names it: <span class="ecran">MISSING: WIDTH</span>.</li>
+    <li><strong>Keep calculating:</strong> a displayed result is a value like any other. <kbd>×</kbd> <kbd>2</kbd> <kbd>=</kbd>, <kbd>M+</kbd> and <kbd>Store</kbd> all use it.</li>
+    <li><strong>From one tool to the next:</strong> the displayed value follows you when you change tools. The loose volume of a trench, for example, goes into the <em>Volume</em> field of the truckloads tool with one press.</li>
+    <li><strong>An area calculated on the keypad</strong> goes into a field in square feet: <kbd>40</kbd> <kbd>Feet</kbd> <kbd>×</kbd> <kbd>35</kbd> <kbd>Feet</kbd> <kbd>=</kbd>, then <kbd>Area</kbd>.</li>
+    <li><strong>How to use a tool:</strong> press and hold one of its keys.</li>
+</ul>
+<h3>The same tools as forms</h3>
+<p>The <em>Trades</em> tab presents each tool as a form: all the fields and all the results at a glance, recalculated with every keystroke. A measurement is written out in full there (<code>12 ft 6 in</code>, <code>30 in</code>, <code>3.8 m</code>). The <em>Add to tape</em> button records the calculation; <em>On keypad</em> plugs the tool into the keys of the home screen. The form and the keypad share the same values.</p>
+<p>Results follow the system of the first length you entered: in feet-inches or in metric for lengths, in both systems for areas, volumes and weights. Quantities to buy (bags, boxes, sheets) are rounded up to the next whole unit.</p>
+<p>All the tools are described, with an example, in the <a href="#outils">directory of tools by trade</a>.</p>
+
+<h2 id="ruban">8. The calculation tape <a class="haut" href="#sommaire">Contents</a></h2>
+<p>The tape keeps a record of your calculations: the operations and their totals, the values given to functions and their results, the conversions, and the details of each trade tool calculation, under its title.</p>
+<ul>
+    <li><strong>Viewing it:</strong> the <em>Tapes</em> tab, or <kbd>Conv</kbd> <kbd>=</kbd>. In a wide window, it stays on screen to the right of the calculator.</li>
+    <li><strong>Saving:</strong> give it a name — the client's or the jobsite's. Saved tapes can be reopened, renamed, copied, exported and deleted from the <em>Tapes</em> tab.</li>
+    <li><strong>Copying:</strong> the text of the tape goes to the clipboard, ready to paste into an email or a text message.</li>
+    <li><strong>Exporting:</strong> a <code>.txt</code> file.</li>
+    <li><strong>Clearing:</strong> erases the current tape, after confirmation.</li>
+</ul>
+<p class="note">The current tape keeps the last 500 lines. <kbd>Clear</kbd> twice draws a separator line on it; <em>Clear all</em> empties it.</p>
+
+<h2 id="preferences">9. Preferences <a class="haut" href="#sommaire">Contents</a></h2>
+<p>The gear wheel, or <kbd>Conv</kbd> <kbd>Store</kbd>, opens the preferences. Changes apply right away and are kept.</p>
+<div class="table"><table>
+    <thead><tr><th>Preference</th><th>Choices (in bold: the default)</th></tr></thead>
+    <tbody>
+        <tr><td>Language</td><td><strong>the device's language</strong> the first time: Français, English</td></tr>
+        <tr><td>Trigonometric mode</td><td><strong>off</strong>, on: the <kbd>Length</kbd>, <kbd>Width</kbd> and <kbd>Height</kbd> keys become <kbd>sin</kbd>, <kbd>cos</kbd> and <kbd>tan</kbd></td></tr>
+        <tr><td>Quick fractions</td><td><strong>off</strong>, on: shows the strip of fractions</td></tr>
+        <tr><td>Full-screen mode</td><td><strong>off</strong>, on (Windows version)</td></tr>
+        <tr><td>Theme</td><td><strong>Automatic</strong>, Light, Dark</td></tr>
+        <tr><td>Fraction resolution</td><td>1/2, 1/4, 1/8, <strong>1/16</strong>, 1/32, 1/64</td></tr>
+        <tr><td>Fraction mode</td><td><strong>Standard</strong> (reduced fraction), Constant (fixed denominator)</td></tr>
+        <tr><td>Exponential notation</td><td><strong>off</strong>, on</td></tr>
+        <tr><td>Area display</td><td><strong>Standard</strong>, Square feet, Square yards, Square metres</td></tr>
+        <tr><td>Volume display</td><td><strong>Standard</strong>, Cubic yards, Cubic feet, Cubic metres</td></tr>
+        <tr><td>Metres (lengths)</td><td><strong>0.000</strong>, Floating</td></tr>
+        <tr><td>Decimal degrees</td><td><strong>0.00</strong>, Floating</td></tr>
+        <tr><td>Thousands separator</td><td><strong>on</strong> (a comma), off</td></tr>
+        <tr><td>Decimal separator</td><td>in English, always the <strong>point</strong>; in French, Comma or Point</td></tr>
+        <tr><td>Decimals (unitless values)</td><td><strong>Floating</strong>, 0, 1, 2, 3, 4</td></tr>
+        <tr><td>Rake wall</td><td><strong>Descending</strong> (longest to shortest), Ascending</td></tr>
+        <tr><td>Arched wall</td><td><strong>Outside</strong> (above the arc), Inside (below the arc)</td></tr>
+        <tr><td>Jack rafters</td><td><strong>Descending</strong>, Ascending</td></tr>
+        <tr><td>Irregular jack rafters</td><td><strong>Constant on-centre spacing</strong>, Mated</td></tr>
+    </tbody>
+</table></div>
+<h3>The language</h3>
+<p>The <kbd>FR</kbd> | <kbd>EN</kbd> button in the top bar switches the whole calculator from French to English and back: the keys, the display, the tools, the help and this manual. The way numbers are written and the unit symbols follow the language: <span class="ecran">1 234,5 pi²</span> in French, <span class="ecran">1,234.5 ft²</span> in English. Your values do not change: what you typed in a tool is rewritten in the new language. The first time it opens, the calculator takes the language of the device if it is French or English; after that, it keeps the one you chose.</p>
+<p class="note">In English, the decimal separator is always the point, and a comma typed between groups of three digits separates thousands: <code>1,500</code> is one thousand five hundred. In French, the comma is always the decimal separator. Units, however, can be typed in either language: <code>12 pi 6 po</code> as well as <code>12 ft 6 in</code>.</p>
+<h3>Stored values</h3>
+<p>These are the starting points of the framing functions. Tap a line in the preferences to change it.</p>
+<div class="table"><table>
+    <thead><tr><th>Value</th><th>Default</th><th>Also with</th><th>Used for</th></tr></thead>
+    <tbody>
+        <tr><td>Headroom</td><td>6 ft 8 in</td><td></td><td>stairwell opening</td></tr>
+        <tr><td>Target riser height</td><td>7 1/2 in</td><td><kbd>Store</kbd> <kbd>7</kbd></td><td>stair</td></tr>
+        <tr><td>Floor thickness</td><td>10 in</td><td><kbd>Store</kbd> <kbd>8</kbd></td><td>stairwell opening</td></tr>
+        <tr><td>Target tread depth</td><td>10 in</td><td><kbd>Store</kbd> <kbd>9</kbd></td><td>stair</td></tr>
+        <tr><td>Block area and length</td><td>128 in² and 16 in</td><td><kbd>Store</kbd> <kbd>4</kbd></td><td>blocks</td></tr>
+        <tr><td>Crown moulding angle</td><td>45.00°</td><td><kbd>Store</kbd> <kbd>Compound Mitre</kbd></td><td>compound mitre</td></tr>
+        <tr><td>On-centre spacing</td><td>16 in</td><td><kbd>Store</kbd> <kbd>5</kbd></td><td>jack rafters, walls, studs</td></tr>
+        <tr><td>Footing section</td><td>264 in²</td><td><kbd>Store</kbd> <kbd>6</kbd></td><td>footing</td></tr>
+        <tr><td>Density</td><td>1.5 ton/yd³</td><td><kbd>Store</kbd> <kbd>0</kbd></td><td>going from a volume to a weight</td></tr>
+        <tr><td>Shingle bundles per square</td><td>3</td><td></td><td>roof</td></tr>
+    </tbody>
+</table></div>
+<p class="avis">These starting values, like those of the trade tools (waste, yields, spacings), are starting points that you can change. They are not a statement of code compliance.</p>
+<p>The <em>Reset data and preferences</em> button restores everything to new, after confirmation. The language stays the one you chose.</p>
+
+<h2 id="raccourcis">10. Keyboard shortcuts <a class="haut" href="#sommaire">Contents</a></h2>
+<p>On a computer, the calculator responds to the keyboard. The shortcuts are the same in both languages.</p>
+<div class="table"><table>
+    <thead><tr><th>Keyboard key</th><th>Action</th><th>Keyboard key</th><th>Action</th></tr></thead>
+    <tbody>
+        <tr><td><kbd>0</kbd> to <kbd>9</kbd></td><td>digits</td><td><kbd>'</kbd></td><td>Feet</td></tr>
+        <tr><td><kbd>,</kbd> or <kbd>.</kbd></td><td>decimal point</td><td><kbd>"</kbd></td><td>Inch</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd></td><td>+ − ×</td><td><kbd>V</kbd></td><td>Yards</td></tr>
+        <tr><td><kbd>:</kbd></td><td>÷</td><td><kbd>M</kbd></td><td>m</td></tr>
+        <tr><td><kbd>/</kbd></td><td>fraction bar</td><td><kbd>%</kbd></td><td>%</td></tr>
+        <tr><td><kbd>Enter</kbd> or <kbd>=</kbd></td><td>=</td><td><kbd>Space</kbd></td><td>Conv</td></tr>
+        <tr><td><kbd>Backspace</kbd></td><td>⌫</td><td><kbd>S</kbd></td><td>Store</td></tr>
+        <tr><td><kbd>Esc</kbd> or <kbd>Del</kbd></td><td>Clear</td><td><kbd>R</kbd></td><td>Recall</td></tr>
+        <tr><td><kbd>P</kbd> <kbd>T</kbd> <kbd>C</kbd> <kbd>D</kbd></td><td>Pitch, Rise, Run, Diag</td><td><kbd>Ins</kbd></td><td>M+</td></tr>
+        <tr><td><kbd>A</kbd> <kbd>O</kbd> <kbd>E</kbd></td><td>Hip Valley, Compound Mitre, Stair</td><td><kbd>F1</kbd></td><td>Help</td></tr>
+        <tr><td><kbd>B</kbd> <kbd>I</kbd> <kbd>J</kbd></td><td>Arc, Circle, Jack</td><td><kbd>F11</kbd></td><td>full screen</td></tr>
+        <tr><td><kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd></td><td>Length, Width, Height</td><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Preferences</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>copy the displayed value</td><td><kbd>Ctrl</kbd>+<kbd>R</kbd></td><td>tape</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>paste a number or a length</td><td></td><td></td></tr>
+    </tbody>
+</table></div>
+<p class="note">In the Web version, <kbd>F11</kbd> and <kbd>Ctrl</kbd>+<kbd>R</kbd> remain the browser's. With a trade tool on the keypad, the shortcuts of the framing keys (from <kbd>P</kbd> to <kbd>J</kbd>, and <kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd>) have no effect.</p>
+
+<h2 id="trucs">11. Pro tips <a class="haut" href="#sommaire">Contents</a></h2>
+<ol>
+    <li><strong>Cycle through the results.</strong> Press a function key again to see all its results: Diag gives the length, then the plumb cut, then the level cut.</li>
+    <li><strong>The pitch stays in memory.</strong> No need to enter it again for the next rafter.</li>
+    <li><strong>Start fresh.</strong> Before a new problem, press Clear twice.</li>
+    <li><strong>Reuse a result.</strong> To send a result to another function, press = first.</li>
+    <li><strong>Check for square.</strong> Length, Width, then Width twice: the diagonal to measure on site.</li>
+    <li><strong>Add your waste in one move.</strong> + 10 %.</li>
+    <li><strong>Convert effortlessly.</strong> With a value displayed, press the unit you want. Feet toggles between feet-inches and decimal feet.</li>
+    <li><strong>Click the label.</strong> Clicking the small label above a key is the same as Conv then the key.</li>
+    <li><strong>Keep your cut list.</strong> Save the tape after calculating a stair or a roof.</li>
+    <li><strong>Need more precision?</strong> Set the fraction resolution in Preferences, or temporarily: Conv 3 for 1/32.</li>
+    <li><strong>Round up.</strong> Material quantities are exact, not rounded: always order the next whole unit.</li>
+    <li><strong>On a keyboard.</strong> The apostrophe for feet, the quotation mark for inches, the space bar for Conv.</li>
+    <li><strong>Your trade at your fingertips.</strong> Tap the trade name above the keypad so the top keys become those of your tools.</li>
+    <li><strong>From one tool to the next.</strong> A displayed result follows you when you change tools: press the key of the field where you want to store it.</li>
+    <li><strong>In English or in French.</strong> The FR | EN button at the top of the screen switches the language instantly: numbers and units follow (1 234,5 pi² becomes 1,234.5 ft²), and your values stay the same.</li>
+</ol>
+
+<h2 id="depannage">12. Messages and troubleshooting <a class="haut" href="#sommaire">Contents</a></h2>
+<div class="table"><table>
+    <thead><tr><th>The display shows</th><th>What it means</th></tr></thead>
+    <tbody>
+        <tr><td><span class="ecran">NO VALUE</span></td><td>The key has nothing to recall or calculate: it is missing a value. Type it, then press again.</td></tr>
+        <tr><td><span class="ecran">MISSING: …</span></td><td>The trade tool is still waiting for the value of the field named.</td></tr>
+        <tr><td><span class="ecran">PLEASE FIX: …</span></td><td>The field named holds an entry the tool cannot read. Type its value again.</td></tr>
+        <tr><td><span class="ecran">ERROR – unit mismatch</span></td><td>The units do not go together: a length added to a bare number, a length in a field that expects amperes. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – invalid entry</span></td><td>The value makes no sense here: zero where a measurement is needed, a decimal number where a whole number is needed. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – cannot calculate</span></td><td>The calculation has no result: a division by zero, an impossible triangle. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – trigonometry</span></td><td>The value is outside the function's domain: an inverse sine greater than 1, for example. Press <kbd>Clear</kbd>.</td></tr>
+        <tr><td><span class="ecran">ERROR – overflow</span></td><td>The result is too large for the display. Press <kbd>Clear</kbd>.</td></tr>
+    </tbody>
+</table></div>
+<ul>
+    <li><strong>A result looks rounded.</strong> Lengths are displayed at the fraction resolution chosen in preferences (to 1/16 of an inch, at first); the calculation itself keeps its full precision.</li>
+    <li><strong>A framing function gives an unexpected result.</strong> A value from an earlier calculation may still be in memory: press <kbd>Clear</kbd> twice and start again.</li>
+    <li><strong>The framing keys have disappeared.</strong> A trade tool is on the keypad: tap the trade chip, then <em>Framing, roofing and stairs</em>.</li>
+    <li><strong>The calculator is in the wrong language.</strong> Tap <kbd>FR</kbd> or <kbd>EN</kbd> in the top bar.</li>
+    <li><strong>The installed calculator does not have the latest version.</strong> Open it once with a network connection, close it, then open it again. The version is shown at the bottom of the <kbd>☰</kbd> menu.</li>
+    <li><strong>My tapes have disappeared (Web version).</strong> They are kept in the browser: they are erased along with the site's browsing data, and do not follow you from one device to another. Export the ones that matter.</li>
+</ul>
+
+<h2 id="fonctions">13. Directory of keys and functions <a class="haut" href="#sommaire">Contents</a></h2>
+<p>These are the topics of the <em>Help</em> tab: one for each key and each second function of the framing keypad, with a worked example.</p>
+<h3>The main keys</h3>
+<article>
+    <h4>Pitch</h4>
+    <p><strong>The pitch of a roof or of an inclined plane.</strong> It is expressed in inches of rise per 12 inches of run (7 in = a 7/12 pitch), in degrees, as a percentage or as a ratio. To enter it: <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> (7/12), <kbd>30</kbd> <kbd>Pitch</kbd> (30 degrees) or <kbd>75</kbd> <kbd>%</kbd> <kbd>Pitch</kbd> (75%). To calculate it: enter two values among the rise, the run and the diagonal, then press <kbd>Pitch</kbd>. Press again to see it in its other forms. The pitch you enter stays in memory until you enter another one.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>30.45</kbd> <kbd>Pitch</kbd>, then <kbd>Pitch</kbd> repeatedly → <strong>30.45° · 58.78702% · ratio 0.58787 · 7 1/16 in</strong></p>
+</article>
+<article>
+    <h4>Rise</h4>
+    <p><strong>The vertical side of a right triangle.</strong> It is the height of a roof from the top plate to the ridge, the total height of a stair from one finished floor to the next, or the rise of an arc. Type the measurement then <kbd>Rise</kbd> to enter it. To calculate it, enter two other values (pitch, run or diagonal) and press <kbd>Rise</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>11</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> <kbd>Rise</kbd> → <strong>RISE 6 ft 8 1/2 in</strong></p>
+</article>
+<article>
+    <h4>Run</h4>
+    <p><strong>The horizontal side of a right triangle.</strong> It is half the span of a roof (from the outside wall to the centre of the ridge), the length of a stair along the floor, or the chord of an arc. Type the measurement then <kbd>Run</kbd>, or calculate it from two other values.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>4</kbd> <kbd>Feet</kbd> <kbd>Diag</kbd> <kbd>Run</kbd> → <strong>RUN 3 ft 6 15/16 in</strong></p>
+</article>
+<article>
+    <h4>Diag</h4>
+    <p><strong>The diagonal (hypotenuse).</strong> It is the length of the common rafter, or the diagonal used to check that a foundation is square. Press again for the plumb cut and the level cut.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>7</kbd> <kbd>Feet</kbd> <kbd>2</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> <kbd>Diag</kbd>, then <kbd>Diag</kbd> twice → <strong>DIAGONAL 8 ft 3 9/16 in · PLUMB CUT 30.26° · LEVEL CUT 59.74°</strong></p>
+    <p class="note">The length is measured point to point: add the roof overhang and subtract half the thickness of the ridge board as needed.</p>
+</article>
+<article>
+    <h4>Hip Valley</h4>
+    <p><strong>The length of the hip or valley rafter and its cuts.</strong> Enter the pitch and the run of the common rafter, then press <kbd>Hip Valley</kbd>. Press again for the plumb cut, the level cut and the cheek cut (bevel). For a roof whose two sides have different pitches, enter the irregular pitch first.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>8</kbd> <kbd>Feet</kbd> <kbd>5</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>Hip Valley</kbd>, then <kbd>Hip Valley</kbd> repeatedly → <strong>HIP/VALLEY 12 ft 10 1/2 in · 22.42° · 67.58° · 45.00°</strong></p>
+    <p class="note">Lengths are theoretical, centreline to centreline.</p>
+</article>
+<article>
+    <h4>Compound Mitre</h4>
+    <p><strong>The mitre saw settings for a crown moulding cut flat.</strong> Type the corner angle (90 for a square corner), then <kbd>Compound Mitre</kbd>: you get the mitre angle (table rotation) and the bevel angle (blade tilt). For a piece with several equal sides, type the number of sides instead (any value under 25 is taken as a number of sides). First check that the stored crown angle matches your moulding.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>90</kbd> <kbd>Compound Mitre</kbd>, then <kbd>Compound Mitre</kbd> → <strong>MITRE 35.26° · BEVEL 30.00°</strong></p>
+</article>
+<article>
+    <h4>Stair</h4>
+    <p><strong>The complete layout of a straight stair.</strong> Enter the height to climb with <kbd>Rise</kbd>, the length available with <kbd>Run</kbd>, or both, then press <kbd>Stair</kbd> repeatedly: riser height and number of risers, tread depth and number of treads, rounding differences, stairwell opening length, stringer length, incline. The target riser height and tread depth, the headroom and the floor thickness are set in Preferences. A warning symbol flags a riser higher than the target value.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>9</kbd> <kbd>Feet</kbd> <kbd>11</kbd> <kbd>Inch</kbd> <kbd>Rise</kbd>, then <kbd>Stair</kbd> repeatedly → <strong>RISER HEIGHT 7 7/16 in · 16 risers · TREAD DEPTH 10 in · 15 treads · STAIRWELL OPENING 10 ft 1 in · STRINGER 15 ft 6 15/16 in · 36.64°</strong></p>
+    <p class="note">The tread depth does not include the nosing. Always check the requirements of the building code.</p>
+</article>
+<article>
+    <h4>Arc</h4>
+    <p><strong>Everything about a circular arc.</strong> Two values are enough: the diameter and the angle, the diameter and the arc length, or the chord (<kbd>Run</kbd> key) and the arc rise (<kbd>Rise</kbd> key). Press <kbd>Arc</kbd> repeatedly: angle, arc length, chord, segment area, sector area, arc rise, then the length of each stud of an arched wall at the stored on-centre spacing.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Feet</kbd> <kbd>Circle</kbd> <kbd>85</kbd> <kbd>Arc</kbd>, then <kbd>Arc</kbd> → <strong>ARC 85.00° · ARC 3 ft 8 1/2 in</strong></p>
+</article>
+<article>
+    <h4>Circle</h4>
+    <p><strong>Area and circumference of a circle.</strong> Type the diameter, then <kbd>Circle</kbd>; press again for the area, then the circumference.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>11</kbd> <kbd>Inch</kbd> <kbd>Circle</kbd>, then <kbd>Circle</kbd> twice → <strong>AREA 95.03318 in² · CIRCUMFERENCE 34 9/16 in</strong></p>
+</article>
+<article>
+    <h4>Jack</h4>
+    <p><strong>The length of each jack rafter.</strong> Jack rafters are the shortened rafters that land on the hip or the valley. Enter the pitch and the run, then press <kbd>Jack</kbd> repeatedly: on-centre spacing, increment (the difference in length from one jack to the next), each length, then the cuts. The order (descending or ascending) is chosen in Preferences.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>8</kbd> <kbd>Feet</kbd> <kbd>5</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd>, then <kbd>Jack</kbd> repeatedly → <strong>ON CENTRE 16 in · INCREMENT 1 ft 6 1/2 in · 8 ft 2 3/8 in · 6 ft 7 7/8 in · 5 ft 1 3/8 in…</strong></p>
+</article>
+<article>
+    <h4>m</h4>
+    <p><strong>Metres.</strong> Type a number then <kbd>m</kbd>. Two presses give square metres, three give cubic metres. With a value already displayed, <kbd>m</kbd> converts it to metres.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>8</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>m</kbd> → <strong>2.438 m</strong></p>
+</article>
+<article>
+    <h4>Length</h4>
+    <p><strong>Stores a length</strong> for area, volume and material calculations (blocks, footing, drywall, roofing).</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>20</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Length</kbd> → <strong>LENGTH 20 ft 6 in</strong></p>
+</article>
+<article>
+    <h4>Width</h4>
+    <p><strong>Stores the width,</strong> then gives, with each press: the area, the square-up diagonal and the perimeter of the rectangle.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>20</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Length</kbd> <kbd>25</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Width</kbd>, then <kbd>Width</kbd> repeatedly → <strong>AREA 522.75 ft² · SQUARE-UP 32 ft 8 5/8 in · PERIMETER 92 ft 0 in</strong></p>
+</article>
+<article>
+    <h4>Height</h4>
+    <p><strong>Stores the height,</strong> then gives, with each press: the volume, the area of the four walls and the room area (walls and ceiling), handy for paint and drywall.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>15</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> <kbd>20</kbd> <kbd>Feet</kbd> <kbd>Width</kbd> <kbd>12</kbd> <kbd>Feet</kbd> <kbd>Height</kbd>, then <kbd>Height</kbd> repeatedly → <strong>VOLUME 3,600 ft³ · WALLS 840 ft² · ROOM 1,140 ft²</strong></p>
+</article>
+<article>
+    <h4>%</h4>
+    <p><strong>Percentages.</strong> <kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> adds 10% to the value, <kbd>−</kbd> <kbd>20</kbd> <kbd>%</kbd> takes 20% off, <kbd>×</kbd> <kbd>18</kbd> <kbd>%</kbd> calculates 18% of it, <kbd>÷</kbd> <kbd>80</kbd> <kbd>%</kbd> divides it by 0.80. It also works with measurements. Finally, it is used to enter a pitch as a percentage: <kbd>2</kbd> <kbd>%</kbd> <kbd>Pitch</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>137</kbd> <kbd>Feet</kbd> <kbd>Feet</kbd> <kbd>+</kbd> <kbd>10</kbd> <kbd>%</kbd> → <strong>150.7 ft²</strong></p>
+</article>
+<article>
+    <h4>Yards, Feet, Inch</h4>
+    <p><strong>The imperial units.</strong> Type the number, then the unit: <kbd>5</kbd> <kbd>Feet</kbd> <kbd>7</kbd> <kbd>Inch</kbd>. Two presses of the same unit give square units, three give cubic units. With a value displayed, the key converts; <kbd>Feet</kbd> toggles between feet-inches and decimal feet, <kbd>Inch</kbd> between fraction and decimals.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Feet</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>+</kbd> <kbd>18</kbd> <kbd>Feet</kbd> <kbd>8</kbd> <kbd>Inch</kbd> <kbd>=</kbd> → <strong>24 ft 3 1/2 in</strong></p>
+</article>
+<article>
+    <h4>/</h4>
+    <p><strong>The fraction bar.</strong> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> gives half an inch. If you do not type the denominator, the current resolution is used: <kbd>15</kbd> <kbd>/</kbd> means 15/16.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>15</kbd> <kbd>/</kbd> <kbd>=</kbd> → <strong>15/16 in</strong></p>
+</article>
+<article>
+    <h4>Clear</h4>
+    <p><strong>One press clears the display and any error.</strong> Two presses also clear the temporary values (rise, run, length, diameter…). The entered pitch, the memories and the stored values are kept.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>+</kbd> <kbd>3</kbd> <kbd>Clear</kbd> <kbd>4</kbd> <kbd>=</kbd> → <strong>9</strong></p>
+</article>
+<article>
+    <h4>Conv</h4>
+    <p><strong>The conversion and second-function key.</strong> Followed by a key, it runs the function written in small type above that key. Followed by a unit, it converts the displayed value. You can also click the small label directly.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>14</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Yards</kbd> → <strong>4.666667 yd</strong></p>
+</article>
+<article>
+    <h4>Store</h4>
+    <p><strong>Stores a value in memory.</strong> <kbd>Store</kbd> <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd>: three free registers. <kbd>Store</kbd> <kbd>4</kbd> to <kbd>9</kbd> and <kbd>0</kbd>: the calculator's stored values (block, on-centre spacing, footing section, target riser, floor thickness, target tread, density).</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>18</kbd> <kbd>Inch</kbd> <kbd>Store</kbd> <kbd>5</kbd> → <strong>ON CENTRE 18 in MEM</strong></p>
+</article>
+<article>
+    <h4>Recall</h4>
+    <p><strong>Recalls a value.</strong> Followed by a key, it shows what that key holds in memory: <kbd>Recall</kbd> <kbd>5</kbd> shows the on-centre spacing, <kbd>Recall</kbd> <kbd>Run</kbd> the last run. The recalled value can be used in a calculation.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>Recall</kbd> <kbd>7</kbd> → <strong>TARGET RISER 7 1/2 in MEM</strong></p>
+</article>
+<article>
+    <h4>M+</h4>
+    <p><strong>The cumulative memory.</strong> Each press adds the displayed value to the total. <kbd>Recall</kbd> <kbd>M+</kbd> shows the total; <kbd>M+</kbd> after that shows the average, then the number of values. <kbd>Recall</kbd> <kbd>Recall</kbd> shows the total and clears the memory.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>100</kbd> <kbd>M+</kbd> <kbd>200</kbd> <kbd>M+</kbd> <kbd>50</kbd> <kbd>Conv</kbd> <kbd>M+</kbd> <kbd>Recall</kbd> <kbd>M+</kbd>, then <kbd>M+</kbd> twice → <strong>M TOTAL 250 · AVERAGE 83.33333 · COUNT 3</strong></p>
+</article>
+<article>
+    <h4>=</h4>
+    <p><strong>Completes the calculation.</strong> After a function key, <kbd>=</kbd> makes the result available to another function.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>2</kbd> <kbd>+</kbd> <kbd>3</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>=</kbd> → <strong>20</strong></p>
+</article>
+<article>
+    <h4>⌫</h4>
+    <p><strong>Backspace:</strong> undoes the last keystroke of the current entry.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>12</kbd> <kbd>3</kbd> <kbd>⌫</kbd> <kbd>⌫</kbd> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>=</kbd> → <strong>17 in</strong></p>
+</article>
+<article>
+    <h4>Digits and decimal point</h4>
+    <p><strong>Entering numbers.</strong> Type the digits, then the unit if there is one. The point separates the decimals. A number has at most 12 digits. Once a result is displayed, the first digit you type starts a new value.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>17.32</kbd> <kbd>Feet</kbd> <kbd>=</kbd> → <strong>17.32 ft</strong></p>
+</article>
+<article>
+    <h4>+  −  ×  ÷</h4>
+    <p><strong>The four operations.</strong> Calculations are done in the order you key them, with no operator precedence: <kbd>2</kbd> <kbd>+</kbd> <kbd>3</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>=</kbd> gives 20. Units follow along: a length times a length gives an area; an area times a length, a volume.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Feet</kbd> <kbd>3</kbd> <kbd>Inch</kbd> <kbd>×</kbd> <kbd>11</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>1</kbd> <kbd>/</kbd> <kbd>2</kbd> <kbd>=</kbd> → <strong>60.59375 ft²</strong></p>
+</article>
+<h3>The second functions, with Conv</h3>
+<article>
+    <h4>Ratio <span class="acces"><kbd>Conv</kbd> <kbd>Pitch</kbd></span></h4>
+    <p><strong>Enters the pitch as a ratio</strong> of rise ÷ run: <kbd>0.65</kbd> <kbd>Conv</kbd> <kbd>Pitch</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>0.65</kbd> <kbd>Conv</kbd> <kbd>Pitch</kbd>, then <kbd>Pitch</kbd> → <strong>PITCH RATIO 0.65 · PITCH 7 13/16 in</strong></p>
+</article>
+<article>
+    <h4>Rake wall <span class="acces"><kbd>Conv</kbd> <kbd>Rise</kbd></span></h4>
+    <p><strong>The length of each stud in a wall whose top follows the roof pitch</strong> (gable wall, rake wall). Enter the rise and the run (or the pitch and one of the two), then <kbd>Conv</kbd> <kbd>Rise</kbd> and <kbd>Rise</kbd> repeatedly: on-centre spacing, each stud, base, wall angle. If the rake wall sits on a wall of constant height, type that height just before <kbd>Conv</kbd> <kbd>Rise</kbd>: it is added to each stud.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>4</kbd> <kbd>Feet</kbd> <kbd>Rise</kbd> <kbd>8</kbd> <kbd>Feet</kbd> <kbd>Run</kbd> <kbd>Conv</kbd> <kbd>Rise</kbd>, then <kbd>Rise</kbd> repeatedly → <strong>ON CENTRE 16 in · 3 ft 4 in · 2 ft 8 in · 2 ft 0 in · 1 ft 4 in · 0 ft 8 in · WALL ANGLE 26.57°</strong></p>
+</article>
+<article>
+    <h4>Polygon <span class="acces"><kbd>Conv</kbd> <kbd>Run</kbd></span></h4>
+    <p><strong>A regular shape with several sides</strong> (hexagonal patio, octagonal gazebo). Enter the radius (<kbd>15</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Arc</kbd>), type the number of sides, then <kbd>Conv</kbd> <kbd>Run</kbd>: interior angle, half angle (saw setting), length of one side, perimeter, area.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>15</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Arc</kbd> <kbd>6</kbd> <kbd>Conv</kbd> <kbd>Run</kbd>, then <kbd>Run</kbd> repeatedly → <strong>INTERIOR ANGLE 120.00° · HALF ANGLE 60.00° · SIDE 15 ft 0 in · PERIMETER 90 ft 0 in · AREA 584.5671 ft²</strong></p>
+</article>
+<article>
+    <h4>Roof <span class="acces"><kbd>Conv</kbd> <kbd>Diag</kbd></span></h4>
+    <p><strong>Roofing materials.</strong> Enter the pitch, then the length and width of the building in plan (or type a plan area directly), then <kbd>Conv</kbd> <kbd>Diag</kbd>: actual roof area, number of squares (100 ft²), number of shingle bundles, number of 4 × 8 sheets.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>10</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>14</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> <kbd>11</kbd> <kbd>Feet</kbd> <kbd>Width</kbd> <kbd>Conv</kbd> <kbd>Diag</kbd>, then <kbd>Diag</kbd> repeatedly → <strong>ROOF AREA 200.4631 ft² · SQUARES 2.00 · BUNDLES 6.01 · 4×8 SHEETS 6.26</strong></p>
+    <p class="note">Quantities are not rounded and include neither waste, overhangs nor valleys.</p>
+</article>
+<article>
+    <h4>Irreg. pitch <span class="acces"><kbd>Conv</kbd> <kbd>Hip Valley</kbd></span></h4>
+    <p><strong>The second pitch of an irregular roof,</strong> where two sides with different pitches meet at a hip or a valley: <kbd>8</kbd> <kbd>Inch</kbd> <kbd>Conv</kbd> <kbd>Hip Valley</kbd>. It is cleared by two presses of <kbd>Clear</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>4</kbd> <kbd>Feet</kbd> <kbd>Run</kbd> <kbd>8</kbd> <kbd>Inch</kbd> <kbd>Conv</kbd> <kbd>Hip Valley</kbd>, then <kbd>Hip Valley</kbd> → <strong>IRREGULAR PITCH 8 in · IRREG. HIP/VALLEY 5 ft 9 11/16 in</strong></p>
+</article>
+<article>
+    <h4>Crown angle <span class="acces"><kbd>Conv</kbd> <kbd>Compound Mitre</kbd></span></h4>
+    <p><strong>The angle between the back of the moulding and the wall.</strong> Common crown mouldings are 38° or 45°. <kbd>38</kbd> <kbd>Conv</kbd> <kbd>Compound Mitre</kbd> stores it; with no number, the key displays it.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>38</kbd> <kbd>Conv</kbd> <kbd>Compound Mitre</kbd> <kbd>60</kbd> <kbd>Compound Mitre</kbd>, then <kbd>Compound Mitre</kbd> → <strong>CROWN ANGLE 38.00° · MITRE 46.84° · BEVEL 43.03°</strong></p>
+</article>
+<article>
+    <h4>Riser limit <span class="acces"><kbd>Conv</kbd> <kbd>Stair</kbd></span></h4>
+    <p><strong>The same stair calculation, with a capped riser height.</strong> The riser never exceeds the target height: the calculator adds a riser when needed. Use it when a maximum height is required.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>10</kbd> <kbd>Feet</kbd> <kbd>1</kbd> <kbd>Inch</kbd> <kbd>Rise</kbd> <kbd>15</kbd> <kbd>Feet</kbd> <kbd>5</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> <kbd>Conv</kbd> <kbd>Stair</kbd>, then <kbd>Stair</kbd> → <strong>RISER HEIGHT 7 1/8 in · 17 risers</strong></p>
+</article>
+<article>
+    <h4>Radius <span class="acces"><kbd>Conv</kbd> <kbd>Arc</kbd></span></h4>
+    <p><strong>Enters the radius of a circle,</strong> or calculates it from the chord and the rise of an arc.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>3</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Run</kbd> <kbd>1</kbd> <kbd>Feet</kbd> <kbd>3</kbd> <kbd>Inch</kbd> <kbd>Rise</kbd> <kbd>Conv</kbd> <kbd>Arc</kbd> → <strong>RADIUS 1 ft 10 3/16 in</strong></p>
+</article>
+<article>
+    <h4>Column/Cone <span class="acces"><kbd>Conv</kbd> <kbd>Circle</kbd></span></h4>
+    <p><strong>Volume and surface area of a column, then of a cone.</strong> Enter the diameter (<kbd>Circle</kbd>) and the height (<kbd>Height</kbd>), then <kbd>Conv</kbd> <kbd>Circle</kbd> and <kbd>Circle</kbd> repeatedly. Handy for the concrete in columns and form tubes.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>2</kbd> <kbd>Feet</kbd> <kbd>4</kbd> <kbd>Inch</kbd> <kbd>Circle</kbd> <kbd>4</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>Height</kbd> <kbd>Conv</kbd> <kbd>Circle</kbd>, then <kbd>Circle</kbd> → <strong>COLUMN – VOLUME 19.24226 ft³ · COLUMN – SURFACE 41.53884 ft²</strong></p>
+</article>
+<article>
+    <h4>Irreg. jack <span class="acces"><kbd>Conv</kbd> <kbd>Jack</kbd></span></h4>
+    <p><strong>The jack rafters of the irregular-pitch side first.</strong> In Preferences, choose to keep the same on-centre spacing on both sides, or to mate the jacks so they meet at the hip.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>7</kbd> <kbd>Inch</kbd> <kbd>Pitch</kbd> <kbd>4</kbd> <kbd>Feet</kbd> <kbd>Run</kbd> <kbd>8</kbd> <kbd>Inch</kbd> <kbd>Conv</kbd> <kbd>Hip Valley</kbd> <kbd>Conv</kbd> <kbd>Jack</kbd>, then <kbd>Jack</kbd> repeatedly → <strong>ON CENTRE 16 in · INCREMENT 1 ft 4 13/16 in · 2 ft 9 5/8 in · 1 ft 4 13/16 in…</strong></p>
+</article>
+<article>
+    <h4>Blocks <span class="acces"><kbd>Conv</kbd> <kbd>Length</kbd></span></h4>
+    <p><strong>The number of concrete blocks or bricks.</strong> From the wall length and height you entered, a displayed area, or a length alone (one course). Default block: 8 × 16 in, joint included. For bricks, store the area of one brick with <kbd>Store</kbd> <kbd>4</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>300</kbd> <kbd>Feet</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Length</kbd>, then <kbd>+</kbd> <kbd>3</kbd> <kbd>%</kbd> → <strong>BLOCKS 337.5 · 347.625</strong></p>
+    <p class="note">The result is not rounded: add your waste with <kbd>+</kbd> <kbd>5</kbd> <kbd>%</kbd>.</p>
+</article>
+<article>
+    <h4>Footing <span class="acces"><kbd>Conv</kbd> <kbd>Width</kbd></span></h4>
+    <p><strong>The volume of concrete in a footing.</strong> Type the length of the footing, then <kbd>Conv</kbd> <kbd>Width</kbd>. The footing section (width × thickness) is stored: <kbd>16</kbd> <kbd>Inch</kbd> <kbd>×</kbd> <kbd>8</kbd> <kbd>Inch</kbd> <kbd>=</kbd> <kbd>Store</kbd> <kbd>6</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>100</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Width</kbd> → <strong>FOOTING 6.790123 yd³</strong></p>
+</article>
+<article>
+    <h4>Drywall <span class="acces"><kbd>Conv</kbd> <kbd>Height</kbd></span></h4>
+    <p><strong>The number of drywall sheets</strong> of 4 × 8, 4 × 9, 4 × 10 and 4 × 12 for an area, or for a length of wall if the sheets are hung vertically.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>150</kbd> <kbd>Feet</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Height</kbd>, then <kbd>Height</kbd> repeatedly → <strong>4×8 SHEETS 4.6875 · 4×9 4.166667 · 4×10 3.75 · 4×12 3.125</strong></p>
+    <p class="note">The result is not rounded and does not account for openings.</p>
+</article>
+<article>
+    <h4>x² <span class="acces"><kbd>Conv</kbd> <kbd>%</kbd></span></h4>
+    <p><strong>The square.</strong> The square of a length gives an area.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>7</kbd> <kbd>Feet</kbd> <kbd>4</kbd> <kbd>Inch</kbd> <kbd>Conv</kbd> <kbd>%</kbd> → <strong>53.77778 ft²</strong></p>
+</article>
+<article>
+    <h4>√x <span class="acces"><kbd>Conv</kbd> <kbd>Clear</kbd></span></h4>
+    <p><strong>The square root.</strong> The root of an area gives a length.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>25</kbd> <kbd>Feet</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>Clear</kbd> → <strong>5 ft 0 in</strong></p>
+</article>
+<article>
+    <h4>cm, mm <span class="acces"><kbd>Conv</kbd> <kbd>7</kbd>, <kbd>Conv</kbd> <kbd>9</kbd></span></h4>
+    <p><strong>Centimetres and millimetres:</strong> to enter a value (<kbd>250</kbd> <kbd>Conv</kbd> <kbd>9</kbd>) or to convert the displayed value.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>3</kbd> <kbd>/</kbd> <kbd>4</kbd> <kbd>Conv</kbd> <kbd>9</kbd> → <strong>19.05 mm</strong></p>
+</article>
+<article>
+    <h4>bd ft <span class="acces"><kbd>Conv</kbd> <kbd>8</kbd></span></h4>
+    <p><strong>The board foot</strong> (144 cubic inches). Type the nominal dimensions of a piece in inches, inches and feet: <kbd>2</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>×</kbd> <kbd>14</kbd> <kbd>Conv</kbd> <kbd>8</kbd>. It also converts a volume.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>2</kbd> <kbd>×</kbd> <kbd>4</kbd> <kbd>×</kbd> <kbd>14</kbd> <kbd>Conv</kbd> <kbd>8</kbd> → <strong>9.333333 bd ft</strong></p>
+</article>
+<article>
+    <h4>1/x <span class="acces"><kbd>Conv</kbd> <kbd>÷</kbd></span></h4>
+    <p><strong>The reciprocal</strong> of a number.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>8</kbd> <kbd>Conv</kbd> <kbd>÷</kbd> → <strong>0.125</strong></p>
+</article>
+<article>
+    <h4>lb, kg, ton, tonne <span class="acces"><kbd>Conv</kbd> <kbd>4</kbd>, <kbd>1</kbd>, <kbd>6</kbd>, <kbd>3</kbd></span></h4>
+    <p><strong>Weights.</strong> To enter a weight or convert the displayed value. A volume is converted to a weight using the stored density (and the reverse). The short ton is 2,000 lb; the metric tonne, 1,000 kg.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Yards</kbd> <kbd>Yards</kbd> <kbd>Yards</kbd> <kbd>Conv</kbd> <kbd>4</kbd>, then <kbd>Conv</kbd> <kbd>6</kbd> → <strong>15,000 lb · 7.5 ton</strong></p>
+</article>
+<article>
+    <h4>Studs <span class="acces"><kbd>Conv</kbd> <kbd>5</kbd></span></h4>
+    <p><strong>The number of studs in a wall</strong> for a given length, at the stored on-centre spacing, starting stud included.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>16</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>5</kbd> → <strong>STUDS 13</strong></p>
+    <p class="note">Does not include doubled studs, corners or opening frames.</p>
+</article>
+<article>
+    <h4>Acre <span class="acces"><kbd>Conv</kbd> <kbd>2</kbd></span></h4>
+    <p><strong>The acre</strong> (43,560 ft²), to enter a land area or convert a displayed area.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>10000</kbd> <kbd>Feet</kbd> <kbd>Feet</kbd> <kbd>Conv</kbd> <kbd>2</kbd> → <strong>0.229568 acre</strong></p>
+</article>
+<article>
+    <h4>Cost <span class="acces"><kbd>Conv</kbd> <kbd>0</kbd></span></h4>
+    <p><strong>The total cost.</strong> With the quantity displayed: <kbd>×</kbd>, the unit price, then <kbd>Conv</kbd> <kbd>0</kbd>. The price applies to the displayed unit (per foot, per cubic yard, per square metre…). For lumber in board feet, the price is per thousand board feet.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>12</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inch</kbd> <kbd>×</kbd> <kbd>3.50</kbd> <kbd>Conv</kbd> <kbd>0</kbd> → <strong>COST $43.75</strong></p>
+</article>
+<article>
+    <h4>Clear all <span class="acces"><kbd>Conv</kbd> <kbd>×</kbd></span></h4>
+    <p><strong>Restores the calculator to new:</strong> clears the memories and restores the default stored values. Preferences are kept. You are asked to confirm.</p>
+</article>
+<article>
+    <h4>+/− <span class="acces"><kbd>Conv</kbd> <kbd>−</kbd></span></h4>
+    <p><strong>Changes the sign</strong> of the value.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Conv</kbd> <kbd>−</kbd> <kbd>=</kbd> → <strong>−5</strong></p>
+</article>
+<article>
+    <h4>π <span class="acces"><kbd>Conv</kbd> <kbd>+</kbd></span></h4>
+    <p><strong>The constant π</strong> (3.141593).</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>Conv</kbd> <kbd>+</kbd> → <strong>3.141593</strong></p>
+</article>
+<article>
+    <h4>dms◄►dec <span class="acces"><kbd>Conv</kbd> <kbd>.</kbd></span></h4>
+    <p><strong>Converts an angle</strong> between decimal degrees and degrees-minutes-seconds. To enter 23° 42′ 39″: <kbd>23</kbd> <kbd>.</kbd> <kbd>42</kbd> <kbd>.</kbd> <kbd>39</kbd>.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>44.29</kbd> <kbd>Conv</kbd> <kbd>.</kbd> → <strong>44°17′24″</strong></p>
+</article>
+<article>
+    <h4>Tape <span class="acces"><kbd>Conv</kbd> <kbd>=</kbd></span></h4>
+    <p><strong>Shows the calculation tape:</strong> the list of everything that was entered and calculated. You can save it, copy it or export it.</p>
+</article>
+<article>
+    <h4>Prefs <span class="acces"><kbd>Conv</kbd> <kbd>Store</kbd></span></h4>
+    <p><strong>Opens Preferences.</strong> Changes apply immediately and are kept from one session to the next.</p>
+</article>
+<article>
+    <h4>MC <span class="acces"><kbd>Conv</kbd> <kbd>Recall</kbd></span></h4>
+    <p><strong>Clears the cumulative memory</strong> M+.</p>
+</article>
+<article>
+    <h4>M− <span class="acces"><kbd>Conv</kbd> <kbd>M+</kbd></span></h4>
+    <p><strong>Subtracts</strong> the displayed value from the cumulative memory.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>100</kbd> <kbd>M+</kbd> <kbd>50</kbd> <kbd>Conv</kbd> <kbd>M+</kbd> <kbd>Recall</kbd> <kbd>M+</kbd> → <strong>M TOTAL 50</strong></p>
+</article>
+<h3>Other functions</h3>
+<article>
+    <h4>sin, cos, tan <span class="acces">trigonometric mode</span></h4>
+    <p><strong>The trigonometric functions,</strong> in degrees. With <kbd>Conv</kbd>: the inverse functions, which give an angle. In this mode, they replace the <kbd>Length</kbd>, <kbd>Width</kbd> and <kbd>Height</kbd> keys.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>30</kbd> <kbd>sin</kbd> · <kbd>0.5</kbd> <kbd>Conv</kbd> <kbd>sin</kbd> → <strong>0.5 · 30.00°</strong></p>
+</article>
+<article>
+    <h4>Quick fractions <span class="acces">strip of keys</span></h4>
+    <p><strong>A strip of keys</strong> that enters a fraction of an inch in one move: <kbd>5</kbd> <kbd>Feet</kbd> <kbd>6</kbd> then <kbd>3/8</kbd>. Turn it on in Preferences.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>5</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>3/8</kbd> <kbd>=</kbd> → <strong>5 ft 6 3/8 in</strong></p>
+</article>
+<article>
+    <h4>Keypad adapted to your trade <span class="acces">trade bar</span></h4>
+    <p><strong>The keypad takes on the keys of your trade:</strong> tap the trade name above the keypad, then one of its tools. The tool's fields become the top keys: type a value, then press the key of the field where you want to store it. <kbd>Result</kbd> calculates and records the calculation on the tape; press again to see the next result. <kbd>Conv</kbd> then a field's key resets it to its starting value. Press and hold one of the tool's keys to read how to use it.</p>
+    <p class="exemple"><span class="mot">Example</span> Concrete, Concrete slab: <kbd>24</kbd> <kbd>Feet</kbd> <kbd>Length</kbd> <kbd>20</kbd> <kbd>Feet</kbd> <kbd>Width</kbd> <kbd>4</kbd> <kbd>Inch</kbd> <kbd>Thickness</kbd> <kbd>Result</kbd> <kbd>Result</kbd> → <strong>CONCRETE VOLUME 5.93 yd³ (4.53 m³)</strong></p>
+    <p class="note">The Trades tab offers the same calculators as fill-in forms.</p>
+</article>
+
+<h2 id="outils">14. Directory of tools by trade <a class="haut" href="#sommaire">Contents</a></h2>
+<p>For each tool: its fields — which are also its keys —, the unit of a number typed without a unit, the default value, and an example calculated by the calculator. When the key carries a shorter label than the field, it is given in parentheses.</p>
+<h3 id="metier-estimation">Estimating and bidding</h3>
+<p class="note">Bid price, budget per square foot, labour, taxes, progress invoice.</p>
+<article id="outil-soumission">
+    <h4>Bid price</h4>
+    <p>From the cost of the work to the price to submit: administration, contingency, profit and taxes.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Base cost of the work <span class="acces">(key: Base cost)</span></td><td>$</td><td></td></tr>
+            <tr><td>Administration <span class="acces">(key: Admin.)</span></td><td>%</td><td>3%</td></tr>
+            <tr><td>Contingency</td><td>%</td><td>12%</td></tr>
+            <tr><td>Profit</td><td>%</td><td>15%</td></tr>
+            <tr><td>GST</td><td>%</td><td>5%</td></tr>
+            <tr><td>QST</td><td>%</td><td>9.975%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Base cost of the work: $100,000 · Administration: 3% · Contingency: 12% · Profit: 15% · GST: 5% · QST: 9.975% → Administration: <strong>$3,000.00</strong> · Contingency: <strong>$12,000.00</strong> · Profit: <strong>$15,000.00</strong> · Price before taxes: <strong>$130,000.00</strong> · GST: <strong>$6,500.00</strong> · QST: <strong>$12,967.50</strong> · Price, taxes included: <strong>$149,467.50</strong></p>
+    <p class="note">The three percentages apply to the base cost; taxes apply to the price before taxes. Typical administration and contingency rates: 3% and 12% for new residential work, 3% and 15% for residential renovation, 3% and 10% for new commercial work.</p>
+</article>
+<article id="outil-budget-au-pied-carre">
+    <h4>Budget per square foot</h4>
+    <p>A ballpark price for a project, from its floor area and a cost per square foot.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Living area <span class="acces">(key: Area)</span></td><td>ft²</td><td></td></tr>
+            <tr><td>Base cost</td><td>$/ft²</td><td></td></tr>
+            <tr><td>Garage area <span class="acces">(key: Garage)</span> <span class="acces">— optional</span></td><td>ft²</td><td></td></tr>
+            <tr><td>Garage base cost <span class="acces">(key: Garage cost)</span> <span class="acces">— optional</span></td><td>$/ft²</td><td></td></tr>
+            <tr><td>Administration <span class="acces">(key: Admin.)</span></td><td>%</td><td>3%</td></tr>
+            <tr><td>Contingency</td><td>%</td><td>12%</td></tr>
+            <tr><td>Profit</td><td>%</td><td>15%</td></tr>
+            <tr><td>GST</td><td>%</td><td>5%</td></tr>
+            <tr><td>QST</td><td>%</td><td>9.975%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Living area: 1,400 ft² · Base cost: $200/ft² · Garage area: 400 ft² · Garage base cost: $100/ft² · Administration: 3% · Contingency: 12% · Profit: 15% · GST: 5% · QST: 9.975% → Base cost: <strong>$320,000.00</strong> · Administration, contingency and profit: <strong>$96,000.00</strong> · Price before taxes: <strong>$416,000.00</strong> · GST and QST: <strong>$62,296.00</strong> · Price, taxes included: <strong>$478,296.00</strong> · Price per square foot, taxes included: <strong>$265.72/ft²</strong></p>
+    <p class="note">Budget estimate only: the cost per square foot depends on the region, the quality of the finishes and the complexity of the project.</p>
+</article>
+<article id="outil-main-d-oeuvre">
+    <h4>Labour cost</h4>
+    <p>The cost of a crew, from its hours, its hourly rate and the employer's payroll burden.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Number of workers <span class="acces">(key: Workers)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Hours per worker <span class="acces">(key: Hours)</span></td><td>h</td><td></td></tr>
+            <tr><td>Hourly rate</td><td>$/h</td><td></td></tr>
+            <tr><td>Payroll burden and benefits <span class="acces">(key: Burden)</span></td><td>%</td><td>0%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Number of workers: 3 · Hours per worker: 40 h · Hourly rate: $45.5/h · Payroll burden and benefits: 30% → Total hours: <strong>120.0 h</strong> · Hourly cost, burden included: <strong>$59.15/h</strong> · Labour cost: <strong>$7,098.00</strong></p>
+    <p class="note">The burden covers vacation pay, benefits and employer contributions; it is added to the hourly rate.</p>
+</article>
+<article id="outil-taxes">
+    <h4>Québec taxes</h4>
+    <p>The GST and QST on an amount, or the amount before taxes from a total.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Amount</td><td>$</td><td></td></tr>
+            <tr><td>This amount is <span class="acces">(key: Amount given)</span></td><td>list</td><td><strong>before taxes</strong> · taxes included</td></tr>
+            <tr><td>GST</td><td>%</td><td>5%</td></tr>
+            <tr><td>QST</td><td>%</td><td>9.975%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Amount: $1,000 · This amount is: before taxes · GST: 5% · QST: 9.975% → Amount before taxes: <strong>$1,000.00</strong> · GST: <strong>$50.00</strong> · QST: <strong>$99.75</strong> · Total, taxes included: <strong>$1,149.75</strong></p>
+    <p class="note">Both taxes are calculated on the amount before taxes. Change the rates if they have changed.</p>
+</article>
+<article id="outil-majoration-et-marge">
+    <h4>Markup and margin</h4>
+    <p>The selling price from the cost and the markup, and the resulting margin.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Cost</td><td>$</td><td></td></tr>
+            <tr><td>Markup on cost <span class="acces">(key: Markup)</span></td><td>%</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Cost: $800 · Markup on cost: 25% → Selling price: <strong>$1,000.00</strong> · Profit: <strong>$200.00</strong> · Margin on selling price: <strong>20.00%</strong></p>
+    <p class="note">Markup is measured on the cost, margin on the selling price: a 25% markup gives a 20% margin.</p>
+</article>
+<article id="outil-facturation-progressive">
+    <h4>Progress invoice</h4>
+    <p>The amount of a progress invoice, from the work completed and the holdback.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Contract amount, before taxes <span class="acces">(key: Contract)</span></td><td>$</td><td></td></tr>
+            <tr><td>Work completed <span class="acces">(key: Completed)</span></td><td>%</td><td></td></tr>
+            <tr><td>Holdback</td><td>%</td><td>10%</td></tr>
+            <tr><td>Previously invoiced, before taxes <span class="acces">(key: Already invoiced)</span></td><td>$</td><td>$0</td></tr>
+            <tr><td>GST</td><td>%</td><td>5%</td></tr>
+            <tr><td>QST</td><td>%</td><td>9.975%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Contract amount, before taxes: $100,000 · Work completed: 40% · Holdback: 10% · Previously invoiced, before taxes: $20,000 · GST: 5% · QST: 9.975% → Work completed to date: <strong>$40,000.00</strong> · Holdback: <strong>$4,000.00</strong> · This invoice, before taxes: <strong>$16,000.00</strong> · GST: <strong>$800.00</strong> · QST: <strong>$1,596.00</strong> · This invoice, taxes included: <strong>$18,396.00</strong></p>
+    <p class="note">The amount previously invoiced is the total of the earlier invoices, before taxes and net of holdback.</p>
+</article>
+<article id="outil-duree-des-travaux">
+    <h4>Job duration</h4>
+    <p>The hours and days of work, from the quantity to complete and the crew's production rate.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Quantity to complete <span class="acces">(key: Quantity)</span></td><td></td><td></td></tr>
+            <tr><td>Production per worker, per hour <span class="acces">(key: Production)</span></td><td></td><td></td></tr>
+            <tr><td>Number of workers <span class="acces">(key: Workers)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Hours per day</td><td>h</td><td>8 h</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Quantity to complete: 1,200 · Production per worker, per hour: 50 · Number of workers: 2 · Hours per day: 8 h → Total labour hours: <strong>24.0 h</strong> · Duration with this crew: <strong>12.0 h</strong> · Working days: <strong>1.5 days</strong></p>
+    <p class="note">The quantity and the production rate use the same unit: square feet and square feet per hour, for example.</p>
+</article>
+<h3 id="metier-terrassement">Earthwork and landscaping</h3>
+<p class="note">Excavation, trenches, aggregate, slopes, fences, decks.</p>
+<article id="outil-excavation">
+    <h4>Excavation and backfill</h4>
+    <p>The volume of a rectangular excavation, in place and once the soil is loosened.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Depth</td><td>ft</td><td></td></tr>
+            <tr><td>Swell</td><td>%</td><td>25%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 30 ft 0 in · Width: 20 ft 0 in · Depth: 4 ft 0 in · Swell: 25% → Volume in place: <strong>88.9 yd³ (68.0 m³)</strong> · Volume to haul, loose: <strong>111 yd³ (85.0 m³)</strong></p>
+    <p class="note">Loosened soil takes up more room: about 10 to 15% more for sand, 25% for common earth, 30% or more for clay.</p>
+</article>
+<article id="outil-granulats">
+    <h4>Stone, gravel and sand</h4>
+    <p>The volume and weight of a layer of aggregate.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Thickness</td><td>in</td><td></td></tr>
+            <tr><td>Density</td><td>ton/yd³</td><td>1.5 ton/yd³</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 40 ft 0 in · Width: 12 ft 0 in · Thickness: 6 in · Density: 1.5 ton/yd³ → Volume: <strong>8.89 yd³ (6.80 m³)</strong> · Weight: <strong>13.3 ton (12.1 t)</strong></p>
+    <p class="note">Allow about 1.5 short tons per cubic yard of crushed stone; your supplier has the exact figure for their material.</p>
+</article>
+<article id="outil-cloture">
+    <h4>Fence</h4>
+    <p>The number of posts and sections of a straight fence, evenly spaced.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Total length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Target post spacing <span class="acces">(key: Spacing)</span></td><td>ft</td><td>8 ft 0 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Total length: 100 ft 0 in · Target post spacing: 8 ft 0 in → Sections: <strong>13 sections</strong> · Posts: <strong>14 posts</strong> · Actual spacing: <strong>7 ft 8 5/16 in</strong></p>
+</article>
+<article id="outil-tranchee">
+    <h4>Trench</h4>
+    <p>The volume of a trench with vertical or sloped sides.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Bottom width</td><td>ft</td><td></td></tr>
+            <tr><td>Top width <span class="acces">— optional</span></td><td>ft</td><td></td></tr>
+            <tr><td>Depth</td><td>ft</td><td></td></tr>
+            <tr><td>Swell</td><td>%</td><td>25%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 100 ft 0 in · Bottom width: 2 ft 0 in · Top width: 6 ft 0 in · Depth: 4 ft 0 in · Swell: 25% → Volume in place: <strong>59.3 yd³ (45.3 m³)</strong> · Volume to haul, loose: <strong>74.1 yd³ (56.6 m³)</strong></p>
+    <p class="note">Leave the top width blank for vertical sides. The slope of the sides is a safety matter: follow the Safety Code for the construction industry.</p>
+</article>
+<article id="outil-voyages-de-camion">
+    <h4>Truckloads</h4>
+    <p>The number of truckloads needed to haul a volume of soil or stone.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Volume to haul <span class="acces">(key: Volume)</span></td><td>yd³</td><td></td></tr>
+            <tr><td>Truck capacity <span class="acces">(key: Truck)</span></td><td>yd³</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Volume to haul: 74 yd³ · Truck capacity: 12 yd³ → Truckloads: <strong>7 loads</strong> · Average load per trip: <strong>10.6 yd³</strong></p>
+    <p class="note">Use the loose volume: loosened soil takes up more room. Capacity depends on the truck, the material and the load limits.</p>
+</article>
+<article id="outil-pente-de-terrain">
+    <h4>Slope and drop</h4>
+    <p>Fill in two of the three values: the third is calculated.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Horizontal distance <span class="acces">(key: Distance)</span> <span class="acces">— optional</span></td><td>ft</td><td></td></tr>
+            <tr><td>Drop <span class="acces">— optional</span></td><td>in</td><td></td></tr>
+            <tr><td>Slope <span class="acces">— optional</span></td><td>%</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Horizontal distance: 50 ft 0 in · Slope: 2% → Horizontal distance: <strong>50 ft 0 in</strong> · Drop: <strong>1 ft 0 in</strong> · Slope: <strong>2.00%</strong> · Angle: <strong>1.15°</strong> · Slope length: <strong>50 ft 0 1/8 in</strong></p>
+    <p class="note">A 2% slope is about 1/4 in per foot.</p>
+</article>
+<article id="outil-terrasse">
+    <h4>Deck: boards and screws</h4>
+    <p>The decking boards for a rectangular deck and the screws to fasten them.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length, along the boards <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Deck width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Board width <span class="acces">(key: Board)</span></td><td>in</td><td>5 1/2 in</td></tr>
+            <tr><td>Gap between boards <span class="acces">(key: Gap)</span></td><td>in</td><td>1/8 in</td></tr>
+            <tr><td>Joist spacing <span class="acces">(key: Joists)</span></td><td>in</td><td>16 in</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length, along the boards: 16 ft 0 in · Deck width: 12 ft 0 in · Board width: 5 1/2 in · Gap between boards: 1/8 in · Joist spacing: 16 in · Waste: 10% → Area: <strong>192 ft² (17.8 m²)</strong> · Rows of boards: <strong>26 rows</strong> · Total board length: <strong>416 ft 0 in</strong> · Length to buy, waste included: <strong>457 ft 7 3/16 in</strong> · Screws: <strong>676 screws</strong></p>
+    <p class="note">Two screws wherever a board crosses a joist. The framing (joists, beams, posts) is calculated separately.</p>
+</article>
+<article id="outil-tourbe">
+    <h4>Sod rolls</h4>
+    <p>The number of sod rolls to cover an area.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Area of one roll <span class="acces">(key: Roll)</span></td><td>ft²</td><td>10 ft²</td></tr>
+            <tr><td>Waste</td><td>%</td><td>5%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 50 ft 0 in · Width: 30 ft 0 in · Area of one roll: 10 ft² · Waste: 5% → Area: <strong>1,500 ft² (139 m²)</strong> · Rolls: <strong>158 rolls</strong></p>
+    <p class="note">A roll is often 2 ft by 5 ft, or 10 ft²: check with your supplier.</p>
+</article>
+<article id="outil-poteaux">
+    <h4>Concrete for posts</h4>
+    <p>The concrete to set fence or deck posts in their holes.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Hole diameter <span class="acces">(key: Hole)</span></td><td>in</td><td></td></tr>
+            <tr><td>Hole depth <span class="acces">(key: Depth)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Post</td><td>list</td><td><strong>Square</strong> · Round</td></tr>
+            <tr><td>Post side or diameter <span class="acces">(key: Side)</span></td><td>in</td><td></td></tr>
+            <tr><td>Number of posts <span class="acces">(key: Count)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Yield per bag <span class="acces">(key: Bag)</span></td><td>L</td><td>14 L</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Hole diameter: 10 in · Hole depth: 4 ft 0 in · Post: Square · Post side or diameter: 3 1/2 in · Number of posts: 12 · Yield per bag: 14 L → Concrete volume: <strong>0.818 yd³ (0.626 m³)</strong> · Volume, in litres: <strong>626 L</strong> · Bags of premixed concrete: <strong>45 bags</strong></p>
+    <p class="note">The volume of the post is subtracted from that of the hole; enter 0 for a hole filled with concrete. Yield: about 14 L for a 30 kg bag of premixed concrete.</p>
+</article>
+<h3 id="metier-beton">Concrete and foundations</h3>
+<p class="note">Slabs, footings, walls, columns, stairs, rebar, bags.</p>
+<article id="outil-dalle">
+    <h4>Concrete slab</h4>
+    <p>The volume of concrete for a rectangular slab.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Thickness</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 24 ft 0 in · Width: 20 ft 0 in · Thickness: 4 in · Waste: 10% → Area: <strong>480 ft² (44.6 m²)</strong> · Concrete volume: <strong>5.93 yd³ (4.53 m³)</strong> · To order, waste included: <strong>6.52 yd³ (4.98 m³)</strong></p>
+</article>
+<article id="outil-semelle">
+    <h4>Strip footing</h4>
+    <p>The volume of concrete for a continuous footing under a wall.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Total length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>in</td><td></td></tr>
+            <tr><td>Thickness</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Total length: 120 ft 0 in · Width: 20 in · Thickness: 8 in · Waste: 10% → Concrete volume: <strong>4.94 yd³ (3.78 m³)</strong> · To order, waste included: <strong>5.43 yd³ (4.15 m³)</strong></p>
+</article>
+<article id="outil-mur-de-fondation">
+    <h4>Foundation wall</h4>
+    <p>The volume of concrete for a wall and the area of its formwork.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Total length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Height</td><td>ft</td><td></td></tr>
+            <tr><td>Thickness</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Total length: 120 ft 0 in · Height: 8 ft 0 in · Thickness: 8 in · Waste: 10% → Concrete volume: <strong>23.7 yd³ (18.1 m³)</strong> · To order, waste included: <strong>26.1 yd³ (19.9 m³)</strong> · Formwork, both faces: <strong>1,920 ft² (178 m²)</strong></p>
+    <p class="note">Openings are not deducted.</p>
+</article>
+<article id="outil-colonnes">
+    <h4>Round columns and piers</h4>
+    <p>The concrete for round columns poured in form tubes, by volume and in bags.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Diameter</td><td>in</td><td></td></tr>
+            <tr><td>Height</td><td>ft</td><td></td></tr>
+            <tr><td>Number of columns <span class="acces">(key: Count)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Yield per bag <span class="acces">(key: Bag)</span></td><td>L</td><td>14 L</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Diameter: 10 in · Height: 4 ft 0 in · Number of columns: 6 · Waste: 10% · Yield per bag: 14 L → Concrete volume: <strong>0.485 yd³ (0.371 m³)</strong> · To order, waste included: <strong>0.533 yd³ (0.408 m³)</strong> · Bags of premixed concrete: <strong>30 bags</strong></p>
+    <p class="note">The yield is printed on the bag: about 14 L for a 30 kg bag of premixed concrete.</p>
+</article>
+<article id="outil-armature">
+    <h4>Slab rebar</h4>
+    <p>The rebar for a slab, laid both ways at regular spacing.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Bar spacing <span class="acces">(key: Spacing)</span></td><td>in</td><td>16 in</td></tr>
+            <tr><td>Bar</td><td>list</td><td><strong>10M</strong> · 15M · 20M · 25M</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 24 ft 0 in · Width: 20 ft 0 in · Bar spacing: 16 in · Bar: 10M → Bars running lengthwise: <strong>16 bars</strong> · Bars running crosswise: <strong>19 bars</strong> · Total bar length: <strong>764 ft 0 in</strong> · Steel weight: <strong>403 lb (183 kg)</strong></p>
+    <p class="note">Laps and edge cover are not included: add them as the drawings require.</p>
+</article>
+<article id="outil-sacs-de-beton">
+    <h4>Bagged concrete</h4>
+    <p>The number of bags of premixed concrete for a small rectangular pour.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Thickness</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Yield per bag <span class="acces">(key: Bag)</span></td><td>L</td><td>14 L</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 4 ft 0 in · Width: 4 ft 0 in · Thickness: 4 in · Waste: 10% · Yield per bag: 14 L → Concrete volume: <strong>0.198 yd³ (0.151 m³)</strong> · Volume to mix, waste included: <strong>166 L</strong> · Bags of premixed concrete: <strong>12 bags</strong></p>
+    <p class="note">The yield is printed on the bag: about 14 L for a 30 kg bag of premixed concrete.</p>
+</article>
+<article id="outil-escalier-de-beton">
+    <h4>Concrete stairs</h4>
+    <p>The volume of concrete for a straight stair poured on a sloped waist slab.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Number of steps <span class="acces">(key: Steps)</span></td><td>whole number</td><td></td></tr>
+            <tr><td>Riser height <span class="acces">(key: Riser)</span></td><td>in</td><td></td></tr>
+            <tr><td>Tread depth</td><td>in</td><td></td></tr>
+            <tr><td>Stair width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Waist slab thickness <span class="acces">(key: Waist slab)</span></td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Number of steps: 5 · Riser height: 7 in · Tread depth: 11 in · Stair width: 4 ft 0 in · Waist slab thickness: 5 in · Waste: 10% → Concrete volume: <strong>0.533 yd³ (0.408 m³)</strong> · To order, waste included: <strong>0.587 yd³ (0.449 m³)</strong></p>
+    <p class="note">The waist slab is the sloped slab under the steps; its thickness is measured perpendicular to the slope. Enter 0 for steps poured on sloped ground.</p>
+</article>
+<article id="outil-treillis">
+    <h4>Welded wire mesh</h4>
+    <p>The number of mesh sheets to reinforce a slab, overlaps included.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Sheet length</td><td>ft</td><td>8 ft 0 in</td></tr>
+            <tr><td>Sheet width</td><td>ft</td><td>4 ft 0 in</td></tr>
+            <tr><td>Overlap</td><td>in</td><td>6 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 24 ft 0 in · Width: 20 ft 0 in · Sheet length: 8 ft 0 in · Sheet width: 4 ft 0 in · Overlap: 6 in → Area: <strong>480 ft² (44.6 m²)</strong> · Mesh sheets: <strong>19 sheets</strong></p>
+    <p class="note">Each sheet loses one overlap width along two of its sides.</p>
+</article>
+<h3 id="metier-maconnerie">Masonry and paving</h3>
+<p class="note">Bricks, blocks, courses, low walls, pavers.</p>
+<article id="outil-briques-et-blocs">
+    <h4>Bricks and blocks</h4>
+    <p>The number of bricks or blocks in a wall, mortar joints included.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Wall length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Wall height <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Openings to deduct <span class="acces">(key: Openings)</span></td><td>ft²</td><td>0 ft²</td></tr>
+            <tr><td>Unit length</td><td>in</td><td></td></tr>
+            <tr><td>Unit height</td><td>in</td><td></td></tr>
+            <tr><td>Mortar joint <span class="acces">(key: Joint)</span></td><td>in</td><td>3/8 in</td></tr>
+            <tr><td>Waste</td><td>%</td><td>5%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Wall length: 22 ft 0 in · Wall height: 8 ft 0 in · Openings to deduct: 0 ft² · Unit length: 15 5/8 in · Unit height: 7 5/8 in · Mortar joint: 3/8 in · Waste: 5% → Wall area: <strong>176 ft² (16.4 m²)</strong> · Units per square foot: <strong>1.125</strong> · Units needed, waste included: <strong>208 units</strong></p>
+    <p class="note">Measure the brick or block without the joint. A standard concrete block is 15 5/8 in by 7 5/8 in (390 mm by 190 mm).</p>
+</article>
+<article id="outil-rangs-de-maconnerie">
+    <h4>Masonry courses</h4>
+    <p>The number of courses to reach a height, mortar joints included.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Height to reach <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Unit height</td><td>in</td><td></td></tr>
+            <tr><td>Mortar joint <span class="acces">(key: Joint)</span></td><td>in</td><td>3/8 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Height to reach: 8 ft 1 in · Unit height: 7 5/8 in · Mortar joint: 3/8 in → Course height, joint included: <strong>8 in</strong> · Courses: <strong>13 courses</strong> · Height reached: <strong>8 ft 8 in</strong></p>
+</article>
+<article id="outil-muret">
+    <h4>Dry-stacked block wall</h4>
+    <p>The blocks for a dry-stacked low wall: per course and in total.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Wall length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Wall height <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Block length</td><td>in</td><td></td></tr>
+            <tr><td>Block height</td><td>in</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Wall length: 21 ft 6 in · Wall height: 40 in · Block length: 12 in · Block height: 6 in → Blocks per course: <strong>22 blocks</strong> · Courses: <strong>7 courses</strong> · Blocks: <strong>154 blocks</strong> · Height reached: <strong>3 ft 6 in</strong></p>
+    <p class="note">Cap blocks and the buried course are not included. A retaining wall must be built to the manufacturer's instructions.</p>
+</article>
+<article id="outil-paves">
+    <h4>Pavers and slabs</h4>
+    <p>The number of pavers for a rectangular area and the sand for its bedding layer.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Paver length</td><td>in</td><td></td></tr>
+            <tr><td>Paver width</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>5%</td></tr>
+            <tr><td>Sand bed thickness <span class="acces">(key: Sand bed)</span></td><td>in</td><td>1 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 20 ft 0 in · Width: 12 ft 0 in · Paver length: 7 7/8 in · Paver width: 3 15/16 in · Waste: 5% · Sand bed thickness: 1 in → Area: <strong>240 ft² (22.3 m²)</strong> · Pavers: <strong>1,171 pavers</strong> · Bedding sand: <strong>0.741 yd³ (0.566 m³)</strong></p>
+    <p class="note">Joints are not counted. Allow more waste for a diagonal pattern or curved edges.</p>
+</article>
+<h3 id="metier-toiture">Roofing and siding</h3>
+<p class="note">Shingles, pitch, sheathing, siding, membranes.</p>
+<article id="outil-bardeaux">
+    <h4>Asphalt shingles</h4>
+    <p>The bundles of shingles for a gable roof, from its plan dimensions and its pitch.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Roof length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Plan width, overhangs included <span class="acces">(key: Plan width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Roof pitch <span class="acces">(key: Pitch)</span></td><td>in 12</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Coverage per bundle <span class="acces">(key: Per bundle)</span></td><td>ft²</td><td>33.3 ft²</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Roof length: 40 ft 0 in · Plan width, overhangs included: 28 ft 0 in · Roof pitch: 6 in 12 · Waste: 10% · Coverage per bundle: 33.3 ft² → Roof area: <strong>1,252 ft² (116 m²)</strong> · Squares of 100 ft², waste included: <strong>13.8 squares</strong> · Bundles of shingles: <strong>42 bundles</strong></p>
+    <p class="note">Gable roof with both sides at the same pitch; the dimensions include the overhangs. One square is 100 ft², most often three bundles. Add the starter and ridge shingles.</p>
+</article>
+<article id="outil-pente-de-toit">
+    <h4>Roof pitch</h4>
+    <p>The same pitch in inches per 12, in degrees and as a percentage, with its pitch factor.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Pitch</td><td></td><td></td></tr>
+            <tr><td>Unit</td><td>list</td><td><strong>in 12</strong> · degrees · percent</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Pitch: 6 · Unit: in 12 → Pitch, in 12: <strong>6.00 in 12</strong> · Angle: <strong>26.57°</strong> · Pitch, as a percentage: <strong>50.0%</strong> · Pitch factor: <strong>1.1180</strong></p>
+    <p class="note">The pitch factor multiplies a length or an area measured in plan to give the one on the roof.</p>
+</article>
+<article id="outil-panneaux">
+    <h4>Plywood or OSB sheets</h4>
+    <p>The number of sheets to cover a roof, a floor or a wall.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width or height <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Sheet</td><td>list</td><td><strong>4 ft × 8 ft</strong> · 4 ft × 9 ft · 4 ft × 10 ft</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 24 ft 0 in · Width or height: 16 ft 0 in · Sheet: 4 ft × 8 ft · Waste: 10% → Area: <strong>384 ft² (35.7 m²)</strong> · Sheets: <strong>14 sheets</strong></p>
+    <p class="note">For a roof, the width is measured along the slope: from the eave to the ridge.</p>
+</article>
+<article id="outil-revetement-exterieur">
+    <h4>Siding</h4>
+    <p>The siding for exterior walls, openings deducted, in boxes or bundles.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Wall length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Wall height <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Openings to deduct <span class="acces">(key: Openings)</span></td><td>ft²</td><td>0 ft²</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Coverage per box <span class="acces">(key: Per box)</span></td><td>ft²</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Wall length: 120 ft 0 in · Wall height: 9 ft 0 in · Openings to deduct: 150 ft² · Waste: 10% · Coverage per box: 200 ft² → Area to cover: <strong>930 ft² (86.4 m²)</strong> · Area to buy, waste included: <strong>1,023 ft² (95.0 m²)</strong> · Boxes: <strong>6 boxes</strong></p>
+    <p class="note">The wall length is the perimeter of the building. Gable ends are calculated separately.</p>
+</article>
+<article id="outil-membrane">
+    <h4>Membrane and paper rolls</h4>
+    <p>The number of rolls of membrane, building paper or air barrier, overlaps included.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length of the area <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Width of the area <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Roll width</td><td>in</td><td>36 in</td></tr>
+            <tr><td>Roll length</td><td>ft</td><td></td></tr>
+            <tr><td>Overlap</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length of the area: 40 ft 0 in · Width of the area: 14 ft 0 in · Roll width: 36 in · Roll length: 65 ft 0 in · Overlap: 4 in · Waste: 10% → Area: <strong>560 ft² (52.0 m²)</strong> · Rolls: <strong>4 rolls</strong></p>
+    <p class="note">Each row laps over the previous one by the overlap width.</p>
+</article>
+<h3 id="metier-gypse">Drywall and insulation</h3>
+<p class="note">Drywall sheets, partitions, insulation, R-value, ceilings.</p>
+<article id="outil-gypse">
+    <h4>Drywall for a room</h4>
+    <p>The number of drywall sheets for the walls of a room, with or without the ceiling.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Room length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Room width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Wall height <span class="acces">(key: Height)</span></td><td>ft</td><td>8 ft 0 in</td></tr>
+            <tr><td>Doors (21 ft² each) <span class="acces">(key: Doors)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Windows (15 ft² each) <span class="acces">(key: Windows)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Surfaces to cover <span class="acces">(key: Surfaces)</span></td><td>list</td><td>Walls only · <strong>Walls and ceiling</strong></td></tr>
+            <tr><td>Sheet</td><td>list</td><td><strong>4 ft × 8 ft</strong> · 4 ft × 10 ft · 4 ft × 12 ft</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Room length: 12 ft 0 in · Room width: 10 ft 0 in · Wall height: 8 ft 0 in · Doors (21 ft² each): 1 · Windows (15 ft² each): 1 · Surfaces to cover: Walls and ceiling · Sheet: 4 ft × 8 ft · Waste: 10% → Area to cover: <strong>436 ft² (40.5 m²)</strong> · Sheets: <strong>15 sheets</strong></p>
+    <p class="note">Openings are deducted. Allow more waste for a room with many jogs and corners.</p>
+</article>
+<article id="outil-montants-de-cloison">
+    <h4>Partition studs</h4>
+    <p>The number of studs in a straight partition and the length of its plates.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Partition length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Stud spacing <span class="acces">(key: Spacing)</span></td><td>in</td><td>16 in</td></tr>
+            <tr><td>Extra studs <span class="acces">(key: Extra)</span></td><td>whole number</td><td>0</td></tr>
+            <tr><td>Plates</td><td>list</td><td><strong>One bottom, one top</strong> · One bottom, two top</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Partition length: 12 ft 0 in · Stud spacing: 16 in · Extra studs: 0 · Plates: One bottom, two top → Studs: <strong>10 studs</strong> · Total plate length: <strong>36 ft 0 in</strong></p>
+    <p class="note">One stud at each end, then one at every spacing. Add the studs for corners, intersections and openings.</p>
+</article>
+<article id="outil-isolant">
+    <h4>Batt or board insulation</h4>
+    <p>The number of packages of insulation to cover an area.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Height or width <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>5%</td></tr>
+            <tr><td>Coverage per package <span class="acces">(key: Per package)</span></td><td>ft²</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 40 ft 0 in · Height or width: 8 ft 0 in · Waste: 5% · Coverage per package: 78.3 ft² → Area: <strong>320 ft² (29.7 m²)</strong> · Area to cover, waste included: <strong>336 ft² (31.2 m²)</strong> · Packages: <strong>5 packages</strong></p>
+    <p class="note">The coverage is printed on the package: it depends on the insulation thickness and the stud spacing.</p>
+</article>
+<article id="outil-valeur-r">
+    <h4>R-value and RSI value</h4>
+    <p>The same thermal resistance as an R-value and an RSI value, and the U-factor.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Thermal resistance <span class="acces">(key: Resistance)</span></td><td></td><td></td></tr>
+            <tr><td>Unit</td><td>list</td><td><strong>R (imperial)</strong> · RSI (metric)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Thermal resistance: 24.5 · Unit: R (imperial) → R-value: <strong>24.5</strong> · RSI value: <strong>4.31</strong> · U-factor: <strong>0.232 W/m²·K</strong></p>
+    <p class="note">The R-value is 5.678 times the RSI value. The U-factor is the inverse of the RSI value.</p>
+</article>
+<article id="outil-plafond-suspendu">
+    <h4>Suspended ceiling</h4>
+    <p>The tiles for a suspended ceiling and the wall angle that runs around the room.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Room length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Room width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Tile</td><td>list</td><td><strong>2 ft × 4 ft</strong> · 2 ft × 2 ft</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Room length: 20 ft 0 in · Room width: 15 ft 0 in · Tile: 2 ft × 4 ft · Waste: 10% → Area: <strong>300 ft² (27.9 m²)</strong> · Tiles: <strong>42 tiles</strong> · Wall angle: <strong>70 ft 0 in</strong></p>
+    <p class="note">Main tees and cross tees depend on the layout: count them from the ceiling plan.</p>
+</article>
+<h3 id="metier-finition">Finishing</h3>
+<p class="note">Paint, tile, flooring, baseboards and mouldings.</p>
+<article id="outil-peinture">
+    <h4>Paint for a room</h4>
+    <p>The area to paint in a rectangular room and the paint required.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Room length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Room width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Wall height <span class="acces">(key: Height)</span></td><td>ft</td><td>8 ft 0 in</td></tr>
+            <tr><td>Doors (21 ft² each) <span class="acces">(key: Doors)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Windows (15 ft² each) <span class="acces">(key: Windows)</span></td><td>whole number</td><td>1</td></tr>
+            <tr><td>Surfaces to paint <span class="acces">(key: Surfaces)</span></td><td>list</td><td><strong>Walls only</strong> · Walls and ceiling</td></tr>
+            <tr><td>Coats</td><td>whole number</td><td>2</td></tr>
+            <tr><td>Coverage of a 3.78 L can <span class="acces">(key: Coverage)</span></td><td>ft²</td><td>350 ft²</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Room length: 12 ft 0 in · Room width: 10 ft 0 in · Wall height: 8 ft 0 in · Doors (21 ft² each): 1 · Windows (15 ft² each): 1 · Surfaces to paint: Walls only · Coats: 2 · Coverage of a 3.78 L can: 350 ft² → Area to paint: <strong>316 ft² (29.4 m²)</strong> · Paint required: <strong>6.83 L</strong> · 3.78 L cans: <strong>2 cans</strong></p>
+    <p class="note">The coverage is printed on the can: 300 to 400 ft² depending on the paint and the surface.</p>
+</article>
+<article id="outil-ceramique">
+    <h4>Ceramic and tile</h4>
+    <p>The number of tiles to cover a rectangular area.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length of the area <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Width of the area <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Tile length</td><td>in</td><td></td></tr>
+            <tr><td>Tile width</td><td>in</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Tiles per box <span class="acces">(key: Per box)</span> <span class="acces">— optional</span></td><td>whole number</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length of the area: 10 ft 0 in · Width of the area: 8 ft 0 in · Tile length: 24 in · Tile width: 12 in · Waste: 10% · Tiles per box: 8 → Area: <strong>80.0 ft² (7.43 m²)</strong> · Tiles needed: <strong>44 tiles</strong> · Boxes: <strong>6 boxes</strong></p>
+    <p class="note">Joints are not counted. Allow more waste for a diagonal layout.</p>
+</article>
+<article id="outil-revetement-de-sol">
+    <h4>Boxed flooring</h4>
+    <p>The number of boxes of hardwood, laminate or vinyl for a floor.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Floor length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Floor width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Coverage per box <span class="acces">(key: Per box)</span></td><td>ft²</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Floor length: 15 ft 0 in · Floor width: 12 ft 0 in · Waste: 10% · Coverage per box: 22.5 ft² → Area: <strong>180 ft² (16.7 m²)</strong> · Area to cover, waste included: <strong>198 ft² (18.4 m²)</strong> · Boxes: <strong>9 boxes</strong></p>
+</article>
+<article id="outil-peinture-d-une-surface">
+    <h4>Paint for a surface</h4>
+    <p>The paint for a wall, a floor or a fence.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Height or width <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Coats</td><td>whole number</td><td>2</td></tr>
+            <tr><td>Coverage of a 3.78 L can <span class="acces">(key: Coverage)</span></td><td>ft²</td><td>350 ft²</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 40 ft 0 in · Height or width: 8 ft 0 in · Coats: 2 · Coverage of a 3.78 L can: 350 ft² → Area to paint: <strong>320 ft² (29.7 m²)</strong> · Paint required: <strong>6.91 L</strong> · 3.78 L cans: <strong>2 cans</strong></p>
+    <p class="note">The coverage is printed on the can: 300 to 400 ft² depending on the paint and the surface.</p>
+</article>
+<article id="outil-moulures">
+    <h4>Baseboards and mouldings</h4>
+    <p>The length of baseboard or moulding to go around a room.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Room length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Room width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Doors</td><td>whole number</td><td>1</td></tr>
+            <tr><td>Door width</td><td>in</td><td>32 in</td></tr>
+            <tr><td>Waste</td><td>%</td><td>10%</td></tr>
+            <tr><td>Moulding length</td><td>ft</td><td>8 ft 0 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Room length: 12 ft 0 in · Room width: 10 ft 0 in · Doors: 1 · Door width: 32 in · Waste: 10% · Moulding length: 8 ft 0 in → Room perimeter: <strong>44 ft 0 in</strong> · Length to install: <strong>41 ft 4 in</strong> · Length to buy, waste included: <strong>45 ft 5 5/8 in</strong> · Mouldings: <strong>6 mouldings</strong></p>
+    <p class="note">Doors are deducted for baseboards; enter 0 doors for a ceiling moulding.</p>
+</article>
+<h3 id="metier-plomberie">Plumbing</h3>
+<p class="note">Slopes, offsets, cut lengths, flow, expansion, capacities.</p>
+<article id="outil-pente-de-drain">
+    <h4>Drain slope</h4>
+    <p>The total drop of a pipe laid at a constant slope.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Pipe length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Slope per foot of run <span class="acces">(key: Slope per foot)</span></td><td>in</td><td>1/4 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Pipe length: 40 ft 0 in · Slope per foot of run: 1/4 in → Drop: <strong>10 in</strong> · Slope: <strong>2.08%</strong></p>
+    <p class="note">The Code sets the minimum slope according to the pipe diameter.</p>
+</article>
+<article id="outil-deport">
+    <h4>Pipe offset</h4>
+    <p>The angled run that connects two parallel pipes.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Offset</td><td>in</td><td></td></tr>
+            <tr><td>Fitting angle <span class="acces">(key: Angle)</span></td><td>list</td><td>11.25° · 22.5° · 30° · <strong>45°</strong> · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Offset: 12 in · Fitting angle: 45° → Travel: <strong>1 ft 5 in</strong> · Run: <strong>1 ft 0 in</strong></p>
+    <p class="note">Centre-to-centre measurements: deduct the fitting allowance.</p>
+</article>
+<article id="outil-deport-roule">
+    <h4>Rolling offset</h4>
+    <p>An offset that is both horizontal and vertical.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Horizontal offset</td><td>in</td><td></td></tr>
+            <tr><td>Vertical offset</td><td>in</td><td></td></tr>
+            <tr><td>Fitting angle <span class="acces">(key: Angle)</span></td><td>list</td><td>11.25° · 22.5° · 30° · <strong>45°</strong> · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Horizontal offset: 8 in · Vertical offset: 6 in · Fitting angle: 45° → True offset: <strong>10 in</strong> · Travel: <strong>1 ft 2 1/8 in</strong> · Run: <strong>10 in</strong></p>
+    <p class="note">Centre-to-centre measurements: deduct the fitting allowance.</p>
+</article>
+<article id="outil-contenance-de-tuyau">
+    <h4>Pipe capacity</h4>
+    <p>The volume of water in a full pipe, and its weight.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Inside diameter <span class="acces">(key: Diameter)</span></td><td>in</td><td></td></tr>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Inside diameter: 4 in · Length: 10 ft 0 in → Capacity: <strong>24.7 L (6.53 US gal)</strong> · Weight of water: <strong>54.5 lb (24.7 kg)</strong></p>
+</article>
+<article id="outil-pression-d-eau">
+    <h4>Pressure of a water column</h4>
+    <p>The static pressure at the bottom of a height of water.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Water height <span class="acces">(key: Height)</span></td><td>ft</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Water height: 30 ft 0 in → Pressure: <strong>89.7 kPa (13.0 psi)</strong></p>
+    <p class="note">Cold water at rest: the pressure drops as soon as the water flows.</p>
+</article>
+<article id="outil-reservoir">
+    <h4>Cylindrical tank</h4>
+    <p>The capacity of a round tank.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Inside diameter <span class="acces">(key: Diameter)</span></td><td>in</td><td></td></tr>
+            <tr><td>Height or length <span class="acces">(key: Height)</span></td><td>in</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Inside diameter: 20 in · Height or length: 48 in → Capacity: <strong>247 L (65.3 US gal)</strong></p>
+</article>
+<article id="outil-debit-et-vitesse">
+    <h4>Water flow and velocity</h4>
+    <p>The velocity of water in a pipe, from its inside diameter and the flow rate.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Inside diameter <span class="acces">(key: Diameter)</span></td><td>in</td><td></td></tr>
+            <tr><td>Flow rate</td><td></td><td></td></tr>
+            <tr><td>Flow unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>US gal/min</strong> · L/min · L/s</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Inside diameter: 13/16 in · Flow rate: 8 · Flow unit: US gal/min → Water velocity: <strong>5.30 ft/s (1.62 m/s)</strong> · Flow rate: <strong>8.00 US gal/min (30.3 L/min)</strong></p>
+    <p class="note">High velocity causes noise and wear: compare it with the limit recommended for the pipe material.</p>
+</article>
+<article id="outil-longueur-de-coupe">
+    <h4>Pipe cut length</h4>
+    <p>The length to cut between two fittings, from the centre-to-centre measurement.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Centre-to-centre measurement <span class="acces">(key: Centre to centre)</span></td><td>in</td><td></td></tr>
+            <tr><td>First fitting take-off <span class="acces">(key: Take-off 1)</span></td><td>in</td><td></td></tr>
+            <tr><td>Second fitting take-off <span class="acces">(key: Take-off 2)</span></td><td>in</td><td></td></tr>
+            <tr><td>Engagement at each end <span class="acces">(key: Engagement)</span></td><td>in</td><td>0 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Centre-to-centre measurement: 48 in · First fitting take-off: 1 1/8 in · Second fitting take-off: 1 1/8 in · Engagement at each end: 3/4 in → Cut length: <strong>3 ft 11 1/4 in</strong></p>
+    <p class="note">The take-off runs from the centre of the fitting to its face; the engagement is how far the pipe goes into the fitting. Both are listed in the manufacturer's tables.</p>
+</article>
+<article id="outil-deports-paralleles">
+    <h4>Parallel offsets</h4>
+    <p>Side-by-side pipes that offset together and keep the same spacing.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Offset</td><td>in</td><td></td></tr>
+            <tr><td>Pipe spacing, centre to centre <span class="acces">(key: Spacing)</span></td><td>in</td><td></td></tr>
+            <tr><td>Fitting angle <span class="acces">(key: Angle)</span></td><td>list</td><td>11.25° · 22.5° · 30° · <strong>45°</strong> · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Offset: 12 in · Pipe spacing, centre to centre: 6 in · Fitting angle: 45° → Travel: <strong>1 ft 5 in</strong> · Run: <strong>1 ft 0 in</strong> · Stagger from one pipe to the next: <strong>2 1/2 in</strong></p>
+    <p class="note">Each pipe starts its offset farther along than the previous one, by the stagger value.</p>
+</article>
+<article id="outil-dilatation">
+    <h4>Pipe expansion</h4>
+    <p>How much a pipe grows as it heats up.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Pipe length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Temperature change <span class="acces">(key: Temp. change)</span></td><td>°C</td><td></td></tr>
+            <tr><td>Expansion coefficient <span class="acces">(key: Coefficient)</span></td><td>mm/m/°C</td><td>0.017 mm/m/°C</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Pipe length: 50 ft 0 in · Temperature change: 60 °C · Expansion coefficient: 0.017 mm/m/°C → Expansion: <strong>5/8 in</strong> · Expansion, in millimetres: <strong>15.5 mm</strong></p>
+    <p class="note">Common coefficients, in millimetres per metre per degree Celsius: copper, 0.017; steel, 0.012; PVC, 0.054; CPVC, 0.065; ABS, 0.10; PEX, 0.15 to 0.20. The manufacturer's value governs.</p>
+</article>
+<article id="outil-chauffe-eau">
+    <h4>Water heating</h4>
+    <p>The energy and time needed to heat a volume of water.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Water volume <span class="acces">(key: Volume)</span></td><td>L</td><td></td></tr>
+            <tr><td>Temperature rise <span class="acces">(key: Rise)</span></td><td>°C</td><td></td></tr>
+            <tr><td>Heating power <span class="acces">(key: Power)</span></td><td>kW</td><td></td></tr>
+            <tr><td>Efficiency</td><td>%</td><td>100%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Water volume: 180 L · Temperature rise: 45 °C · Heating power: 4.5 kW · Efficiency: 100% → Energy required: <strong>9.42 kWh</strong> · Heating time: <strong>126 min</strong> · Heating time, in hours: <strong>2.09 h</strong></p>
+    <p class="note">One litre of water takes 4.186 kJ to gain 1 °C. The capacity in litres is on the water heater's nameplate.</p>
+</article>
+<h3 id="metier-electricite">Electrical</h3>
+<p class="note">Ohm's law, voltage drop, wire size, motors, transformers, conduit.</p>
+<article id="outil-loi-d-ohm">
+    <h4>Ohm's law and power</h4>
+    <p>Fill in two of the four values: the other two are calculated.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Voltage <span class="acces">— optional</span></td><td>V</td><td></td></tr>
+            <tr><td>Current <span class="acces">— optional</span></td><td>A</td><td></td></tr>
+            <tr><td>Resistance <span class="acces">— optional</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Power <span class="acces">— optional</span></td><td>W</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Voltage: 120 V · Current: 15 A → Voltage: <strong>120 V</strong> · Current: <strong>15.0 A</strong> · Resistance: <strong>8.00 Ω</strong> · Power: <strong>1,800 W</strong></p>
+    <p class="note">Direct current, or a resistive load on alternating current.</p>
+</article>
+<article id="outil-chute-de-tension">
+    <h4>Voltage drop</h4>
+    <p>The voltage lost along a conductor.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Circuit voltage <span class="acces">(key: Voltage)</span></td><td>V</td><td>120 V</td></tr>
+            <tr><td>Current</td><td>A</td><td></td></tr>
+            <tr><td>One-way run length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Conductor size <span class="acces">(key: Size)</span></td><td>list</td><td><strong>14 AWG</strong> · 12 AWG · 10 AWG · 8 AWG · 6 AWG · 4 AWG · 3 AWG · 2 AWG · 1 AWG · 1/0 AWG · 2/0 AWG · 3/0 AWG · 4/0 AWG · 250 kcmil · 350 kcmil · 500 kcmil</td></tr>
+            <tr><td>Metal</td><td>list</td><td><strong>Copper</strong> · Aluminum</td></tr>
+            <tr><td>Circuit</td><td>list</td><td><strong>Single-phase or DC</strong> · Three-phase</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Circuit voltage: 120 V · Current: 15 A · One-way run length: 100 ft 0 in · Conductor size: 14 AWG · Metal: Copper · Circuit: Single-phase or DC → Voltage drop: <strong>9.42 V</strong> · Drop, as a percentage: <strong>7.85%</strong> · Voltage at the load: <strong>110.6 V</strong></p>
+    <p class="note">Calculated from the resistivity of the conductor at 75 °C. The Code sets the permitted voltage drop and the minimum conductor size.</p>
+</article>
+<article id="outil-puissance">
+    <h4>Circuit power</h4>
+    <p>The power of a load, from its voltage and current.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Voltage</td><td>V</td><td></td></tr>
+            <tr><td>Current</td><td>A</td><td></td></tr>
+            <tr><td>Power factor</td><td></td><td>1</td></tr>
+            <tr><td>Circuit</td><td>list</td><td><strong>Single-phase</strong> · Three-phase</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Voltage: 240 V · Current: 30 A · Power factor: 1 · Circuit: Single-phase → Apparent power: <strong>7.20 kVA</strong> · Real power: <strong>7.20 kW</strong> · Equivalent in HP: <strong>9.65 HP</strong></p>
+    <p class="note">In three-phase, the voltage is the line-to-line voltage. 1 HP equals 746 W.</p>
+</article>
+<article id="outil-cintrage">
+    <h4>Conduit bending: offset</h4>
+    <p>The distance between the two bends of an offset, and the length the offset takes up.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Offset height <span class="acces">(key: Offset)</span></td><td>in</td><td></td></tr>
+            <tr><td>Bend angle <span class="acces">(key: Angle)</span></td><td>list</td><td>10° · 22.5° · <strong>30°</strong> · 45° · 60°</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Offset height: 6 in · Bend angle: 30° → Distance between marks: <strong>1 ft 0 in</strong> · Shrink: <strong>1 5/8 in</strong></p>
+    <p class="note">The shrink is the length the offset takes away from the conduit run.</p>
+</article>
+<article id="outil-cout-d-energie">
+    <h4>Operating cost</h4>
+    <p>The energy an appliance uses, and what it costs.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Appliance power <span class="acces">(key: Power)</span></td><td>W</td><td></td></tr>
+            <tr><td>Use per day <span class="acces">(key: Hours per day)</span></td><td>h</td><td></td></tr>
+            <tr><td>Number of days <span class="acces">(key: Days)</span></td><td>whole number</td><td>30</td></tr>
+            <tr><td>Rate</td><td>¢/kWh</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Appliance power: 1,500 W · Use per day: 8 h · Number of days: 30 · Rate: 10¢/kWh → Energy: <strong>360 kWh</strong> · Cost: <strong>$36.00</strong></p>
+    <p class="note">The rate is shown on your electricity bill.</p>
+</article>
+<article id="outil-calibre-pour-chute">
+    <h4>Wire size for voltage drop</h4>
+    <p>The smallest conductor that keeps the voltage drop under the target limit.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Circuit voltage <span class="acces">(key: Voltage)</span></td><td>V</td><td>120 V</td></tr>
+            <tr><td>Current</td><td>A</td><td></td></tr>
+            <tr><td>One-way run length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Target voltage drop <span class="acces">(key: Target drop)</span></td><td>%</td><td>3%</td></tr>
+            <tr><td>Metal</td><td>list</td><td><strong>Copper</strong> · Aluminum</td></tr>
+            <tr><td>Circuit</td><td>list</td><td><strong>Single-phase or DC</strong> · Three-phase</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Circuit voltage: 120 V · Current: 20 A · One-way run length: 100 ft 0 in · Target voltage drop: 3% · Metal: Copper · Circuit: Single-phase or DC → Adequate size: <strong>8 AWG</strong> · Minimum cross-section: <strong>14.3 kcmil</strong> · Drop with this size: <strong>3.13 V</strong> · Drop, as a percentage: <strong>2.60%</strong></p>
+    <p class="note">The size addresses voltage drop only: the Code also sets the minimum size based on ampacity.</p>
+</article>
+<article id="outil-resistances">
+    <h4>Resistors in series and parallel</h4>
+    <p>The equivalent resistance of two to four resistors.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Resistor 1 <span class="acces">(key: R1)</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Resistor 2 <span class="acces">(key: R2)</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Resistor 3 <span class="acces">(key: R3)</span> <span class="acces">— optional</span></td><td>Ω</td><td></td></tr>
+            <tr><td>Resistor 4 <span class="acces">(key: R4)</span> <span class="acces">— optional</span></td><td>Ω</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Resistor 1: 100 Ω · Resistor 2: 220 Ω · Resistor 3: 470 Ω → In series: <strong>790 Ω</strong> · In parallel: <strong>60.0 Ω</strong></p>
+</article>
+<article id="outil-transformateur">
+    <h4>Transformer currents</h4>
+    <p>The primary and secondary currents of a transformer, from its rating.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Power</td><td>kVA</td><td></td></tr>
+            <tr><td>Primary voltage <span class="acces">(key: Primary)</span></td><td>V</td><td></td></tr>
+            <tr><td>Secondary voltage <span class="acces">(key: Secondary)</span></td><td>V</td><td></td></tr>
+            <tr><td>Circuit</td><td>list</td><td><strong>Single-phase</strong> · Three-phase</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Power: 75 kVA · Primary voltage: 600 V · Secondary voltage: 208 V · Circuit: Three-phase → Primary current: <strong>72.2 A</strong> · Secondary current: <strong>208 A</strong> · Turns ratio: <strong>2.88</strong></p>
+    <p class="note">Full-load currents, not counting transformer losses. In three-phase, the voltages are line-to-line.</p>
+</article>
+<article id="outil-moteur">
+    <h4>Motor current</h4>
+    <p>The full-load current of a motor, from its power, efficiency and power factor.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Motor power <span class="acces">(key: Power)</span></td><td>HP</td><td></td></tr>
+            <tr><td>Voltage</td><td>V</td><td></td></tr>
+            <tr><td>Efficiency</td><td>%</td><td>90%</td></tr>
+            <tr><td>Power factor</td><td></td><td>0.85</td></tr>
+            <tr><td>Circuit</td><td>list</td><td>Single-phase · <strong>Three-phase</strong></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Motor power: 10 HP · Voltage: 575 V · Efficiency: 90% · Power factor: 0.85 · Circuit: Three-phase → Shaft power: <strong>7.46 kW</strong> · Input power: <strong>8.29 kW</strong> · Full-load current: <strong>9.79 A</strong></p>
+    <p class="note">Calculated from the efficiency and power factor entered. The motor nameplate and the Code tables govern.</p>
+</article>
+<article id="outil-remplissage-de-conduit">
+    <h4>Conduit fill</h4>
+    <p>The share of a conduit's cross-section taken up by conductors of the same size.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Conduit inside diameter <span class="acces">(key: Conduit)</span></td><td>in</td><td></td></tr>
+            <tr><td>Conductor diameter, insulation included <span class="acces">(key: Conductor)</span></td><td>in</td><td></td></tr>
+            <tr><td>Number of conductors <span class="acces">(key: Count)</span></td><td>whole number</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Conduit inside diameter: 13/16 in · Conductor diameter, insulation included: 1/8 in · Number of conductors: 9 → Conduit cross-section: <strong>0.533 in² (344 mm²)</strong> · Conductor cross-section: <strong>0.087 in² (56.2 mm²)</strong> · Fill: <strong>16.3%</strong></p>
+    <p class="note">Diameters are listed in the manufacturers' tables. The Code sets the permitted fill according to the number of conductors.</p>
+</article>
+<article id="outil-eclairage">
+    <h4>Lighting: number of fixtures</h4>
+    <p>The number of fixtures to reach a target illuminance, by the lumen method.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Room length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Room width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Target illuminance <span class="acces">(key: Illuminance)</span></td><td>lux</td><td></td></tr>
+            <tr><td>Lumens per fixture <span class="acces">(key: Lumens)</span></td><td>lm</td><td></td></tr>
+            <tr><td>Coefficient of utilization <span class="acces">(key: Utilization)</span></td><td></td><td>0.6</td></tr>
+            <tr><td>Maintenance factor <span class="acces">(key: Maintenance)</span></td><td></td><td>0.8</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Room length: 30 ft 0 in · Room width: 20 ft 0 in · Target illuminance: 300 lux · Lumens per fixture: 4,000 lm · Coefficient of utilization: 0.6 · Maintenance factor: 0.8 → Area: <strong>600 ft² (55.7 m²)</strong> · Lumens required: <strong>34,839 lm</strong> · Fixtures: <strong>9 fixtures</strong></p>
+    <p class="note">Estimate: both factors depend on the fixture, the room and the upkeep. One foot-candle equals 10.76 lux.</p>
+</article>
+<h3 id="metier-ventilation">Ventilation and heating</h3>
+<p class="note">Ducts, air changes, capacity, radiant floor.</p>
+<article id="outil-conduit-rond">
+    <h4>Round duct airflow</h4>
+    <p>The airflow of a round duct, from its diameter and the air velocity.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Diameter</td><td>in</td><td></td></tr>
+            <tr><td>Air velocity <span class="acces">(key: Velocity)</span></td><td>ft/min</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Diameter: 8 in · Air velocity: 700 ft/min → Cross-section: <strong>0.349 ft² (0.032 m²)</strong> · Airflow: <strong>244 CFM (115 L/s)</strong></p>
+</article>
+<article id="outil-conduit-rectangulaire">
+    <h4>Rectangular duct airflow</h4>
+    <p>The airflow of a rectangular duct, and the round duct that replaces it.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Width</td><td>in</td><td></td></tr>
+            <tr><td>Height</td><td>in</td><td></td></tr>
+            <tr><td>Air velocity <span class="acces">(key: Velocity)</span></td><td>ft/min</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Width: 14 in · Height: 8 in · Air velocity: 900 ft/min → Cross-section: <strong>0.778 ft² (0.072 m²)</strong> · Airflow: <strong>700 CFM (330 L/s)</strong> · Equivalent round duct: <strong>11 7/16 in</strong></p>
+    <p class="note">The equivalent round duct has the same friction loss at the same airflow (Huebscher's formula).</p>
+</article>
+<article id="outil-puissance-thermique">
+    <h4>Heating and cooling capacity</h4>
+    <p>The same capacity in BTU/h, kilowatts and tons of refrigeration.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Capacity</td><td></td><td></td></tr>
+            <tr><td>Unit</td><td>list</td><td><strong>BTU/h</strong> · kW · tons of refrigeration</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Capacity: 36,000 · Unit: BTU/h → In BTU per hour: <strong>36,000 BTU/h</strong> · In kilowatts: <strong>10.6 kW</strong> · In tons of refrigeration: <strong>3.00 tons</strong></p>
+</article>
+<article id="outil-conduit-pour-un-debit">
+    <h4>Round duct for an airflow</h4>
+    <p>The diameter of the round duct that carries an airflow at the target velocity.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Airflow</td><td>CFM</td><td></td></tr>
+            <tr><td>Air velocity <span class="acces">(key: Velocity)</span></td><td>ft/min</td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Airflow: 400 CFM · Air velocity: 800 ft/min → Cross-section required: <strong>0.500 ft² (0.046 m²)</strong> · Round duct diameter: <strong>9 9/16 in</strong></p>
+</article>
+<article id="outil-changements-d-air">
+    <h4>Air changes per hour</h4>
+    <p>The airflow needed to change the air in a room a given number of times per hour.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Room length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Room width <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Ceiling height <span class="acces">(key: Height)</span></td><td>ft</td><td>8 ft 0 in</td></tr>
+            <tr><td>Air changes per hour <span class="acces">(key: Air changes)</span></td><td></td><td></td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Room length: 12 ft 0 in · Room width: 10 ft 0 in · Ceiling height: 8 ft 0 in · Air changes per hour: 6 → Room volume: <strong>960 ft³ (27.2 m³)</strong> · Airflow: <strong>96.0 CFM (45.3 L/s)</strong></p>
+</article>
+<article id="outil-chaleur-de-l-air">
+    <h4>Heat carried by air</h4>
+    <p>The heating or cooling capacity of an airflow, from the temperature difference.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Airflow</td><td>CFM</td><td></td></tr>
+            <tr><td>Temperature difference <span class="acces">(key: Temp. difference)</span></td><td></td><td></td></tr>
+            <tr><td>Unit of the difference <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>°C</strong> · °F</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Airflow: 1,000 CFM · Temperature difference: 20 · Unit of the difference: °F → Capacity: <strong>21,600 BTU/h (6.33 kW)</strong></p>
+    <p class="note">Sensible heat only, for air at standard conditions: 1.08 BTU/h per CFM per degree Fahrenheit.</p>
+</article>
+<article id="outil-plancher-chauffant">
+    <h4>Radiant floor tubing</h4>
+    <p>The length of tubing for a radiant floor and the number of loops.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length of the area <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Width of the area <span class="acces">(key: Width)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Tube spacing <span class="acces">(key: Spacing)</span></td><td>in</td><td>9 in</td></tr>
+            <tr><td>Maximum loop length <span class="acces">(key: Maximum loop)</span></td><td>ft</td><td>300 ft 0 in</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length of the area: 30 ft 0 in · Width of the area: 20 ft 0 in · Tube spacing: 9 in · Maximum loop length: 300 ft 0 in → Area: <strong>600 ft² (55.7 m²)</strong> · Tubing length: <strong>800 ft 0 in</strong> · Loops: <strong>3 loops</strong> · Length per loop: <strong>266 ft 8 in</strong></p>
+    <p class="note">Leader lengths to the manifold are not included. The spacing and the maximum loop length come from the designer or the manufacturer.</p>
+</article>
+<h3 id="metier-acier">Steel and welding</h3>
+<p class="note">Weight of plates, bars and tubes, fillet welds.</p>
+<article id="outil-plaque">
+    <h4>Plate weight</h4>
+    <p>The weight of a rectangular plate or sheet.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Width</td><td>ft</td><td></td></tr>
+            <tr><td>Thickness</td><td>in</td><td></td></tr>
+            <tr><td>Metal</td><td>list</td><td><strong>Steel</strong> · Stainless steel · Aluminum</td></tr>
+            <tr><td>Number of pieces <span class="acces">(key: Pieces)</span></td><td>whole number</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Length: 8 ft 0 in · Width: 4 ft 0 in · Thickness: 1/4 in · Metal: Steel · Number of pieces: 1 → Area of one face: <strong>32.0 ft² (2.97 m²)</strong> · Weight per piece: <strong>327 lb (148 kg)</strong> · Total weight: <strong>327 lb (148 kg)</strong></p>
+    <p class="note">Densities: steel, 7,850 kg/m³; stainless steel, 8,000 kg/m³; aluminum, 2,700 kg/m³.</p>
+</article>
+<article id="outil-barre-ronde">
+    <h4>Round bar or tube weight</h4>
+    <p>The weight of a solid round bar or a round tube, per foot and in total.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Outside diameter <span class="acces">(key: Diameter)</span></td><td>in</td><td></td></tr>
+            <tr><td>Wall thickness <span class="acces">(key: Wall)</span> <span class="acces">— optional</span></td><td>in</td><td></td></tr>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Metal</td><td>list</td><td><strong>Steel</strong> · Stainless steel · Aluminum</td></tr>
+            <tr><td>Number of pieces <span class="acces">(key: Pieces)</span></td><td>whole number</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Outside diameter: 1 in · Length: 12 ft 0 in · Metal: Steel · Number of pieces: 1 → Weight per length: <strong>2.67 lb/ft (3.98 kg/m)</strong> · Weight per piece: <strong>32.1 lb (14.5 kg)</strong> · Total weight: <strong>32.1 lb (14.5 kg)</strong></p>
+    <p class="note">Leave the wall blank for a solid bar. Densities: steel, 7,850 kg/m³; stainless steel, 8,000 kg/m³; aluminum, 2,700 kg/m³.</p>
+</article>
+<article id="outil-profile-rectangulaire">
+    <h4>Flat bar or rectangular tube weight</h4>
+    <p>The weight of a flat bar, a solid square bar, or a square or rectangular tube.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Width</td><td>in</td><td></td></tr>
+            <tr><td>Height</td><td>in</td><td></td></tr>
+            <tr><td>Wall thickness <span class="acces">(key: Wall)</span> <span class="acces">— optional</span></td><td>in</td><td></td></tr>
+            <tr><td>Length</td><td>ft</td><td></td></tr>
+            <tr><td>Metal</td><td>list</td><td><strong>Steel</strong> · Stainless steel · Aluminum</td></tr>
+            <tr><td>Number of pieces <span class="acces">(key: Pieces)</span></td><td>whole number</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Width: 2 in · Height: 2 in · Wall thickness: 1/8 in · Length: 20 ft 0 in · Metal: Steel · Number of pieces: 1 → Weight per length: <strong>3.19 lb/ft (4.75 kg/m)</strong> · Weight per piece: <strong>63.8 lb (28.9 kg)</strong> · Total weight: <strong>63.8 lb (28.9 kg)</strong></p>
+    <p class="note">Leave the wall blank for a solid bar. Square corners: a tube with rounded corners weighs slightly less.</p>
+</article>
+<article id="outil-cordon-de-soudure">
+    <h4>Fillet weld</h4>
+    <p>The metal needed for a steel fillet weld, and the electrodes to allow for.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Weld leg size <span class="acces">(key: Leg)</span></td><td>in</td><td></td></tr>
+            <tr><td>Weld length <span class="acces">(key: Length)</span></td><td>ft</td><td></td></tr>
+            <tr><td>Deposition efficiency <span class="acces">(key: Efficiency)</span></td><td>%</td><td>65%</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Weld leg size: 1/4 in · Weld length: 100 ft 0 in · Deposition efficiency: 65% → Deposited metal: <strong>10.6 lb (4.82 kg)</strong> · Electrodes or wire needed: <strong>16.4 lb (7.42 kg)</strong></p>
+    <p class="note">Flat-faced, equal-leg fillet weld in steel. Deposition efficiency depends on the process: about 60 to 65% for stick electrodes, over 90% for solid wire. Allow extra for the weld reinforcement.</p>
+</article>
+
+<h2 id="licence">15. Disclaimer, licence and contact <a class="haut" href="#sommaire">Contents</a></h2>
+<p>This calculator is a calculation aid. It does not replace the drawings, the judgment of a qualified person, or the requirements of the building code in force where you work (in Québec, the Construction Code) and of municipal regulations. Always check your results before cutting or ordering.</p>
+<p>The Jobsite Calculator is free software, distributed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>. Its source code is public: <a href="https://github.com/ConstructoAI/calculatrice-chantier">github.com/ConstructoAI/calculatrice-chantier</a>. The software is provided "as is", without warranty of any kind.</p>
+<p>A question, an error to report, a tool missing for your trade? Write to <a href="mailto:info@constructoai.ca">info@constructoai.ca</a>, or visit <a href="https://constructoai.ca/">constructoai.ca</a>.</p>
+
+</main>
+
+<footer>
+    <p>Jobsite Calculator — courtesy of Sylvain Leduc of Constructo AI. <a href="#haut">Top of the page</a></p>
+</footer>
+</body>
+</html>
