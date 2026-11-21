@@ -18,6 +18,8 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.7.1** : dans le dessin, un bouton **Annuler**, un bouton **Ajouter au ruban** (les
   mesures, la surface et le périmètre) et, pour un rectangle, la **diagonale d'équerre** à
   vérifier sur place.
+- **0.7.2** : **Envoyer vers un outil** — la pièce dessinée part vers la dalle de béton,
+  l'armature, les pavés, l'excavation ou un autre outil, qui s'ouvre avec ses mesures.
 
 ## Nouveautés de la version 0.6
 

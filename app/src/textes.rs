@@ -328,6 +328,25 @@ pub const DESSIN_RETIRER: Texte = t("Retirer le dernier côté", "Remove last si
 pub const DESSIN_EFFACER: Texte = t("Tout effacer", "Clear all");
 pub const DESSIN_ANNULER: Texte = t("Annuler", "Undo");
 pub const DESSIN_AU_RUBAN: Texte = t("Ajouter au ruban", "Add to tape");
+pub const DESSIN_VERS_UN_OUTIL: Texte = t("Envoyer vers un outil…", "Send to a tool…");
+
+/// Ce que l'outil choisi va recevoir.
+pub fn dessin_rectangle_equivalent(longueur: &str, largeur: &str, exact: bool) -> String {
+    match (langue::en_cours(), exact) {
+        (Langue::Francais, true) => format!(
+            "L'outil reçoit un rectangle de même surface et de même périmètre que la pièce : {longueur} sur {largeur}. Choisissez l'outil :"
+        ),
+        (Langue::Francais, false) => format!(
+            "L'outil reçoit un carré de même surface que la pièce : {longueur} sur {largeur}. Son périmètre n'est pas celui de la pièce. Choisissez l'outil :"
+        ),
+        (Langue::Anglais, true) => format!(
+            "The tool gets a rectangle with the same area and perimeter as the room: {longueur} by {largeur}. Pick the tool:"
+        ),
+        (Langue::Anglais, false) => format!(
+            "The tool gets a square with the same area as the room: {longueur} by {largeur}. Its perimeter is not the room's. Pick the tool:"
+        ),
+    }
+}
 pub const DESSIN_DIAGONALE: Texte = t("Diagonale d'équerre", "Square-up diagonal");
 pub const DESSIN_EXEMPLE: Texte = t("12 pi 6 po", "12 ft 6 in");
 pub const DESSIN_COTE_SUIVANT: Texte = t("Suivant", "Next");

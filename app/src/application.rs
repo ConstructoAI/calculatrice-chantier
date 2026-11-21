@@ -1121,6 +1121,25 @@ impl Application {
                 match action {
                     Some(vues::dessin::Action::Modifie) => self.dessin_a_sauvegarder = true,
                     Some(vues::dessin::Action::Fermer) => self.aller(Vue::Accueil),
+                    Some(vues::dessin::Action::VersOutil { id, champs }) => {
+                        if let Some(c) = noyau::metiers::calculateur(id) {
+                            let saisies = self
+                                .saisies_metiers
+                                .entry(id.to_string())
+                                .or_insert_with(|| c.saisies_par_defaut());
+                            saisies.resize(c.champs.len(), String::new());
+                            for (rang, texte) in champs {
+                                if let Some(saisie) = saisies.get_mut(rang) {
+                                    *saisie = texte;
+                                }
+                            }
+                            self.saisies_a_sauvegarder = true;
+                            // L'outil s'ouvre au clavier, avec ces deux mesures.
+                            self.brancher_l_outil(None);
+                            self.brancher_l_outil(Some(id));
+                            self.aller(Vue::Accueil);
+                        }
+                    }
                     Some(vues::dessin::Action::Consigner { entrees, resultats }) => {
                         let entrees: Vec<(&str, String)> = entrees
                             .iter()

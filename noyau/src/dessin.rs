@@ -8,7 +8,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::analyse::analyser_longueur;
-use crate::unites::Format;
+use crate::etiquettes::symbole;
+use crate::metiers::{Calculateur, Metier, Nature};
+use crate::unites::{Format, PO_PAR_M};
 
 /// Écart toléré, en pouces, entre des mesures qui devraient fermer la forme.
 pub const TOLERANCE_PO: f64 = 1.0 / 16.0;
@@ -138,6 +140,54 @@ pub struct Solution {
     pub etat: Etat,
     /// Format de la première mesure inscrite : il sert de modèle aux résultats.
     pub modele: Option<Format>,
+}
+
+/// Rectangle de même aire et de même périmètre qu'une pièce : sa longueur, sa
+/// largeur, et vrai s'il existe. Les outils qui ne dépendent que de l'aire et
+/// du périmètre (dalle, plancher, peinture) donnent alors le même résultat
+/// que pour la pièce. S'il n'existe pas, c'est le carré de même aire.
+pub fn rectangle_equivalent(aire: f64, perimetre: f64) -> (f64, f64, bool) {
+    let demi = perimetre / 2.0;
+    let discriminant = demi * demi - 4.0 * aire;
+    if discriminant >= -1e-9 {
+        let racine = discriminant.max(0.0).sqrt();
+        ((demi + racine) / 2.0, (demi - racine) / 2.0, true)
+    } else {
+        (aire.sqrt(), aire.sqrt(), false)
+    }
+}
+
+/// Une longueur en pouces, écrite comme elle se tape dans un champ : en pieds
+/// décimaux ou en mètres, avec le séparateur décimal donné.
+pub fn longueur_a_taper(pouces: f64, metrique: bool, decimal: char) -> String {
+    let (valeur, format) = if metrique {
+        (pouces / PO_PAR_M, Format::M)
+    } else {
+        (pouces / 12.0, Format::PiDec)
+    };
+    let nombre = format!("{valeur:.4}");
+    let nombre = nombre.trim_end_matches('0').trim_end_matches('.');
+    format!(
+        "{} {}",
+        nombre.replace('.', &decimal.to_string()),
+        symbole(format)
+    )
+}
+
+/// Les outils par métier qui partent d'une longueur et d'une largeur au sol :
+/// l'outil, puis le rang de ces deux champs.
+pub fn outils_d_une_piece() -> Vec<(&'static Calculateur, usize, usize)> {
+    let rang = |c: &Calculateur, nom: &str| {
+        c.champs.iter().position(|champ| {
+            champ.libelle.fr == nom && matches!(champ.nature, Nature::Longueur(_))
+        })
+    };
+    Metier::TOUS
+        .iter()
+        .filter(|metier| **metier != Metier::Acier)
+        .flat_map(|metier| metier.calculateurs())
+        .filter_map(|c| Some((c, rang(c, "Longueur")?, rang(c, "Largeur")?)))
+        .collect()
 }
 
 /// Redresse un tracé à main levée : une suite de déplacements horizontaux et
@@ -695,6 +745,46 @@ mod tests {
         // Le creux (20 pi) dépasse la hauteur de la pièce (16 pi).
         inscrire(&mut dessin, &["6", "20", "8", "20", "6", "16"]);
         assert_eq!(dessin.resoudre(Format::PiPo).etat, Etat::SeCroise);
+    }
+
+    #[test]
+    fn rectangle_equivalent_et_outils() {
+        // Un rectangle est son propre équivalent.
+        let (l, w, exact) = rectangle_equivalent(144.0 * 126.0, 2.0 * (144.0 + 126.0));
+        assert!(exact && (l - 144.0).abs() < 1e-9 && (w - 126.0).abs() < 1e-9);
+        // La pièce en L de 250 pi² et de 76 pi de périmètre.
+        let (l, w, exact) = rectangle_equivalent(250.0 * 144.0, 76.0 * 12.0);
+        assert!(exact);
+        assert!((l * w - 250.0 * 144.0).abs() < 1e-6);
+        assert!((2.0 * (l + w) - 76.0 * 12.0).abs() < 1e-9);
+        // Un disque n'a pas d'équivalent : le carré de même aire.
+        assert_eq!(rectangle_equivalent(100.0, 20.0), (10.0, 10.0, false));
+
+        // Ce qui est écrit se relit à la même valeur, dans les deux systèmes.
+        for (pouces, metrique, decimal) in [
+            (126.0, false, ','),
+            (277.128, false, '.'),
+            (150.0, true, ','),
+        ] {
+            let texte = longueur_a_taper(pouces, metrique, decimal);
+            let relu = if decimal == ',' {
+                analyser_longueur(&texte, Format::PiPo).unwrap().base
+            } else {
+                let _anglais = crate::langue::pour_la_portee(crate::Langue::Anglais);
+                analyser_longueur(&texte, Format::PiPo).unwrap().base
+            };
+            assert!((relu - pouces).abs() < 0.01, "{texte} -> {relu}");
+        }
+        assert_eq!(longueur_a_taper(126.0, false, ','), "10,5 pi");
+
+        let outils = outils_d_une_piece();
+        assert!(
+            outils
+                .iter()
+                .any(|(c, l, w)| c.id == "dalle" && *l == 0 && *w == 1)
+        );
+        assert!(outils.len() >= 8);
+        assert!(outils.iter().all(|(c, _, _)| c.metier != Metier::Acier));
     }
 
     #[test]

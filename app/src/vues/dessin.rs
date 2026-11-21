@@ -27,6 +27,8 @@ pub struct Etat {
     trace: Vec<Pos2>,
     /// Vrai quand le champ de la mesure doit prendre le clavier.
     viser_le_champ: bool,
+    /// Vrai quand la liste des outils qui peuvent recevoir la pièce est ouverte.
+    outils_ouverts: bool,
     /// Les états précédents du dessin, pour le bouton « Annuler ».
     historique: Vec<Dessin>,
 }
@@ -60,6 +62,12 @@ pub enum Action {
     Consigner {
         entrees: Vec<(String, String)>,
         resultats: Vec<(String, String)>,
+    },
+    /// Ouvrir un outil de métier avec la longueur et la largeur de la pièce.
+    VersOutil {
+        id: &'static str,
+        /// (rang du champ, ce qu'il faut y inscrire)
+        champs: [(usize, String); 2],
     },
 }
 
@@ -183,7 +191,7 @@ pub fn afficher(
             action = Some(Action::Modifie);
         }
         let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-        if let Some(consigner) = bilan(ui, p, dessin, &solution, prefs) {
+        if let Some(consigner) = bilan(ui, p, dessin, etat, &solution, prefs) {
             action = Some(consigner);
         }
         ui.add_space(10.0);
@@ -524,6 +532,7 @@ fn bilan(
     ui: &mut Ui,
     p: &Palette,
     dessin: &Dessin,
+    etat: &mut Etat,
     solution: &Solution,
     prefs: &Preferences,
 ) -> Option<Action> {
@@ -607,6 +616,45 @@ fn bilan(
                         entrees,
                         resultats: resultats.clone(),
                     });
+                }
+                if ui
+                    .add(egui::Button::new(textes::DESSIN_VERS_UN_OUTIL.traduit()))
+                    .clicked()
+                {
+                    etat.outils_ouverts = !etat.outils_ouverts;
+                }
+                if etat.outils_ouverts {
+                    let (longueur, largeur, exact) =
+                        noyau::dessin::rectangle_equivalent(aire, perimetre);
+                    let metrique = solution.modele.and_then(Format::systeme)
+                        == Some(noyau::unites::Systeme::Metrique);
+                    let decimal = noyau::format::separateur_decimal(prefs);
+                    let a_taper =
+                        |pouces: f64| noyau::dessin::longueur_a_taper(pouces, metrique, decimal);
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(textes::dessin_rectangle_equivalent(
+                            &a_taper(longueur),
+                            &a_taper(largeur),
+                            exact,
+                        ))
+                        .size(12.5)
+                        .color(p.texte_attenue),
+                    );
+                    ui.add_space(2.0);
+                    for (c, rang_longueur, rang_largeur) in noyau::dessin::outils_d_une_piece() {
+                        let libelle = textes::avec_tiret(c.metier.nom_court(), c.nom.traduit());
+                        if ui.add(egui::Button::new(libelle)).clicked() {
+                            etat.outils_ouverts = false;
+                            action = Some(Action::VersOutil {
+                                id: c.id,
+                                champs: [
+                                    (rang_longueur, a_taper(longueur)),
+                                    (rang_largeur, a_taper(largeur)),
+                                ],
+                            });
+                        }
+                    }
                 }
             });
         }
