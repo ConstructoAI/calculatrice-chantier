@@ -15,6 +15,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   avec le doigt ou la souris, touchez chaque côté et inscrivez sa mesure. La calculatrice
   met les angles d'équerre, déduit les côtés qui manquent et donne la surface et le
   périmètre.
+- **0.7.1** : dans le dessin, un bouton **Annuler**, un bouton **Ajouter au ruban** (les
+  mesures, la surface et le périmètre) et, pour un rectangle, la **diagonale d'équerre** à
+  vérifier sur place.
 
 ## Nouveautés de la version 0.6
 

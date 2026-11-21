@@ -1121,6 +1121,20 @@ impl Application {
                 match action {
                     Some(vues::dessin::Action::Modifie) => self.dessin_a_sauvegarder = true,
                     Some(vues::dessin::Action::Fermer) => self.aller(Vue::Accueil),
+                    Some(vues::dessin::Action::Consigner { entrees, resultats }) => {
+                        let entrees: Vec<(&str, String)> = entrees
+                            .iter()
+                            .map(|(l, v)| (l.as_str(), v.clone()))
+                            .collect();
+                        let resultats: Vec<(&str, String)> = resultats
+                            .iter()
+                            .map(|(l, v)| (l.as_str(), v.clone()))
+                            .collect();
+                        self.moteur
+                            .consigner(textes::DESSIN_TITRE.traduit(), &entrees, &resultats);
+                        self.a_sauvegarder = true;
+                        self.annoncer(ui.ctx(), textes::AVIS_AJOUTE_AU_RUBAN);
+                    }
                     None => {}
                 }
             }

@@ -27,7 +27,12 @@ pub struct Etat {
     trace: Vec<Pos2>,
     /// Vrai quand le champ de la mesure doit prendre le clavier.
     viser_le_champ: bool,
+    /// Les états précédents du dessin, pour le bouton « Annuler ».
+    historique: Vec<Dessin>,
 }
+
+/// Nombre d'étapes que le bouton « Annuler » peut remonter.
+const PROFONDEUR_DE_L_HISTORIQUE: usize = 40;
 
 impl Etat {
     /// Choisit un côté et place le curseur dans le champ de sa mesure.
@@ -35,12 +40,27 @@ impl Etat {
         self.choisi = rang;
         self.viser_le_champ = rang.is_some();
     }
+
+    /// Retient le dessin tel qu'il est, avant un changement.
+    fn memoriser(&mut self, dessin: &Dessin) {
+        if self.historique.last() != Some(dessin) {
+            self.historique.push(dessin.clone());
+            if self.historique.len() > PROFONDEUR_DE_L_HISTORIQUE {
+                self.historique.remove(0);
+            }
+        }
+    }
 }
 
 pub enum Action {
     /// Le dessin ou une mesure ont changé : à conserver.
     Modifie,
     Fermer,
+    /// Inscrire la pièce au ruban : ses mesures, puis ses résultats.
+    Consigner {
+        entrees: Vec<(String, String)>,
+        resultats: Vec<(String, String)>,
+    },
 }
 
 /// Passage du croquis (ou de la forme à ses mesures) à l'écran.
@@ -163,7 +183,9 @@ pub fn afficher(
             action = Some(Action::Modifie);
         }
         let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-        bilan(ui, p, &solution, prefs);
+        if let Some(consigner) = bilan(ui, p, dessin, &solution, prefs) {
+            action = Some(consigner);
+        }
         ui.add_space(10.0);
     });
     action
@@ -244,7 +266,9 @@ fn planche_et_gestes(
             })
             .collect();
         etat.trace.clear();
+        let avant = dessin.clone();
         if dessin.ajouter_trace(&trace) {
+            etat.memoriser(&avant);
             modifie = true;
             if dessin.fermee {
                 let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
@@ -370,17 +394,35 @@ fn boutons(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bo
                     13.5,
                 ))
                 .clicked()
-            && dessin.fermer()
         {
-            modifie = true;
+            let avant = dessin.clone();
+            if dessin.fermer() {
+                etat.memoriser(&avant);
+                modifie = true;
+            }
+        }
+        if modifie {
             let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
             etat.choisir(premier_cote_a_mesurer(&solution).or(Some(0)));
         }
         let plein = !dessin.est_vide();
         if ui
+            .add_enabled(
+                !etat.historique.is_empty(),
+                egui::Button::new(textes::DESSIN_ANNULER.traduit()),
+            )
+            .clicked()
+            && let Some(precedent) = etat.historique.pop()
+        {
+            *dessin = precedent;
+            etat.choisir(None);
+            modifie = true;
+        }
+        if ui
             .add_enabled(plein, egui::Button::new(textes::DESSIN_RETIRER.traduit()))
             .clicked()
         {
+            etat.memoriser(dessin);
             dessin.retirer_le_dernier();
             etat.choisir(None);
             modifie = true;
@@ -389,6 +431,7 @@ fn boutons(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bo
             .add_enabled(plein, egui::Button::new(textes::DESSIN_EFFACER.traduit()))
             .clicked()
         {
+            etat.memoriser(dessin);
             dessin.effacer();
             etat.choisir(None);
             modifie = true;
@@ -477,7 +520,14 @@ fn mesure_du_cote(
 }
 
 /// Où en est la forme : ce qu'il reste à faire, ou la surface et le périmètre.
-fn bilan(ui: &mut Ui, p: &Palette, solution: &Solution, prefs: &Preferences) {
+fn bilan(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &Dessin,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> Option<Action> {
+    let mut action = None;
     ui.add_space(8.0);
     let consigne = |ui: &mut Ui, texte: &str, couleur: Color32| {
         ui.label(RichText::new(texte).size(13.5).color(couleur));
@@ -498,17 +548,30 @@ fn bilan(ui: &mut Ui, p: &Palette, solution: &Solution, prefs: &Preferences) {
         ),
         EtatDeLaForme::SeCroise => consigne(ui, textes::DESSIN_SE_CROISE.traduit(), p.erreur),
         EtatDeLaForme::Complete { aire, perimetre } => {
+            let mut resultats = vec![
+                (
+                    textes::DESSIN_SURFACE.traduit().to_string(),
+                    Quantite::Aire(aire).en_clair(solution.modele, prefs),
+                ),
+                (
+                    textes::DESSIN_PERIMETRE.traduit().to_string(),
+                    longueur_en_clair(perimetre, solution, prefs),
+                ),
+            ];
+            // Un rectangle est d'équerre quand ses deux diagonales ont cette longueur.
+            if let [Some(a), Some(b), _, _] = solution
+                .mesures
+                .iter()
+                .map(|m| m.pouces())
+                .collect::<Vec<_>>()[..]
+            {
+                resultats.push((
+                    textes::DESSIN_DIAGONALE.traduit().to_string(),
+                    longueur_en_clair(a.hypot(b), solution, prefs),
+                ));
+            }
             carte(ui, p, |ui| {
-                for (libelle, valeur) in [
-                    (
-                        textes::DESSIN_SURFACE.traduit(),
-                        Quantite::Aire(aire).en_clair(solution.modele, prefs),
-                    ),
-                    (
-                        textes::DESSIN_PERIMETRE.traduit(),
-                        longueur_en_clair(perimetre, solution, prefs),
-                    ),
-                ] {
+                for (libelle, valeur) in &resultats {
                     ui.horizontal(|ui| {
                         ui.label(
                             RichText::new(libelle)
@@ -522,7 +585,31 @@ fn bilan(ui: &mut Ui, p: &Palette, solution: &Solution, prefs: &Preferences) {
                         );
                     });
                 }
+                ui.add_space(4.0);
+                if ui
+                    .add(bouton_principal(p, textes::DESSIN_AU_RUBAN.traduit(), 13.5))
+                    .clicked()
+                {
+                    let entrees = solution
+                        .mesures
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, m)| {
+                            m.pouces().map(|pouces| {
+                                (
+                                    textes::dessin_cote(i + 1, dessin.cotes.len()),
+                                    longueur_en_clair(pouces, solution, prefs),
+                                )
+                            })
+                        })
+                        .collect();
+                    action = Some(Action::Consigner {
+                        entrees,
+                        resultats: resultats.clone(),
+                    });
+                }
             });
         }
     }
+    action
 }
