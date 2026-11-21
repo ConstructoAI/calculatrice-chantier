@@ -1,6 +1,6 @@
 [package]
 name = "calculatrice-chantier"
-description = "Calculatrice de chantier — interface graphique"
+description = "Constructo AI, calculatrice de chantier — interface graphique"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

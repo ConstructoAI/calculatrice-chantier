@@ -92,7 +92,7 @@ Les photos montrent une application commerciale d'un tiers. Elles servent **uniq
 - **R-03** Ne pas inclure les photos de référence dans le binaire ni dans un dépôt public.
 - Les méthodes de calcul (trigonométrie, géométrie, règles de métier) et l'organisation d'un clavier de calculatrice sont du domaine fonctionnel et sont reprises librement.
 
-**Nom provisoire :** « Calculatrice de chantier ». Il est défini à un seul endroit (`NOM_APPLICATION`) pour être changé facilement par l'utilisateur.
+**Nom :** « Constructo AI », en français comme en anglais — choisi par l'utilisateur le 2026-11-21 (auparavant « Calculatrice de chantier » et « Jobsite Calculator »). Il est défini à un seul endroit (`NOM_APPLICATION`). L'adresse du site, le nom du dépôt, celui de l'exécutable et le dossier des données (`CalculatriceChantier`) ne changent pas : personne ne perd ses réglages ni ses rubans.
 
 ### 1.4 Principes directeurs
 
@@ -1563,7 +1563,7 @@ Tout ce qui diffère est dans `app/src/plateforme/` (`adresse_du_manuel`).
 - Titre : le nom de l'application. Taille initiale **420 × 860** points logiques (format portrait, comme un appareil tenu en main); minimum 340 × 620; redimensionnable.
 - Tout le contenu se met à l'échelle : `echelle = min(largeur ÷ 420, hauteur ÷ 860)` appliquée aux tailles de police, marges et rayons.
 - **Fenêtre large** (largeur ≥ 880 points) : la calculatrice garde son format portrait à gauche (largeur = hauteur × 420 ÷ 860, plafonnée à 520) et le **ruban courant** occupe le reste, à droite.
-- Icône de fenêtre : un pictogramme original simple (une équerre de charpentier stylisée, orange sur fond bleu marine), généré par le code en RVBA — aucun fichier image externe requis. Seule exception : les icônes PNG de l'application Web installable (3.1), qui reprennent le même dessin.
+- Icône de l'application : le **logo de Constructo AI** (celui du site de l'utilisateur, à sa demande du 2026-11-21) sur fond blanc aux coins arrondis. Le fichier source est `app/icones/logo-constructo-ai.png`; `app/outils/icones.py` en tire les icônes PNG de l'application Web installable (3.1) et `icone-96.rvba`, les pixels bruts lus par le programme pour l'icône de la fenêtre et la marque de la barre supérieure. (Jusqu'à la version 0.6.0 : une équerre orange dessinée par le code.)
 
 ### 16.2 Zones de l'écran principal
 
@@ -2918,7 +2918,7 @@ Ajoutée le 2026-11-19, à la demande de l'utilisateur : « le bouton fr/en avec
 - **R-63** Le français est la langue de référence. Sans réglage, tout le programme parle français : **aucun** test ni aucune valeur d'essai des sections 19, 22.14 et 23.9 ne change.
 - **R-64** Changer de langue ne change **aucune valeur** : ni les mémoires, ni les registres, ni ce qui est saisi dans les outils. Seule l'écriture change.
 - L'anglais est celui du Canada : *metre*, *millimetre*, *centre*, *labour*, *mitre*, *moulding*, *licence* (le nom), *tonne* (métrique). Les termes sont ceux des chantiers : `Pitch`, `Rise`, `Run`, `Hip/Valley`, `Jack`, `Stud`, `On centre`, `Plumb cut`, `Riser`, `Tread`, `Stringer`, `Drywall`, `Footing`, `Waste` (les pertes), `Tape` (le ruban).
-- Le nom anglais de l'application est « **Jobsite Calculator** » (titre de la fenêtre et de la page, barre supérieure, « About », manuel).
+- Le nom de l'application est le même dans les deux langues, « **Constructo AI** » (titre de la fenêtre et de la page, barre supérieure, « About », manuel).
 - La règle R-01 vaut en anglais comme en français : aucun nom, aucune marque et aucun texte de l'application de référence.
 
 ### 24.2 Choisir la langue
@@ -3479,7 +3479,7 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 |---|---|---|
 | 1 | Cible : application de bureau **Windows** (portable Linux/macOS). **Version Web ajoutée à la demande de l'utilisateur le 2026-11-19**; pas d'application mobile native. | 3, 3.1 |
 | 2 | Interface avec **eframe/egui**. | 3 |
-| 3 | Nom provisoire : « **Calculatrice de chantier** ». | 1.3 |
+| 3 | Nom : « **Constructo AI** » — tranché par l'utilisateur le 2026-11-21. | 1.3 |
 | 4 | Un nombre sans unité additionné à une longueur est une **erreur** (plutôt qu'une unité devinée). | 9.5 |
 | 5 | Surface de la colonne et du cône : **surface totale** (bases comprises). | 12.9 |
 | 6 | Feuilles de gypse : ajout du format **4 × 10**. | 12.14 |
@@ -3498,7 +3498,7 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 19 | Licence : l'utilisateur a choisi **Apache 2.0** le 2026-11-19. Le titulaire du droit d'auteur inscrit dans `NOTICE` et dans le README — « Sylvain Leduc, Constructo AI » — reprend la mention publique de l'auteur; à confirmer (la personne ou l'entreprise). | 3 |
 | 20 | « Révision » au pied du menu : l'utilisateur a demandé « la révision »; Claude affiche la version du programme suivie de l'identifiant court du commit git. | 15.1 |
 | 21 | Manuel d'utilisation : sa forme (une page Web produite à partir du programme, ouverte depuis le menu) et son plan sont un choix de Claude. | 15.4 |
-| 22 | Anglais : l'utilisateur a demandé un bouton de langue « avec la traduction en anglais ». L'anglais retenu est celui **du Canada** (*metre*, *centre*, *labour*, *mitre*, *moulding*), le nom anglais de l'application est « **Jobsite Calculator** », et les taxes s'y appellent GST et QST. | 24.1, 24.5 |
+| 22 | Anglais : l'utilisateur a demandé un bouton de langue « avec la traduction en anglais ». L'anglais retenu est celui **du Canada** (*metre*, *centre*, *labour*, *mitre*, *moulding*), le nom de l'application y est le même qu'en français (« **Constructo AI** », depuis le 2026-11-21), et les taxes s'y appellent GST et QST. | 24.1, 24.5 |
 | 23 | En anglais, les nombres s'écrivent à l'anglaise (`1,234.5`, `$1,283.06`, `47.25%`) et les unités impériales portent leurs symboles anglais (`ft`, `in`, `yd`, `ft²`, `yd³`, `bd ft`, `ton`). Une virgule tapée entre des groupes de trois chiffres y sépare les milliers. | 24.3 |
 | 24 | Au premier lancement, la langue est celle de l'appareil si c'est le français ou l'anglais, sinon le français. Un utilisateur qui avait déjà la calculatrice (en français) la garde en français. | 24.2 |
 | 25 | Les raccourcis clavier restent les mêmes dans les deux langues (`P` pour `Pitch`, `T` pour `Rise`, `C` pour `Run`…) : ils ne sont pas refaits d'après les mots anglais. Le manifeste de l'application installable reste en français (un manifeste n'a qu'une langue). | 24.6 |

@@ -1,4 +1,4 @@
-Calculatrice de construction en pieds-pouces-fractions et en métrique, en français du Québec
+**Constructo AI** : calculatrice de construction en pieds-pouces-fractions et en métrique, en français du Québec
 et en anglais. Son clavier s'adapte au métier : celui du charpentier, ou celui de l'un des onze
 autres corps de métier — 76 outils pour l'estimation, le terrassement, le béton, la maçonnerie,
 la toiture, le gypse et l'isolation, la finition, la plomberie, l'électricité, la ventilation et
@@ -6,11 +6,14 @@ l'acier. Gratuite, sans publicité, sans compte.
 
 Gracieuseté de Sylvain Leduc de Constructo AI.
 
-*English: Jobsite Calculator is a free construction calculator in feet-inches-fractions and
+*English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
 ## Nouveautés de la version 0.6
 
+- **Nouveau nom** (0.6.1) : la calculatrice s'appelle maintenant **Constructo AI**, en
+  français comme en anglais, et son icône est le logo de Constructo AI. Rien d'autre ne
+  change : même adresse, mêmes réglages, mêmes rubans.
 - **En français ou en anglais** : le bouton **FR | EN**, dans la barre du haut, fait passer
   toute la calculatrice d'une langue à l'autre — les touches, l'afficheur, les 76 outils,
   l'aide et le manuel. Le choix se fait aussi dans les Préférences, et il est conservé.

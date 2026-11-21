@@ -10,7 +10,9 @@
 // Ce fichier ne contient aucun numéro de version : la liste des fichiers du
 // programme est lue dans la page elle-même.
 
-const COPIE = "calculatrice-chantier";
+// Le numéro change quand un fichier fixe (manifeste, icônes) change : la copie
+// locale est alors refaite en entier.
+const COPIE = "calculatrice-chantier-2";
 const PAGE = "./";
 const FICHIERS_FIXES = [
     "manifest.webmanifest",
@@ -87,7 +89,17 @@ self.addEventListener("install", (evenement) => {
 });
 
 self.addEventListener("activate", (evenement) => {
-    evenement.waitUntil(self.clients.claim());
+    evenement.waitUntil(
+        (async () => {
+            // Les copies des versions précédentes ne servent plus.
+            for (const nom of await caches.keys()) {
+                if (nom !== COPIE) {
+                    await caches.delete(nom);
+                }
+            }
+            await self.clients.claim();
+        })()
+    );
 });
 
 function reseauAvecDelai(requete) {

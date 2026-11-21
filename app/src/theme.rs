@@ -628,76 +628,19 @@ pub fn installer_le_style(ctx: &egui::Context, p: &Palette) {
 // Icône
 // ----------------------------------------------------------------------
 
-/// Icône de la fenêtre : une équerre de charpentier orange sur fond bleu
-/// marine, dessinée par le code (aucun fichier image). Retourne des octets RVBA.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn icone_rvba(taille: u32) -> Vec<u8> {
-    const MARINE: [f32; 3] = [0.0, 43.0, 107.0];
-    const MARINE_BAS: [f32; 3] = [0.0, 24.0, 51.0];
-    const ORANGE: [f32; 3] = [249.0, 115.0, 22.0];
-    const SUR_ECHANTILLONS: u32 = 4;
-    let n = taille.max(1);
-    let mut pixels = Vec::with_capacity((n * n * 4) as usize);
-    for y in 0..n {
-        for x in 0..n {
-            let mut somme = [0.0f32; 4];
-            for sy in 0..SUR_ECHANTILLONS {
-                for sx in 0..SUR_ECHANTILLONS {
-                    let u = (x as f32 + (sx as f32 + 0.5) / SUR_ECHANTILLONS as f32) / n as f32;
-                    let v = (y as f32 + (sy as f32 + 0.5) / SUR_ECHANTILLONS as f32) / n as f32;
-                    // Le fond s'assombrit vers le bas, comme les barres.
-                    let fond = [
-                        MARINE[0] + (MARINE_BAS[0] - MARINE[0]) * v,
-                        MARINE[1] + (MARINE_BAS[1] - MARINE[1]) * v,
-                        MARINE[2] + (MARINE_BAS[2] - MARINE[2]) * v,
-                    ];
-                    if let Some(c) = couleur_icone(u, v, fond, ORANGE) {
-                        somme[0] += c[0];
-                        somme[1] += c[1];
-                        somme[2] += c[2];
-                        somme[3] += 1.0;
-                    }
-                }
-            }
-            let total = (SUR_ECHANTILLONS * SUR_ECHANTILLONS) as f32;
-            let couverture = somme[3].max(1.0);
-            pixels.push((somme[0] / couverture).round() as u8);
-            pixels.push((somme[1] / couverture).round() as u8);
-            pixels.push((somme[2] / couverture).round() as u8);
-            pixels.push((somme[3] / total * 255.0).round() as u8);
-        }
-    }
-    pixels
-}
+/// Côté, en pixels, de l'icône de l'application.
+pub const COTE_ICONE: usize = 96;
 
-/// Couleur de l'icône au point (u, v) du carré unité; `None` hors du fond arrondi.
-#[cfg(not(target_arch = "wasm32"))]
-fn couleur_icone(u: f32, v: f32, fond: [f32; 3], equerre: [f32; 3]) -> Option<[f32; 3]> {
-    const RAYON: f32 = 0.18;
-    // Fond : carré aux coins arrondis.
-    let dx = (u - 0.5).abs() - (0.5 - RAYON);
-    let dy = (v - 0.5).abs() - (0.5 - RAYON);
-    if dx > 0.0 && dy > 0.0 && dx * dx + dy * dy > RAYON * RAYON {
-        return None;
-    }
-    let dans = |x0: f32, x1: f32, y0: f32, y1: f32| u >= x0 && u <= x1 && v >= y0 && v <= y1;
-    // Équerre : une branche verticale et une branche horizontale.
-    let verticale = dans(0.24, 0.42, 0.18, 0.82);
-    let horizontale = dans(0.24, 0.82, 0.64, 0.82);
-    if verticale || horizontale {
-        // Graduations, de la couleur du fond.
-        let graduation_v = [0.28, 0.38, 0.48]
-            .iter()
-            .any(|y| dans(0.34, 0.42, *y - 0.012, *y + 0.012));
-        let graduation_h = [0.52, 0.62, 0.72]
-            .iter()
-            .any(|x| dans(*x - 0.012, *x + 0.012, 0.64, 0.72));
-        if graduation_v || graduation_h {
-            return Some(fond);
-        }
-        return Some(equerre);
-    }
-    Some(fond)
+/// Icône de l'application : le logo de Constructo AI sur fond blanc aux coins
+/// arrondis. Pixels bruts (rouge, vert, bleu, alpha), produits par
+/// `app/outils/icones.py`. Elle sert à la fenêtre de bureau et à la marque de
+/// la barre supérieure.
+pub const ICONE_RVBA: &[u8] = include_bytes!("../icones/icone-96.rvba");
+
+/// Crée la texture de la marque affichée dans la barre supérieure.
+pub fn creer_la_marque(ctx: &egui::Context) -> egui::TextureHandle {
+    let image = egui::ColorImage::from_rgba_unmultiplied([COTE_ICONE, COTE_ICONE], ICONE_RVBA);
+    ctx.load_texture("marque", image, egui::TextureOptions::LINEAR)
 }
 
 #[cfg(test)]
@@ -782,11 +725,11 @@ mod tests {
 
     #[test]
     fn icone_de_la_bonne_taille() {
-        let pixels = icone_rvba(32);
-        assert_eq!(pixels.len(), 32 * 32 * 4);
+        let pixels = ICONE_RVBA;
+        assert_eq!(pixels.len(), COTE_ICONE * COTE_ICONE * 4);
         // Le coin est transparent, le centre est opaque.
         assert_eq!(pixels[3], 0);
-        let centre = ((16 * 32 + 16) * 4 + 3) as usize;
+        let centre = (COTE_ICONE / 2 * COTE_ICONE + COTE_ICONE / 2) * 4 + 3;
         assert_eq!(pixels[centre], 255);
     }
 

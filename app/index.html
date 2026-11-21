@@ -20,12 +20,12 @@
     <link rel="apple-touch-icon" href="icones/icone-apple-180.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Chantier">
+    <meta name="apple-mobile-web-app-title" content="Constructo AI">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="description"
         content="Calculatrice de construction gratuite, en français et en anglais : pieds-pouces-fractions et métrique, charpente, escaliers, béton, plomberie, électricité, finition. Installable et utilisable hors ligne. Free construction calculator, in English and French: feet-inches-fractions and metric, framing, stairs, concrete, plumbing, electrical, finishing.">
     <meta name="author" content="Sylvain Leduc, Constructo AI">
-    <title>Calculatrice de chantier</title>
+    <title>Constructo AI</title>
 
     <!-- Le programme, compilé en WebAssembly. -->
     <link data-trunk rel="rust" href="Cargo.toml" data-bin="calculatrice-chantier" data-wasm-opt="0">
@@ -37,9 +37,8 @@
     <link data-trunk rel="copy-file" href="manual.html">
     <link data-trunk rel="copy-dir" href="icones">
 
-    <!-- Icône : la même équerre que celle de la fenêtre de bureau, dessinée en SVG. -->
-    <link rel="icon" type="image/svg+xml"
-        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23002B6B'/%3E%3Cstop offset='1' stop-color='%23001833'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='18' fill='url(%23g)'/%3E%3Cpath fill='%23F97316' d='M24 18h18v46h40v18H24z'/%3E%3Cpath fill='%2300224F' d='M34 26.8h8v2.4h-8zM34 36.8h8v2.4h-8zM34 46.8h8v2.4h-8zM50.8 64h2.4v8h-2.4zM60.8 64h2.4v8h-2.4zM70.8 64h2.4v8h-2.4z'/%3E%3C/svg%3E">
+    <!-- Icône : le logo de Constructo AI. -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icones/icone-192.png">
 
     <style>
         html,
@@ -90,7 +89,7 @@
             display: none;
         }
 
-        .message svg {
+        .message img {
             width: 84px;
             height: 84px;
             filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
@@ -157,13 +156,8 @@
 
     <!-- Écran d'attente : retiré par le programme dès qu'il est prêt. -->
     <div id="chargement" class="message">
-        <svg viewBox="0 0 100 100" aria-hidden="true">
-            <rect width="100" height="100" rx="18" fill="#00327A" />
-            <path fill="#F97316" d="M24 18h18v46h40v18H24z" />
-            <path fill="#00224F"
-                d="M34 26.8h8v2.4h-8zM34 36.8h8v2.4h-8zM34 46.8h8v2.4h-8zM50.8 64h2.4v8h-2.4zM60.8 64h2.4v8h-2.4zM70.8 64h2.4v8h-2.4z" />
-        </svg>
-        <h1 data-en="Jobsite Calculator">Calculatrice de chantier</h1>
+        <img src="icones/icone-192.png" width="84" height="84" alt="">
+        <h1 data-en="Constructo AI">Constructo AI</h1>
         <div class="barre" role="progressbar" aria-label="Chargement" data-en-aria-label="Loading"></div>
         <p class="gracieusete" data-en="Courtesy of Sylvain Leduc of Constructo AI">Gracieuseté de Sylvain Leduc
             de Constructo AI</p>
@@ -212,7 +206,7 @@
                 return;
             }
             document.documentElement.lang = "en-CA";
-            document.title = "Jobsite Calculator";
+            document.title = "Constructo AI";
             var elements = document.querySelectorAll("[data-en]");
             for (var i = 0; i < elements.length; i++) {
                 elements[i].textContent = elements[i].getAttribute("data-en");

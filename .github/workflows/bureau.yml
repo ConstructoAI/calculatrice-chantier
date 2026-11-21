@@ -43,5 +43,5 @@ jobs:
         run: |
           cp target/release/calculatrice-chantier.exe calculatrice-chantier-windows-x64.exe
           gh release create "${GITHUB_REF_NAME}" calculatrice-chantier-windows-x64.exe \
-            --title "Calculatrice de chantier ${GITHUB_REF_NAME#v}" \
+            --title "Constructo AI ${GITHUB_REF_NAME#v}" \
             --notes-file .github/notes-de-version.md

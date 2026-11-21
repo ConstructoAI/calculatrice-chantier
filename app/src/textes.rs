@@ -15,7 +15,7 @@ use noyau::prefs::{
 use noyau::unites::UniteMasseVolumique;
 
 /// Nom de l'application. Défini ici seulement, pour être changé facilement.
-pub const NOM_APPLICATION: Texte = t("Calculatrice de chantier", "Jobsite Calculator");
+pub const NOM_APPLICATION: Texte = tel("Constructo AI");
 
 /// Identifiant du dossier de données de l'utilisateur.
 pub const APP_ID: &str = "CalculatriceChantier";
@@ -1085,8 +1085,8 @@ pub const ADRESSE_DU_MANUEL: Texte = t(
 
 pub const LICENCE_TITRE: Texte = tel("Licence");
 pub const LICENCE: Texte = t(
-    "Calculatrice de chantier est un logiciel libre, distribué sous la licence Apache 2.0. Il est fourni tel quel, sans garantie.",
-    "Jobsite Calculator is free software, distributed under the Apache License 2.0. It is provided as is, without warranty.",
+    "Constructo AI est un logiciel libre, distribué sous la licence Apache 2.0. Il est fourni tel quel, sans garantie.",
+    "Constructo AI is free software, distributed under the Apache License 2.0. It is provided as is, without warranty.",
 );
 pub const CODE_SOURCE: Texte = t(
     "Code source : github.com/ConstructoAI/calculatrice-chantier",

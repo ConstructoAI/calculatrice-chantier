@@ -1,6 +1,6 @@
-# Calculatrice de chantier
+# Constructo AI — calculatrice de chantier
 
-> **English** — *Jobsite Calculator* is a free construction calculator for every trade:
+> **English** — *Constructo AI* is a free construction calculator for every trade:
 > feet-inches-fractions and metric, a framer's keypad, and 76 tools for eleven other
 > trades. The whole app is available in English: tap **EN** in the top bar.
 > [Open the calculator](https://constructoai.github.io/calculatrice-chantier/) ·
@@ -267,7 +267,7 @@ jour :
 | `app/src/plateforme/` | Tout ce qui diffère entre le bureau (`bureau.rs`) et le navigateur (`web.rs`) : stockage, export, plein écran, démarrage. |
 | `app/index.html` | Page hôte de la version Web. |
 | `app/manifest.webmanifest`, `app/sw.js` | Ce qui rend la version Web installable et utilisable hors ligne. |
-| `app/icones/` | Icônes de l'application installable, dessinées par `app/outils/icones.py`. |
+| `app/icones/` | Logo de Constructo AI et icônes de l'application, produites par `app/outils/icones.py`. |
 | `app/polices/` | Polices libres de la version Web, avec leurs licences (`LISEZMOI.md`). |
 | `app/manuel.html`, `app/manual.html` | Manuel d'utilisation, en français et en anglais : deux pages du site, aussi embarquées dans l'exécutable de bureau. Produites par `app/src/manuel.rs` à partir des gabarits de `app/outils/`. |
 | `app/build.rs` | Inscrit dans le programme la révision du code source (l'identifiant du commit), affichée au bas du menu. |
@@ -275,7 +275,7 @@ jour :
 
 ## Licence
 
-La Calculatrice de chantier est un logiciel libre, distribué sous la
+La calculatrice Constructo AI est un logiciel libre, distribué sous la
 [licence Apache, version 2.0](LICENSE). Chacun peut l'utiliser, la copier, la modifier et
 la redistribuer, y compris à des fins commerciales, à condition de joindre une copie de la
 licence, de conserver les avis de droit d'auteur et le contenu du fichier [`NOTICE`](NOTICE),
@@ -292,5 +292,5 @@ voir `app/polices/LISEZMOI.md`.
 ## Nom de l'application
 
 Le nom affiché est défini par la constante `NOM_APPLICATION` de `app/src/textes.rs` :
-« Calculatrice de chantier » en français, « Jobsite Calculator » en anglais. La page hôte
+« Constructo AI », en français comme en anglais. La page hôte
 de la version Web (`app/index.html`) le répète dans son titre et sur son écran d'attente.

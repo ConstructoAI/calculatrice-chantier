@@ -1,4 +1,4 @@
-//! Calculatrice de chantier — point d'entrée de l'interface graphique.
+//! Constructo AI, calculatrice de chantier — point d'entrée de l'interface graphique.
 //!
 //! Le même programme donne deux versions : une application de bureau et une
 //! page Web (cible `wasm32-unknown-unknown`, page hôte `app/index.html`).
@@ -25,13 +25,10 @@ use application::Application;
 fn main() -> eframe::Result {
     use eframe::egui;
 
-    /// Côté de l'icône de la fenêtre, en pixels.
-    const TAILLE_ICONE: u32 = 64;
-
     let icone = egui::IconData {
-        rgba: theme::icone_rvba(TAILLE_ICONE),
-        width: TAILLE_ICONE,
-        height: TAILLE_ICONE,
+        rgba: theme::ICONE_RVBA.to_vec(),
+        width: theme::COTE_ICONE as u32,
+        height: theme::COTE_ICONE as u32,
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

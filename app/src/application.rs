@@ -137,6 +137,8 @@ pub struct Application {
     langue_appliquee: Option<Langue>,
     /// Texture des dégradés; elle doit vivre aussi longtemps que l'application.
     _rampe: egui::TextureHandle,
+    /// Le logo, affiché à gauche du titre.
+    marque: egui::TextureHandle,
 }
 
 impl Application {
@@ -206,6 +208,7 @@ impl Application {
             sombre_applique: None,
             langue_appliquee: None,
             _rampe: theme::creer_la_rampe(&cc.egui_ctx),
+            marque: theme::creer_la_marque(&cc.egui_ctx),
         }
     }
 
@@ -806,15 +809,20 @@ impl Application {
             self.changer_de_langue(langue);
             ui.ctx().request_repaint();
         }
-        // Logo : la petite équerre orange de l'icône.
+        // Logo : celui de l'icône de l'application.
         let logo = Rect::from_center_size(
             Pos2::new(
-                rect.left() + boutons_a_gauche * cote + 12.0,
+                rect.left() + boutons_a_gauche * cote + 14.0,
                 rect.center().y,
             ),
-            Vec2::splat(17.0),
+            Vec2::splat(24.0),
         );
-        dessiner_equerre(ui.painter(), logo, p.barre_accent);
+        ui.painter().image(
+            self.marque.id(),
+            logo,
+            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+            Color32::WHITE,
+        );
         let zone_titre = Rect::from_min_max(
             Pos2::new(logo.right() + 9.0, rect.top()),
             Pos2::new(zone_langue.left() - 4.0, rect.bottom()),
@@ -2021,18 +2029,6 @@ fn bouton_icone(
     let clic = reponse.clicked();
     reponse.on_hover_text(infobulle);
     clic
-}
-
-/// Équerre de charpentier : deux branches à angle droit.
-fn dessiner_equerre(painter: &Painter, r: Rect, couleur: Color32) {
-    let epaisseur = r.width() * 0.30;
-    let verticale = Rect::from_min_max(r.left_top(), Pos2::new(r.left() + epaisseur, r.bottom()));
-    let horizontale = Rect::from_min_max(
-        Pos2::new(r.left(), r.bottom() - epaisseur),
-        r.right_bottom(),
-    );
-    painter.rect_filled(verticale, 1, couleur);
-    painter.rect_filled(horizontale, 1, couleur);
 }
 
 fn dessiner_menu(painter: &Painter, r: Rect, couleur: Color32) {
