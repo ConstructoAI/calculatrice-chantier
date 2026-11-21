@@ -2,7 +2,7 @@
 //! doigt ou la souris, puis on touche chaque côté pour y inscrire sa mesure.
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Solution};
+use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Retrait, Solution};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
@@ -25,6 +25,8 @@ pub struct Etat {
     pub choisi: Option<usize>,
     /// Le tracé en cours, en points de l'écran.
     trace: Vec<Pos2>,
+    /// Le retrait dont on inscrit une dimension : son rang, et vrai pour sa largeur.
+    retrait_choisi: Option<(usize, bool)>,
     /// Vrai quand le champ de la mesure doit prendre le clavier.
     viser_le_champ: bool,
     /// Vrai quand la liste des outils qui peuvent recevoir la pièce est ouverte.
@@ -40,7 +42,15 @@ impl Etat {
     /// Choisit un côté et place le curseur dans le champ de sa mesure.
     fn choisir(&mut self, rang: Option<usize>) {
         self.choisi = rang;
+        self.retrait_choisi = None;
         self.viser_le_champ = rang.is_some();
+    }
+
+    /// Choisit une dimension d'un retrait.
+    fn choisir_un_retrait(&mut self, lequel: Option<(usize, bool)>) {
+        self.choisi = None;
+        self.retrait_choisi = lequel;
+        self.viser_le_champ = lequel.is_some();
     }
 
     /// Retient le dessin tel qu'il est, avant un changement.
@@ -160,6 +170,12 @@ pub fn afficher(
     if etat.choisi.is_some_and(|i| i >= dessin.cotes.len()) {
         etat.choisi = None;
     }
+    if etat
+        .retrait_choisi
+        .is_some_and(|(i, _)| i >= dessin.retraits.len())
+    {
+        etat.retrait_choisi = None;
+    }
     let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
 
     // La planche à dessin : hors de la zone qui défile, pour que le doigt trace
@@ -193,6 +209,9 @@ pub fn afficher(
         let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
         if let Some(consigner) = bilan(ui, p, dessin, etat, &solution, prefs) {
             action = Some(consigner);
+        }
+        if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
+            action = Some(Action::Modifie);
         }
         ui.add_space(10.0);
     });
@@ -457,6 +476,9 @@ fn mesure_du_cote(
     solution: &Solution,
     prefs: &Preferences,
 ) -> bool {
+    if let Some((rang, en_largeur)) = etat.retrait_choisi {
+        return dimension_du_retrait(ui, p, dessin, etat, rang, en_largeur, prefs);
+    }
     let Some(rang) = etat.choisi else {
         return false;
     };
@@ -537,6 +559,147 @@ fn mesure_du_cote(
     modifie
 }
 
+/// Le champ d'une dimension d'un retrait, avec le pavé de touches.
+fn dimension_du_retrait(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    rang: usize,
+    en_largeur: bool,
+    prefs: &Preferences,
+) -> bool {
+    let Some(retrait) = dessin.retraits.get_mut(rang) else {
+        return false;
+    };
+    let saisie = if en_largeur {
+        &mut retrait.largeur
+    } else {
+        &mut retrait.longueur
+    };
+    let mut modifie = false;
+    let mut suivant = false;
+    carte(ui, p, |ui| {
+        let libelle = ui.label(
+            RichText::new(textes::dessin_retrait(rang + 1, en_largeur))
+                .font(theme::police_grasse(13.5)),
+        );
+        let champ = egui::TextEdit::singleline(saisie)
+            .desired_width((ui.available_width() - 20.0).clamp(90.0, 260.0))
+            .hint_text(textes::DESSIN_EXEMPLE.traduit());
+        let reponse = ui.add(champ).labelled_by(libelle.id);
+        cadre_de_saisie(ui, p, &reponse);
+        if etat.viser_le_champ {
+            etat.viser_le_champ = false;
+            if !crate::plateforme::NAVIGATEUR {
+                reponse.request_focus();
+            }
+        }
+        if reponse.changed() {
+            modifie = true;
+        }
+        if reponse.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            suivant = true;
+        }
+        ui.add_space(4.0);
+        match pave_de_touches(ui, p, saisie, prefs) {
+            Some(Frappe::Modifie) => modifie = true,
+            Some(Frappe::Suivant) => suivant = true,
+            None => {}
+        }
+    });
+    if suivant {
+        // De la longueur à la largeur, puis l'éditeur se referme.
+        etat.choisir_un_retrait((!en_largeur).then_some((rang, true)));
+    }
+    modifie
+}
+
+/// La liste des retraits : ce qui se retire de la surface de la pièce.
+fn retraits(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    let mut a_enlever = None;
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_RETRAITS.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    for rang in 0..dessin.retraits.len() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(format!("{}.", rang + 1)).font(theme::police_grasse(13.5)));
+            for en_largeur in [false, true] {
+                let retrait = &dessin.retraits[rang];
+                let saisie = if en_largeur {
+                    retrait.largeur.trim()
+                } else {
+                    retrait.longueur.trim()
+                };
+                let texte = if saisie.is_empty() {
+                    if en_largeur {
+                        textes::DESSIN_LARGEUR.traduit()
+                    } else {
+                        textes::DESSIN_LONGUEUR.traduit()
+                    }
+                } else {
+                    saisie
+                };
+                let choisi = etat.retrait_choisi == Some((rang, en_largeur));
+                let bouton = egui::Button::new(texte).selected(choisi);
+                if ui.add(bouton).clicked() {
+                    etat.choisir_un_retrait(Some((rang, en_largeur)));
+                }
+                if !en_largeur {
+                    ui.label("×");
+                }
+            }
+            match solution.retraits.get(rang) {
+                Some(Some(aire)) if *aire > 0.0 => {
+                    ui.label(
+                        RichText::new(format!(
+                            "= {}",
+                            Quantite::Aire(*aire).en_clair(solution.modele, prefs)
+                        ))
+                        .color(p.texte_attenue),
+                    );
+                }
+                _ => {}
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                .clicked()
+            {
+                a_enlever = Some(rang);
+            }
+        });
+    }
+    if let Some(rang) = a_enlever {
+        etat.memoriser(dessin);
+        dessin.retraits.remove(rang);
+        etat.choisir_un_retrait(None);
+        modifie = true;
+    }
+    if ui
+        .add(egui::Button::new(
+            textes::DESSIN_AJOUTER_UN_RETRAIT.traduit(),
+        ))
+        .clicked()
+    {
+        etat.memoriser(dessin);
+        dessin.retraits.push(Retrait::default());
+        etat.choisir_un_retrait(Some((dessin.retraits.len() - 1, false)));
+        modifie = true;
+    }
+    modifie
+}
+
 /// Où en est la forme : ce qu'il reste à faire, ou la surface et le périmètre.
 fn bilan(
     ui: &mut Ui,
@@ -589,6 +752,24 @@ fn bilan(
                     longueur_en_clair(a.hypot(b), solution, prefs),
                 ));
             }
+            // Les retraits : la surface nette, ou ce qui empêche de la calculer.
+            let nette = solution.aire_nette();
+            let aire_utile = nette.unwrap_or(aire);
+            if !dessin.retraits.is_empty() {
+                match (nette, solution.aire_des_retraits()) {
+                    (Some(nette), Some(retiree)) if retiree > 0.0 => resultats.push((
+                        textes::DESSIN_SURFACE_NETTE.traduit().to_string(),
+                        Quantite::Aire(nette).en_clair(solution.modele, prefs),
+                    )),
+                    (None, Some(_)) => {
+                        consigne(ui, textes::DESSIN_RETRAITS_TROP_GRANDS.traduit(), p.erreur);
+                    }
+                    (None, None) => {
+                        consigne(ui, textes::DESSIN_RETRAIT_INCOMPLET.traduit(), p.erreur);
+                    }
+                    _ => {}
+                }
+            }
             carte(ui, p, |ui| {
                 for (libelle, valeur) in &resultats {
                     ui.horizontal(|ui| {
@@ -635,7 +816,7 @@ fn bilan(
                 }
                 if etat.outils_ouverts {
                     let (longueur, largeur, exact) =
-                        noyau::dessin::rectangle_equivalent(aire, perimetre);
+                        noyau::dessin::rectangle_equivalent(aire_utile, perimetre);
                     let metrique = solution.modele.and_then(Format::systeme)
                         == Some(noyau::unites::Systeme::Metrique);
                     let decimal = noyau::format::separateur_decimal(prefs);

@@ -329,6 +329,36 @@ pub const DESSIN_EFFACER: Texte = t("Tout effacer", "Clear all");
 pub const DESSIN_ANNULER: Texte = t("Annuler", "Undo");
 pub const DESSIN_AU_RUBAN: Texte = t("Ajouter au ruban", "Add to tape");
 pub const DESSIN_VERS_UN_OUTIL: Texte = t("Envoyer vers un outil…", "Send to a tool…");
+pub const DESSIN_RETRAITS: Texte = t(
+    "Retraits (îlot, trémie, colonne)",
+    "Deductions (island, stairwell, column)",
+);
+pub const DESSIN_AJOUTER_UN_RETRAIT: Texte = t("Ajouter un retrait", "Add a deduction");
+pub const DESSIN_ENLEVER: Texte = t("Enlever", "Remove");
+pub const DESSIN_LONGUEUR: Texte = t("longueur", "length");
+pub const DESSIN_LARGEUR: Texte = t("largeur", "width");
+pub const DESSIN_SURFACE_NETTE: Texte = t("Surface nette", "Net area");
+pub const DESSIN_RETRAIT_INCOMPLET: Texte = t(
+    "Un retrait est incomplet : inscrivez sa longueur et sa largeur.",
+    "A deduction is incomplete: enter its length and its width.",
+);
+pub const DESSIN_RETRAITS_TROP_GRANDS: Texte = t(
+    "Les retraits dépassent la surface de la pièce.",
+    "The deductions exceed the area of the room.",
+);
+
+/// « Retrait 1 : longueur ».
+pub fn dessin_retrait(rang: usize, en_largeur: bool) -> String {
+    let dimension = if en_largeur {
+        DESSIN_LARGEUR
+    } else {
+        DESSIN_LONGUEUR
+    };
+    match langue::en_cours() {
+        Langue::Francais => format!("Retrait {rang} : {}", dimension.traduit()),
+        Langue::Anglais => format!("Deduction {rang}: {}", dimension.traduit()),
+    }
+}
 
 /// Ce que l'outil choisi va recevoir.
 pub fn dessin_rectangle_equivalent(longueur: &str, largeur: &str, exact: bool) -> String {

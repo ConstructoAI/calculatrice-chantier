@@ -88,6 +88,16 @@ pub struct Dessin {
     pub cotes: Vec<Cote>,
     /// Vrai quand le dernier côté rejoint le premier.
     pub fermee: bool,
+    /// Ce qui se retire de la surface : un îlot, une trémie, une colonne.
+    pub retraits: Vec<Retrait>,
+}
+
+/// Un rectangle à retirer de la surface de la pièce.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Retrait {
+    pub longueur: String,
+    pub largeur: String,
 }
 
 /// Ce que l'on sait d'un côté.
@@ -140,6 +150,26 @@ pub struct Solution {
     pub etat: Etat,
     /// Format de la première mesure inscrite : il sert de modèle aux résultats.
     pub modele: Option<Format>,
+    /// Aire de chaque retrait, en pouces carrés : zéro s'il est vide, `None`
+    /// s'il est incomplet ou illisible.
+    pub retraits: Vec<Option<f64>>,
+}
+
+impl Solution {
+    /// Somme des retraits, s'ils sont tous lisibles.
+    pub fn aire_des_retraits(&self) -> Option<f64> {
+        self.retraits.iter().copied().sum()
+    }
+
+    /// Surface de la pièce moins les retraits; `None` si la forme n'est pas
+    /// complète, si un retrait est incomplet ou si les retraits la dépassent.
+    pub fn aire_nette(&self) -> Option<f64> {
+        let Etat::Complete { aire, .. } = self.etat else {
+            return None;
+        };
+        let nette = aire - self.aire_des_retraits()?;
+        (nette > 0.0).then_some(nette)
+    }
 }
 
 /// Rectangle de même aire et de même périmètre qu'une pièce : sa longueur, sa
@@ -475,10 +505,26 @@ impl Dessin {
             })
             .collect();
         let etat = self.etat(&mut mesures);
+        let lire = |texte: &str| match analyser_longueur(texte.trim(), defaut) {
+            Ok(v) if v.est_longueur() && v.base > 0.0 && v.base.is_finite() => Some(v.base),
+            _ => None,
+        };
+        let retraits = self
+            .retraits
+            .iter()
+            .map(|retrait| {
+                if retrait.longueur.trim().is_empty() && retrait.largeur.trim().is_empty() {
+                    Some(0.0)
+                } else {
+                    Some(lire(&retrait.longueur)? * lire(&retrait.largeur)?)
+                }
+            })
+            .collect();
         Solution {
             mesures,
             etat,
             modele,
+            retraits,
         }
     }
 
@@ -785,6 +831,43 @@ mod tests {
         );
         assert!(outils.len() >= 8);
         assert!(outils.iter().all(|(c, _, _)| c.metier != Metier::Acier));
+    }
+
+    #[test]
+    fn retraits_et_surface_nette() {
+        let mut dessin = Dessin::default();
+        dessin.ajouter_trace(&contour(&[
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 60.0),
+            (0.0, 60.0),
+            (0.0, 5.0),
+        ]));
+        inscrire(&mut dessin, &["20", "15"]);
+        let brute = 300.0 * 144.0;
+        assert_eq!(dessin.resoudre(Format::PiPo).aire_nette(), Some(brute));
+        // Un îlot de 3 pi × 6 pi et une colonne de 12 po × 12 po : 300 − 18 − 1 = 281 pi².
+        dessin.retraits.push(Retrait {
+            longueur: "3".into(),
+            largeur: "6".into(),
+        });
+        dessin.retraits.push(Retrait {
+            longueur: "12 po".into(),
+            largeur: "12 po".into(),
+        });
+        // Un retrait vide ne compte pas.
+        dessin.retraits.push(Retrait::default());
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!(solution.aire_des_retraits(), Some(19.0 * 144.0));
+        assert_eq!(solution.aire_nette(), Some(281.0 * 144.0));
+        // Incomplet : pas de surface nette.
+        dessin.retraits[2].longueur = "4".into();
+        assert_eq!(dessin.resoudre(Format::PiPo).aire_nette(), None);
+        // Plus grand que la pièce : pas de surface nette non plus.
+        dessin.retraits[2].largeur = "100".into();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!(solution.aire_des_retraits().is_some());
+        assert_eq!(solution.aire_nette(), None);
     }
 
     #[test]

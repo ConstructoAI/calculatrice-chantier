@@ -2276,9 +2276,15 @@ fn transposer_le_dessin(
         return;
     }
     let decimal = noyau::format::separateur_decimal_en(prefs, vers);
-    for cote in &mut dessin.cotes {
-        if !cote.saisie.trim().is_empty() {
-            cote.saisie = noyau::analyse::transposer(&cote.saisie, de, vers, decimal);
+    let mesures = dessin.cotes.iter_mut().map(|cote| &mut cote.saisie).chain(
+        dessin
+            .retraits
+            .iter_mut()
+            .flat_map(|retrait| [&mut retrait.longueur, &mut retrait.largeur]),
+    );
+    for saisie in mesures {
+        if !saisie.trim().is_empty() {
+            *saisie = noyau::analyse::transposer(saisie, de, vers, decimal);
         }
     }
 }

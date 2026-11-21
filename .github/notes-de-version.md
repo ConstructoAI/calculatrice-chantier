@@ -22,6 +22,8 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   l'armature, les pavés, l'excavation ou un autre outil, qui s'ouvre avec ses mesures.
 - **0.7.3** : un **pavé de touches** sous le champ de la mesure (chiffres, pieds, pouces,
   fraction, mètres) : on inscrit une mesure sans le clavier du téléphone.
+- **0.7.4** : les **retraits** — un îlot, une trémie d'escalier, une colonne — se retirent
+  de la surface, et la calculatrice donne la **surface nette**.
 
 ## Nouveautés de la version 0.6
 
