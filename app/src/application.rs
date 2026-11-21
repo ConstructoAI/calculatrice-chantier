@@ -47,6 +47,8 @@ enum Vue {
     Accueil,
     /// Calculateurs par métier (section 22).
     Metiers,
+    /// Dessin d'une pièce (section 25).
+    Dessin,
     Rubans,
     Aide,
     Preferences,
@@ -139,6 +141,10 @@ pub struct Application {
     _rampe: egui::TextureHandle,
     /// Le logo, affiché à gauche du titre.
     marque: egui::TextureHandle,
+    /// La pièce dessinée (section 25), et ce que son écran retient.
+    dessin: noyau::dessin::Dessin,
+    etat_du_dessin: vues::dessin::Etat,
+    dessin_a_sauvegarder: bool,
 }
 
 impl Application {
@@ -160,6 +166,13 @@ impl Application {
         noyau::langue::choisir(langue);
         let rubans = stockage::charger_rubans(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
+        let (mut dessin, langue_du_dessin) = stockage::charger_dessin(&depot);
+        transposer_le_dessin(
+            &mut dessin,
+            langue_du_dessin,
+            langue,
+            &chargement.etat.preferences,
+        );
         // Des saisies écrites dans l'autre langue sont récrites dans celle-ci.
         let saisies_a_sauvegarder = langue_des_saisies != langue;
         transposer_les_saisies(
@@ -209,6 +222,9 @@ impl Application {
             langue_appliquee: None,
             _rampe: theme::creer_la_rampe(&cc.egui_ctx),
             marque: theme::creer_la_marque(&cc.egui_ctx),
+            dessin,
+            etat_du_dessin: vues::dessin::Etat::default(),
+            dessin_a_sauvegarder: langue_du_dessin != langue,
         }
     }
 
@@ -280,6 +296,13 @@ impl Application {
             langue,
             self.moteur.preferences(),
         );
+        transposer_le_dessin(
+            &mut self.dessin,
+            ancienne,
+            langue,
+            self.moteur.preferences(),
+        );
+        self.dessin_a_sauvegarder = true;
         self.moteur.changer_de_langue(langue);
         self.saisies_a_sauvegarder = true;
         self.a_sauvegarder = true;
@@ -474,12 +497,19 @@ impl Application {
                 self.signaler_l_echec_d_ecriture();
             }
         }
+        if self.dessin_a_sauvegarder {
+            self.dessin_a_sauvegarder = false;
+            let langue = self.moteur.preferences().langue;
+            if stockage::enregistrer_dessin(&self.depot, &self.dessin, langue).is_err() {
+                self.signaler_l_echec_d_ecriture();
+            }
+        }
     }
 
     /// Sur le bureau, au plus une écriture par seconde (R-45); dans un
     /// navigateur, sans délai.
     fn sauvegarder_si_du(&mut self, ctx: &egui::Context) {
-        if !self.a_sauvegarder && !self.saisies_a_sauvegarder {
+        if !self.a_sauvegarder && !self.saisies_a_sauvegarder && !self.dessin_a_sauvegarder {
             return;
         }
         let ecoule = ctx.input(|i| i.time) - self.derniere_sauvegarde;
@@ -857,7 +887,7 @@ impl Application {
         let filet = Rect::from_min_size(rect.min, Vec2::new(rect.width(), 1.0));
         ui.painter()
             .rect_filled(filet, 0, Color32::from_white_alpha(22));
-        let onglets: [(Vue, &str, Dessin); 4] = [
+        let onglets: [(Vue, &str, Dessin); 5] = [
             (
                 Vue::Accueil,
                 textes::ONGLET_ACCUEIL.traduit(),
@@ -867,6 +897,11 @@ impl Application {
                 Vue::Metiers,
                 textes::METIERS.traduit(),
                 dessiner_onglet_metiers,
+            ),
+            (
+                Vue::Dessin,
+                textes::ONGLET_DESSIN.traduit(),
+                dessiner_onglet_dessin,
             ),
             (
                 Vue::Rubans,
@@ -1075,6 +1110,20 @@ impl Application {
                     None => {}
                 }
             }
+            Vue::Dessin => {
+                let action = vues::dessin::afficher(
+                    ui,
+                    p,
+                    &mut self.dessin,
+                    &mut self.etat_du_dessin,
+                    self.moteur.preferences(),
+                );
+                match action {
+                    Some(vues::dessin::Action::Modifie) => self.dessin_a_sauvegarder = true,
+                    Some(vues::dessin::Action::Fermer) => self.aller(Vue::Accueil),
+                    None => {}
+                }
+            }
             Vue::Aide => match vues::aide::afficher(ui, p, &mut self.recherche, self.fiche_ouverte)
             {
                 Some(vues::aide::Action::Ouvrir(i)) => self.fiche_ouverte = Some(i),
@@ -1171,6 +1220,7 @@ impl Application {
                 textes::MENU_METIERS.traduit(),
                 ChoixMenu::Aller(Vue::Metiers),
             ),
+            (textes::MENU_DESSIN.traduit(), ChoixMenu::Aller(Vue::Dessin)),
             (textes::MENU_RUBANS.traduit(), ChoixMenu::Aller(Vue::Rubans)),
             (textes::MENU_AIDE.traduit(), ChoixMenu::Aller(Vue::Aide)),
             (textes::MENU_MANUEL.traduit(), ChoixMenu::Manuel),
@@ -1869,6 +1919,10 @@ impl eframe::App for Application {
             let _ =
                 stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil, langue);
         }
+        if self.dessin_a_sauvegarder {
+            let langue = self.moteur.preferences().langue;
+            let _ = stockage::enregistrer_dessin(&self.depot, &self.dessin, langue);
+        }
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
@@ -2097,6 +2151,28 @@ fn dessiner_onglet_accueil(painter: &Painter, r: Rect, couleur: Color32) {
     }
 }
 
+fn dessiner_onglet_dessin(painter: &Painter, r: Rect, couleur: Color32) {
+    // Le plan d'une pièce en L, avec le point d'où part le tracé.
+    let trait_ = Stroke::new(1.7, couleur);
+    let (g, d, h, b) = (
+        r.left() + 3.0,
+        r.right() - 3.0,
+        r.top() + 3.5,
+        r.bottom() - 3.5,
+    );
+    let (mx, my) = (r.center().x + 1.0, r.center().y);
+    let coins = vec![
+        Pos2::new(g, h),
+        Pos2::new(d, h),
+        Pos2::new(d, my),
+        Pos2::new(mx, my),
+        Pos2::new(mx, b),
+        Pos2::new(g, b),
+    ];
+    painter.add(egui::Shape::closed_line(coins, trait_));
+    painter.circle_filled(Pos2::new(g, h), 2.4, couleur);
+}
+
 fn dessiner_onglet_metiers(painter: &Painter, r: Rect, couleur: Color32) {
     // Un casque de chantier : la calotte, sa nervure et la visière.
     let trait_ = Stroke::new(1.7, couleur);
@@ -2153,4 +2229,23 @@ fn dessiner_onglet_aide(painter: &Painter, r: Rect, couleur: Color32) {
         theme::police_grasse(14.0),
         couleur,
     );
+}
+
+/// Récrit les mesures du dessin comme elles se tapent dans une autre langue
+/// (section 24) : les valeurs restent les mêmes.
+fn transposer_le_dessin(
+    dessin: &mut noyau::dessin::Dessin,
+    de: Langue,
+    vers: Langue,
+    prefs: &Preferences,
+) {
+    if de == vers {
+        return;
+    }
+    let decimal = noyau::format::separateur_decimal_en(prefs, vers);
+    for cote in &mut dessin.cotes {
+        if !cote.saisie.trim().is_empty() {
+            cote.saisie = noyau::analyse::transposer(&cote.saisie, de, vers, decimal);
+        }
+    }
 }

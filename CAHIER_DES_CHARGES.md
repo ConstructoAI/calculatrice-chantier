@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.8 — 2026-11-19 (1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
+> **Version du document :** 1.9 — 2026-11-21 (1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -3043,6 +3043,41 @@ Valeurs d'essai en anglais (préférences par défaut) :
 
 ---
 
+## 25. Dessin d'une pièce
+
+Ajouté le 2026-11-21, à la demande de l'utilisateur : « dessiner avec mon doigt ou [la] souris sur ma calculatrice les dimensions de la pièce ou [de la] forme », puis toucher chaque ligne et y inscrire la mesure. L'utilisateur a confirmé la description ci-dessous avant la réalisation.
+
+### 25.1 Principe
+
+1. L'écran **Dessin** s'ouvre par l'onglet « Dessin » de la barre du bas (le troisième de cinq) ou par le menu ☰ → « Dessiner une pièce ».
+2. Sur la planche, l'utilisateur trace le contour avec le doigt ou la souris : d'un seul geste, ou un côté à la fois (chaque nouveau tracé repart du bout du précédent).
+3. Le tracé est un **croquis** : il n'est pas à l'échelle. Chaque trait est redressé à l'horizontale ou à la verticale; les tremblements sont écartés. **Tous les angles sont d'équerre** (hypothèse 26).
+4. Quand le tracé revient près de son point de départ, la forme se ferme d'elle-même. Le bouton « Fermer la forme » ajoute le ou les côtés qui manquent.
+5. L'utilisateur touche un côté, puis inscrit sa mesure dans le champ (`12 pi 6 po`, `150 po`, `3,81 m`; un nombre seul est en pieds). « Suivant » ou Entrée passe au prochain côté sans mesure.
+6. Dès qu'il ne manque qu'un côté dans un sens (gauche-droite ou haut-bas), il est **déduit** des autres et écrit en gris. Quand tout est connu, la forme est redessinée à l'échelle, et l'écran donne la **surface** et le **périmètre**, dans le système des mesures inscrites, l'autre entre parenthèses.
+
+### 25.2 Règles
+
+- **R-68** Le calcul est dans `noyau/src/dessin.rs`, sans interface : redressement du tracé, fermeture, lecture et déduction des mesures, aire (formule des lacets) et périmètre. L'écran est `app/src/vues/dessin.rs`.
+- **R-69** Une mesure inscrite n'est jamais modifiée par le programme. Si les mesures d'un sens ne s'accordent pas à 1/16 po près, l'écran le dit et donne l'écart; il ne calcule pas de surface.
+- **R-70** Si, une fois mis à leurs mesures, des côtés se croisent, l'écran le dit et ne calcule pas de surface.
+- **R-71** Le dessin en cours est conservé (`dessin.json`, avec la langue de ses mesures) et retrouvé à l'ouverture. Changer de langue récrit les mesures sans changer leur valeur (R-64).
+- Boutons : « Fermer la forme » (forme ouverte d'au moins deux côtés), « Retirer le dernier côté », « Tout effacer ».
+- Une forme a au moins quatre côtés. Une forme fermée n'accepte plus de tracé : on retire d'abord son dernier côté.
+
+### 25.3 Vecteurs de validation
+
+| Forme | Mesures inscrites | Déduites | Surface | Périmètre |
+|---|---|---|---|---|
+| Rectangle | 12 pi; 10 pi 6 po | 12 pi; 10 pi 6 po | 126 pi² (11,7 m²) | 45 pi 0 po |
+| Pièce en L | 20; 8; 11; 10 (pieds) | 9 pi; 18 pi | 250 pi² (23,2 m²) | 76 pi 0 po |
+| Rectangle | 4 m; 3 m | 4 m; 3 m | 12 m² | 14 m |
+| Rectangle | 12; 10; 11; 10 (pieds) | — | aucune : écart de 1 pi 0 po | — |
+
+### 25.4 Limites connues
+
+Pas de murs en biais ni de courbes; une seule forme à la fois; pas d'envoi de la surface vers un outil de métier ni vers le ruban. Ce sont des suites possibles, pas des oublis.
+
 ## Annexe A — Constantes
 
 ### A.1 Facteurs de conversion (vers l'unité de base)
@@ -3459,7 +3494,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-67, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-71, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 
@@ -3502,8 +3537,4 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 23 | En anglais, les nombres s'écrivent à l'anglaise (`1,234.5`, `$1,283.06`, `47.25%`) et les unités impériales portent leurs symboles anglais (`ft`, `in`, `yd`, `ft²`, `yd³`, `bd ft`, `ton`). Une virgule tapée entre des groupes de trois chiffres y sépare les milliers. | 24.3 |
 | 24 | Au premier lancement, la langue est celle de l'appareil si c'est le français ou l'anglais, sinon le français. Un utilisateur qui avait déjà la calculatrice (en français) la garde en français. | 24.2 |
 | 25 | Les raccourcis clavier restent les mêmes dans les deux langues (`P` pour `Pitch`, `T` pour `Rise`, `C` pour `Run`…) : ils ne sont pas refaits d'après les mots anglais. Le manifeste de l'application installable reste en français (un manifeste n'a qu'une langue). | 24.6 |
-
-
-
-
-
+| 26 | Dessin d'une pièce : tous les angles sont d'équerre; un nombre inscrit sans unité est en pieds; une seule forme à la fois; la surface et le périmètre seulement. L'utilisateur a confirmé le principe (« c'est exactement ça ») sans trancher ces trois points : ce sont les choix de départ de Claude. | 25 |

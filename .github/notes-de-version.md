@@ -9,6 +9,13 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.7
+
+- **Dessin d'une pièce** : dans le nouvel onglet **Dessin**, tracez le contour d'une pièce
+  avec le doigt ou la souris, touchez chaque côté et inscrivez sa mesure. La calculatrice
+  met les angles d'équerre, déduit les côtés qui manquent et donne la surface et le
+  périmètre.
+
 ## Nouveautés de la version 0.6
 
 - **Nouveau nom** (0.6.1) : la calculatrice s'appelle maintenant **Constructo AI**, en

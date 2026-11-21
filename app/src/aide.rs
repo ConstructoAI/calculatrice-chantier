@@ -1232,6 +1232,36 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Dessin d'une pièce", "Room sketch"),
+        acces: t("onglet Dessin", "Sketch tab"),
+        resume: t(
+            "Tracez le contour d'une pièce, puis inscrivez la mesure de chaque côté :",
+            "Draw the outline of a room, then enter the measurement of each side:",
+        ),
+        mode_emploi: t(
+            "la calculatrice en donne la surface et le périmètre. Tracez avec le doigt ou la souris, d'un seul geste ou un côté à la fois; le croquis n'a pas besoin d'être à l'échelle, les angles sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres.",
+            "the calculator gives its area and perimeter. Draw with your finger or the mouse, in one stroke or one side at a time; the sketch does not need to be to scale, corners are squared up. Then tap a side and enter its measurement. As soon as only one side is missing in a direction, it is worked out from the others.",
+        ),
+        exemple: Some((
+            t(
+                "Un rectangle : `12 pi` en haut, `10 pi 6 po` à droite",
+                "A rectangle: `12 ft` on top, `10 ft 6 in` on the right",
+            ),
+            t(
+                "Surface 126 pi² (11,7 m²) · Périmètre 45 pi 0 po",
+                "Area 126 ft² (11.7 m²) · Perimeter 45 ft 0 in",
+            ),
+        )),
+        note: Some(t(
+            "Un nombre inscrit sans unité est en pieds. Les murs en biais ne sont pas encore pris en charge.",
+            "A number entered without a unit is in feet. Angled walls are not supported yet.",
+        )),
+        mots_cles: "dessin dessiner croquis pièce forme plan surface aire périmètre contour sketch draw drawing room shape floor plan area perimeter outline",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Clavier adapté au métier", "Keypad adapted to your trade"),
         acces: t("barre des métiers", "trade bar"),
         resume: t(

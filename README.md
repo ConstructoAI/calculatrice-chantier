@@ -123,6 +123,14 @@ aucune table de code (intensités admissibles, calibres minimaux, pentes minimal
 remplissage permis), ne contiennent aucun prix (chacun saisit ses coûts et ses taux) et ne
 remplacent ni les plans ni les codes en vigueur.
 
+## Dessiner une pièce
+
+Dans l'onglet **Dessin**, tracez le contour d'une pièce avec le doigt ou la souris — d'un
+seul geste ou un côté à la fois. Le croquis n'a pas besoin d'être à l'échelle : les angles
+sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure (`12 pi 6 po`, `3,81 m`;
+un nombre seul est en pieds). Dès qu'il ne manque qu'un côté dans un sens, il est déduit des
+autres; quand tout est connu, la calculatrice donne la surface et le périmètre.
+
 ## Installer sur un téléphone ou une tablette
 
 La version Web s'installe comme une application : elle a alors son icône, s'ouvre en

@@ -316,6 +316,72 @@ pub const INFOBULLE_PREFERENCES: Texte = t(
 
 pub const TERMINE: Texte = t("Terminé", "Done");
 pub const FERMER: Texte = t("Fermer", "Close");
+
+// --- Écran « Dessin » (section 25)
+pub const ONGLET_DESSIN: Texte = t("Dessin", "Sketch");
+pub const MENU_DESSIN: Texte = t("Dessiner une pièce", "Sketch a room");
+pub const DESSIN_TITRE: Texte = t("Dessin d'une pièce", "Room sketch");
+pub const DESSIN_PLANCHE: Texte = t("Planche à dessin", "Drawing board");
+pub const DESSIN_INVITE: Texte = t("Tracez le contour ici", "Draw the outline here");
+pub const DESSIN_FERMER_LA_FORME: Texte = t("Fermer la forme", "Close the shape");
+pub const DESSIN_RETIRER: Texte = t("Retirer le dernier côté", "Remove last side");
+pub const DESSIN_EFFACER: Texte = t("Tout effacer", "Clear all");
+pub const DESSIN_EXEMPLE: Texte = t("12 pi 6 po", "12 ft 6 in");
+pub const DESSIN_COTE_SUIVANT: Texte = t("Suivant", "Next");
+pub const DESSIN_SURFACE: Texte = t("Surface", "Area");
+pub const DESSIN_PERIMETRE: Texte = t("Périmètre", "Perimeter");
+pub const DESSIN_MESURE_INVALIDE: Texte = t(
+    "Mesure illisible. Exemples : 12 pi 6 po, 150 po, 3,81 m.",
+    "Unreadable measurement. Examples: 12 ft 6 in, 150 in, 3.81 m.",
+);
+pub const DESSIN_MESURE_DEDUITE: Texte = t(
+    "Déduite des autres côtés. Inscrivez-la pour la vérifier.",
+    "Worked out from the other sides. Enter it to double-check.",
+);
+pub const DESSIN_ETAPE_TRACER: Texte = t(
+    "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre.",
+    "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time. The sketch does not need to be to scale: corners are squared up.",
+);
+pub const DESSIN_ETAPE_FERMER: Texte = t(
+    "Continuez le tracé jusqu'au point de départ (le cercle orange), ou touchez « Fermer la forme ».",
+    "Keep drawing back to the starting point (the orange circle), or tap \"Close the shape\".",
+);
+pub const DESSIN_SE_CROISE: Texte = t(
+    "Avec ces mesures, des côtés se croisent. Vérifiez-les.",
+    "With these measurements, some sides cross. Please check them.",
+);
+
+/// « Côté 2 de 6 ».
+pub fn dessin_cote(rang: usize, nombre: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Côté {rang} de {nombre}"),
+        Langue::Anglais => format!("Side {rang} of {nombre}"),
+    }
+}
+
+/// Consigne quand il manque encore des mesures.
+pub fn dessin_etape_mesurer(manquantes: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!(
+            "Touchez un côté, puis inscrivez sa mesure. Un nombre seul est en pieds. Mesures qui manquent encore : {manquantes}."
+        ),
+        Langue::Anglais => format!(
+            "Tap a side, then enter its measurement. A number alone is in feet. Measurements still missing: {manquantes}."
+        ),
+    }
+}
+
+/// Message quand les mesures inscrites ne ferment pas la forme.
+pub fn dessin_ne_ferme_pas(ecart: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!(
+            "Les mesures ne ferment pas la forme : il y a un écart de {ecart} entre des côtés opposés."
+        ),
+        Langue::Anglais => {
+            format!("The measurements do not close the shape: opposite sides are off by {ecart}.")
+        }
+    }
+}
 pub const RETOUR: Texte = t("Retour", "Back");
 pub const ANNULER: Texte = t("Annuler", "Cancel");
 pub const ENREGISTRER: Texte = t("Enregistrer", "Save");

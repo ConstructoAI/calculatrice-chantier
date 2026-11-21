@@ -690,6 +690,11 @@ impl Quantite {
         }
     }
 
+    /// La grandeur écrite en clair, dans la langue en cours : « 480 pi² (44,6 m²) ».
+    pub fn en_clair(&self, modele: Option<Format>, prefs: &Preferences) -> String {
+        self.texte(modele, prefs)
+    }
+
     /// Texte à montrer tel quel à l'afficheur; `None` pour une longueur en
     /// pieds-pouces, que l'afficheur écrit lui-même avec ses fractions.
     pub fn texte_libre(&self, modele: Option<Format>, prefs: &Preferences) -> Option<String> {

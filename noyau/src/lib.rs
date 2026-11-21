@@ -6,6 +6,7 @@
 
 pub mod analyse;
 pub mod conversions;
+pub mod dessin;
 pub mod erreurs;
 pub mod etiquettes;
 pub mod fonctions;

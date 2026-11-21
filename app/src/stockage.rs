@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::io;
 
 use chrono::{Datelike, Timelike};
+use noyau::dessin::Dessin;
 use noyau::langue::Langue;
 use noyau::{EtatPersistant, LigneRuban};
 use serde::{Deserialize, Serialize};
@@ -181,6 +182,49 @@ pub fn enregistrer_saisies(
         langue,
     };
     depot.ecrire(FICHIER_SAISIES, &en_json(&fichier)?)
+}
+
+const FICHIER_DESSIN: &str = "dessin.json";
+/// Version du format de `dessin.json`.
+const VERSION_DESSIN: u32 = 1;
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+struct FichierDessin {
+    version: u32,
+    dessin: Dessin,
+    /// Langue dans laquelle les mesures sont écrites (section 24).
+    langue: Langue,
+}
+
+/// Lit le dessin en cours (section 25) et la langue de ses mesures; un dessin
+/// vide si la donnée est absente, illisible ou incohérente.
+pub fn charger_dessin(depot: &Depot) -> (Dessin, Langue) {
+    match depot.lire(FICHIER_DESSIN) {
+        Lecture::Texte(texte) => serde_json::from_str::<FichierDessin>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_DESSIN)
+            .filter(|fichier| {
+                fichier
+                    .dessin
+                    .cotes
+                    .iter()
+                    .all(|cote| cote.croquis.is_finite() && cote.croquis > 0.0)
+            })
+            .map(|fichier| (fichier.dessin, fichier.langue))
+            .unwrap_or_default(),
+        Lecture::Absent | Lecture::Illisible => (Dessin::default(), Langue::default()),
+    }
+}
+
+/// Enregistre le dessin en cours et la langue de ses mesures.
+pub fn enregistrer_dessin(depot: &Depot, dessin: &Dessin, langue: Langue) -> io::Result<()> {
+    let fichier = FichierDessin {
+        version: VERSION_DESSIN,
+        dessin: dessin.clone(),
+        langue,
+    };
+    depot.ecrire(FICHIER_DESSIN, &en_json(&fichier)?)
 }
 
 /// Contenu d'un fichier texte exporté : UTF-8 avec indicateur d'ordre des
@@ -419,6 +463,32 @@ mod tests {
         // Une donnée illisible est simplement ignorée.
         fs::write(d.0.join("metiers.json"), "pas du JSON").unwrap();
         assert_eq!(charger_saisies(&d.depot()), rien);
+    }
+
+    #[test]
+    fn le_dessin_est_conserve() {
+        let d = DossierTemporaire::nouveau("dessin");
+        assert_eq!(
+            charger_dessin(&d.depot()),
+            (Dessin::default(), Langue::Francais)
+        );
+        let mut dessin = Dessin::default();
+        dessin.ajouter_trace(&[
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 60.0),
+            (0.0, 60.0),
+            (0.0, 4.0),
+        ]);
+        assert!(dessin.fermee);
+        dessin.cotes[0].saisie = "12 ft 6 in".to_string();
+        enregistrer_dessin(&d.depot(), &dessin, Langue::Anglais).unwrap();
+        assert_eq!(charger_dessin(&d.depot()), (dessin, Langue::Anglais));
+        // Un fichier abîmé ou incohérent donne un dessin vide, sans erreur.
+        fs::write(d.0.join("dessin.json"), "{ \"version\": 1, \"dessin\": { \"cotes\": [{ \"sens\": \"Est\", \"croquis\": -4.0 }] } }").unwrap();
+        assert_eq!(charger_dessin(&d.depot()).0, Dessin::default());
+        fs::write(d.0.join("dessin.json"), "pas du json").unwrap();
+        assert_eq!(charger_dessin(&d.depot()).0, Dessin::default());
     }
 
     #[test]
