@@ -42,6 +42,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   celles de l'intérieur des murs (les murs vont vers l'extérieur) ou de l'extérieur (ils vont
   vers l'intérieur). En « Extérieur », la surface, le périmètre et les murs se calculent sur la
   face intérieure, et la surface extérieure brute s'ajoute aux résultats.
+- **0.10.8** : les meubles **pivotent au 15 degrés** — **+15°** et **+90°** dans leur ligne, et
+  **−15°**, **+15°** et **+90°** sur le plan quand un meuble est choisi; son angle paraît à
+  côté de son nom.
 
 ## Nouveautés de la version 0.9
 

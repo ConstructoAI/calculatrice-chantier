@@ -1897,6 +1897,28 @@ fn planche_et_gestes(
         );
     }
     boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
+    // Le meuble choisi pivote aussi d'ici : au 15°, dans un sens ou dans
+    // l'autre, ou d'un quart de tour.
+    if complete && let Some(rang) = etat.objet_choisi.filter(|rang| *rang < dessin.objets.len()) {
+        let mut droite = planche.right() - 8.0;
+        for (degres, texte) in [
+            (90.0, textes::DESSIN_PLUS_90),
+            (15.0, textes::DESSIN_PLUS_15),
+            (-15.0, textes::DESSIN_MOINS_15),
+        ] {
+            let zone = Rect::from_min_size(
+                Pos2::new(droite - 52.0, planche.bottom() - 42.0),
+                Vec2::new(52.0, 34.0),
+            );
+            droite -= 58.0;
+            let nom = format!("{} {}", textes::DESSIN_PIVOTER.traduit(), texte.traduit());
+            if bouton_de_planche(ui, &painter, zone, texte.traduit(), &nom, false, p) {
+                etat.memoriser(dessin);
+                dessin.objets[rang].pivoter(degres);
+                modifie = true;
+            }
+        }
+    }
     // La vue 3D, pour une pièce complète.
     let bouton_3d = Rect::from_min_size(
         Pos2::new(planche.left() + 8.0, planche.bottom() - 42.0),
@@ -2981,12 +3003,19 @@ fn objets(
         ui.horizontal_wrapped(|ui| {
             let objet = &dessin.objets[rang];
             let choisi = etat.objet_choisi == Some(rang);
-            let nom = RichText::new(format!(
-                "{}. {}",
-                rang + 1,
-                textes::objet(objet.genre).traduit()
-            ))
-            .font(theme::police_grasse(13.5));
+            // Son nom, et son angle s'il pivote.
+            let angle = objet.angle_total();
+            let nom = if angle.abs() < 1e-9 {
+                format!("{}. {}", rang + 1, textes::objet(objet.genre).traduit())
+            } else {
+                format!(
+                    "{}. {} · {}°",
+                    rang + 1,
+                    textes::objet(objet.genre).traduit(),
+                    angle.round()
+                )
+            };
+            let nom = RichText::new(nom).font(theme::police_grasse(13.5));
             if ui.add(egui::Button::new(nom).selected(choisi)).clicked() {
                 etat.objet_choisi = if choisi { None } else { Some(rang) };
             }
@@ -3012,11 +3041,17 @@ fn objets(
                     ui.label("×");
                 }
             }
-            if ui
-                .add(egui::Button::new(textes::DESSIN_PIVOTER.traduit()))
-                .clicked()
-            {
-                a_pivoter = Some(rang);
+            for (degres, texte) in [
+                (15.0, textes::DESSIN_PLUS_15),
+                (90.0, textes::DESSIN_PLUS_90),
+            ] {
+                if ui
+                    .add(egui::Button::new(texte.traduit()))
+                    .on_hover_text(textes::DESSIN_PIVOTER.traduit())
+                    .clicked()
+                {
+                    a_pivoter = Some((rang, degres));
+                }
             }
             if ui
                 .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
@@ -3026,10 +3061,9 @@ fn objets(
             }
         });
     }
-    if let Some(rang) = a_pivoter {
+    if let Some((rang, degres)) = a_pivoter {
         etat.memoriser(dessin);
-        let objet = &mut dessin.objets[rang];
-        objet.rotation = (objet.rotation + 1) % 4;
+        dessin.objets[rang].pivoter(degres);
         etat.objet_choisi = Some(rang);
         modifie = true;
     }

@@ -453,6 +453,9 @@ pub const DESSIN_TOUCHER_POUR_LA_NOTE: Texte = t(
     "Tap the plan to place the note",
 );
 pub const DESSIN_PIVOTER: Texte = t("Pivoter", "Rotate");
+pub const DESSIN_PLUS_15: Texte = tel("+15°");
+pub const DESSIN_MOINS_15: Texte = tel("−15°");
+pub const DESSIN_PLUS_90: Texte = tel("+90°");
 pub const DESSIN_PROFONDEUR: Texte = t("profondeur", "depth");
 
 /// Le nom d'un objet de la pièce.

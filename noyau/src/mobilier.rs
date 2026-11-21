@@ -328,6 +328,10 @@ pub struct Objet {
     /// Ses quarts de tour, dans le sens des aiguilles d'une montre (0 à 3).
     #[serde(default)]
     pub rotation: u8,
+    /// Ses degrés de rotation en plus de ses quarts de tour, dans le même sens
+    /// (par pas de 15°).
+    #[serde(default)]
+    pub angle: f64,
 }
 
 impl Objet {
@@ -339,7 +343,18 @@ impl Objet {
             largeur: String::new(),
             profondeur: String::new(),
             rotation: 0,
+            angle: 0.0,
         }
+    }
+
+    /// Son angle, en degrés de 0 à 360, dans le sens des aiguilles d'une montre.
+    pub fn angle_total(&self) -> f64 {
+        (f64::from(self.rotation) * 90.0 + self.angle).rem_euclid(360.0)
+    }
+
+    /// Le fait tourner de `degres` (négatif : dans l'autre sens).
+    pub fn pivoter(&mut self, degres: f64) {
+        self.angle = (self.angle + degres).rem_euclid(360.0);
     }
 
     /// Un point de son rectangle (u, v), sur le plan; `dimensions` est sa
@@ -350,11 +365,19 @@ impl Objet {
         (largeur, profondeur): (f64, f64),
     ) -> (f64, f64) {
         let (dx, dy) = ((u - 0.5) * largeur, (v - 0.5) * profondeur);
-        let (dx, dy) = match self.rotation % 4 {
-            0 => (dx, dy),
-            1 => (-dy, dx),
-            2 => (-dx, -dy),
-            _ => (dy, -dx),
+        let angle = self.angle_total();
+        let quarts = angle / 90.0;
+        // Un quart de tour exact garde des coins exacts.
+        let (dx, dy) = if (quarts - quarts.round()).abs() < 1e-9 {
+            match (quarts.round() as i64).rem_euclid(4) {
+                0 => (dx, dy),
+                1 => (-dy, dx),
+                2 => (-dx, -dy),
+                _ => (dy, -dx),
+            }
+        } else {
+            let (sinus, cosinus) = angle.to_radians().sin_cos();
+            (dx * cosinus - dy * sinus, dx * sinus + dy * cosinus)
         };
         (self.centre.0 + dx, self.centre.1 + dy)
     }
@@ -462,6 +485,34 @@ mod tests {
         }
         // Une table : son plateau, quatre pattes, et six chaises de deux parties.
         assert_eq!(GenreDObjet::Table.volumes().len(), 1 + 4 + 12);
+    }
+
+    #[test]
+    fn un_objet_pivote_au_15_degres() {
+        let mut table = Objet::nouveau(GenreDObjet::Table, (100.0, 100.0));
+        let dimensions = (36.0, 60.0);
+        table.pivoter(15.0);
+        table.pivoter(15.0);
+        assert!((table.angle_total() - 30.0).abs() < 1e-9);
+        // Le coin (0, 0) tourne de 30° autour du centre.
+        let (dx, dy) = (-18.0_f64, -30.0_f64);
+        let (sinus, cosinus) = 30.0_f64.to_radians().sin_cos();
+        let attendu = (
+            100.0 + dx * cosinus - dy * sinus,
+            100.0 + dx * sinus + dy * cosinus,
+        );
+        let coin = table.coins(dimensions)[0];
+        assert!((coin.0 - attendu.0).abs() < 1e-9 && (coin.1 - attendu.1).abs() < 1e-9);
+        assert!(table.contient((100.0, 100.0), dimensions));
+        // Six pas de 15° font un quart de tour exact.
+        let mut lit = Objet::nouveau(GenreDObjet::Lit, (0.0, 0.0));
+        for _ in 0..6 {
+            lit.pivoter(15.0);
+        }
+        assert_eq!(lit.coins((60.0, 80.0))[0], (40.0, -30.0));
+        // −15° revient en arrière.
+        lit.pivoter(-15.0);
+        assert!((lit.angle_total() - 75.0).abs() < 1e-9);
     }
 
     #[test]
