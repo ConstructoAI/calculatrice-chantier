@@ -497,6 +497,7 @@ pub fn dessin_toucher_le_mur(porte: bool) -> &'static str {
     }
 }
 pub const DESSIN_AJOUTER_UNE_PIECE: Texte = t("+ Pièce", "+ Room");
+pub const DESSIN_RENOMMER: Texte = t("Renommer", "Rename");
 pub const DESSIN_NOM_DE_LA_PIECE: Texte = t("Nom de la pièce", "Room name");
 pub const DESSIN_SUPPRIMER_LA_PIECE: Texte = t("Supprimer la pièce", "Delete the room");
 

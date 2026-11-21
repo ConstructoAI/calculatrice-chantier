@@ -27,6 +27,8 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   leur épaisseur hors des mesures (qui sont celles de l'intérieur), et les cloisons 5 po;
   les deux se règlent pour chaque pièce, et chaque cloison peut avoir la sienne. Une
   épaisseur tapée sans unité se lit en pouces. Sur le plan, en 3D, au PDF et au DXF.
+- **0.10.4** : **Renommer** une pièce depuis la rangée des pièces, en haut du dessin (ou en
+  touchant la pièce choisie) : son nom s'écrit aussitôt sous la rangée.
 
 ## Nouveautés de la version 0.9
 

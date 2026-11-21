@@ -129,6 +129,10 @@ pub struct Etat {
     /// La cloison que le doigt déplace : son rang, et l'écart (pouces) entre
     /// le point saisi et son départ.
     cloison_tiree: Option<(usize, (f64, f64))>,
+    /// Vrai quand le nom de la pièce s'écrit sous la rangée des pièces.
+    renommer: bool,
+    /// Vrai quand ce champ doit prendre le clavier.
+    viser_le_nom: bool,
     /// Vrai quand la planche montre la pièce en 3D.
     vue_3d: bool,
     /// La caméra de la vue 3D.
@@ -208,6 +212,8 @@ impl Etat {
         self.ouverture_tiree = None;
         self.ouvertures_a_l_ecran.clear();
         self.vue_3d = false;
+        self.renommer = false;
+        self.viser_le_nom = false;
         self.orbite = super::maquette::Orbite::default();
         self.objet_a_placer = None;
         self.objet_choisi = None;
@@ -665,10 +671,16 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                 for rang in 0..plan.pieces.len() {
                     let bouton = egui::Button::new(nom_de_la_piece(plan, rang))
                         .selected(rang == plan.courante);
-                    if ui.add(bouton).clicked() && rang != plan.courante {
-                        plan.courante = rang;
-                        etat.changer_de_piece();
-                        modifie = true;
+                    if ui.add(bouton).clicked() {
+                        if rang == plan.courante {
+                            // Toucher la pièce choisie ouvre son nom.
+                            etat.renommer = !etat.renommer;
+                            etat.viser_le_nom = etat.renommer;
+                        } else {
+                            plan.courante = rang;
+                            etat.changer_de_piece();
+                            modifie = true;
+                        }
                     }
                 }
                 if plan.pieces.len() < noyau::dessin::MAX_PIECES
@@ -684,9 +696,43 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                     etat.changer_de_piece();
                     modifie = true;
                 }
+                let renommer =
+                    egui::Button::new(textes::DESSIN_RENOMMER.traduit()).selected(etat.renommer);
+                if ui.add(renommer).clicked() {
+                    etat.renommer = !etat.renommer;
+                    etat.viser_le_nom = etat.renommer;
+                }
                 ui.add_space(10.0);
             });
         });
+    // Le nom de la pièce choisie, sous la rangée, le temps de le changer.
+    if etat.renommer {
+        let courante = plan.courante;
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            let champ = egui::TextEdit::singleline(&mut plan.pieces[courante].nom)
+                .desired_width((ui.available_width() - 80.0).clamp(140.0, 300.0))
+                .char_limit(40)
+                .hint_text(textes::dessin_piece(courante + 1));
+            let reponse = ui.add(champ);
+            cadre_de_saisie(ui, p, &reponse);
+            if etat.viser_le_nom {
+                etat.viser_le_nom = false;
+                reponse.request_focus();
+            }
+            if reponse.changed() {
+                modifie = true;
+            }
+            let entree = reponse.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if ui
+                .add(bouton_principal(p, textes::OK.traduit(), 13.0))
+                .clicked()
+                || entree
+            {
+                etat.renommer = false;
+            }
+        });
+    }
     modifie
 }
 
