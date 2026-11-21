@@ -38,8 +38,10 @@ struct PieceExportee {
     objets: Vec<(String, (f64, f64), Vec<noyau::mobilier::TraitSurLePlan>)>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
-    /// Les cloisons d'une pièce complète : leurs quatre coins (pouces).
+    /// Les cloisons d'une pièce complète : leurs morceaux pleins (quatre
+    /// coins, en pouces), et leurs portes.
     cloisons: Vec<[(f64, f64); 4]>,
+    portes_de_cloisons: Vec<PorteExportee>,
     /// Les murs extérieurs d'une pièce complète, à leur épaisseur, et le
     /// contour de leur extérieur; vides sans épaisseur.
     murs_exterieurs: Vec<MorceauDeMur>,
@@ -152,15 +154,28 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     } else {
         Vec::new()
     };
-    let cloisons = if complete {
-        solution
-            .cloisons
+    let (cloisons, portes_de_cloisons) = if complete {
+        let mesurees: Vec<_> = solution.cloisons.iter().flatten().copied().collect();
+        let portes = mesurees
             .iter()
-            .flatten()
-            .map(|cloison| cloison.coins())
-            .collect()
+            .filter_map(|cloison| {
+                let porte = cloison.porte?;
+                Some(PorteExportee {
+                    gonds: cloison.point(porte.debut),
+                    autre_bord: cloison.point(porte.fin),
+                    cote: cloison.cote_de_la_porte(),
+                })
+            })
+            .collect();
+        (
+            mesurees
+                .iter()
+                .flat_map(|cloison| cloison.morceaux())
+                .collect(),
+            portes,
+        )
     } else {
-        Vec::new()
+        (Vec::new(), Vec::new())
     };
     let murs_exterieurs = dessin.murs_exterieurs(&solution);
     let (contour_exterieur, epaisseur_des_murs) = if murs_exterieurs.is_empty() {
@@ -187,6 +202,7 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         objets,
         notes,
         cloisons,
+        portes_de_cloisons,
         murs_exterieurs,
         contour_exterieur,
         epaisseur_des_murs,
@@ -479,6 +495,51 @@ impl Page {
     }
 }
 
+/// La porte d'une cloison, sur le plan (pouces) : le bord de ses gonds, son
+/// autre bord, et le côté où elle s'ouvre.
+#[derive(Clone, Copy, Debug)]
+struct PorteExportee {
+    gonds: (f64, f64),
+    autre_bord: (f64, f64),
+    cote: (f64, f64),
+}
+
+/// La géométrie d'une porte de cloison une fois sur la page ou dans le DXF :
+/// `q0` et `q1` sont ses bords, `bout` l'image du point à un pouce de ses
+/// gonds, du côté où elle s'ouvre.
+fn geometrie_d_une_porte_de_cloison(
+    q0: (f64, f64),
+    q1: (f64, f64),
+    bout: (f64, f64),
+) -> Option<Geometrie> {
+    let largeur = (q1.0 - q0.0).hypot(q1.1 - q0.1);
+    let (dx, dy) = (bout.0 - q0.0, bout.1 - q0.1);
+    let norme = dx.hypot(dy);
+    if largeur <= 1e-9 || norme <= 1e-12 {
+        return None;
+    }
+    Some(Geometrie {
+        q0,
+        q1,
+        u: ((q1.0 - q0.0) / largeur, (q1.1 - q0.1) / largeur),
+        dedans: (dx / norme, dy / norme),
+        largeur,
+    })
+}
+
+/// Les angles (degrés, dans le sens trigonométrique) de l'arc d'une porte,
+/// du mur à son battant ouvert.
+fn angles_d_un_arc_de_porte(u: (f64, f64), dedans: (f64, f64)) -> (f64, f64) {
+    let vers_le_mur = u.1.atan2(u.0).to_degrees();
+    let vers_le_battant = dedans.1.atan2(dedans.0).to_degrees();
+    let angles = if ((vers_le_battant - vers_le_mur).rem_euclid(360.0) - 90.0).abs() < 1.0 {
+        (vers_le_mur, vers_le_battant)
+    } else {
+        (vers_le_battant, vers_le_mur)
+    };
+    (angles.0.rem_euclid(360.0), angles.1.rem_euclid(360.0))
+}
+
 /// Les points extrêmes d'un trait d'objet, pour le cadrage.
 fn etendue_d_un_trait(trait_: &noyau::mobilier::TraitSurLePlan) -> Vec<(f64, f64)> {
     match *trait_ {
@@ -615,6 +676,24 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
             .collect();
         page.polygone_plein(&contour, BLEU_PALE);
         page.trait_(&contour, 0.9, BLEU);
+    }
+    // Les portes des cloisons : le battant et son arc.
+    for porte in &piece.portes_de_cloisons {
+        let (q0, q1) = (vers_la_page(porte.gonds), vers_la_page(porte.autre_bord));
+        let bout = vers_la_page((porte.gonds.0 + porte.cote.0, porte.gonds.1 + porte.cote.1));
+        let Some(Geometrie {
+            q0,
+            u,
+            dedans,
+            largeur,
+            ..
+        }) = geometrie_d_une_porte_de_cloison(q0, q1, bout)
+        else {
+            continue;
+        };
+        let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
+        page.trait_(&[q0, battant], 1.2, NOIR);
+        page.trait_(&arc_de_porte(q0, u, dedans, largeur), 0.6, GRIS);
     }
     // Les notes, par-dessus.
     for (texte, position) in &piece.notes {
@@ -1043,19 +1122,12 @@ fn ouvertures_dans_le_dxf(
             let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
             ligne_dxf(dxf, "OUVERTURES", q0, battant);
             // L'arc va, dans le sens trigonométrique, du mur au battant.
-            let vers_le_mur = u.1.atan2(u.0).to_degrees();
-            let vers_le_battant = dedans.1.atan2(dedans.0).to_degrees();
-            let angles = if ((vers_le_battant - vers_le_mur).rem_euclid(360.0) - 90.0).abs() < 1.0 {
-                (vers_le_mur, vers_le_battant)
-            } else {
-                (vers_le_battant, vers_le_mur)
-            };
             arc_dxf(
                 dxf,
                 "OUVERTURES",
                 q0,
                 largeur,
-                (angles.0.rem_euclid(360.0), angles.1.rem_euclid(360.0)),
+                angles_d_un_arc_de_porte(u, dedans),
             );
         } else if epaisseur > 0.0 {
             // La fenêtre traverse le mur : ses deux faces et son vitrage.
@@ -1235,6 +1307,29 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                     vers_le_dxf(coins[(k + 1) % 4]),
                 );
             }
+        }
+        for porte in &piece.portes_de_cloisons {
+            let (q0, q1) = (vers_le_dxf(porte.gonds), vers_le_dxf(porte.autre_bord));
+            let bout = vers_le_dxf((porte.gonds.0 + porte.cote.0, porte.gonds.1 + porte.cote.1));
+            let Some(Geometrie {
+                q0,
+                u,
+                dedans,
+                largeur,
+                ..
+            }) = geometrie_d_une_porte_de_cloison(q0, q1, bout)
+            else {
+                continue;
+            };
+            let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
+            ligne_dxf(&mut entites, "CLOISONS", q0, battant);
+            arc_dxf(
+                &mut entites,
+                "CLOISONS",
+                q0,
+                largeur,
+                angles_d_un_arc_de_porte(u, dedans),
+            );
         }
         // Les notes, sur le calque NOTES.
         for (texte, position) in &piece.notes {
@@ -1575,6 +1670,7 @@ mod tests {
             sens: noyau::dessin::Sens::Sud,
             longueur: "10".to_string(),
             epaisseur: String::new(),
+            porte: None,
         }];
         let plan = Plan::d_une_piece(chambre);
         let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
@@ -1612,6 +1708,30 @@ mod tests {
         assert_eq!(pdf.matches("0.740 0.800 0.900 rg").count(), 5);
         // Les murs pleins n'ont pas besoin d'être interrompus en blanc.
         assert!(!pdf.contains("1.000 1.000 1.000 RG"));
+    }
+
+    #[test]
+    fn la_porte_d_une_cloison_dans_le_pdf_et_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.cloisons = vec![noyau::cloison::Cloison {
+            debut: (48.0, 0.0),
+            sens: noyau::dessin::Sens::Sud,
+            longueur: "10".to_string(),
+            porte: Some(noyau::cloison::PorteDeCloison::default()),
+            ..Default::default()
+        }];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Deux morceaux de cloison (quatre traits chacun), et le battant.
+        assert_eq!(
+            dxf.matches("\r\nLINE\r\n  8\r\nCLOISONS\r\n").count(),
+            2 * 4 + 1
+        );
+        assert_eq!(dxf.matches("\r\nARC\r\n  8\r\nCLOISONS\r\n").count(), 1);
+        // Le battant mesure 2 pi 8 po.
+        assert!(dxf.contains("\r\n 40\r\n32.0000\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert_eq!(pdf.matches("0.820 0.870 0.950 rg").count(), 2);
     }
 
     #[test]

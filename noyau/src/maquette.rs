@@ -231,19 +231,36 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
             }
         }
     }
-    // Les cloisons, jusqu'au haut des murs.
+    // Les cloisons, jusqu'au haut des murs, interrompues par leur porte, que
+    // surmonte un linteau.
     for cloison in solution.cloisons.iter().flatten() {
         let genre = GenreDeFace::Cloison;
-        let coins = cloison.coins();
-        bloc(
-            &mut faces,
-            &mut aretes,
-            &mut blocs,
-            coins,
-            (0.0, hauteur),
-            genre,
-            false,
-        );
+        for coins in cloison.morceaux() {
+            bloc(
+                &mut faces,
+                &mut aretes,
+                &mut blocs,
+                coins,
+                (0.0, hauteur),
+                genre,
+                false,
+            );
+        }
+        if let Some(porte) = cloison.porte
+            && hauteur > crate::cloison::HAUTEUR_DE_PORTE
+        {
+            let coins = cloison.rectangle(porte.debut, porte.fin);
+            let hauteurs = (crate::cloison::HAUTEUR_DE_PORTE, hauteur);
+            bloc(
+                &mut faces,
+                &mut aretes,
+                &mut blocs,
+                coins,
+                hauteurs,
+                genre,
+                false,
+            );
+        }
     }
     Some(Maquette {
         faces,
@@ -603,6 +620,7 @@ mod tests {
             sens: Sens::Sud,
             longueur: "10".to_string(),
             epaisseur: String::new(),
+            porte: None,
         }];
         let solution = dessin.resoudre(Format::PiPo);
         let maquette = maquette(&dessin, &solution).unwrap();
@@ -618,6 +636,29 @@ mod tests {
         let dessus = &maquette.faces[bloc.faces.start];
         assert!((aire(dessus) - 5.0 * 120.0).abs() < 1e-6);
         assert!(dessus.sommets.iter().all(|s| (s[1] - 96.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn la_porte_d_une_cloison_sous_son_linteau() {
+        let mut dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        dessin.cloisons = vec![Cloison {
+            debut: (48.0, 0.0),
+            sens: Sens::Sud,
+            longueur: "10".to_string(),
+            porte: Some(crate::cloison::PorteDeCloison::default()),
+            ..Default::default()
+        }];
+        let solution = dessin.resoudre(Format::PiPo);
+        let maquette = maquette(&dessin, &solution).unwrap();
+        // Deux morceaux jusqu'au haut des murs, et le linteau sur la porte.
+        assert_eq!(maquette.blocs.len(), 3);
+        let linteau = maquette.blocs.iter().find(|b| b.bas > 0.0).unwrap();
+        assert_eq!((linteau.bas, linteau.haut), (80.0, 96.0));
     }
 
     #[test]

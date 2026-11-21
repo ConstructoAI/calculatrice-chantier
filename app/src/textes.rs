@@ -418,6 +418,18 @@ pub const DESSIN_EPAISSEUR: Texte = t("épaisseur", "thickness");
 /// Devant l'épaisseur d'une cloison, dans sa ligne.
 pub const DESSIN_EP: Texte = t("ép.", "thk.");
 pub const DESSIN_EPAISSEUR_DES_MURS: Texte = t("Épaisseur des murs", "Wall thickness");
+pub const DESSIN_LARGEUR_DE_LA_PORTE: Texte = t("largeur de la porte", "door width");
+pub const DESSIN_DISTANCE_DU_BOUT_A: Texte = t("distance du bout A", "distance from end A");
+pub const DESSIN_INVERSER: Texte = t("Inverser", "Flip");
+pub const DESSIN_SANS_PORTE: Texte = t("Sans porte", "No door");
+
+/// « à 3 pi 0 po du bout A » : la place de la porte d'une cloison.
+pub fn dessin_du_bout_a(distance: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("à {distance} du bout A"),
+        Langue::Anglais => format!("{distance} from end A"),
+    }
+}
 pub const DESSIN_EPAISSEUR_DES_CLOISONS: Texte = t("Épaisseur des cloisons", "Partition thickness");
 pub const DESSIN_TRACER_LA_CLOISON: Texte = t(
     "Glissez d'un bout à l'autre de la cloison",

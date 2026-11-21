@@ -34,6 +34,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   sofa et ses coussins, le comptoir (armoires, portes, évier, robinet), le bain creux, la
   douche et ses parois de verre, la toilette, et les poignées, brûleurs et hublot des
   électroménagers.
+- **0.10.6** : une **porte dans une cloison** — **+ Porte**, dans la ligne d'une cloison : 2 pi
+  8 po, centrée; sa largeur et sa distance au bout A se règlent, **Inverser** l'ouvre de
+  l'autre côté. Sur le plan, en 3D (sous un linteau), au PDF et au DXF; la surface des
+  cloisons retire leurs portes.
 
 ## Nouveautés de la version 0.9
 

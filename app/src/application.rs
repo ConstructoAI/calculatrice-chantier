@@ -2353,12 +2353,20 @@ fn transposer_le_dessin(
                 .iter_mut()
                 .flat_map(|objet| [&mut objet.largeur, &mut objet.profondeur]),
         )
-        .chain(
-            dessin
-                .cloisons
-                .iter_mut()
-                .flat_map(|cloison| [&mut cloison.longueur, &mut cloison.epaisseur]),
-        )
+        .chain(dessin.cloisons.iter_mut().flat_map(|cloison| {
+            let noyau::cloison::Cloison {
+                longueur,
+                epaisseur,
+                porte,
+                ..
+            } = cloison;
+            let mut saisies = vec![longueur, epaisseur];
+            if let Some(porte) = porte {
+                saisies.push(&mut porte.largeur);
+                saisies.push(&mut porte.position);
+            }
+            saisies
+        }))
         .chain([
             &mut dessin.hauteur_des_murs,
             &mut dessin.epaisseur_des_murs,

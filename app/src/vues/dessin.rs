@@ -2,7 +2,10 @@
 //! doigt ou la souris, puis on touche chaque côté pour y inscrire sa mesure.
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
-use noyau::cloison::{Cloison, CloisonMesuree, EPAISSEUR_PAR_DEFAUT, Segment, redresser};
+use noyau::cloison::{
+    Cloison, CloisonMesuree, EPAISSEUR_PAR_DEFAUT, LARGEUR_DE_PORTE_PAR_DEFAUT, PorteDeCloison,
+    Segment, redresser,
+};
 use noyau::dessin::{
     Dessin, Etat as EtatDeLaForme, GenreDOuverture, Mesure, Ouverture, Plan, Retrait, Sens,
     Solution,
@@ -142,6 +145,24 @@ pub struct Etat {
     geste_annule: bool,
 }
 
+/// Une mesure d'une cloison ou de sa porte.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChampDeCloison {
+    Longueur,
+    Epaisseur,
+    LargeurDePorte,
+    PositionDePorte,
+}
+
+/// Ce que demande un bouton de la ligne d'une cloison.
+#[derive(Clone, Copy)]
+enum GesteSurUneCloison {
+    Enlever,
+    AjouterUnePorte,
+    Inverser,
+    SansPorte,
+}
+
 /// Une mesure autre que celle d'un côté.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AutreSaisie {
@@ -153,8 +174,8 @@ enum AutreSaisie {
     Ouverture(usize, ChampDOuverture),
     /// Une dimension d'un objet : son rang, et vrai pour sa profondeur.
     Objet(usize, bool),
-    /// Une mesure d'une cloison : son rang, et vrai pour son épaisseur.
-    Cloison(usize, bool),
+    /// Une mesure d'une cloison ou de sa porte : son rang, et laquelle.
+    Cloison(usize, ChampDeCloison),
     /// L'épaisseur des murs extérieurs de la pièce.
     EpaisseurDesMurs,
     /// L'épaisseur des cloisons de la pièce.
@@ -180,7 +201,10 @@ impl AutreSaisie {
             AutreSaisie::Hauteur => true,
             AutreSaisie::Ouverture(rang, _) => rang < dessin.ouvertures.len(),
             AutreSaisie::Objet(rang, _) => rang < dessin.objets.len(),
-            AutreSaisie::Cloison(rang, _) => rang < dessin.cloisons.len(),
+            AutreSaisie::Cloison(rang, champ) => dessin.cloisons.get(rang).is_some_and(|cloison| {
+                matches!(champ, ChampDeCloison::Longueur | ChampDeCloison::Epaisseur)
+                    || cloison.porte.is_some()
+            }),
             AutreSaisie::EpaisseurDesMurs | AutreSaisie::EpaisseurDesCloisons => true,
         }
     }
@@ -336,7 +360,8 @@ fn aimant_des_cloisons(echelle: &Echelle) -> f64 {
     f64::from(18.0 / echelle.facteur).max(3.0)
 }
 
-/// Une cloison sur le plan : pleine, avec sa longueur à côté.
+/// Une cloison sur le plan : pleine, avec sa longueur à côté, sa porte (le
+/// battant et son arc) et, choisie, son bout A, d'où se mesure la porte.
 fn dessiner_une_cloison(
     painter: &egui::Painter,
     p: &Palette,
@@ -345,17 +370,25 @@ fn dessiner_une_cloison(
     choisie: bool,
     longueur: String,
 ) {
-    let coins: Vec<Pos2> = cloison
-        .coins()
-        .iter()
-        .map(|coin| echelle.vers_l_ecran(*coin))
-        .collect();
     let encre = if choisie { p.barre_accent } else { p.primaire };
-    painter.add(egui::Shape::convex_polygon(
-        coins,
-        encre.gamma_multiply(0.45),
-        Stroke::new(1.4, encre),
-    ));
+    for morceau in cloison.morceaux() {
+        let coins: Vec<Pos2> = morceau
+            .iter()
+            .map(|coin| echelle.vers_l_ecran(*coin))
+            .collect();
+        painter.add(egui::Shape::convex_polygon(
+            coins,
+            encre.gamma_multiply(0.45),
+            Stroke::new(1.4, encre),
+        ));
+    }
+    if let Some(porte) = cloison.porte {
+        let q0 = echelle.vers_l_ecran(cloison.point(porte.debut));
+        let q1 = echelle.vers_l_ecran(cloison.point(porte.fin));
+        let (nx, ny) = cloison.cote_de_la_porte();
+        let cote = Vec2::new(nx as f32, ny as f32);
+        dessiner_ouverture(painter, (q0, q1), cote, true, encre, encre, 0.0);
+    }
     let (a, b) = (
         echelle.vers_l_ecran(cloison.debut),
         echelle.vers_l_ecran(cloison.fin),
@@ -376,6 +409,17 @@ fn dessiner_une_cloison(
         .expand2(Vec2::new(2.0, 1.0));
     painter.rect_filled(cadre, 3, p.carte.gamma_multiply(0.9));
     painter.galley(cadre.min + Vec2::new(2.0, 1.0), galere, encre);
+    if choisie {
+        // Le bout A, d'où se mesure la porte.
+        painter.circle_stroke(a, 6.5, Stroke::new(1.6, p.barre_accent));
+        painter.text(
+            a - le_long * 15.0,
+            Align2::CENTER_CENTER,
+            "A",
+            theme::police_grasse(12.0),
+            p.barre_accent,
+        );
+    }
 }
 
 /// Un morceau d'un mur extérieur : plein, avec sa face extérieure et ses
@@ -1260,6 +1304,7 @@ fn planche_et_gestes(
                         &Quantite::Longueur(longueur).en_clair(solution.modele, prefs),
                     ),
                     epaisseur: String::new(),
+                    porte: None,
                 });
                 etat.cloison_choisie = Some(dessin.cloisons.len() - 1);
                 etat.cloison_a_tracer = false;
@@ -1593,6 +1638,7 @@ fn planche_et_gestes(
                 fin: (debut.0 + ux * longueur, debut.1 + uy * longueur),
                 longueur,
                 epaisseur: solution.epaisseur_des_cloisons,
+                porte: None,
             };
             let texte = longueur_en_clair(longueur, solution, prefs);
             dessiner_une_cloison(&painter, p, &echelle, &apercu, true, texte);
@@ -2365,24 +2411,45 @@ fn autre_mesure(
                 (!en_profondeur).then_some(AutreSaisie::Objet(rang, true)),
             )
         }
-        AutreSaisie::Cloison(rang, en_epaisseur) => {
+        AutreSaisie::Cloison(rang, champ) => {
             // L'indice de l'épaisseur : celle que la pièce donne à ses cloisons.
             let defaut = dessin.resoudre(FORMAT_PAR_DEFAUT).epaisseur_des_cloisons;
             let Some(cloison) = dessin.cloisons.get_mut(rang) else {
                 return false;
             };
-            let (saisie, dimension, indice) = if en_epaisseur {
-                (
-                    &mut cloison.epaisseur,
-                    textes::DESSIN_EPAISSEUR,
-                    sans_insecables(&Quantite::Longueur(defaut).en_clair(None, prefs)),
-                )
-            } else {
-                (
+            let (saisie, dimension, indice) = match champ {
+                ChampDeCloison::Longueur => (
                     &mut cloison.longueur,
                     textes::DESSIN_LONGUEUR,
                     textes::DESSIN_EXEMPLE.traduit().to_string(),
-                )
+                ),
+                ChampDeCloison::Epaisseur => (
+                    &mut cloison.epaisseur,
+                    textes::DESSIN_EPAISSEUR,
+                    sans_insecables(&Quantite::Longueur(defaut).en_clair(None, prefs)),
+                ),
+                ChampDeCloison::LargeurDePorte => {
+                    let Some(porte) = cloison.porte.as_mut() else {
+                        return false;
+                    };
+                    (
+                        &mut porte.largeur,
+                        textes::DESSIN_LARGEUR_DE_LA_PORTE,
+                        sans_insecables(
+                            &Quantite::Longueur(LARGEUR_DE_PORTE_PAR_DEFAUT).en_clair(None, prefs),
+                        ),
+                    )
+                }
+                ChampDeCloison::PositionDePorte => {
+                    let Some(porte) = cloison.porte.as_mut() else {
+                        return false;
+                    };
+                    (
+                        &mut porte.position,
+                        textes::DESSIN_DISTANCE_DU_BOUT_A,
+                        textes::DESSIN_CENTREE.traduit().to_string(),
+                    )
+                }
             };
             (
                 saisie,
@@ -2949,8 +3016,8 @@ fn objets(
     modifie
 }
 
-/// Les cloisons de la pièce : leur longueur et leur épaisseur, et le bouton
-/// pour en tracer une. Retourne vrai si le dessin a changé.
+/// Les cloisons de la pièce : leur longueur, leur épaisseur et leur porte, et
+/// le bouton pour en tracer une. Retourne vrai si le dessin a changé.
 fn cloisons(
     ui: &mut Ui,
     p: &Palette,
@@ -2975,10 +3042,12 @@ fn cloisons(
             etat.choisir_autre(Some(cible));
         }
     });
-    let mut a_enlever = None;
+    let mut geste = None;
     for rang in 0..dessin.cloisons.len() {
+        let cloison = &dessin.cloisons[rang];
+        let mesuree = solution.cloisons.get(rang).copied().flatten();
+        let epaisseur = mesuree.map_or(solution.epaisseur_des_cloisons, |c| c.epaisseur);
         ui.horizontal_wrapped(|ui| {
-            let cloison = &dessin.cloisons[rang];
             let choisie = etat.cloison_choisie == Some(rang);
             let nom = RichText::new(format!(
                 "{}. {}",
@@ -2989,21 +3058,21 @@ fn cloisons(
             if ui.add(egui::Button::new(nom).selected(choisie)).clicked() {
                 etat.cloison_choisie = if choisie { None } else { Some(rang) };
             }
-            let epaisseur = solution
-                .cloisons
-                .get(rang)
-                .copied()
-                .flatten()
-                .map_or(solution.epaisseur_des_cloisons, |c| c.epaisseur);
-            let textes_des_boutons = [
-                (false, mesure_du_bouton(&cloison.longueur, "?", prefs)),
-                (true, longueur_en_clair(epaisseur, solution, prefs)),
+            let boutons = [
+                (
+                    ChampDeCloison::Longueur,
+                    mesure_du_bouton(&cloison.longueur, "?", prefs),
+                ),
+                (
+                    ChampDeCloison::Epaisseur,
+                    longueur_en_clair(epaisseur, solution, prefs),
+                ),
             ];
-            for (en_epaisseur, texte) in textes_des_boutons {
-                if en_epaisseur {
+            for (champ, texte) in boutons {
+                if champ == ChampDeCloison::Epaisseur {
                     ui.label(textes::DESSIN_EP.traduit());
                 }
-                let cible = AutreSaisie::Cloison(rang, en_epaisseur);
+                let cible = AutreSaisie::Cloison(rang, champ);
                 if ui
                     .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
                     .clicked()
@@ -3012,20 +3081,88 @@ fn cloisons(
                     etat.cloison_choisie = Some(rang);
                 }
             }
+            if cloison.porte.is_none()
+                && ui
+                    .add(egui::Button::new(textes::DESSIN_AJOUTER_PORTE.traduit()))
+                    .clicked()
+            {
+                geste = Some((rang, GesteSurUneCloison::AjouterUnePorte));
+            }
             if ui
                 .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
                 .clicked()
             {
-                a_enlever = Some(rang);
+                geste = Some((rang, GesteSurUneCloison::Enlever));
             }
         });
+        // Sa porte : sa largeur, sa place depuis le bout A, son côté.
+        if let Some(porte) = &cloison.porte {
+            let mesuree = mesuree.and_then(|c| c.porte);
+            ui.horizontal_wrapped(|ui| {
+                ui.add_space(16.0);
+                ui.label(RichText::new(textes::DESSIN_PORTE.traduit()).size(13.5));
+                let largeur = mesuree.map_or(LARGEUR_DE_PORTE_PAR_DEFAUT, |q| q.fin - q.debut);
+                let place = match mesuree {
+                    Some(q) if !porte.position.trim().is_empty() => {
+                        textes::dessin_du_bout_a(&longueur_en_clair(q.debut, solution, prefs))
+                    }
+                    _ => textes::DESSIN_CENTREE.traduit().to_string(),
+                };
+                for (champ, texte) in [
+                    (
+                        ChampDeCloison::LargeurDePorte,
+                        longueur_en_clair(largeur, solution, prefs),
+                    ),
+                    (ChampDeCloison::PositionDePorte, place),
+                ] {
+                    let cible = AutreSaisie::Cloison(rang, champ);
+                    if ui
+                        .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                        .clicked()
+                    {
+                        etat.choisir_autre(Some(cible));
+                        etat.cloison_choisie = Some(rang);
+                    }
+                }
+                if ui
+                    .add(egui::Button::new(textes::DESSIN_INVERSER.traduit()))
+                    .clicked()
+                {
+                    geste = Some((rang, GesteSurUneCloison::Inverser));
+                }
+                if ui
+                    .add(egui::Button::new(textes::DESSIN_SANS_PORTE.traduit()))
+                    .clicked()
+                {
+                    geste = Some((rang, GesteSurUneCloison::SansPorte));
+                }
+            });
+        }
     }
-    if let Some(rang) = a_enlever {
+    if let Some((rang, geste)) = geste {
         etat.memoriser(dessin);
-        dessin.cloisons.remove(rang);
-        etat.cloison_choisie = None;
-        etat.cloison_tiree = None;
-        etat.choisir_autre(None);
+        match geste {
+            GesteSurUneCloison::Enlever => {
+                dessin.cloisons.remove(rang);
+                etat.cloison_choisie = None;
+                etat.cloison_tiree = None;
+                etat.choisir_autre(None);
+            }
+            GesteSurUneCloison::AjouterUnePorte => {
+                dessin.cloisons[rang].porte = Some(PorteDeCloison::default());
+                etat.cloison_choisie = Some(rang);
+            }
+            GesteSurUneCloison::Inverser => {
+                if let Some(porte) = dessin.cloisons[rang].porte.as_mut() {
+                    porte.inversee = !porte.inversee;
+                }
+                etat.cloison_choisie = Some(rang);
+            }
+            GesteSurUneCloison::SansPorte => {
+                dessin.cloisons[rang].porte = None;
+                etat.choisir_autre(None);
+            }
+        }
         modifie = true;
     }
     let bouton = egui::Button::new(textes::DESSIN_AJOUTER_UNE_CLOISON.traduit())
