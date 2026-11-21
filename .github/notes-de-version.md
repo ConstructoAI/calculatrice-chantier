@@ -29,6 +29,11 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   épaisseur tapée sans unité se lit en pouces. Sur le plan, en 3D, au PDF et au DXF.
 - **0.10.4** : **Renommer** une pièce depuis la rangée des pièces, en haut du dessin (ou en
   touchant la pièce choisie) : son nom s'écrit aussitôt sous la rangée.
+- **0.10.5** : un **mobilier 3D plus détaillé** — chaque meuble en ses parties, de leurs
+  couleurs : le lit (base, matelas, couverture, tête, oreillers), la table et ses chaises, le
+  sofa et ses coussins, le comptoir (armoires, portes, évier, robinet), le bain creux, la
+  douche et ses parois de verre, la toilette, et les poignées, brûleurs et hublot des
+  électroménagers.
 
 ## Nouveautés de la version 0.9
 

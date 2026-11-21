@@ -4,7 +4,7 @@
 //! y vers le haut.
 
 use crate::dessin::{Dessin, Etat, Solution};
-use crate::mobilier::GenreDObjet;
+use crate::mobilier::{GenreDObjet, Matiere};
 
 /// Hauteur des murs quand elle n'est pas inscrite : 8 pi.
 pub const HAUTEUR_PAR_DEFAUT: f64 = 96.0;
@@ -16,8 +16,8 @@ pub enum GenreDeFace {
     Mur,
     Vitre,
     Porte,
-    /// Un bloc de l'escalier ou d'un meuble.
-    Meuble(GenreDObjet),
+    /// Une partie de l'escalier ou d'un meuble, de sa matière.
+    Meuble(Matiere),
     /// Un bloc d'une cloison.
     Cloison,
     /// Le dessus d'un mur, à son épaisseur.
@@ -51,6 +51,9 @@ pub struct Maquette {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bloc {
     pub coins: [(f64, f64); 4],
+    /// Sa hauteur, de son dessous à son dessus (pouces).
+    pub bas: f64,
+    pub haut: f64,
     pub faces: std::ops::Range<usize>,
     pub aretes: std::ops::Range<usize>,
 }
@@ -183,16 +186,16 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
             }
         }
     }
-    // Les objets : des blocs à leur hauteur; l'escalier, une marche par bloc,
-    // de la flèche jusqu'au haut des murs.
+    // Les objets : chacun en ses parties; l'escalier, une marche par bloc, de
+    // la flèche jusqu'au haut des murs.
     let mut blocs = Vec::new();
     for (objet, &dimensions) in dessin.objets.iter().zip(&solution.objets) {
-        let genre = GenreDeFace::Meuble(objet.genre);
-        let coins = |v0: f64, v1: f64| {
-            [(0.0, v0), (1.0, v0), (1.0, v1), (0.0, v1)]
+        let coins = |u: (f64, f64), v: (f64, f64)| {
+            [(u.0, v.0), (u.1, v.0), (u.1, v.1), (u.0, v.1)]
                 .map(|coin| objet.vers_le_plan(coin, dimensions))
         };
         if objet.genre == GenreDObjet::Escalier {
+            let genre = GenreDeFace::Meuble(Matiere::Bois);
             let marches = (dimensions.1 / 10.0).round().clamp(3.0, 20.0) as usize;
             for k in 0..marches {
                 let v0 = 1.0 - (k + 1) as f64 / marches as f64;
@@ -200,29 +203,32 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 let haut = hauteur * (k + 1) as f64 / marches as f64;
                 // Le devant d'une marche est caché par la suivante, plus haute.
                 let cache = k + 1 < marches;
-                let coins = coins(v0, v1);
+                let coins = coins((0.0, 1.0), (v0, v1));
                 bloc(
                     &mut faces,
                     &mut aretes,
                     &mut blocs,
                     coins,
-                    haut,
+                    (0.0, haut),
                     genre,
                     cache,
                 );
             }
         } else {
-            let (_, _, haut) = objet.genre.dimensions();
-            let coins = coins(0.0, 1.0);
-            bloc(
-                &mut faces,
-                &mut aretes,
-                &mut blocs,
-                coins,
-                haut,
-                genre,
-                false,
-            );
+            for partie in objet.genre.volumes() {
+                let genre = GenreDeFace::Meuble(partie.matiere);
+                let coins = coins(partie.u, partie.v);
+                let hauteurs = (partie.bas, partie.haut);
+                bloc(
+                    &mut faces,
+                    &mut aretes,
+                    &mut blocs,
+                    coins,
+                    hauteurs,
+                    genre,
+                    false,
+                );
+            }
         }
     }
     // Les cloisons, jusqu'au haut des murs.
@@ -234,7 +240,7 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
             &mut aretes,
             &mut blocs,
             coins,
-            hauteur,
+            (0.0, hauteur),
             genre,
             false,
         );
@@ -246,20 +252,20 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
     })
 }
 
-/// Un bloc posé sur le plancher, de son empreinte `coins` (x, z) jusqu'à
-/// `haut` : son dessus et ses côtés, tournés vers l'extérieur;
-/// `sans_l_avant` omet le côté du premier au deuxième coin.
+/// Un bloc, de son empreinte `coins` (x, z) et de `bas` à `haut` : son
+/// dessus et ses côtés, tournés vers l'extérieur; `sans_l_avant` omet le
+/// côté du premier au deuxième coin.
 fn bloc(
     faces: &mut Vec<Face>,
     aretes: &mut Vec<[[f64; 3]; 2]>,
     blocs: &mut Vec<Bloc>,
     coins: [(f64, f64); 4],
-    haut: f64,
+    (bas, haut): (f64, f64),
     genre: GenreDeFace,
     sans_l_avant: bool,
 ) {
     let (premiere_face, premiere_arete) = (faces.len(), aretes.len());
-    let bas = coins.map(|(x, z)| [x, 0.0, z]);
+    let dessous = coins.map(|(x, z)| [x, bas, z]);
     let dessus = coins.map(|(x, z)| [x, haut, z]);
     let centre = (
         coins.iter().map(|c| c.0).sum::<f64>() / 4.0,
@@ -284,27 +290,30 @@ fn bloc(
         let longueur = nx.hypot(nz).max(1e-12);
         faces.push(Face {
             genre,
-            sommets: vec![bas[a], bas[b], dessus[b], dessus[a]],
+            sommets: vec![dessous[a], dessous[b], dessus[b], dessus[a]],
             normale: [nx / longueur, 0.0, nz / longueur],
         });
     }
     blocs.push(Bloc {
         coins,
+        bas,
+        haut,
         faces: premiere_face..faces.len(),
         aretes: premiere_arete..aretes.len(),
     });
 }
 
 /// L'ordre où peindre les blocs, du plus loin au plus proche, vus d'un œil
-/// placé en `oeil` (x, z) : un bloc passe avant un autre quand une droite
-/// sépare leurs empreintes et que l'œil est du côté de l'autre. Sans droite
-/// qui les sépare (ils se chevauchent), le plus loin de l'œil passe avant.
-pub fn ordre_des_blocs(blocs: &[Bloc], oeil: (f64, f64)) -> Vec<usize> {
+/// placé en `oeil` (x, y, z) : un bloc passe avant un autre quand un plan
+/// sépare les deux — une droite entre leurs empreintes, ou l'horizontale
+/// entre deux blocs empilés — et que l'œil est du côté de l'autre. Sans
+/// plan qui les sépare, le plus loin de l'œil passe avant.
+pub fn ordre_des_blocs(blocs: &[Bloc], oeil: [f64; 3]) -> Vec<usize> {
     let n = blocs.len();
     let distance = |bloc: &Bloc| {
         let x = bloc.coins.iter().map(|c| c.0).sum::<f64>() / 4.0;
         let z = bloc.coins.iter().map(|c| c.1).sum::<f64>() / 4.0;
-        (x - oeil.0).hypot(z - oeil.1)
+        (x - oeil[0]).hypot(z - oeil[2])
     };
     // derriere[i] : les blocs à peindre avant i.
     let mut derriere: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -344,8 +353,8 @@ pub fn ordre_des_blocs(blocs: &[Bloc], oeil: (f64, f64)) -> Vec<usize> {
 }
 
 /// Vrai si `a` est devant `b` pour l'œil, faux s'il est derrière; `None` si
-/// aucune droite ne sépare leurs empreintes.
-fn devant(a: &Bloc, b: &Bloc, oeil: (f64, f64)) -> Option<bool> {
+/// aucun plan ne les sépare.
+fn devant(a: &Bloc, b: &Bloc, oeil: [f64; 3]) -> Option<bool> {
     let etendue = |coins: &[(f64, f64); 4], axe: (f64, f64)| {
         coins
             .iter()
@@ -354,6 +363,7 @@ fn devant(a: &Bloc, b: &Bloc, oeil: (f64, f64)) -> Option<bool> {
                 (bas.min(v), haut.max(v))
             })
     };
+    // Une droite entre les empreintes : un plan vertical.
     for coins in [&a.coins, &b.coins] {
         for k in 0..4 {
             let (p, q) = (coins[k], coins[(k + 1) % 4]);
@@ -363,7 +373,7 @@ fn devant(a: &Bloc, b: &Bloc, oeil: (f64, f64)) -> Option<bool> {
                 continue;
             }
             let ((a0, a1), (b0, b1)) = (etendue(&a.coins, axe), etendue(&b.coins, axe));
-            let oeil_sur_l_axe = oeil.0 * axe.0 + oeil.1 * axe.1;
+            let oeil_sur_l_axe = oeil[0] * axe.0 + oeil[2] * axe.1;
             let marge = 1e-6 * norme;
             if a1 <= b0 + marge {
                 return Some(oeil_sur_l_axe < (a1 + b0) / 2.0);
@@ -372,6 +382,13 @@ fn devant(a: &Bloc, b: &Bloc, oeil: (f64, f64)) -> Option<bool> {
                 return Some(oeil_sur_l_axe > (b1 + a0) / 2.0);
             }
         }
+    }
+    // Deux blocs empilés : le plan horizontal entre eux.
+    if a.bas >= b.haut - 1e-6 {
+        return Some(oeil[1] > (a.bas + b.haut) / 2.0);
+    }
+    if b.bas >= a.haut - 1e-6 {
+        return Some(oeil[1] < (b.bas + a.haut) / 2.0);
     }
     None
 }
@@ -538,24 +555,33 @@ mod tests {
             Objet::nouveau(GenreDObjet::Escalier, (24.0, 60.0)),
         ];
         let solution = dessin.resoudre(Format::PiPo);
-        let faces = maquette(&dessin, &solution).unwrap().faces;
-        let meubles: Vec<&Face> = faces
+        let maquette = maquette(&dessin, &solution).unwrap();
+        // Le lit en ses parties, et l'escalier de 10 pi en 12 marches.
+        assert_eq!(maquette.blocs.len(), GenreDObjet::Lit.volumes().len() + 12);
+        let faces = &maquette.faces;
+        let dessus = |matiere: Matiere| -> Vec<&Face> {
+            faces
+                .iter()
+                .filter(|f| f.genre == GenreDeFace::Meuble(matiere) && f.normale[1] > 0.5)
+                .collect()
+        };
+        // Le matelas, à 22 po.
+        let matelas = dessus(Matiere::Literie);
+        assert_eq!(matelas.len(), 1);
+        assert!(
+            matelas[0]
+                .sommets
+                .iter()
+                .all(|s| (s[1] - 22.0).abs() < 1e-9)
+        );
+        // La tête du lit monte à 40 po.
+        let tete = dessus(Matiere::BoisFonce)
             .iter()
-            .filter(|f| f.genre == GenreDeFace::Meuble(GenreDObjet::Lit))
-            .collect();
-        // Le lit : un dessus et quatre côtés, de 24 po de haut.
-        assert_eq!(meubles.len(), 5);
-        let dessus = meubles
-            .iter()
-            .find(|f| f.normale == [0.0, 1.0, 0.0])
-            .unwrap();
-        assert!((aire(dessus) - 60.0 * 80.0).abs() < 1e-6);
-        assert!(dessus.sommets.iter().all(|s| (s[1] - 24.0).abs() < 1e-9));
-        // L'escalier de 10 pi : 12 marches, jusqu'au haut des murs (8 pi).
-        let marches: Vec<&Face> = faces
-            .iter()
-            .filter(|f| f.genre == GenreDeFace::Meuble(GenreDObjet::Escalier) && f.normale[1] > 0.5)
-            .collect();
+            .flat_map(|f| f.sommets.iter().map(|s| s[1]))
+            .fold(0.0, f64::max);
+        assert!((tete - 40.0).abs() < 1e-9);
+        // Les marches montent jusqu'au haut des murs (8 pi).
+        let marches = dessus(Matiere::Bois);
         assert_eq!(marches.len(), 12);
         let plus_haut = marches
             .iter()
@@ -621,25 +647,44 @@ mod tests {
 
     #[test]
     fn les_blocs_se_peignent_du_plus_loin_au_plus_proche() {
-        let bloc = |coins: [(f64, f64); 4]| Bloc {
+        let bloc = |coins: [(f64, f64); 4], (bas, haut): (f64, f64)| Bloc {
             coins,
+            bas,
+            haut,
             faces: 0..0,
             aretes: 0..0,
         };
-        let carre =
-            |x: f64, z: f64| bloc([(x, z), (x + 10.0, z), (x + 10.0, z + 10.0), (x, z + 10.0)]);
+        let carre = |x: f64, z: f64, hauteurs: (f64, f64)| {
+            bloc(
+                [(x, z), (x + 10.0, z), (x + 10.0, z + 10.0), (x, z + 10.0)],
+                hauteurs,
+            )
+        };
         // Deux blocs côte à côte : vu de la droite, celui de gauche d'abord.
-        let blocs = [carre(20.0, 0.0), carre(0.0, 0.0)];
-        assert_eq!(ordre_des_blocs(&blocs, (100.0, 5.0)), vec![1, 0]);
-        assert_eq!(ordre_des_blocs(&blocs, (-100.0, 5.0)), vec![0, 1]);
+        let blocs = [carre(20.0, 0.0, (0.0, 10.0)), carre(0.0, 0.0, (0.0, 10.0))];
+        assert_eq!(ordre_des_blocs(&blocs, [100.0, 50.0, 5.0]), vec![1, 0]);
+        assert_eq!(ordre_des_blocs(&blocs, [-100.0, 50.0, 5.0]), vec![0, 1]);
         // Une longue cloison et un petit bloc devant son bout : vu de devant,
         // la cloison d'abord, même si son milieu est plus proche de l'œil.
-        let cloison = bloc([(0.0, 0.0), (200.0, 0.0), (200.0, 4.0), (0.0, 4.0)]);
-        let petit = carre(190.0, 10.0);
+        let cloison = bloc(
+            [(0.0, 0.0), (200.0, 0.0), (200.0, 4.0), (0.0, 4.0)],
+            (0.0, 96.0),
+        );
+        let petit = carre(190.0, 10.0, (0.0, 30.0));
         assert_eq!(
-            ordre_des_blocs(&[petit, cloison], (20.0, 300.0)),
+            ordre_des_blocs(&[petit, cloison], [20.0, 120.0, 300.0]),
             vec![1, 0]
         );
+        // Un plateau sur sa patte : vu d'en haut, la patte d'abord; vu d'en
+        // dessous, le plateau d'abord.
+        let plateau = carre(0.0, 0.0, (28.5, 30.0));
+        let patte = bloc(
+            [(1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0)],
+            (0.0, 28.5),
+        );
+        let pieces = [plateau, patte];
+        assert_eq!(ordre_des_blocs(&pieces, [5.0, 100.0, 50.0]), vec![1, 0]);
+        assert_eq!(ordre_des_blocs(&pieces, [5.0, 10.0, 50.0]), vec![0, 1]);
     }
 
     #[test]

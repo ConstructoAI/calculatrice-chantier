@@ -4,7 +4,7 @@
 
 use eframe::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use noyau::maquette::{GenreDeFace, Maquette};
-use noyau::mobilier::GenreDObjet;
+use noyau::mobilier::Matiere;
 
 use crate::theme::{self, Palette};
 
@@ -77,19 +77,21 @@ struct Projetee {
     bloc: Option<usize>,
 }
 
-/// La couleur d'un meuble dans la vue 3D.
-fn couleur_d_un_meuble(genre: GenreDObjet) -> Color32 {
-    match genre {
-        GenreDObjet::Escalier => Color32::from_rgb(176, 132, 92),
-        GenreDObjet::Lit => Color32::from_rgb(128, 148, 182),
-        GenreDObjet::Table => Color32::from_rgb(160, 114, 76),
-        GenreDObjet::Sofa => Color32::from_rgb(136, 136, 148),
-        GenreDObjet::Comptoir => Color32::from_rgb(204, 204, 210),
-        GenreDObjet::Toilette | GenreDObjet::Bain => Color32::from_rgb(246, 246, 250),
-        GenreDObjet::Douche => Color32::from_rgb(176, 214, 236),
-        GenreDObjet::Laveuse | GenreDObjet::Refrigerateur | GenreDObjet::Cuisiniere => {
-            Color32::from_rgb(220, 224, 230)
-        }
+/// La couleur d'une matière de meuble dans la vue 3D.
+fn couleur_d_une_matiere(matiere: Matiere) -> Color32 {
+    match matiere {
+        Matiere::Bois => Color32::from_rgb(176, 132, 92),
+        Matiere::BoisFonce => Color32::from_rgb(120, 82, 54),
+        Matiere::Tissu => Color32::from_rgb(118, 128, 146),
+        Matiere::Coussin => Color32::from_rgb(150, 162, 182),
+        Matiere::Literie => Color32::from_rgb(240, 240, 246),
+        Matiere::Porcelaine => Color32::from_rgb(246, 246, 250),
+        Matiere::Metal => Color32::from_rgb(196, 202, 210),
+        Matiere::Electromenager => Color32::from_rgb(232, 234, 238),
+        Matiere::Noir => Color32::from_rgb(52, 54, 58),
+        Matiere::Verre => Color32::from_rgb(170, 212, 236),
+        Matiere::Comptoir => Color32::from_rgb(186, 186, 192),
+        Matiere::Armoire => Color32::from_rgb(214, 198, 174),
     }
 }
 
@@ -224,7 +226,7 @@ pub fn dessiner(
     // donne leur empreinte vue de l'œil : une longue cloison triée par son
     // seul milieu passerait devant le meuble qui la cache. Le reste va du plus
     // loin au plus proche.
-    let ordre = noyau::maquette::ordre_des_blocs(&maquette.blocs, (oeil[0], oeil[2]));
+    let ordre = noyau::maquette::ordre_des_blocs(&maquette.blocs, oeil);
     let mut place_du_bloc = vec![0; maquette.blocs.len()];
     for (place, &bloc) in ordre.iter().enumerate() {
         place_du_bloc[bloc] = place;
@@ -269,9 +271,18 @@ pub fn dessiner(
             GenreDeFace::Porte => {
                 porte.gamma_multiply(if face.de_l_interieur { 1.0 } else { 0.35 })
             }
-            GenreDeFace::Meuble(genre) => {
-                let base = couleur_d_un_meuble(genre);
-                theme::melanger(base, Color32::BLACK, 0.30 * (1.0 - face.lumiere))
+            GenreDeFace::Meuble(matiere) => {
+                let base = theme::melanger(
+                    couleur_d_une_matiere(matiere),
+                    Color32::BLACK,
+                    0.30 * (1.0 - face.lumiere),
+                );
+                // Le verre d'une douche laisse voir derrière lui.
+                if matiere == Matiere::Verre {
+                    base.gamma_multiply(0.45)
+                } else {
+                    base
+                }
             }
             GenreDeFace::Cloison => theme::melanger(mur, p.texte, 0.28 * (1.0 - face.lumiere)),
             GenreDeFace::DessusDeMur => {

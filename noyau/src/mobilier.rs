@@ -56,6 +56,120 @@ impl GenreDObjet {
         }
     }
 
+    /// Les parties du meuble en 3D, chacune de sa matière. L'escalier se bâtit
+    /// à part, en marches jusqu'au haut des murs.
+    pub fn volumes(self) -> Vec<Volume> {
+        use Matiere::*;
+        match self {
+            GenreDObjet::Escalier => Vec::new(),
+            // La tête, la base, le matelas, la couverture et deux oreillers.
+            GenreDObjet::Lit => vec![
+                volume((0.0, 1.0), (0.0, 0.03), 0.0, 40.0, BoisFonce),
+                volume((0.0, 1.0), (0.03, 1.0), 0.0, 12.0, BoisFonce),
+                volume((0.02, 0.98), (0.03, 0.99), 12.0, 22.0, Literie),
+                volume((0.02, 0.98), (0.32, 0.99), 22.0, 23.0, Tissu),
+                volume((0.08, 0.46), (0.05, 0.18), 22.0, 26.0, Coussin),
+                volume((0.54, 0.92), (0.05, 0.18), 22.0, 26.0, Coussin),
+            ],
+            // Le plateau, ses quatre pattes, et les chaises de son symbole.
+            GenreDObjet::Table => {
+                let mut parties = vec![volume((0.0, 1.0), (0.0, 1.0), 28.5, 30.0, Bois)];
+                for u in [(0.03, 0.09), (0.91, 0.97)] {
+                    for v in [(0.03, 0.07), (0.93, 0.97)] {
+                        parties.push(volume(u, v, 0.0, 28.5, Bois));
+                    }
+                }
+                for (u, v, dossier) in [
+                    ((0.25, 0.45), (-0.12, 0.0), (0.0, -1.0)),
+                    ((0.55, 0.75), (-0.12, 0.0), (0.0, -1.0)),
+                    ((0.25, 0.45), (1.0, 1.12), (0.0, 1.0)),
+                    ((0.55, 0.75), (1.0, 1.12), (0.0, 1.0)),
+                    ((-0.2, 0.0), (0.4, 0.6), (-1.0, 0.0)),
+                    ((1.0, 1.2), (0.4, 0.6), (1.0, 0.0)),
+                ] {
+                    parties.extend(chaise(u, v, dossier));
+                }
+                parties
+            }
+            // Le dossier, les bras, l'assise, et les coussins du siège et du dos.
+            GenreDObjet::Sofa => vec![
+                volume((0.0, 1.0), (0.0, 0.15), 0.0, 34.0, Tissu),
+                volume((0.0, 0.12), (0.15, 1.0), 0.0, 25.0, Tissu),
+                volume((0.88, 1.0), (0.15, 1.0), 0.0, 25.0, Tissu),
+                volume((0.12, 0.88), (0.15, 1.0), 0.0, 15.0, Tissu),
+                volume((0.12, 0.5), (0.25, 0.98), 15.0, 19.0, Coussin),
+                volume((0.5, 0.88), (0.25, 0.98), 15.0, 19.0, Coussin),
+                volume((0.12, 0.5), (0.15, 0.25), 15.0, 31.0, Coussin),
+                volume((0.5, 0.88), (0.15, 0.25), 15.0, 31.0, Coussin),
+            ],
+            // Le socle, les armoires et leurs portes, le dessus, l'évier et
+            // son robinet; le devant est du côté v = 1.
+            GenreDObjet::Comptoir => vec![
+                volume((0.0, 1.0), (0.0, 0.88), 0.0, 4.0, Noir),
+                volume((0.0, 1.0), (0.0, 0.94), 4.0, 35.0, Armoire),
+                volume((0.248, 0.252), (0.94, 0.945), 6.0, 33.0, Noir),
+                volume((0.498, 0.502), (0.94, 0.945), 6.0, 33.0, Noir),
+                volume((0.748, 0.752), (0.94, 0.945), 6.0, 33.0, Noir),
+                volume((0.0, 1.0), (0.0, 1.0), 35.0, 36.5, Comptoir),
+                volume((0.4, 0.6), (0.15, 0.7), 36.5, 36.7, Metal),
+                volume((0.48, 0.52), (0.05, 0.12), 36.5, 44.0, Metal),
+            ],
+            // Le réservoir, la cuvette et le siège.
+            GenreDObjet::Toilette => vec![
+                volume((0.1, 0.9), (0.0, 0.26), 0.0, 30.0, Porcelaine),
+                volume((0.22, 0.78), (0.26, 0.94), 0.0, 14.5, Porcelaine),
+                volume((0.15, 0.85), (0.26, 1.0), 14.5, 16.0, Porcelaine),
+            ],
+            // Le fond et les quatre rebords (le bain est creux), et le robinet.
+            GenreDObjet::Bain => vec![
+                volume((0.08, 0.92), (0.06, 0.94), 0.0, 5.0, Porcelaine),
+                volume((0.0, 0.08), (0.0, 1.0), 0.0, 20.0, Porcelaine),
+                volume((0.92, 1.0), (0.0, 1.0), 0.0, 20.0, Porcelaine),
+                volume((0.08, 0.92), (0.0, 0.06), 0.0, 20.0, Porcelaine),
+                volume((0.08, 0.92), (0.94, 1.0), 0.0, 20.0, Porcelaine),
+                volume((0.45, 0.55), (0.01, 0.05), 20.0, 24.0, Metal),
+            ],
+            // La base, deux parois de verre et la pomme.
+            GenreDObjet::Douche => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 4.0, Porcelaine),
+                volume((0.0, 1.0), (0.98, 1.0), 4.0, 78.0, Verre),
+                volume((0.98, 1.0), (0.0, 0.98), 4.0, 78.0, Verre),
+                volume((0.45, 0.55), (0.0, 0.05), 70.0, 74.0, Metal),
+            ],
+            // La caisse, la console et son afficheur, et le couvercle.
+            GenreDObjet::Laveuse => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 36.0, Electromenager),
+                volume((0.0, 1.0), (0.0, 0.15), 36.0, 42.0, Electromenager),
+                volume((0.4, 0.6), (0.15, 0.16), 38.0, 40.0, Noir),
+                volume((0.15, 0.85), (0.25, 0.9), 36.0, 36.4, Metal),
+            ],
+            // La caisse, le joint des portes et leurs poignées.
+            GenreDObjet::Refrigerateur => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 68.0, Metal),
+                volume((0.0, 1.0), (1.0, 1.005), 44.0, 44.6, Noir),
+                volume((0.85, 0.9), (1.0, 1.04), 47.0, 62.0, Noir),
+                volume((0.85, 0.9), (1.0, 1.04), 20.0, 40.0, Noir),
+            ],
+            // La caisse, le dessus et ses quatre brûleurs, le dosseret, et le
+            // hublot et la poignée du four.
+            GenreDObjet::Cuisiniere => {
+                let mut parties = vec![
+                    volume((0.0, 1.0), (0.0, 1.0), 0.0, 35.6, Electromenager),
+                    volume((0.0, 1.0), (0.0, 1.0), 35.6, 36.0, Noir),
+                    volume((0.0, 1.0), (0.0, 0.1), 36.0, 42.0, Electromenager),
+                    volume((0.15, 0.85), (1.0, 1.01), 8.0, 24.0, Noir),
+                    volume((0.1, 0.9), (1.0, 1.04), 28.0, 30.0, Metal),
+                ];
+                for u in [(0.16, 0.40), (0.60, 0.84)] {
+                    for v in [(0.16, 0.44), (0.58, 0.86)] {
+                        parties.push(volume(u, v, 36.0, 36.3, Metal));
+                    }
+                }
+                parties
+            }
+        }
+    }
+
     /// Le symbole de l'objet dans son rectangle, en plus de son contour.
     /// `profondeur` (pouces) donne le nombre de marches d'un escalier.
     pub fn symbole(self, profondeur: f64) -> Vec<Trait> {
@@ -120,6 +234,67 @@ impl GenreDObjet {
             ],
         }
     }
+}
+
+/// Ce dont une partie d'un meuble est faite, pour sa couleur en 3D.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Matiere {
+    Bois,
+    BoisFonce,
+    Tissu,
+    Coussin,
+    Literie,
+    Porcelaine,
+    Metal,
+    Electromenager,
+    Noir,
+    Verre,
+    Comptoir,
+    Armoire,
+}
+
+/// Une partie d'un meuble en 3D : un bloc, de `u` et `v` (en part de la
+/// largeur et de la profondeur du meuble, comme son symbole) et de `bas` à
+/// `haut` (pouces). Deux parties d'un même meuble ne se chevauchent pas.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Volume {
+    pub u: (f64, f64),
+    pub v: (f64, f64),
+    pub bas: f64,
+    pub haut: f64,
+    pub matiere: Matiere,
+}
+
+const fn volume(u: (f64, f64), v: (f64, f64), bas: f64, haut: f64, matiere: Matiere) -> Volume {
+    Volume {
+        u,
+        v,
+        bas,
+        haut,
+        matiere,
+    }
+}
+
+/// Une chaise de la table : son siège, et son dossier du côté loin de la
+/// table (`dossier` : la direction de ce côté, en u ou en v).
+fn chaise(u: (f64, f64), v: (f64, f64), dossier: (f64, f64)) -> [Volume; 2] {
+    // Le dossier occupe le sixième de la chaise, du côté de `dossier`.
+    let couper = |(a, b): (f64, f64), sens: f64| {
+        let part = (b - a) / 6.0;
+        if sens > 0.0 {
+            ((a, b - part), (b - part, b))
+        } else if sens < 0.0 {
+            ((a + part, b), (a, a + part))
+        } else {
+            ((a, b), (a, b))
+        }
+    };
+    let (siege_u, dos_u) = couper(u, dossier.0);
+    let (siege_v, dos_v) = couper(v, dossier.1);
+    [
+        volume(siege_u, siege_v, 0.0, 18.0, Matiere::Bois),
+        volume(dos_u, dos_v, 0.0, 34.0, Matiere::Bois),
+    ]
 }
 
 /// Un trait d'un symbole, dans le rectangle de l'objet.
@@ -256,6 +431,37 @@ mod tests {
         assert!((etendue(&xs) - 80.0).abs() < 1e-9 && (etendue(&ys) - 60.0).abs() < 1e-9);
         assert!(lit.contient((135.0, 50.0), dimensions));
         assert!(!lit.contient((100.0, 85.0), dimensions));
+    }
+
+    #[test]
+    fn les_parties_d_un_meuble_ne_se_chevauchent_pas() {
+        // Deux parties se séparent en u, en v ou en hauteur : la 3D les peint
+        // dans le bon ordre.
+        let disjoints = |a: (f64, f64), b: (f64, f64)| a.1 <= b.0 + 1e-9 || b.1 <= a.0 + 1e-9;
+        for genre in GenreDObjet::TOUS {
+            let parties = genre.volumes();
+            assert_eq!(
+                parties.is_empty(),
+                genre == GenreDObjet::Escalier,
+                "{genre:?}"
+            );
+            for (i, a) in parties.iter().enumerate() {
+                assert!(
+                    a.u.0 < a.u.1 && a.v.0 < a.v.1 && a.bas < a.haut,
+                    "{genre:?} {i}"
+                );
+                for b in &parties[i + 1..] {
+                    assert!(
+                        disjoints(a.u, b.u)
+                            || disjoints(a.v, b.v)
+                            || disjoints((a.bas, a.haut), (b.bas, b.haut)),
+                        "{genre:?} : {a:?} et {b:?}"
+                    );
+                }
+            }
+        }
+        // Une table : son plateau, quatre pattes, et six chaises de deux parties.
+        assert_eq!(GenreDObjet::Table.volumes().len(), 1 + 4 + 12);
     }
 
     #[test]
