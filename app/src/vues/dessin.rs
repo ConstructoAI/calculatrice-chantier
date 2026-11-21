@@ -2,7 +2,7 @@
 //! doigt ou la souris, puis on touche chaque côté pour y inscrire sa mesure.
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan, Retrait, Solution};
+use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan, Retrait, Sens, Solution};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
@@ -310,7 +310,7 @@ pub fn afficher(
             let dessin = &mut plan.pieces[courante].dessin;
             // Les mesures peuvent avoir changé pendant cette image.
             let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-            if boutons(ui, p, dessin, etat) {
+            if boutons(ui, dessin, etat) {
                 action = Some(Action::Modifie);
             }
             ui.add_space(6.0);
@@ -543,7 +543,17 @@ fn planche_et_gestes(
     let a_l_echelle = dessin.sommets_mesures(solution);
     let sommets_croquis = dessin.sommets_du_croquis();
     let sommets = a_l_echelle.as_deref().unwrap_or(&sommets_croquis);
-    let centre_de_la_planche = planche.center();
+    // Tant que la forme est ouverte, les flèches occupent le bas de la planche :
+    // la forme se cadre au-dessus d'elles.
+    let zone_de_la_forme = if dessin.fermee {
+        planche
+    } else {
+        Rect::from_min_max(
+            planche.min,
+            Pos2::new(planche.max.x, planche.max.y - HAUTEUR_DES_FLECHES),
+        )
+    };
+    let centre_de_la_planche = zone_de_la_forme.center();
 
     // --- Zoom et déplacement
     let (deux_doigts, pincement, molette, survol) = ui.input(|i| {
@@ -584,11 +594,12 @@ fn planche_et_gestes(
 
     let echelle = etat
         .cadrage
-        .appliquer(cadrer(planche, sommets), centre_de_la_planche);
+        .appliquer(cadrer(zone_de_la_forme, sommets), centre_de_la_planche);
     // Le tracé, lui, se mesure toujours à l'échelle du croquis.
-    let echelle_du_croquis = etat
-        .cadrage
-        .appliquer(cadrer(planche, &sommets_croquis), centre_de_la_planche);
+    let echelle_du_croquis = etat.cadrage.appliquer(
+        cadrer(zone_de_la_forme, &sommets_croquis),
+        centre_de_la_planche,
+    );
     let points: Vec<Pos2> = sommets.iter().map(|s| echelle.vers_l_ecran(*s)).collect();
 
     // --- Gestes
@@ -690,8 +701,11 @@ fn planche_et_gestes(
         };
         painter.line_segment([s[0], s[1]], Stroke::new(epaisseur, couleur));
     }
-    for point in &points {
-        painter.circle_filled(*point, 3.5, p.primaire);
+    // Les sommets, dès qu'il y a un côté (une planche vide n'en montre aucun).
+    if points.len() > 1 {
+        for point in &points {
+            painter.circle_filled(*point, 3.5, p.primaire);
+        }
     }
     if !dessin.fermee
         && let (Some(depart), Some(fin)) = (points.first(), points.last())
@@ -768,13 +782,161 @@ fn planche_et_gestes(
             Stroke::new(3.0, p.barre_accent),
         ));
     }
-    boutons_du_zoom(ui, p, &painter, planche, etat);
+    boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
+    if !dessin.fermee && fleches(ui, p, &painter, planche, dessin, etat) {
+        modifie = true;
+    }
+    modifie
+}
+
+/// Place que prennent les flèches au bas de la planche.
+const HAUTEUR_DES_FLECHES: f32 = 46.0;
+
+/// Les flèches, au bas de la planche : chacune ajoute un côté dans sa direction
+/// (ou allonge le dernier), puis ouvre le pavé pour sa mesure. Retourne vrai
+/// si le dessin a changé.
+fn fleches(
+    ui: &Ui,
+    p: &Palette,
+    painter: &egui::Painter,
+    planche: Rect,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+) -> bool {
+    let mut modifie = false;
+    // « Fermer la forme » se place à droite; les flèches prennent la place qui
+    // reste à gauche, sans la chevaucher, même sur un écran étroit.
+    let libelle_fermer = textes::DESSIN_FERMER_LA_FORME.traduit();
+    let police_fermer = theme::police_grasse(13.0);
+    let largeur_fermer = painter
+        .layout_no_wrap(
+            libelle_fermer.to_string(),
+            police_fermer.clone(),
+            p.selection_texte,
+        )
+        .size()
+        .x
+        + 20.0;
+    let largeur_fleche =
+        ((planche.width() - 16.0 - largeur_fermer - 8.0 - 3.0 * 6.0) / 4.0).clamp(30.0, 44.0);
+    let taille = Vec2::new(largeur_fleche, 34.0);
+    let fleches = [
+        (
+            Sens::Ouest,
+            textes::DESSIN_FLECHE_GAUCHE,
+            Vec2::new(-1.0, 0.0),
+        ),
+        (Sens::Nord, textes::DESSIN_FLECHE_HAUT, Vec2::new(0.0, -1.0)),
+        (Sens::Sud, textes::DESSIN_FLECHE_BAS, Vec2::new(0.0, 1.0)),
+        (Sens::Est, textes::DESSIN_FLECHE_DROITE, Vec2::new(1.0, 0.0)),
+    ];
+    for (rang, (sens, nom, direction)) in fleches.into_iter().enumerate() {
+        let zone = Rect::from_min_size(
+            Pos2::new(
+                planche.left() + 8.0 + rang as f32 * (taille.x + 6.0),
+                planche.bottom() - 8.0 - taille.y,
+            ),
+            taille,
+        );
+        let reponse = ui.interact(
+            zone,
+            egui::Id::unique(("fleche-du-dessin", rang)),
+            Sense::click(),
+        );
+        reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, nom.traduit()));
+        let fond = if reponse.hovered() {
+            theme::melanger(p.bouton, p.primaire, 0.12)
+        } else {
+            p.bouton
+        };
+        painter.rect_filled(zone, 8, fond.gamma_multiply(0.94));
+        painter.rect_stroke(
+            zone,
+            8,
+            Stroke::new(1.0, p.bouton_bord),
+            egui::StrokeKind::Inside,
+        );
+        // La flèche : une hampe et une pointe.
+        let centre = zone.center();
+        let pointe = centre + direction * 9.0;
+        let travers = Vec2::new(-direction.y, direction.x);
+        painter.line_segment(
+            [centre - direction * 9.0, pointe - direction * 4.0],
+            Stroke::new(2.6, p.texte),
+        );
+        painter.add(egui::Shape::convex_polygon(
+            vec![
+                pointe,
+                pointe - direction * 7.0 + travers * 5.5,
+                pointe - direction * 7.0 - travers * 5.5,
+            ],
+            p.texte,
+            Stroke::NONE,
+        ));
+        if reponse.clicked() {
+            let avant = dessin.clone();
+            if dessin.ajouter_cote(sens) {
+                etat.memoriser(&avant);
+                modifie = true;
+                // Le côté ajouté attend sa mesure; une forme qui vient de se
+                // fermer attend celle de son premier côté sans mesure.
+                let rang = if dessin.fermee {
+                    premier_cote_a_mesurer(&dessin.resoudre(FORMAT_PAR_DEFAUT)).unwrap_or(0)
+                } else {
+                    dessin.cotes.len().saturating_sub(1)
+                };
+                etat.choisir(Some(rang));
+            }
+        }
+        reponse.on_hover_text(nom.traduit());
+    }
+    // « Fermer la forme », au bas de la planche, à droite des flèches.
+    if dessin.cotes.len() >= 2 {
+        let zone = Rect::from_min_size(
+            Pos2::new(
+                planche.right() - 8.0 - largeur_fermer,
+                planche.bottom() - 8.0 - taille.y,
+            ),
+            Vec2::new(largeur_fermer, taille.y),
+        );
+        let reponse = ui.interact(zone, egui::Id::unique("fermer-la-forme"), Sense::click());
+        reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, libelle_fermer));
+        let fond = if reponse.hovered() {
+            theme::melanger(p.selection, p.texte, 0.15)
+        } else {
+            p.selection
+        };
+        painter.rect_filled(zone, 8, fond);
+        painter.text(
+            zone.center(),
+            Align2::CENTER_CENTER,
+            libelle_fermer,
+            police_fermer,
+            p.selection_texte,
+        );
+        if reponse.clicked() {
+            let avant = dessin.clone();
+            if dessin.fermer() {
+                etat.memoriser(&avant);
+                modifie = true;
+                let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+                etat.choisir(premier_cote_a_mesurer(&solution).or(Some(0)));
+            }
+        }
+    }
     modifie
 }
 
 /// Les boutons du zoom, dans le coin de la planche : « + », « − » et, quand la
 /// vue a bougé, « Ajuster », qui fait de nouveau tenir la forme dans la planche.
-fn boutons_du_zoom(ui: &Ui, p: &Palette, painter: &egui::Painter, planche: Rect, etat: &mut Etat) {
+fn boutons_du_zoom(
+    ui: &Ui,
+    p: &Palette,
+    painter: &egui::Painter,
+    planche: Rect,
+    centre: Pos2,
+    etat: &mut Etat,
+) {
     let cote = 34.0;
     let mut haut = planche.top() + 8.0;
     let mut boutons = vec![
@@ -821,8 +983,7 @@ fn boutons_du_zoom(ui: &Ui, p: &Palette, painter: &egui::Painter, planche: Rect,
         painter.text(zone.center(), Align2::CENTER_CENTER, signe, police, p.texte);
         if reponse.clicked() {
             if facteur > 0.0 {
-                etat.cadrage
-                    .zoomer(planche.center(), planche.center(), facteur);
+                etat.cadrage.zoomer(centre, centre, facteur);
             } else {
                 etat.cadrage = Cadrage::default();
             }
@@ -832,29 +993,11 @@ fn boutons_du_zoom(ui: &Ui, p: &Palette, painter: &egui::Painter, planche: Rect,
 }
 
 /// Les boutons sous la planche. Retourne vrai si le dessin a changé.
-fn boutons(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool {
+fn boutons(ui: &mut Ui, dessin: &mut Dessin, etat: &mut Etat) -> bool {
     let mut modifie = false;
+    // « Fermer la forme » est sur la planche, à côté des flèches : cette
+    // rangée garde la même hauteur, et le pavé ne se déplace pas.
     ui.horizontal_wrapped(|ui| {
-        if !dessin.fermee
-            && dessin.cotes.len() >= 2
-            && ui
-                .add(bouton_principal(
-                    p,
-                    textes::DESSIN_FERMER_LA_FORME.traduit(),
-                    13.5,
-                ))
-                .clicked()
-        {
-            let avant = dessin.clone();
-            if dessin.fermer() {
-                etat.memoriser(&avant);
-                modifie = true;
-            }
-        }
-        if modifie {
-            let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-            etat.choisir(premier_cote_a_mesurer(&solution).or(Some(0)));
-        }
         let plein = !dessin.est_vide();
         if ui
             .add_enabled(

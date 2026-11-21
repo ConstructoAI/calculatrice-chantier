@@ -404,6 +404,50 @@ impl Dessin {
         *self = Dessin::default();
     }
 
+    /// Longueur de croquis d'un côté ajouté aux flèches : la moyenne des côtés
+    /// déjà tracés, ou 100 pour le premier.
+    fn pas_des_fleches(&self) -> f64 {
+        if self.cotes.is_empty() {
+            100.0
+        } else {
+            self.cotes.iter().map(|c| c.croquis).sum::<f64>() / self.cotes.len() as f64
+        }
+    }
+
+    /// Ajoute un côté dans une direction, comme avec les flèches de la planche
+    /// (section 25). Une flèche perpendiculaire au dernier côté en ajoute un;
+    /// dans l'axe du dernier côté, elle l'allonge ou le raccourcit d'un pas,
+    /// sans jamais le faire disparaître. La forme se ferme d'elle-même si elle
+    /// revient à son départ. Retourne vrai si le dessin a changé.
+    pub fn ajouter_cote(&mut self, sens: Sens) -> bool {
+        if self.fermee {
+            return false;
+        }
+        let pas = self.pas_des_fleches();
+        match self.cotes.last_mut() {
+            Some(dernier) if dernier.sens == sens => dernier.croquis += pas,
+            Some(dernier) if dernier.sens.horizontal() == sens.horizontal() => {
+                let raccourci = (dernier.croquis - pas).max(pas * 0.25);
+                if (raccourci - dernier.croquis).abs() < 1e-9 {
+                    return false;
+                }
+                dernier.croquis = raccourci;
+            }
+            _ => self.cotes.push(Cote {
+                sens,
+                croquis: pas,
+                saisie: String::new(),
+            }),
+        }
+        if self.cotes.len() >= 4 {
+            let (dx, dy) = self.fin();
+            if dx.hypot(dy) <= self.etendue() * PROXIMITE_DE_FERMETURE {
+                self.fermer();
+            }
+        }
+        true
+    }
+
     /// Ajoute un tracé à main levée à la suite de la forme. Si le tracé
     /// revient près du point de départ, la forme est fermée. Retourne vrai si
     /// quelque chose a été ajouté.
@@ -1004,6 +1048,55 @@ mod tests {
             abime.ajouter();
         }
         assert_eq!(abime.pieces.len(), MAX_PIECES);
+    }
+
+    #[test]
+    fn dessiner_avec_les_fleches() {
+        // Un rectangle : quatre flèches, et la forme se ferme d'elle-même.
+        let mut dessin = Dessin::default();
+        for sens in [Sens::Est, Sens::Sud, Sens::Ouest] {
+            assert!(dessin.ajouter_cote(sens));
+            assert!(!dessin.fermee);
+        }
+        assert!(dessin.ajouter_cote(Sens::Nord));
+        assert!(dessin.fermee);
+        assert_eq!(dessin.cotes.len(), 4);
+        // Une forme fermée ne prend plus de côté.
+        assert!(!dessin.ajouter_cote(Sens::Est));
+        inscrire(&mut dessin, &["12", "10"]);
+        assert_eq!(
+            dessin.resoudre(Format::PiPo).etat,
+            Etat::Complete {
+                aire: 144.0 * 120.0,
+                perimetre: 2.0 * (144.0 + 120.0)
+            }
+        );
+
+        // Dans l'axe du dernier côté : il s'allonge, ou raccourcit sans disparaître.
+        let mut dessin = Dessin::default();
+        dessin.ajouter_cote(Sens::Est);
+        assert!(dessin.ajouter_cote(Sens::Est));
+        assert_eq!(dessin.cotes.len(), 1);
+        assert!((dessin.cotes[0].croquis - 200.0).abs() < 1e-9);
+        assert!(dessin.ajouter_cote(Sens::Ouest));
+        assert!(dessin.ajouter_cote(Sens::Ouest));
+        assert_eq!(dessin.cotes.len(), 1);
+        assert!(dessin.cotes[0].croquis > 0.0);
+        assert_eq!(dessin.cotes[0].sens, Sens::Est);
+
+        // Une pièce en L : cinq flèches, puis « Fermer la forme ».
+        let mut dessin = Dessin::default();
+        for sens in [Sens::Est, Sens::Sud, Sens::Ouest, Sens::Sud, Sens::Ouest] {
+            dessin.ajouter_cote(sens);
+        }
+        assert!(!dessin.fermee);
+        assert!(dessin.fermer());
+        assert_eq!(dessin.cotes.len(), 6);
+        inscrire(&mut dessin, &["20", "8", "11", "10"]);
+        match dessin.resoudre(Format::PiPo).etat {
+            Etat::Complete { aire, .. } => assert!((aire - 250.0 * 144.0).abs() < 1e-6),
+            autre => panic!("{autre:?}"),
+        }
     }
 
     #[test]

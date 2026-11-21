@@ -23,6 +23,8 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.8.3** : **exporter le plan** en PDF (une page par pièce, avec ses mesures et ses
   résultats, et le total) ou en DXF pour AutoCAD, LibreCAD ou QCAD (les pièces complètes,
   à l'échelle réelle).
+- **0.8.4** : **dessiner avec les flèches** — quatre flèches au bas de la planche : chacune
+  ajoute un côté dans sa direction, puis le pavé s'ouvre pour sa mesure.
 
 ## Nouveautés de la version 0.7
 

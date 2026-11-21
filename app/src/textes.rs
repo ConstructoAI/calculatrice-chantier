@@ -322,7 +322,14 @@ pub const ONGLET_DESSIN: Texte = t("Dessin", "Sketch");
 pub const MENU_DESSIN: Texte = t("Dessiner une pièce", "Sketch a room");
 pub const DESSIN_TITRE: Texte = t("Dessin d'une pièce", "Room sketch");
 pub const DESSIN_PLANCHE: Texte = t("Planche à dessin", "Drawing board");
-pub const DESSIN_INVITE: Texte = t("Tracez le contour ici", "Draw the outline here");
+pub const DESSIN_INVITE: Texte = t(
+    "Tracez le contour ici, ou avec les flèches",
+    "Draw the outline here, or with the arrows",
+);
+pub const DESSIN_FLECHE_GAUCHE: Texte = t("Côté vers la gauche", "Side to the left");
+pub const DESSIN_FLECHE_HAUT: Texte = t("Côté vers le haut", "Side upward");
+pub const DESSIN_FLECHE_BAS: Texte = t("Côté vers le bas", "Side downward");
+pub const DESSIN_FLECHE_DROITE: Texte = t("Côté vers la droite", "Side to the right");
 pub const DESSIN_FERMER_LA_FORME: Texte = t("Fermer la forme", "Close the shape");
 pub const DESSIN_RETIRER: Texte = t("Retirer le dernier côté", "Remove last side");
 pub const DESSIN_EFFACER: Texte = t("Tout effacer", "Clear all");
@@ -486,8 +493,8 @@ pub const DESSIN_MESURE_DEDUITE: Texte = t(
     "Worked out from the other sides. Enter it to double-check.",
 );
 pub const DESSIN_ETAPE_TRACER: Texte = t(
-    "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre.",
-    "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time. The sketch does not need to be to scale: corners are squared up.",
+    "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre.",
+    "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up.",
 );
 pub const DESSIN_ETAPE_FERMER: Texte = t(
     "Continuez le tracé jusqu'au point de départ (le cercle orange), ou touchez « Fermer la forme ».",

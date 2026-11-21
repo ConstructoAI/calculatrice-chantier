@@ -1239,8 +1239,8 @@ pub static FICHES: &[Fiche] = &[
             "Draw the outline of a room, then enter the measurement of each side:",
         ),
         mode_emploi: t(
-            "la calculatrice en donne la surface et le périmètre. Tracez avec le doigt ou la souris, d'un seul geste ou un côté à la fois; le croquis n'a pas besoin d'être à l'échelle, les angles sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure avec le pavé : `Pieds`, `Pouces` et les fractions de pouce. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres. Ajoutez des retraits (îlot, trémie) et d'autres pièces avec `+ Pièce`, puis inscrivez le tout au ruban ou envoyez-le vers un outil.",
-            "the calculator gives its area and perimeter. Draw with your finger or the mouse, in one stroke or one side at a time; the sketch does not need to be to scale, corners are squared up. Then tap a side and enter its measurement with the keypad: `Feet`, `Inches` and fractions of an inch. As soon as only one side is missing in a direction, it is worked out from the others. Add deductions (island, stairwell) and more rooms with `+ Room`, then record everything on the tape or send it to a tool.",
+            "la calculatrice en donne la surface et le périmètre. Tracez avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche, qui ajoutent chacune un côté dans leur direction; le croquis n'a pas besoin d'être à l'échelle, les angles sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure avec le pavé : `Pieds`, `Pouces` et les fractions de pouce. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres. Ajoutez des retraits (îlot, trémie) et d'autres pièces avec `+ Pièce`, puis inscrivez le tout au ruban ou envoyez-le vers un outil.",
+            "the calculator gives its area and perimeter. Draw with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board, each adding a side in its direction; the sketch does not need to be to scale, corners are squared up. Then tap a side and enter its measurement with the keypad: `Feet`, `Inches` and fractions of an inch. As soon as only one side is missing in a direction, it is worked out from the others. Add deductions (island, stairwell) and more rooms with `+ Room`, then record everything on the tape or send it to a tool.",
         ),
         exemple: Some((
             t(
@@ -1256,7 +1256,7 @@ pub static FICHES: &[Fiche] = &[
             "Un nombre inscrit sans unité est en pieds. Les boutons `+` et `−` de la planche zooment, `Ajuster` recadre; deux doigts zooment et déplacent la vue, et une forme fermée se déplace au doigt. `Exporter en PDF` ou `Exporter en DXF` enregistre le plan. Les murs en biais ne sont pas encore pris en charge.",
             "A number entered without a unit is in feet. The `+` and `−` buttons on the board zoom, `Fit` reframes; two fingers zoom and pan, and a closed shape pans with one finger. `Export as PDF` or `Export as DXF` saves the plan. Angled walls are not supported yet.",
         )),
-        mots_cles: "dessin dessiner croquis pièce forme plan surface aire périmètre contour sketch draw drawing room shape floor plan area perimeter outline",
+        mots_cles: "dessin dessiner croquis pièce forme plan surface aire périmètre contour flèche flèches sketch draw drawing room shape floor plan area perimeter outline arrow arrows",
         touches: &[],
         secondaire: false,
         trigo: false,
