@@ -127,9 +127,13 @@ remplacent ni les plans ni les codes en vigueur.
 
 Dans l'onglet **Dessin**, tracez le contour d'une pièce avec le doigt ou la souris — d'un
 seul geste ou un côté à la fois. Le croquis n'a pas besoin d'être à l'échelle : les angles
-sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure (`12 pi 6 po`, `3,81 m`;
-un nombre seul est en pieds). Dès qu'il ne manque qu'un côté dans un sens, il est déduit des
-autres; quand tout est connu, la calculatrice donne la surface et le périmètre.
+sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure avec le pavé : `Pieds`,
+`Pouces` et les fractions de pouce (`12` `Pieds` `6` `1/2` donne 12 pi 6 1/2 po), ou `m` pour
+les mètres. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres; quand tout
+est connu, la calculatrice donne la surface, le périmètre et, pour un rectangle, la diagonale
+d'équerre. Ajoutez des retraits (îlot, trémie, colonne) pour la surface nette, d'autres pièces
+avec **+ Pièce** pour le total, puis inscrivez le tout au ruban ou envoyez la pièce vers un
+outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures.
 
 ## Installer sur un téléphone ou une tablette
 

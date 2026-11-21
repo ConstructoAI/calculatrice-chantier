@@ -11,8 +11,10 @@ use super::{bouton_principal, cadre_de_saisie, carte, corps, en_tete};
 use crate::textes;
 use crate::theme::{self, Palette};
 
-/// Marge entre le bord de la planche et la forme : la place des mesures.
-const MARGE_DE_LA_PLANCHE: f32 = 46.0;
+/// Marges entre le bord de la planche et la forme : la place des mesures, plus
+/// large sur les côtés, où s'écrivent celles des côtés verticaux.
+const MARGE_LATERALE: f32 = 64.0;
+const MARGE_VERTICALE: f32 = 34.0;
 /// Distance, en points, sous laquelle un toucher choisit un côté.
 const PORTEE_DU_TOUCHER: f32 = 30.0;
 /// Format d'un nombre inscrit sans unité : des pieds.
@@ -125,7 +127,7 @@ fn cadrer(planche: Rect, sommets: &[(f64, f64)]) -> Echelle {
         };
     }
     let (largeur, hauteur) = ((x1 - x0) as f32, (y1 - y0) as f32);
-    let utile = planche.shrink(MARGE_DE_LA_PLANCHE);
+    let utile = planche.shrink2(Vec2::new(MARGE_LATERALE, MARGE_VERTICALE));
     let facteur = (utile.width() / largeur.max(1e-6))
         .min(utile.height() / hauteur.max(1e-6))
         .max(1e-6);
@@ -153,6 +155,16 @@ fn distance_au_segment(p: Pos2, a: Pos2, b: Pos2) -> f32 {
 /// Texte d'une longueur en pouces, dans le système des mesures inscrites.
 fn longueur_en_clair(pouces: f64, solution: &Solution, prefs: &Preferences) -> String {
     Quantite::Longueur(pouces).en_clair(solution.modele, prefs)
+}
+
+/// Une mesure telle qu'elle a été inscrite, remise au propre dans son système :
+/// « 20 » devient « 20 pi 0 po », « 3,81 m » devient « 3,810 m ». `None` si
+/// elle est illisible.
+fn saisie_en_clair(saisie: &str, prefs: &Preferences) -> Option<String> {
+    let valeur = noyau::analyse::analyser_longueur(saisie.trim(), FORMAT_PAR_DEFAUT)
+        .ok()
+        .filter(|v| v.est_longueur() && v.base > 0.0 && v.base.is_finite())?;
+    Some(Quantite::Longueur(valeur.base).en_clair(Some(valeur.format), prefs))
 }
 
 /// Premier côté sans mesure (ni inscrite, ni déduite), s'il y en a un.
@@ -212,7 +224,14 @@ pub fn afficher(
         // La planche à dessin : hors de la zone qui défile, pour que le doigt
         // trace au lieu de faire défiler l'écran.
         let largeur = ui.available_width() - 20.0;
-        let hauteur = (ui.available_height() - 250.0).clamp(170.0, largeur.max(170.0));
+        // Pendant qu'on inscrit une mesure, la planche rapetisse pour laisser
+        // voir le pavé de touches en entier, même sur un téléphone.
+        let reserve = if etat.choisi.is_some() || etat.retrait_choisi.is_some() {
+            410.0
+        } else {
+            250.0
+        };
+        let hauteur = (ui.available_height() - reserve).clamp(150.0, largeur.max(150.0));
         ui.add_space(6.0);
         let (planche, reponse) = ui
             .horizontal(|ui| {
@@ -542,7 +561,11 @@ fn planche_et_gestes(
             Vec2::new(if milieu.x >= centre.x { 1.0 } else { -1.0 }, 0.0)
         };
         let (texte, couleur) = match mesure {
-            Mesure::Lue(_) => (cote.saisie.trim().to_string(), p.texte),
+            Mesure::Lue(_) => (
+                saisie_en_clair(&cote.saisie, prefs)
+                    .unwrap_or_else(|| cote.saisie.trim().to_string()),
+                p.texte,
+            ),
             Mesure::Deduite(pouces) => {
                 (longueur_en_clair(*pouces, solution, prefs), p.texte_attenue)
             }
@@ -676,7 +699,7 @@ fn mesure_du_cote(
                 Some(Mesure::Deduite(pouces)) => longueur_en_clair(*pouces, solution, prefs),
                 _ => textes::DESSIN_EXEMPLE.traduit().to_string(),
             };
-            let largeur = (ui.available_width() - 110.0).clamp(90.0, 260.0);
+            let largeur = ui.available_width().min(360.0);
             let champ = egui::TextEdit::singleline(&mut cote.saisie)
                 .desired_width(largeur)
                 .hint_text(indice);
@@ -693,16 +716,7 @@ fn mesure_du_cote(
             if reponse.changed() {
                 modifie = true;
             }
-            let entree = reponse.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-            if ui
-                .add(bouton_principal(
-                    p,
-                    textes::DESSIN_COTE_SUIVANT.traduit(),
-                    13.5,
-                ))
-                .clicked()
-                || entree
-            {
+            if reponse.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 suivant = true;
             }
         });
@@ -822,12 +836,12 @@ fn retraits(
                 };
                 let texte = if saisie.is_empty() {
                     if en_largeur {
-                        textes::DESSIN_LARGEUR.traduit()
+                        textes::DESSIN_LARGEUR.traduit().to_string()
                     } else {
-                        textes::DESSIN_LONGUEUR.traduit()
+                        textes::DESSIN_LONGUEUR.traduit().to_string()
                     }
                 } else {
-                    saisie
+                    saisie_en_clair(saisie, prefs).unwrap_or_else(|| saisie.to_string())
                 };
                 let choisi = etat.retrait_choisi == Some((rang, en_largeur));
                 let bouton = egui::Button::new(texte).selected(choisi);
@@ -1046,6 +1060,8 @@ enum ToucheDeMesure {
     /// Une unité : son symbole dans la langue en cours.
     Unite(&'static str),
     Barre,
+    /// Une fraction de pouce : numérateur, dénominateur.
+    Fraction(u32, u32),
     Espace,
     Reculer,
     Suivant,
@@ -1069,6 +1085,26 @@ fn frapper(saisie: &mut String, touche: ToucheDeMesure, decimal: char) {
                 *saisie = format!("{debut} {symbole} ");
             }
         }
+        ToucheDeMesure::Fraction(num, den) => {
+            // « 12 pi 6 » puis « 1/2 » donne « 12 pi 6 1/2 po » : une fraction
+            // est une fraction de pouce, et elle se place après les pouces.
+            let pouces = noyau::etiquettes::symbole(Format::PoDec);
+            let mut debut = saisie.trim_end().to_string();
+            if let Some(sans) = debut.strip_suffix(pouces) {
+                debut = sans.trim_end().to_string();
+            }
+            // Une fraction déjà inscrite est remplacée : on corrige d'un toucher.
+            let dernier_mot = debut.rfind(' ').map_or(0, |i| i + 1);
+            if debut[dernier_mot..].contains('/') {
+                debut.truncate(dernier_mot);
+                debut = debut.trim_end().to_string();
+            }
+            *saisie = if debut.is_empty() {
+                format!("{num}/{den} {pouces} ")
+            } else {
+                format!("{debut} {num}/{den} {pouces} ")
+            };
+        }
         ToucheDeMesure::Reculer => {
             let debut = saisie.trim_end();
             // Une unité s'efface d'un coup, un chiffre à la fois.
@@ -1083,18 +1119,55 @@ fn frapper(saisie: &mut String, touche: ToucheDeMesure, decimal: char) {
     }
 }
 
-/// Le pavé de touches sous le champ : chiffres, pieds, pouces, fraction, mètres.
-/// On inscrit une mesure sans le clavier du téléphone.
+/// Le pavé de touches sous le champ : les fractions de pouce, puis les chiffres,
+/// `Pieds`, `Pouces` et les mètres. On inscrit une mesure sans le clavier du
+/// téléphone.
 fn pave_de_touches(
     ui: &mut Ui,
     p: &Palette,
     saisie: &mut String,
     prefs: &Preferences,
 ) -> Option<Frappe> {
-    use ToucheDeMesure::{Barre, Chiffre, Decimale, Espace, Reculer, Suivant, Unite};
+    use ToucheDeMesure::{Barre, Chiffre, Decimale, Espace, Fraction, Reculer, Suivant, Unite};
     let decimal = noyau::format::separateur_decimal(prefs);
     let pieds = noyau::etiquettes::symbole(Format::PiDec);
     let pouces = noyau::etiquettes::symbole(Format::PoDec);
+    let mut frappe = None;
+    // Les tailles se calculent une fois, sur la largeur offerte : chaque touche
+    // reçoit exactement la sienne, et aucune rangée ne déborde de l'écran.
+    let disponible = ui.available_width();
+    // Les fractions de pouce, à la précision choisie dans les Préférences, huit
+    // par rangée comme la bande de fractions du clavier (cinq sur un écran étroit).
+    let fractions = noyau::touches::fractions_rapides(prefs.resolution_valide());
+    let par_rangee = if (disponible - 7.0 * 4.0) / 8.0 >= 34.0 {
+        8
+    } else {
+        5
+    };
+    let largeur_fraction =
+        ((disponible - 4.0 * (par_rangee as f32 - 1.0)) / par_rangee as f32).clamp(28.0, 64.0);
+    let police_fraction = (largeur_fraction * 0.31).clamp(10.0, 13.0);
+    for rangee in fractions.chunks(par_rangee) {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            ui.spacing_mut().button_padding = Vec2::new(1.0, 1.0);
+            for &(num, den) in rangee {
+                let libelle = format!("{num}/{den}");
+                let bouton = egui::Button::new(
+                    RichText::new(&libelle).font(theme::police_grasse(police_fraction)),
+                );
+                if ui
+                    .add_sized(Vec2::new(largeur_fraction, 32.0), bouton)
+                    .clicked()
+                {
+                    frapper(saisie, Fraction(num, den), decimal);
+                    frappe = Some(Frappe::Modifie);
+                }
+            }
+        });
+        ui.add_space(1.0);
+    }
+    ui.add_space(3.0);
     let rangees: [&[(ToucheDeMesure, f32)]; 4] = [
         &[
             (Chiffre('7'), 1.0),
@@ -1120,17 +1193,24 @@ fn pave_de_touches(
         &[(Chiffre('0'), 1.0), (Decimale, 1.0), (Suivant, 3.0)],
     ];
     let ecart = 5.0;
-    let largeur = ((ui.available_width() - 4.0 * ecart) / 5.0).clamp(36.0, 84.0);
-    let mut frappe = None;
+    let largeur = ((disponible - 4.0 * ecart) / 5.0).clamp(36.0, 84.0);
     for rangee in rangees {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = ecart;
+            ui.spacing_mut().button_padding = Vec2::new(2.0, 1.0);
             for &(touche, parts) in rangee {
                 let libelle = match touche {
                     Chiffre(c) => c.to_string(),
                     Decimale => decimal.to_string(),
+                    Unite(symbole) if symbole == pieds => {
+                        textes::DESSIN_TOUCHE_PIEDS.traduit().to_string()
+                    }
+                    Unite(symbole) if symbole == pouces => {
+                        textes::DESSIN_TOUCHE_POUCES.traduit().to_string()
+                    }
                     Unite(symbole) => symbole.to_string(),
                     Barre => "/".to_string(),
+                    Fraction(num, den) => format!("{num}/{den}"),
                     Espace => textes::DESSIN_TOUCHE_ESPACE.traduit().to_string(),
                     Reculer => textes::DESSIN_TOUCHE_RECULER.traduit().to_string(),
                     Suivant => textes::DESSIN_COTE_SUIVANT.traduit().to_string(),
@@ -1139,9 +1219,15 @@ fn pave_de_touches(
                 let bouton = if matches!(touche, Suivant) {
                     bouton_principal(p, &libelle, 14.5)
                 } else {
-                    egui::Button::new(RichText::new(&libelle).font(theme::police_grasse(15.5)))
+                    // Les mots (Pieds, Pouces) un peu plus petits que les chiffres.
+                    let taille = if libelle.chars().count() > 2 {
+                        14.0
+                    } else {
+                        15.5
+                    };
+                    egui::Button::new(RichText::new(&libelle).font(theme::police_grasse(taille)))
                 };
-                if ui.add(bouton.min_size(taille)).clicked() {
+                if ui.add_sized(taille, bouton).clicked() {
                     if matches!(touche, Suivant) {
                         frappe = Some(Frappe::Suivant);
                     } else {
@@ -1162,7 +1248,7 @@ mod tests {
 
     #[test]
     fn le_pave_ecrit_une_mesure_lisible() {
-        use ToucheDeMesure::{Barre, Chiffre, Decimale, Espace, Reculer, Unite};
+        use ToucheDeMesure::{Barre, Chiffre, Decimale, Espace, Fraction, Reculer, Unite};
         let mut saisie = String::new();
         // Une unité seule n'écrit rien.
         frapper(&mut saisie, Unite("pi"), ',');
@@ -1209,5 +1295,65 @@ mod tests {
         assert_eq!(saisie, "3,81 m ");
         let lue = noyau::analyse::analyser_longueur(&saisie, FORMAT_PAR_DEFAUT).unwrap();
         assert!((lue.base - 150.0).abs() < 0.001);
+
+        // Les fractions de pouce se placent après les pouces.
+        let lire = |texte: &str| {
+            noyau::analyse::analyser_longueur(texte, FORMAT_PAR_DEFAUT)
+                .unwrap()
+                .base
+        };
+        saisie.clear();
+        frapper(&mut saisie, Fraction(3, 8), ',');
+        assert_eq!(saisie, "3/8 po ");
+        assert!((lire(&saisie) - 0.375).abs() < 1e-9);
+        saisie.clear();
+        for touche in [
+            Chiffre('1'),
+            Chiffre('2'),
+            Unite("pi"),
+            Chiffre('6'),
+            Fraction(1, 2),
+        ] {
+            frapper(&mut saisie, touche, ',');
+        }
+        assert_eq!(saisie, "12 pi 6 1/2 po ");
+        assert!((lire(&saisie) - 150.5).abs() < 1e-9);
+        // Une autre fraction remplace la première.
+        frapper(&mut saisie, Fraction(1, 4), ',');
+        assert_eq!(saisie, "12 pi 6 1/4 po ");
+        assert!((lire(&saisie) - 150.25).abs() < 1e-9);
+        // Après « Pouces », la fraction se place devant le symbole.
+        saisie = "12 pi 6 po ".to_string();
+        frapper(&mut saisie, Fraction(7, 8), ',');
+        assert_eq!(saisie, "12 pi 6 7/8 po ");
+        // Des pieds, puis une fraction : une fraction de pouce.
+        saisie = "12 pi ".to_string();
+        frapper(&mut saisie, Fraction(1, 2), ',');
+        assert_eq!(saisie, "12 pi 1/2 po ");
+        assert!((lire(&saisie) - 144.5).abs() < 1e-9);
+        // En anglais, avec les symboles anglais.
+        let _anglais = noyau::langue::pour_la_portee(noyau::langue::Langue::Anglais);
+        saisie = "12 ft 6".to_string();
+        frapper(&mut saisie, Fraction(1, 2), '.');
+        assert_eq!(saisie, "12 ft 6 1/2 in ");
+        assert!((lire(&saisie) - 150.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn les_mesures_s_affichent_en_pieds_pouces_et_fractions() {
+        let prefs = Preferences::default();
+        // Les espaces insécables du texte affiché sont lus comme des espaces.
+        let en_clair =
+            |texte: &str| saisie_en_clair(texte, &prefs).map(|s| s.replace('\u{a0}', " "));
+        assert_eq!(en_clair("20").as_deref(), Some("20 pi 0 po"));
+        assert_eq!(
+            en_clair("12 pi 6 1/2 po").as_deref(),
+            Some("12 pi 6 1/2 po")
+        );
+        assert_eq!(en_clair("150 po").as_deref(), Some("12 pi 6 po"));
+        assert_eq!(en_clair("3/8 po").as_deref(), Some("3/8 po"));
+        assert_eq!(en_clair("3,81 m").as_deref(), Some("3,810 m"));
+        assert_eq!(en_clair("abc"), None);
+        assert_eq!(en_clair("0"), None);
     }
 }

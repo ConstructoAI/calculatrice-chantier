@@ -14,6 +14,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Plusieurs pièces** : le bouton **+ Pièce** ajoute une pièce au plan. Chacune a son nom
   (cuisine, salon), son dessin et ses retraits; la calculatrice donne le **total** des
   surfaces.
+- **0.8.1** : **pieds, pouces et fractions** dans le dessin — le pavé a ses touches
+  `Pieds` et `Pouces` et une rangée de fractions de pouce (`12` `Pieds` `6` `1/2` donne
+  12 pi 6 1/2 po), et les mesures s'écrivent sur le dessin en pieds, pouces et fractions.
 
 ## Nouveautés de la version 0.7
 

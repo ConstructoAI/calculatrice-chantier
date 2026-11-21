@@ -1239,17 +1239,17 @@ pub static FICHES: &[Fiche] = &[
             "Draw the outline of a room, then enter the measurement of each side:",
         ),
         mode_emploi: t(
-            "la calculatrice en donne la surface et le périmètre. Tracez avec le doigt ou la souris, d'un seul geste ou un côté à la fois; le croquis n'a pas besoin d'être à l'échelle, les angles sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres.",
-            "the calculator gives its area and perimeter. Draw with your finger or the mouse, in one stroke or one side at a time; the sketch does not need to be to scale, corners are squared up. Then tap a side and enter its measurement. As soon as only one side is missing in a direction, it is worked out from the others.",
+            "la calculatrice en donne la surface et le périmètre. Tracez avec le doigt ou la souris, d'un seul geste ou un côté à la fois; le croquis n'a pas besoin d'être à l'échelle, les angles sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure avec le pavé : `Pieds`, `Pouces` et les fractions de pouce. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres. Ajoutez des retraits (îlot, trémie) et d'autres pièces avec `+ Pièce`, puis inscrivez le tout au ruban ou envoyez-le vers un outil.",
+            "the calculator gives its area and perimeter. Draw with your finger or the mouse, in one stroke or one side at a time; the sketch does not need to be to scale, corners are squared up. Then tap a side and enter its measurement with the keypad: `Feet`, `Inches` and fractions of an inch. As soon as only one side is missing in a direction, it is worked out from the others. Add deductions (island, stairwell) and more rooms with `+ Room`, then record everything on the tape or send it to a tool.",
         ),
         exemple: Some((
             t(
-                "Un rectangle : `12 pi` en haut, `10 pi 6 po` à droite",
-                "A rectangle: `12 ft` on top, `10 ft 6 in` on the right",
+                "Un rectangle : `12` `Pieds` en haut, `10` `Pieds` `6` `Pouces` à droite",
+                "A rectangle: `12` `Feet` on top, `10` `Feet` `6` `Inches` on the right",
             ),
             t(
-                "Surface 126 pi² (11,7 m²) · Périmètre 45 pi 0 po",
-                "Area 126 ft² (11.7 m²) · Perimeter 45 ft 0 in",
+                "Surface 126 pi² (11,7 m²) · Périmètre 45 pi 0 po · Diagonale 15 pi 11 5/16 po",
+                "Area 126 ft² (11.7 m²) · Perimeter 45 ft 0 in · Diagonal 15 ft 11 5/16 in",
             ),
         )),
         note: Some(t(
