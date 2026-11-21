@@ -45,6 +45,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.10.8** : les meubles **pivotent au 15 degrés** — **+15°** et **+90°** dans leur ligne, et
   **−15°**, **+15°** et **+90°** sur le plan quand un meuble est choisi; son angle paraît à
   côté de son nom.
+- **0.10.9** : **étirer un mur par son milieu** — chaque mur a une poignée à son milieu;
+  glissez-la : le mur se déplace parallèlement à lui-même, ses deux voisins s'allongent ou
+  raccourcissent, et leurs mesures suivent au pouce près. Les fenêtres du mur voisin, les
+  meubles, les notes et les cloisons restent en place; « Annuler » défait le geste.
 
 ## Nouveautés de la version 0.9
 

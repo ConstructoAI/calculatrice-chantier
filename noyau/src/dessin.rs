@@ -247,6 +247,15 @@ fn decaler(
     Some(contour)
 }
 
+/// La direction de l'extérieur de la pièce, pour chaque côté d'un contour
+/// fermé (unitaire).
+pub fn dehors_des_cotes(sommets: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    reperes_des_cotes(sommets)
+        .into_iter()
+        .map(|repere| repere.dehors)
+        .collect()
+}
+
 /// L'aire (pouces carrés) et le périmètre (pouces) d'un contour fermé.
 fn aire_et_perimetre(sommets: &[(f64, f64)]) -> (f64, f64) {
     let aire: f64 = sommets
@@ -1128,6 +1137,95 @@ impl Dessin {
             }
         }
         morceaux
+    }
+
+    /// Déplace le côté `cote` de `delta` pouces vers l'extérieur de la pièce
+    /// (négatif : vers l'intérieur), parallèlement à lui-même : ses deux
+    /// voisins s'allongent ou raccourcissent le long de leur direction. Les
+    /// mesures inscrites suivent (`ecrire` les écrit); les déduites se
+    /// déduisent encore. Les portes et les fenêtres du voisin d'après (leur
+    /// coin A recule), les objets, les notes et les cloisons gardent leur
+    /// place. `None` si le geste est impossible : un voisin parallèle au côté,
+    /// ou une longueur qui deviendrait plus courte qu'un pouce.
+    pub fn etirer(
+        &self,
+        cote: usize,
+        delta: f64,
+        solution: &Solution,
+        ecrire: &dyn Fn(f64) -> String,
+    ) -> Option<Dessin> {
+        if !matches!(solution.etat, Etat::Complete { .. }) {
+            return None;
+        }
+        let n = self.cotes.len();
+        if n < 3 || cote >= n {
+            return None;
+        }
+        let longueurs: Vec<f64> = solution
+            .mesures
+            .iter()
+            .map(|m| m.pouces())
+            .collect::<Option<_>>()?;
+        let sommets = self.sommets(&longueurs);
+        let reperes = reperes_des_cotes(&sommets);
+        let (avant, apres) = ((cote + n - 1) % n, (cote + 1) % n);
+        let scalaire = |a: (f64, f64), b: (f64, f64)| a.0 * b.0 + a.1 * b.1;
+        let dehors = reperes[cote].dehors;
+        let (c_avant, c_apres) = (
+            scalaire(reperes[avant].u, dehors),
+            scalaire(reperes[apres].u, dehors),
+        );
+        if c_avant.abs() < 0.2 || c_apres.abs() < 0.2 {
+            return None;
+        }
+        // Le début du côté glisse le long du voisin d'avant, sa fin le long du
+        // voisin d'après.
+        let (glisse_avant, glisse_apres) = (delta / c_avant, delta / c_apres);
+        let mut nouvelles = longueurs.clone();
+        nouvelles[avant] += glisse_avant;
+        nouvelles[apres] -= glisse_apres;
+        nouvelles[cote] += glisse_apres * scalaire(reperes[apres].u, reperes[cote].u)
+            - glisse_avant * scalaire(reperes[avant].u, reperes[cote].u);
+        if nouvelles.iter().any(|longueur| *longueur < 1.0) {
+            return None;
+        }
+        let mut etire = self.clone();
+        for k in [avant, cote, apres] {
+            if (nouvelles[k] - longueurs[k]).abs() > 1e-9 && !self.cotes[k].saisie.trim().is_empty()
+            {
+                etire.cotes[k].saisie = ecrire(nouvelles[k]);
+            }
+        }
+        // Les ouvertures du voisin d'après restent en place : son coin A a
+        // reculé d'autant que le voisin s'est allongé.
+        let recul = nouvelles[apres] - longueurs[apres];
+        for (ouverture, placement) in etire.ouvertures.iter_mut().zip(&solution.placements) {
+            if ouverture.cote == Some(apres)
+                && !ouverture.position.trim().is_empty()
+                && let Some(placement) = placement
+            {
+                ouverture.position = ecrire((placement.debut + recul).max(0.0));
+            }
+        }
+        // Un sommet qui ne bouge pas : ce qui est posé sur le plan le suit.
+        let nouveaux = self.sommets(&nouvelles);
+        let fixe = (cote + 2) % n;
+        let (dx, dy) = (
+            nouveaux[fixe].0 - sommets[fixe].0,
+            nouveaux[fixe].1 - sommets[fixe].1,
+        );
+        if dx.abs() > 1e-12 || dy.abs() > 1e-12 {
+            for objet in &mut etire.objets {
+                objet.centre = (objet.centre.0 + dx, objet.centre.1 + dy);
+            }
+            for note in &mut etire.notes {
+                note.position = (note.position.0 + dx, note.position.1 + dy);
+            }
+            for cloison in &mut etire.cloisons {
+                cloison.debut = (cloison.debut.0 + dx, cloison.debut.1 + dy);
+            }
+        }
+        Some(etire)
     }
 
     /// Lit les mesures inscrites, déduit celles qui peuvent l'être et calcule
@@ -2049,6 +2147,49 @@ mod tests {
         let solution = dessin.resoudre(Format::PiPo);
         assert_eq!(solution.aire_exterieure, None);
         assert!(matches!(solution.etat, Etat::Complete { aire, .. } if aire == 144.0 * 120.0));
+    }
+
+    #[test]
+    fn etirer_un_mur_par_son_milieu() {
+        // Une chambre de 12 pi × 10 pi; le mur de droite recule de 1 pi.
+        let mut dessin = piece(&[
+            (Sens::Est, 200.0, "12"),
+            (Sens::Sud, 150.0, "10"),
+            (Sens::Ouest, 200.0, ""),
+            (Sens::Nord, 150.0, ""),
+        ]);
+        dessin.objets = vec![crate::mobilier::Objet::nouveau(
+            crate::mobilier::GenreDObjet::Lit,
+            (100.0, 40.0),
+        )];
+        dessin.ouvertures = vec![Ouverture {
+            largeur: "3 pi".into(),
+            hauteur: "4 pi".into(),
+            genre: Some(GenreDOuverture::Fenetre),
+            cote: Some(2),
+            position: "2".into(),
+            allege: String::new(),
+        }];
+        let solution = dessin.resoudre(Format::PiPo);
+        let ecrire = |pouces: f64| format!("{pouces} po");
+        let etire = dessin.etirer(1, 12.0, &solution, &ecrire).unwrap();
+        // Le haut s'allonge de 1 pi; le bas, déduit, suit.
+        assert_eq!(etire.cotes[0].saisie, "156 po");
+        assert_eq!(etire.cotes[2].saisie, "");
+        let s = etire.resoudre(Format::PiPo);
+        assert!(
+            matches!(s.etat, Etat::Complete { aire, .. } if (aire - 156.0 * 120.0).abs() < 1e-9)
+        );
+        // La fenêtre du bas reste en place : sa distance au coin A grandit de 1 pi.
+        assert_eq!(etire.ouvertures[0].position, "36 po");
+        // Le lit ne bouge pas.
+        assert_eq!(etire.objets[0].centre, (100.0, 40.0));
+        // Le mur du haut monte de 6 po : le reste garde sa place.
+        let etire = dessin.etirer(0, 6.0, &solution, &ecrire).unwrap();
+        assert_eq!(etire.cotes[1].saisie, "126 po");
+        assert_eq!(etire.objets[0].centre, (100.0, 46.0));
+        // Un mur ne passe pas par-dessus son vis-à-vis.
+        assert!(dessin.etirer(1, -150.0, &solution, &ecrire).is_none());
     }
 
     #[test]
