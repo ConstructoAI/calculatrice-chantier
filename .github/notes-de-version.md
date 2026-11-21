@@ -38,6 +38,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   8 po, centrée; sa largeur et sa distance au bout A se règlent, **Inverser** l'ouvre de
   l'autre côté. Sur le plan, en 3D (sous un linteau), au PDF et au DXF; la surface des
   cloisons retire leurs portes.
+- **0.10.7** : le bouton **Intérieur | Extérieur**, dans la section « Murs » : vos mesures sont
+  celles de l'intérieur des murs (les murs vont vers l'extérieur) ou de l'extérieur (ils vont
+  vers l'intérieur). En « Extérieur », la surface, le périmètre et les murs se calculent sur la
+  face intérieure, et la surface extérieure brute s'ajoute aux résultats.
 
 ## Nouveautés de la version 0.9
 

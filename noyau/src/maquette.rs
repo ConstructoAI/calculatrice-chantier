@@ -3,7 +3,7 @@
 //! prêtes à projeter. Les coordonnées sont en pouces : x et z sur le plan,
 //! y vers le haut.
 
-use crate::dessin::{Dessin, Etat, Solution};
+use crate::dessin::{Dessin, Etat, Placement, Solution};
 use crate::mobilier::{GenreDObjet, Matiere};
 
 /// Hauteur des murs quand elle n'est pas inscrite : 8 pi.
@@ -65,7 +65,10 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
     if !matches!(solution.etat, Etat::Complete { .. }) {
         return None;
     }
-    let sommets = dessin.sommets_mesures(solution)?;
+    // Les murs se bâtissent sur leur face intérieure : les mesures, ou, si
+    // elles sont celles de l'extérieur, le contour repoussé vers l'intérieur.
+    let sommets = dessin.contour_interieur(solution)?;
+    let mesurees = dessin.sommets_mesures(solution)?;
     let contour = &sommets[..sommets.len().saturating_sub(1)];
     if contour.len() < 3 {
         return None;
@@ -122,11 +125,20 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
             });
             aretes.push([wa, wb]);
         }
-        let ouvertures: Vec<_> = solution
+        // Les ouvertures de ce mur, à leur place sur sa face intérieure (elles
+        // se mesurent sur la ligne tracée).
+        let decalage =
+            (sommets[cote].0 - mesurees[cote].0) * u.0 + (sommets[cote].1 - mesurees[cote].1) * u.1;
+        let ouvertures: Vec<Placement> = solution
             .placements
             .iter()
             .flatten()
             .filter(|placement| placement.cote == cote)
+            .map(|placement| Placement {
+                debut: placement.debut - decalage,
+                fin: placement.fin - decalage,
+                ..*placement
+            })
             .collect();
         // Les bornes le long du mur : ses deux coins et les bords des ouvertures.
         let mut bornes = vec![0.0, longueur];
@@ -659,6 +671,25 @@ mod tests {
         assert_eq!(maquette.blocs.len(), 3);
         let linteau = maquette.blocs.iter().find(|b| b.bas > 0.0).unwrap();
         assert_eq!((linteau.bas, linteau.haut), (80.0, 96.0));
+    }
+
+    #[test]
+    fn des_murs_vers_l_interieur_en_3d() {
+        let mut dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        dessin.mesures_exterieures = true;
+        let solution = dessin.resoudre(Format::PiPo);
+        let faces = maquette(&dessin, &solution).unwrap().faces;
+        let somme = |genre: GenreDeFace| -> f64 {
+            faces.iter().filter(|f| f.genre == genre).map(aire).sum()
+        };
+        // Le plancher : la pièce utile; le dessus des murs : le reste.
+        assert!((somme(GenreDeFace::Plancher) - 126.0 * 102.0).abs() < 1e-6);
+        assert!((somme(GenreDeFace::DessusDeMur) - (144.0 * 120.0 - 126.0 * 102.0)).abs() < 1e-6);
     }
 
     #[test]

@@ -418,6 +418,12 @@ pub const DESSIN_EPAISSEUR: Texte = t("épaisseur", "thickness");
 /// Devant l'épaisseur d'une cloison, dans sa ligne.
 pub const DESSIN_EP: Texte = t("ép.", "thk.");
 pub const DESSIN_EPAISSEUR_DES_MURS: Texte = t("Épaisseur des murs", "Wall thickness");
+/// Devant le bouton qui dit de quel côté des murs sont les mesures.
+pub const DESSIN_MESURES: Texte = t("Mesures", "Measurements");
+pub const DESSIN_INTERIEUR: Texte = t("Intérieur", "Interior");
+pub const DESSIN_EXTERIEUR: Texte = t("Extérieur", "Exterior");
+pub const DESSIN_SURFACE_EXTERIEURE: Texte =
+    t("Surface extérieure (brute)", "Exterior area (gross)");
 pub const DESSIN_LARGEUR_DE_LA_PORTE: Texte = t("largeur de la porte", "door width");
 pub const DESSIN_DISTANCE_DU_BOUT_A: Texte = t("distance du bout A", "distance from end A");
 pub const DESSIN_INVERSER: Texte = t("Inverser", "Flip");

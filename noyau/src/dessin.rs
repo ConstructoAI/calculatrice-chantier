@@ -207,6 +207,59 @@ fn reperes_des_cotes(sommets: &[(f64, f64)]) -> Vec<Repere> {
         .collect()
 }
 
+/// Les sommets d'un contour fermé dont chaque côté est repoussé de
+/// `distance` vers l'extérieur de la pièce (ou vers l'intérieur), chaque coin
+/// à la rencontre de deux côtés repoussés; le contour reste fermé.
+fn decaler(
+    sommets: &[(f64, f64)],
+    distance: f64,
+    vers_l_exterieur: bool,
+) -> Option<Vec<(f64, f64)>> {
+    let n = sommets.len().checked_sub(1).filter(|n| *n >= 3)?;
+    let e = if vers_l_exterieur {
+        distance
+    } else {
+        -distance
+    };
+    let reperes = reperes_des_cotes(sommets);
+    let mut contour: Vec<(f64, f64)> = (0..n)
+        .map(|i| {
+            let avant = (i + n - 1) % n;
+            let (r1, r2) = (reperes[avant], reperes[i]);
+            let p1 = (
+                sommets[avant].0 + r1.dehors.0 * e,
+                sommets[avant].1 + r1.dehors.1 * e,
+            );
+            let p2 = (
+                sommets[i].0 + r2.dehors.0 * e,
+                sommets[i].1 + r2.dehors.1 * e,
+            );
+            let croix = r1.u.0 * r2.u.1 - r1.u.1 * r2.u.0;
+            if croix.abs() < 1e-9 {
+                p2
+            } else {
+                let s = ((p2.0 - p1.0) * r2.u.1 - (p2.1 - p1.1) * r2.u.0) / croix;
+                (p1.0 + r1.u.0 * s, p1.1 + r1.u.1 * s)
+            }
+        })
+        .collect();
+    contour.push(contour[0]);
+    Some(contour)
+}
+
+/// L'aire (pouces carrés) et le périmètre (pouces) d'un contour fermé.
+fn aire_et_perimetre(sommets: &[(f64, f64)]) -> (f64, f64) {
+    let aire: f64 = sommets
+        .windows(2)
+        .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+        .sum();
+    let perimetre = sommets
+        .windows(2)
+        .map(|s| (s[1].0 - s[0].0).hypot(s[1].1 - s[0].1))
+        .sum();
+    (aire.abs() / 2.0, perimetre)
+}
+
 /// Une note écrite sur le plan : son texte, et sa place en pouces dans le
 /// repère du plan (le départ du tracé en (0, 0), y vers le bas), comme un objet.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -239,6 +292,9 @@ pub struct Dessin {
     pub epaisseur_des_murs: String,
     /// L'épaisseur des cloisons qui n'ont pas la leur; vide : 5 po.
     pub epaisseur_des_cloisons: String,
+    /// Vrai si les mesures sont celles de l'extérieur des murs : les murs se
+    /// dessinent alors vers l'intérieur.
+    pub mesures_exterieures: bool,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -476,6 +532,9 @@ pub struct Solution {
     pub epaisseur_des_murs: f64,
     /// L'épaisseur des cloisons qui n'ont pas la leur (pouces).
     pub epaisseur_des_cloisons: f64,
+    /// La surface brute, à l'extérieur des murs, quand les mesures sont celles
+    /// de l'extérieur (la surface de l'état est alors celle de l'intérieur).
+    pub aire_exterieure: Option<f64>,
 }
 
 impl Solution {
@@ -961,51 +1020,48 @@ impl Dessin {
     }
 
     /// Les coins de l'extérieur des murs, un par sommet (le contour fermé) :
-    /// les côtés repoussés vers l'extérieur de l'épaisseur des murs, chaque
-    /// coin à la rencontre de deux côtés repoussés. `None` tant que la forme
-    /// n'est pas complète.
+    /// les mesures elles-mêmes si elles sont prises à l'extérieur, sinon les
+    /// côtés repoussés vers l'extérieur de l'épaisseur des murs. `None` tant
+    /// que la forme n'est pas complète.
     pub fn contour_exterieur(&self, solution: &Solution) -> Option<Vec<(f64, f64)>> {
         if !matches!(solution.etat, Etat::Complete { .. }) {
             return None;
         }
         let sommets = self.sommets_mesures(solution)?;
-        let n = sommets.len().checked_sub(1).filter(|n| *n >= 3)?;
-        let e = solution.epaisseur_des_murs;
-        let reperes = reperes_des_cotes(&sommets);
-        let mut contour: Vec<(f64, f64)> = (0..n)
-            .map(|i| {
-                let avant = (i + n - 1) % n;
-                let (r1, r2) = (reperes[avant], reperes[i]);
-                let p1 = (
-                    sommets[avant].0 + r1.dehors.0 * e,
-                    sommets[avant].1 + r1.dehors.1 * e,
-                );
-                let p2 = (
-                    sommets[i].0 + r2.dehors.0 * e,
-                    sommets[i].1 + r2.dehors.1 * e,
-                );
-                let croix = r1.u.0 * r2.u.1 - r1.u.1 * r2.u.0;
-                if croix.abs() < 1e-9 {
-                    p2
-                } else {
-                    let s = ((p2.0 - p1.0) * r2.u.1 - (p2.1 - p1.1) * r2.u.0) / croix;
-                    (p1.0 + r1.u.0 * s, p1.1 + r1.u.1 * s)
-                }
-            })
-            .collect();
-        contour.push(contour[0]);
-        Some(contour)
+        if self.mesures_exterieures {
+            Some(sommets)
+        } else {
+            decaler(&sommets, solution.epaisseur_des_murs, true)
+        }
     }
 
-    /// Les murs extérieurs à leur épaisseur, hors des mesures : leurs morceaux
-    /// pleins, interrompus par les portes et les fenêtres. Vide tant que la
-    /// forme n'est pas complète, ou si l'épaisseur des murs est nulle.
+    /// Les coins de l'intérieur des murs : les mesures elles-mêmes, ou, si
+    /// elles sont prises à l'extérieur, les côtés repoussés vers l'intérieur
+    /// de l'épaisseur des murs. `None` tant que la forme n'est pas complète.
+    pub fn contour_interieur(&self, solution: &Solution) -> Option<Vec<(f64, f64)>> {
+        if !matches!(solution.etat, Etat::Complete { .. }) {
+            return None;
+        }
+        let sommets = self.sommets_mesures(solution)?;
+        if self.mesures_exterieures {
+            decaler(&sommets, solution.epaisseur_des_murs, false)
+        } else {
+            Some(sommets)
+        }
+    }
+
+    /// Les murs extérieurs à leur épaisseur, d'un côté ou de l'autre des
+    /// mesures : leurs morceaux pleins, interrompus par les portes et les
+    /// fenêtres. Vide tant que la forme n'est pas complète, ou si l'épaisseur
+    /// des murs est nulle.
     pub fn murs_exterieurs(&self, solution: &Solution) -> Vec<MorceauDeMur> {
         let e = solution.epaisseur_des_murs;
-        let (Some(sommets), Some(contour)) = (
-            self.sommets_mesures(solution),
-            self.contour_exterieur(solution),
-        ) else {
+        let decale = if self.mesures_exterieures {
+            self.contour_interieur(solution)
+        } else {
+            self.contour_exterieur(solution)
+        };
+        let (Some(sommets), Some(decale)) = (self.sommets_mesures(solution), decale) else {
             return Vec::new();
         };
         if e <= 1e-9 {
@@ -1016,16 +1072,30 @@ impl Dessin {
             let (a, b) = (sommets[cote], sommets[cote + 1]);
             let longueur = (b.0 - a.0).hypot(b.1 - a.1);
             let Repere { u, dehors } = repere;
-            let interieur = |t: f64| (a.0 + u.0 * t, a.1 + u.1 * t);
-            let exterieur = |t: f64| {
-                if t <= 1e-9 {
-                    contour[cote]
+            // Le mur est du côté de l'extérieur des mesures, ou de l'intérieur.
+            let vers_le_mur = if self.mesures_exterieures {
+                (-dehors.0, -dehors.1)
+            } else {
+                dehors
+            };
+            // Un point de la ligne mesurée, ou de l'autre face du mur (ses coins
+            // sont ceux du contour repoussé).
+            let face = |t: f64, l_autre: bool| {
+                if !l_autre {
+                    (a.0 + u.0 * t, a.1 + u.1 * t)
+                } else if t <= 1e-9 {
+                    decale[cote]
                 } else if t >= longueur - 1e-9 {
-                    contour[cote + 1]
+                    decale[cote + 1]
                 } else {
-                    (a.0 + u.0 * t + dehors.0 * e, a.1 + u.1 * t + dehors.1 * e)
+                    (
+                        a.0 + u.0 * t + vers_le_mur.0 * e,
+                        a.1 + u.1 * t + vers_le_mur.1 * e,
+                    )
                 }
             };
+            let interieur = |t: f64| face(t, self.mesures_exterieures);
+            let exterieur = |t: f64| face(t, !self.mesures_exterieures);
             let mut vides: Vec<(f64, f64)> = solution
                 .placements
                 .iter()
@@ -1238,6 +1308,28 @@ impl Dessin {
                 })
             })
             .collect();
+        // Des mesures prises à l'extérieur des murs : la surface et le
+        // périmètre sont ceux de la face intérieure (ce qu'on couvre et qu'on
+        // peint); la surface brute reste, à part.
+        let (etat, aire_exterieure) = match etat {
+            Etat::Complete { aire, .. } if self.mesures_exterieures && epaisseur_des_murs > 0.0 => {
+                let longueurs: Option<Vec<f64>> = mesures.iter().map(|m| m.pouces()).collect();
+                let interieur = longueurs
+                    .and_then(|l| decaler(&self.sommets(&l), epaisseur_des_murs, false))
+                    .map(|contour| aire_et_perimetre(&contour));
+                match interieur {
+                    Some((aire_interieure, perimetre)) if aire_interieure > 0.0 => (
+                        Etat::Complete {
+                            aire: aire_interieure,
+                            perimetre,
+                        },
+                        Some(aire),
+                    ),
+                    _ => (etat, None),
+                }
+            }
+            _ => (etat, None),
+        };
         Solution {
             mesures,
             etat,
@@ -1251,6 +1343,7 @@ impl Dessin {
             cloisons,
             epaisseur_des_murs,
             epaisseur_des_cloisons,
+            aire_exterieure,
         }
     }
 
@@ -1922,6 +2015,40 @@ mod tests {
             .porte
             .unwrap();
         assert_eq!((porte.debut, porte.fin), (84.0, 120.0));
+    }
+
+    #[test]
+    fn des_mesures_prises_a_l_exterieur_des_murs() {
+        let mut dessin = piece(&[
+            (Sens::Est, 200.0, "12"),
+            (Sens::Sud, 150.0, "10"),
+            (Sens::Ouest, 200.0, ""),
+            (Sens::Nord, 150.0, ""),
+        ]);
+        dessin.mesures_exterieures = true;
+        let solution = dessin.resoudre(Format::PiPo);
+        // La pièce utile perd 9 po de chaque côté : 10 pi 6 po × 8 pi 6 po.
+        assert_eq!(
+            solution.etat,
+            Etat::Complete {
+                aire: 126.0 * 102.0,
+                perimetre: 2.0 * (126.0 + 102.0)
+            }
+        );
+        assert_eq!(solution.aire_exterieure, Some(144.0 * 120.0));
+        // Les murs vont vers l'intérieur : la ligne tracée est leur face
+        // extérieure.
+        assert_eq!(dessin.contour_exterieur(&solution).unwrap()[0], (0.0, 0.0));
+        assert_eq!(dessin.contour_interieur(&solution).unwrap()[0], (9.0, 9.0));
+        let morceaux = dessin.murs_exterieurs(&solution);
+        assert_eq!(morceaux.len(), 4);
+        assert_eq!(morceaux[0].coins[0], (9.0, 9.0));
+        assert_eq!(morceaux[0].coins[3], (0.0, 0.0));
+        // Les mesures de l'intérieur ne changent rien à la surface.
+        dessin.mesures_exterieures = false;
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!(solution.aire_exterieure, None);
+        assert!(matches!(solution.etat, Etat::Complete { aire, .. } if aire == 144.0 * 120.0));
     }
 
     #[test]

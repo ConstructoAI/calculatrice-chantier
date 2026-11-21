@@ -447,6 +447,8 @@ fn dessiner_un_morceau_de_mur(
         Stroke::NONE,
     ));
     let trait_ = Stroke::new(1.3, encre);
+    // Ses deux faces : celle de la ligne mesurée se double du côté, plus épais.
+    painter.line_segment([coins[0], coins[1]], trait_);
     painter.line_segment([coins[3], coins[2]], trait_);
     if morceau.jambage_au_debut {
         painter.line_segment([coins[0], coins[3]], trait_);
@@ -1209,6 +1211,13 @@ fn planche_et_gestes(
         None
     };
     let a_cadrer = contour_exterieur.as_deref().unwrap_or(sommets);
+    // Les cloisons s'appuient sur la face intérieure des murs.
+    let contour_interieur = if complete {
+        dessin.contour_interieur(solution)
+    } else {
+        None
+    };
+    let faces_interieures = contour_interieur.as_deref().unwrap_or(sommets);
     let echelle = etat
         .cadrage
         .appliquer(cadrer(zone_de_la_forme, a_cadrer), centre_de_la_planche);
@@ -1288,7 +1297,7 @@ fn planche_et_gestes(
         etat.cloison_en_trace = Some((depart, atteint));
         if !reponse.dragged() {
             etat.cloison_en_trace = None;
-            let appuis = appuis_des_cloisons(sommets, solution);
+            let appuis = appuis_des_cloisons(faces_interieures, solution);
             if let Some((sens, debut, longueur)) = redresser(
                 depart,
                 atteint,
@@ -1627,7 +1636,7 @@ fn planche_et_gestes(
             && let Some((sens, debut, longueur)) = redresser(
                 depart,
                 atteint,
-                &appuis_des_cloisons(sommets, solution),
+                &appuis_des_cloisons(faces_interieures, solution),
                 aimant_des_cloisons(&echelle),
                 pas_du_plan(solution),
             )
@@ -1750,7 +1759,12 @@ fn planche_et_gestes(
                 placement.porte,
                 encre,
                 p.primaire,
-                epaisseur_des_murs_a_l_ecran,
+                // Un mur vers l'intérieur : une épaisseur négative.
+                if dessin.mesures_exterieures {
+                    -epaisseur_des_murs_a_l_ecran
+                } else {
+                    epaisseur_des_murs_a_l_ecran
+                },
             );
         }
     }
@@ -1785,7 +1799,12 @@ fn planche_et_gestes(
             Mesure::Invalide => (cote.saisie.trim().to_string(), p.erreur),
         };
         // Hors du mur, à son épaisseur.
-        let position = milieu + dehors * (7.0 + epaisseur_des_murs_a_l_ecran);
+        let mur_dehors = if dessin.mesures_exterieures {
+            0.0
+        } else {
+            epaisseur_des_murs_a_l_ecran
+        };
+        let position = milieu + dehors * (7.0 + mur_dehors);
         let galere = painter.layout_no_wrap(texte, theme::police_grasse(12.5), couleur);
         let cadre = ancre
             .anchor_size(position, galere.size())
@@ -2645,8 +2664,9 @@ fn sans_insecables(texte: &str) -> String {
 /// Le symbole d'une porte — ses montants, son battant ouvert à angle droit et
 /// l'arc de son ouverture — ou d'une fenêtre — un trait double dans le mur —,
 /// entre `q0` et `q1`; `dedans` pointe vers l'intérieur de la pièce. Dans un
-/// mur à son `epaisseur` (points), les jambages sont déjà tracés, et la
-/// fenêtre montre ses deux faces et son vitrage.
+/// mur à son `epaisseur` (points; négative pour un mur vers l'intérieur), les
+/// jambages sont déjà tracés, la fenêtre montre ses deux faces et son vitrage,
+/// et la porte s'ouvre de la face intérieure.
 fn dessiner_ouverture(
     painter: &egui::Painter,
     (q0, q1): (Pos2, Pos2),
@@ -2661,13 +2681,18 @@ fn dessiner_ouverture(
         return;
     }
     let unite = (q1 - q0) / largeur;
-    let a_l_epaisseur = epaisseur >= 2.0;
+    let a_l_epaisseur = epaisseur.abs() >= 2.0;
     if porte {
         if !a_l_epaisseur {
             for q in [q0, q1] {
                 painter.line_segment([q - dedans * 3.5, q + dedans * 3.5], Stroke::new(2.0, mur));
             }
         }
+        let q0 = if epaisseur < 0.0 {
+            q0 - dedans * epaisseur
+        } else {
+            q0
+        };
         let battant = q0 + dedans * largeur;
         painter.line_segment([q0, battant], Stroke::new(2.2, encre));
         let arc: Vec<Pos2> = (0..=16)
@@ -2747,6 +2772,23 @@ fn murs(
         let bouton = egui::Button::new(texte).selected(etat.autre_choisi == Some(cible));
         if ui.add(bouton).clicked() {
             etat.choisir_autre(Some(cible));
+        }
+    });
+    // De quel côté des murs sont les mesures : l'intérieur (les murs vont vers
+    // l'extérieur) ou l'extérieur (ils vont vers l'intérieur).
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(textes::DESSIN_MESURES.traduit()).size(13.5));
+        for (exterieures, texte) in [
+            (false, textes::DESSIN_INTERIEUR),
+            (true, textes::DESSIN_EXTERIEUR),
+        ] {
+            let bouton = egui::Button::new(texte.traduit())
+                .selected(dessin.mesures_exterieures == exterieures);
+            if ui.add(bouton).clicked() && dessin.mesures_exterieures != exterieures {
+                etat.memoriser(dessin);
+                dessin.mesures_exterieures = exterieures;
+                modifie = true;
+            }
         }
     });
     if solution.hauteur_invalide {
@@ -3270,6 +3312,13 @@ pub(crate) fn resultats_de_la_piece(
             longueur(perimetre),
         ),
     ];
+    // Des mesures prises à l'extérieur : la surface brute, à part.
+    if let Some(aire_exterieure) = solution.aire_exterieure {
+        lignes.push((
+            textes::DESSIN_SURFACE_EXTERIEURE.traduit().to_string(),
+            aire_en_clair(aire_exterieure),
+        ));
+    }
     // Un rectangle est d'équerre quand ses deux diagonales ont cette longueur.
     if let [Some(a), Some(b), _, _] = solution
         .mesures

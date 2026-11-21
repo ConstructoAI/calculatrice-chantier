@@ -46,7 +46,8 @@ struct PieceExportee {
     /// contour de leur extérieur; vides sans épaisseur.
     murs_exterieurs: Vec<MorceauDeMur>,
     contour_exterieur: Vec<(f64, f64)>,
-    /// L'épaisseur des murs extérieurs (pouces), zéro sans murs dessinés.
+    /// L'épaisseur des murs extérieurs (pouces) : positive s'ils vont vers
+    /// l'extérieur des mesures, négative vers l'intérieur, zéro sans murs.
     epaisseur_des_murs: f64,
 }
 
@@ -183,7 +184,11 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     } else {
         (
             dessin.contour_exterieur(&solution).unwrap_or_default(),
-            solution.epaisseur_des_murs,
+            if dessin.mesures_exterieures {
+                -solution.epaisseur_des_murs
+            } else {
+                solution.epaisseur_des_murs
+            },
         )
     };
     PieceExportee {
@@ -309,14 +314,20 @@ fn ouvertures_sur_la_page(
         };
         // Un mur sans épaisseur s'interrompt en blanc; un mur à son
         // épaisseur l'est déjà.
-        if epaisseur <= 0.0 {
+        if epaisseur.abs() <= 1e-9 {
             page.trait_(&[q0, q1], 4.2, BLANC);
         }
         if porte {
+            // Un mur vers l'intérieur : la porte s'ouvre de sa face intérieure.
+            let q0 = if epaisseur < 0.0 {
+                (q0.0 - dedans.0 * epaisseur, q0.1 - dedans.1 * epaisseur)
+            } else {
+                q0
+            };
             let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
             page.trait_(&[q0, battant], 1.2, NOIR);
             page.trait_(&arc_de_porte(q0, u, dedans, largeur), 0.6, GRIS);
-        } else if epaisseur > 0.0 {
+        } else if epaisseur.abs() > 1e-9 {
             // La fenêtre traverse le mur : ses deux faces et son vitrage.
             for (part, largeur_du_trait) in [(0.0, 0.5), (0.5, 0.8), (1.0, 0.5)] {
                 let k = -epaisseur * part;
@@ -726,8 +737,8 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
         // La mesure s'écrit hors du mur, à son épaisseur.
         let milieu = (
-            milieu.0 + nx * epaisseur_des_murs,
-            milieu.1 + ny * epaisseur_des_murs,
+            milieu.0 + nx * epaisseur_des_murs.max(0.0),
+            milieu.1 + ny * epaisseur_des_murs.max(0.0),
         );
         let (position, alignement) = if ny.abs() > 0.9 {
             if ny > 0.0 {
@@ -1119,6 +1130,12 @@ fn ouvertures_dans_le_dxf(
             continue;
         };
         if porte {
+            // Un mur vers l'intérieur : la porte s'ouvre de sa face intérieure.
+            let q0 = if epaisseur < 0.0 {
+                (q0.0 - dedans.0 * epaisseur, q0.1 - dedans.1 * epaisseur)
+            } else {
+                q0
+            };
             let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
             ligne_dxf(dxf, "OUVERTURES", q0, battant);
             // L'arc va, dans le sens trigonométrique, du mur au battant.
@@ -1129,7 +1146,7 @@ fn ouvertures_dans_le_dxf(
                 largeur,
                 angles_d_un_arc_de_porte(u, dedans),
             );
-        } else if epaisseur > 0.0 {
+        } else if epaisseur.abs() > 1e-9 {
             // La fenêtre traverse le mur : ses deux faces et son vitrage.
             for part in [0.0, 0.5, 1.0] {
                 let k = -epaisseur * part;
@@ -1357,7 +1374,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             );
             let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
             // La mesure s'écrit hors du mur, à son épaisseur.
-            let epaisseur = piece.epaisseur_des_murs * facteur;
+            let epaisseur = piece.epaisseur_des_murs.max(0.0) * facteur;
             let milieu = (milieu.0 + nx * epaisseur, milieu.1 + ny * epaisseur);
             let (position, alignement) = if ny.abs() > 0.9 {
                 (
@@ -1732,6 +1749,20 @@ mod tests {
         assert!(dxf.contains("\r\n 40\r\n32.0000\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert_eq!(pdf.matches("0.820 0.870 0.950 rg").count(), 2);
+    }
+
+    #[test]
+    fn des_murs_vers_l_interieur_dans_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.epaisseur_des_murs = String::new();
+        chambre.mesures_exterieures = true;
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Quatre morceaux de mur : leur intérieur et leur extérieur.
+        assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nMURS\r\n").count(), 8);
+        // L'intérieur du premier mur commence à 9 po dans la pièce (le DXF a
+        // les y vers le haut).
+        assert!(dxf.contains("\r\n 10\r\n9.0000\r\n 20\r\n-9.0000\r\n"));
     }
 
     #[test]
