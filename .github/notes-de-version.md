@@ -22,6 +22,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.9.2** : la **vue 3D** — le bouton **3D** montre la pièce en 3D, murs à leur hauteur,
   portes et fenêtres dans les murs; glissez pour tourner, `+` et `−` pour zoomer. Chaque
   fenêtre a son **allège** (la hauteur de son bas, 3 pi par défaut).
+- **0.9.3** : la **distance au coin** des portes et des fenêtres se règle sur le plan —
+  faites-les glisser le long de leur mur; une ouverture choisie montre ses deux distances
+  jusqu'aux coins, et le coin A d'où se mesure sa distance; la toucher ouvre cette distance
+  au pavé.
 
 ## Nouveautés de la version 0.8
 

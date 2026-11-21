@@ -398,7 +398,7 @@ pub const DESSIN_FENETRE: Texte = t("Fenêtre", "Window");
 pub const DESSIN_PLACER: Texte = t("Placer", "Place");
 pub const DESSIN_PAS_PLACEE: Texte = t("pas placée", "not placed");
 pub const DESSIN_CENTREE: Texte = t("centrée", "centred");
-pub const DESSIN_POSITION: Texte = t("distance du coin", "distance from the corner");
+pub const DESSIN_POSITION: Texte = t("distance du coin A", "distance from corner A");
 pub const DESSIN_POSITION_EXEMPLE: Texte = t("vide : centrée", "empty: centred");
 pub const DESSIN_ALLEGE: Texte = t("allège", "sill height");
 pub const DESSIN_ALLEGE_DEFAUT: Texte = t("3 pi 0 po", "3 ft 0 in");
@@ -429,8 +429,8 @@ pub fn dessin_sur_le_cote(rang: usize) -> String {
 /// « à 3 pi 0 po du coin ».
 pub fn dessin_a_du_coin(distance: &str) -> String {
     match langue::en_cours() {
-        Langue::Francais => format!("à {distance} du coin"),
-        Langue::Anglais => format!("{distance} from the corner"),
+        Langue::Francais => format!("à {distance} du coin A"),
+        Langue::Anglais => format!("{distance} from corner A"),
     }
 }
 

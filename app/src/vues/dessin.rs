@@ -18,6 +18,8 @@ use crate::theme::{self, Palette};
 /// large sur les côtés, où s'écrivent celles des côtés verticaux.
 const MARGE_LATERALE: f32 = 64.0;
 const MARGE_VERTICALE: f32 = 34.0;
+/// Distance, en points, sous laquelle un toucher saisit une porte ou une fenêtre.
+const PORTEE_D_UNE_OUVERTURE: f32 = 16.0;
 /// Distance, en points, sous laquelle un toucher choisit un côté.
 const PORTEE_DU_TOUCHER: f32 = 30.0;
 /// Format d'un nombre inscrit sans unité : des pieds.
@@ -87,6 +89,12 @@ pub struct Etat {
     fleches_en_biais: bool,
     /// L'ouverture qui attend qu'on touche son mur pour s'y placer.
     ouverture_a_placer: Option<usize>,
+    /// La porte ou la fenêtre que le doigt fait glisser le long de son mur :
+    /// son rang, et la distance (pouces) entre le point saisi et son bord.
+    ouverture_tiree: Option<(usize, f64)>,
+    /// Où sont les ouvertures à l'écran, d'une image à la suivante : leur rang
+    /// et leurs deux bords.
+    ouvertures_a_l_ecran: Vec<(usize, Pos2, Pos2)>,
     /// Vrai quand la planche montre la pièce en 3D.
     vue_3d: bool,
     /// La caméra de la vue 3D.
@@ -152,6 +160,8 @@ impl Etat {
         self.cadrage = Cadrage::default();
         self.geste_annule = false;
         self.ouverture_a_placer = None;
+        self.ouverture_tiree = None;
+        self.ouvertures_a_l_ecran.clear();
         self.vue_3d = false;
         self.orbite = super::maquette::Orbite::default();
     }
@@ -764,9 +774,40 @@ fn planche_et_gestes(
     // Glisser avec le bouton droit ou celui du milieu déplace toujours la vue;
     // avec le doigt ou le bouton gauche, quand la forme est fermée (elle ne
     // prend plus de tracé).
+    // Une porte ou une fenêtre saisie au doigt glisse le long de son mur, au
+    // lieu de déplacer la vue.
+    let saisie = if dessin.fermee && reponse.drag_started_by(egui::PointerButton::Primary) {
+        ui.input(|i| i.pointer.press_origin()).and_then(|origine| {
+            etat.ouvertures_a_l_ecran
+                .iter()
+                .copied()
+                .find(|(_, q0, q1)| {
+                    distance_au_segment(origine, *q0, *q1) <= PORTEE_D_UNE_OUVERTURE
+                })
+                .map(|ouverture| (origine, ouverture))
+        })
+    } else {
+        None
+    };
+    if let Some((origine, (rang, q0, q1))) = saisie
+        && let Some(Some(placement)) = solution.placements.get(rang)
+    {
+        let longueur_a_l_ecran = q0.distance(q1).max(1e-3);
+        let pouces_par_point = (placement.fin - placement.debut) / f64::from(longueur_a_l_ecran);
+        let decalage =
+            f64::from((origine - q0).dot((q1 - q0) / longueur_a_l_ecran)) * pouces_par_point;
+        etat.memoriser(dessin);
+        etat.ouverture_tiree = Some((rang, decalage));
+        etat.choisir_autre(Some(AutreSaisie::Ouverture(
+            rang,
+            ChampDOuverture::Position,
+        )));
+    }
     let deplacer = reponse.dragged_by(egui::PointerButton::Secondary)
         || reponse.dragged_by(egui::PointerButton::Middle)
-        || (dessin.fermee && reponse.dragged_by(egui::PointerButton::Primary));
+        || (dessin.fermee
+            && reponse.dragged_by(egui::PointerButton::Primary)
+            && etat.ouverture_tiree.is_none());
     if deplacer && !etat.geste_annule {
         etat.cadrage.decalage += reponse.drag_delta();
     }
@@ -780,6 +821,36 @@ fn planche_et_gestes(
         centre_de_la_planche,
     );
     let points: Vec<Pos2> = sommets.iter().map(|s| echelle.vers_l_ecran(*s)).collect();
+
+    // La porte ou la fenêtre qui glisse : sa nouvelle distance au coin A,
+    // arrondie au pouce (au centimètre en métrique).
+    if let Some((rang, decalage)) = etat.ouverture_tiree {
+        if reponse.dragged()
+            && let Some(pointeur) = reponse.interact_pointer_pos()
+            && let Some(Some(placement)) = solution.placements.get(rang)
+            && let (Some(a), Some(b)) = (points.get(placement.cote), points.get(placement.cote + 1))
+            && let Some(longueur) = solution
+                .mesures
+                .get(placement.cote)
+                .and_then(|m| m.pouces())
+            && rang < dessin.ouvertures.len()
+        {
+            let le_long = *b - *a;
+            let t = f64::from((pointeur - *a).dot(le_long) / le_long.length_sq().max(1e-6));
+            let largeur = placement.fin - placement.debut;
+            let metrique =
+                solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique);
+            let pas = if metrique { 1.0 / 2.54 } else { 1.0 };
+            let debut = (((t * longueur - decalage) / pas).round() * pas)
+                .clamp(0.0, (longueur - largeur).max(0.0));
+            dessin.ouvertures[rang].position =
+                sans_insecables(&Quantite::Longueur(debut).en_clair(solution.modele, prefs));
+            modifie = true;
+        }
+        if !reponse.dragged() {
+            etat.ouverture_tiree = None;
+        }
+    }
 
     // --- Gestes
     let trace_permise = !dessin.fermee && !etat.geste_annule;
@@ -847,6 +918,20 @@ fn planche_et_gestes(
                 etat.choisir(premier_cote_a_mesurer(&solution).or(Some(0)));
             }
         }
+    } else if reponse.clicked()
+        && let Some(position) = reponse.interact_pointer_pos()
+        && etat.ouverture_a_placer.is_none()
+        && let Some((rang, _, _)) = etat
+            .ouvertures_a_l_ecran
+            .iter()
+            .copied()
+            .find(|(_, q0, q1)| distance_au_segment(position, *q0, *q1) <= PORTEE_D_UNE_OUVERTURE)
+    {
+        // Toucher une porte ou une fenêtre ouvre sa distance au coin A.
+        etat.choisir_autre(Some(AutreSaisie::Ouverture(
+            rang,
+            ChampDOuverture::Position,
+        )));
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
     {
@@ -927,6 +1012,7 @@ fn planche_et_gestes(
         painter.circle_filled(*fin, 5.5, p.barre_accent);
     }
     // Les portes et les fenêtres, sur leur mur, ouvertes vers l'intérieur.
+    etat.ouvertures_a_l_ecran.clear();
     if dessin.fermee && points.len() > 3 {
         let aire_signee: f32 = points
             .windows(2)
@@ -955,9 +1041,43 @@ fn planche_et_gestes(
             } else {
                 Vec2::new(unite.y, -unite.x)
             };
+            etat.ouvertures_a_l_ecran.push((rang, q0, q1));
             let choisie = etat.ouverture_a_placer == Some(rang)
+                || etat.ouverture_tiree.is_some_and(|(r, _)| r == rang)
                 || matches!(etat.autre_choisi, Some(AutreSaisie::Ouverture(r, _)) if r == rang);
             let encre = if choisie { p.barre_accent } else { p.texte };
+            if choisie {
+                // Les deux distances jusqu'aux coins, à l'intérieur de la pièce,
+                // et le coin A, d'où se mesure la distance au coin.
+                let trait_ = Stroke::new(1.0, p.barre_accent);
+                for (depuis, jusqu_a, distance) in [
+                    (*a, q0, placement.debut),
+                    (q1, *b, longueur - placement.fin),
+                ] {
+                    if distance < 0.5 {
+                        continue;
+                    }
+                    painter.line_segment([depuis + dedans * 16.0, jusqu_a + dedans * 16.0], trait_);
+                    for bout in [depuis, jusqu_a] {
+                        painter.line_segment([bout + dedans * 10.0, bout + dedans * 22.0], trait_);
+                    }
+                    painter.text(
+                        depuis + (jusqu_a - depuis) * 0.5 + dedans * 28.0,
+                        Align2::CENTER_CENTER,
+                        longueur_en_clair(distance, solution, prefs),
+                        theme::police_grasse(11.5),
+                        p.barre_accent,
+                    );
+                }
+                painter.circle_stroke(*a, 6.5, Stroke::new(1.6, p.barre_accent));
+                painter.text(
+                    *a + dedans * 14.0 + unite * 12.0,
+                    Align2::CENTER_CENTER,
+                    "A",
+                    theme::police_grasse(12.0),
+                    p.barre_accent,
+                );
+            }
             // Le mur s'interrompt.
             painter.line_segment([q0, q1], Stroke::new(7.0, p.carte));
             dessiner_ouverture(
