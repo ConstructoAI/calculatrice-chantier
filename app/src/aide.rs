@@ -1253,10 +1253,10 @@ pub static FICHES: &[Fiche] = &[
             ),
         )),
         note: Some(t(
-            "Un nombre inscrit sans unité est en pieds. Les boutons `+` et `−` de la planche zooment, `Ajuster` recadre; deux doigts zooment et déplacent la vue, et une forme fermée se déplace au doigt. `Exporter en PDF` ou `Exporter en DXF` enregistre le plan. Les murs en biais ne sont pas encore pris en charge.",
-            "A number entered without a unit is in feet. The `+` and `−` buttons on the board zoom, `Fit` reframes; two fingers zoom and pan, and a closed shape pans with one finger. `Export as PDF` or `Export as DXF` saves the plan. Angled walls are not supported yet.",
+            "Un nombre inscrit sans unité est en pieds. Les boutons `+` et `−` de la planche zooment, `Ajuster` recadre; deux doigts zooment et déplacent la vue, et une forme fermée se déplace au doigt. `Exporter en PDF` ou `Exporter en DXF` enregistre le plan. Un mur en biais se trace à 45°, ou avec les flèches après le bouton `45°`; les autres angles ne sont pas pris en charge.",
+            "A number entered without a unit is in feet. The `+` and `−` buttons on the board zoom, `Fit` reframes; two fingers zoom and pan, and a closed shape pans with one finger. `Export as PDF` or `Export as DXF` saves the plan. An angled wall is drawn at 45°, or with the arrows after the `45°` button; other angles are not supported.",
         )),
-        mots_cles: "dessin dessiner croquis pièce forme plan surface aire périmètre contour flèche flèches sketch draw drawing room shape floor plan area perimeter outline arrow arrows",
+        mots_cles: "dessin dessiner croquis pièce forme plan surface aire périmètre contour flèche flèches biais angle 45 sketch draw drawing room shape floor plan area perimeter outline arrow arrows angled 45",
         touches: &[],
         secondaire: false,
         trigo: false,

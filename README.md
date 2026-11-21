@@ -127,7 +127,8 @@ remplacent ni les plans ni les codes en vigueur.
 
 Dans l'onglet **Dessin**, tracez le contour d'une pièce avec le doigt ou la souris — d'un
 seul geste ou un côté à la fois — ou avec les flèches du bas de la planche, qui ajoutent
-chacune un côté dans leur direction. Le croquis n'a pas besoin d'être à l'échelle : les angles
+chacune un côté dans leur direction. Un trait à 45° (ou les flèches après le bouton **45°**)
+donne un mur en biais. Le croquis n'a pas besoin d'être à l'échelle : les angles
 sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure avec le pavé : `Pieds`,
 `Pouces` et les fractions de pouce (`12` `Pieds` `6` `1/2` donne 12 pi 6 1/2 po), ou `m` pour
 les mètres. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres; quand tout

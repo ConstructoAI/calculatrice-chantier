@@ -21,15 +21,27 @@ struct PieceExportee {
     sommets: Vec<(f64, f64)>,
     /// Vrai si la forme est à l'échelle de ses mesures (pièce complète).
     a_l_echelle: bool,
-    /// Pour chaque côté : vrai s'il est horizontal, sa mesure en clair, et
-    /// vrai si elle est déduite des autres.
-    cotes: Vec<(bool, String, bool)>,
+    /// Pour chaque côté : sa mesure en clair, et vrai si elle est déduite des
+    /// autres.
+    cotes: Vec<(String, bool)>,
     /// Les résultats, comme à l'écran : (libellé, valeur).
     resultats: Vec<(String, String)>,
     /// Surface nette (pouces carrés) et périmètre (pouces), si la pièce est complète.
     aire_nette: Option<f64>,
     perimetre: Option<f64>,
     modele: Option<Format>,
+}
+
+/// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
+/// tournée à l'opposé du centre de la forme.
+fn normale_exterieure(a: (f64, f64), b: (f64, f64), centre: (f64, f64)) -> (f64, f64) {
+    let longueur = (b.0 - a.0).hypot(b.1 - a.1).max(1e-12);
+    let (mut nx, mut ny) = (-(b.1 - a.1) / longueur, (b.0 - a.0) / longueur);
+    let milieu = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+    if (milieu.0 - centre.0) * nx + (milieu.1 - centre.1) * ny < 0.0 {
+        (nx, ny) = (-nx, -ny);
+    }
+    (nx, ny)
 }
 
 /// Les espaces insécables des valeurs affichées deviennent des espaces.
@@ -75,7 +87,7 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
                 Mesure::Manquante => ("?".to_string(), false),
                 Mesure::Invalide => (cote.saisie.trim().to_string(), false),
             };
-            (cote.sens.horizontal(), sans_insecables(&texte), deduite)
+            (sans_insecables(&texte), deduite)
         })
         .collect();
     let (aire_nette, perimetre) = match solution.etat {
@@ -309,7 +321,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         points.iter().take(nombre).map(|q| q.1).sum::<f64>() / nombre as f64,
     );
     for (i, segment) in points.windows(2).enumerate() {
-        let Some((horizontal, texte, deduite)) = piece.cotes.get(i) else {
+        let Some((texte, deduite)) = piece.cotes.get(i) else {
             continue;
         };
         if texte.is_empty() {
@@ -319,16 +331,31 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
             (segment[0].0 + segment[1].0) / 2.0,
             (segment[0].1 + segment[1].1) / 2.0,
         );
-        let (position, alignement) = if *horizontal {
-            if milieu.1 >= centre.1 {
+        // La page a l'axe des y vers le haut.
+        let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
+        let (position, alignement) = if ny.abs() > 0.9 {
+            if ny > 0.0 {
                 ((milieu.0, milieu.1 + 5.0), Alignement::Centre)
             } else {
                 ((milieu.0, milieu.1 - 12.0), Alignement::Centre)
             }
-        } else if milieu.0 >= centre.0 {
-            ((milieu.0 + 6.0, milieu.1 - 3.0), Alignement::Gauche)
+        } else if nx.abs() > 0.9 {
+            if nx > 0.0 {
+                ((milieu.0 + 6.0, milieu.1 - 3.0), Alignement::Gauche)
+            } else {
+                ((milieu.0 - 6.0, milieu.1 - 3.0), Alignement::Droite)
+            }
         } else {
-            ((milieu.0 - 6.0, milieu.1 - 3.0), Alignement::Droite)
+            let y = if ny > 0.0 {
+                milieu.1 + 4.0
+            } else {
+                milieu.1 - 11.0
+            };
+            if nx > 0.0 {
+                ((milieu.0 + 5.0, y), Alignement::Gauche)
+            } else {
+                ((milieu.0 - 5.0, y), Alignement::Droite)
+            }
         };
         let couleur = if *deduite { GRIS } else { NOIR };
         page.texte(position, 9.0, false, alignement, couleur, texte);
@@ -380,7 +407,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
     } else {
         piece.cotes.len().max(1)
     };
-    for (i, (_, texte, deduite)) in piece.cotes.iter().enumerate() {
+    for (i, (texte, deduite)) in piece.cotes.iter().enumerate() {
         let x = MARGE + (i / par_colonne) as f64 * 250.0;
         let y_ligne = y - (i % par_colonne) as f64 * 13.5;
         if y_ligne < 60.0 {
@@ -725,23 +752,32 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             points.iter().take(nombre).map(|q| q.1).sum::<f64>() / nombre as f64,
         );
         for (i, segment) in points.windows(2).enumerate() {
-            let Some((horizontal, texte, _)) = piece.cotes.get(i) else {
+            let Some((texte, _)) = piece.cotes.get(i) else {
                 continue;
             };
             let milieu = (
                 (segment[0].0 + segment[1].0) / 2.0,
                 (segment[0].1 + segment[1].1) / 2.0,
             );
-            let (position, alignement) = if *horizontal {
-                let sens = if milieu.1 >= centre.1 { 1.0 } else { -1.0 };
+            let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
+            let (position, alignement) = if ny.abs() > 0.9 {
                 (
-                    (milieu.0, milieu.1 + sens * taille * 1.2),
+                    (milieu.0, milieu.1 + ny.signum() * taille * 1.2),
                     Alignement::Centre,
                 )
-            } else if milieu.0 >= centre.0 {
-                ((milieu.0 + taille * 0.8, milieu.1), Alignement::Gauche)
+            } else if nx.abs() > 0.9 {
+                if nx > 0.0 {
+                    ((milieu.0 + taille * 0.8, milieu.1), Alignement::Gauche)
+                } else {
+                    ((milieu.0 - taille * 0.8, milieu.1), Alignement::Droite)
+                }
             } else {
-                ((milieu.0 - taille * 0.8, milieu.1), Alignement::Droite)
+                let position = (milieu.0 + nx * taille, milieu.1 + ny * taille);
+                if nx > 0.0 {
+                    (position, Alignement::Gauche)
+                } else {
+                    (position, Alignement::Droite)
+                }
             };
             texte_dans_le_dxf(&mut entites, "COTES", position, taille, alignement, texte);
         }

@@ -1,9 +1,10 @@
 //! Dessin d'une pièce (section 25) : un croquis tracé à main levée devient une
-//! forme aux angles d'équerre, dont chaque côté reçoit ensuite sa mesure.
+//! forme aux angles d'équerre — ou à 45° pour un mur en biais —, dont chaque
+//! côté reçoit ensuite sa mesure.
 //!
 //! Le croquis n'est pas à l'échelle : seules comptent la direction de chaque
-//! côté et les mesures inscrites. Quand il ne manque qu'un côté dans un sens
-//! (gauche-droite ou haut-bas), il se déduit des autres.
+//! côté et les mesures inscrites. Un côté manquant se déduit des autres quand
+//! la fermeture de la forme le détermine (R-80).
 
 use serde::{Deserialize, Serialize};
 
@@ -22,44 +23,129 @@ const PART_NEGLIGEABLE: f64 = 0.10;
 /// Finesse du redressement, en part de la diagonale du tracé.
 const FINESSE: f64 = 0.07;
 
-/// Direction d'un côté, comme sur l'écran : l'est à droite, le sud en bas.
+/// Direction d'un côté, comme sur l'écran : l'est à droite, le sud en bas. Les
+/// quatre directions en biais sont à 45°.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Sens {
     Est,
     Sud,
     Ouest,
     Nord,
+    NordEst,
+    SudEst,
+    SudOuest,
+    NordOuest,
+}
+
+/// L'axe d'un côté : horizontal, vertical, ou l'une des deux diagonales à 45°.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Axe {
+    Horizontal,
+    Vertical,
+    /// Du haut à gauche vers le bas à droite.
+    Descendant,
+    /// Du bas à gauche vers le haut à droite.
+    Montant,
+}
+
+/// Composante d'un déplacement unitaire à 45°.
+const DEMI_RACINE: f64 = std::f64::consts::FRAC_1_SQRT_2;
+/// Demi-largeur, en degrés, de la bande autour de 45° où un trait devient un
+/// côté en biais; hors de cette bande, il est horizontal ou vertical.
+const BANDE_DU_BIAIS: f64 = 12.0;
+
+impl Axe {
+    /// Le sens positif de l'axe.
+    fn positif(self) -> Sens {
+        match self {
+            Axe::Horizontal => Sens::Est,
+            Axe::Vertical => Sens::Sud,
+            Axe::Descendant => Sens::SudEst,
+            Axe::Montant => Sens::NordEst,
+        }
+    }
+
+    /// Le sens négatif de l'axe.
+    fn negatif(self) -> Sens {
+        match self {
+            Axe::Horizontal => Sens::Ouest,
+            Axe::Vertical => Sens::Nord,
+            Axe::Descendant => Sens::NordOuest,
+            Axe::Montant => Sens::SudOuest,
+        }
+    }
+
+    /// Le déplacement unitaire du sens positif.
+    pub fn vecteur(self) -> (f64, f64) {
+        self.positif().pas()
+    }
+
+    /// L'axe d'un déplacement : en biais s'il est à 45° à quelques degrés
+    /// près, sinon horizontal ou vertical.
+    fn du_deplacement(dx: f64, dy: f64) -> Axe {
+        let angle = dy.atan2(dx).to_degrees().rem_euclid(180.0);
+        if (angle - 45.0).abs() <= BANDE_DU_BIAIS {
+            Axe::Descendant
+        } else if (angle - 135.0).abs() <= BANDE_DU_BIAIS {
+            Axe::Montant
+        } else if !(45.0..=135.0).contains(&angle) {
+            Axe::Horizontal
+        } else {
+            Axe::Vertical
+        }
+    }
 }
 
 impl Sens {
+    /// L'axe du côté.
+    pub fn axe(self) -> Axe {
+        match self {
+            Sens::Est | Sens::Ouest => Axe::Horizontal,
+            Sens::Sud | Sens::Nord => Axe::Vertical,
+            Sens::SudEst | Sens::NordOuest => Axe::Descendant,
+            Sens::NordEst | Sens::SudOuest => Axe::Montant,
+        }
+    }
+
     /// Vrai pour un côté horizontal.
     pub fn horizontal(self) -> bool {
-        matches!(self, Sens::Est | Sens::Ouest)
+        self.axe() == Axe::Horizontal
+    }
+
+    /// Vrai pour un côté en biais, à 45°.
+    pub fn en_biais(self) -> bool {
+        matches!(self.axe(), Axe::Descendant | Axe::Montant)
     }
 
     /// Déplacement unitaire (x vers la droite, y vers le bas).
     pub fn pas(self) -> (f64, f64) {
+        let d = DEMI_RACINE;
         match self {
             Sens::Est => (1.0, 0.0),
             Sens::Sud => (0.0, 1.0),
             Sens::Ouest => (-1.0, 0.0),
             Sens::Nord => (0.0, -1.0),
+            Sens::NordEst => (d, -d),
+            Sens::SudEst => (d, d),
+            Sens::SudOuest => (-d, d),
+            Sens::NordOuest => (-d, -d),
         }
     }
 
+    /// +1 dans le sens positif de son axe, −1 dans l'autre.
     fn signe(self) -> f64 {
-        match self {
-            Sens::Est | Sens::Sud => 1.0,
-            Sens::Ouest | Sens::Nord => -1.0,
+        if self == self.axe().positif() {
+            1.0
+        } else {
+            -1.0
         }
     }
 
-    fn selon(horizontal: bool, longueur_signee: f64) -> Sens {
-        match (horizontal, longueur_signee >= 0.0) {
-            (true, true) => Sens::Est,
-            (true, false) => Sens::Ouest,
-            (false, true) => Sens::Sud,
-            (false, false) => Sens::Nord,
+    fn selon(axe: Axe, longueur_signee: f64) -> Sens {
+        if longueur_signee >= 0.0 {
+            axe.positif()
+        } else {
+            axe.negatif()
         }
     }
 }
@@ -373,10 +459,10 @@ pub fn outils_d_une_piece() -> Vec<(&'static Calculateur, usize, usize, Option<u
         .collect()
 }
 
-/// Redresse un tracé à main levée : une suite de déplacements horizontaux et
-/// verticaux, chacun avec sa longueur signée (positive vers la droite ou vers
-/// le bas). Les tremblements sont écartés.
-pub fn redresser(points: &[(f64, f64)]) -> Vec<(bool, f64)> {
+/// Redresse un tracé à main levée : une suite de déplacements horizontaux,
+/// verticaux ou à 45°, chacun avec sa longueur signée le long de son axe
+/// (positive dans le sens positif de l'axe). Les tremblements sont écartés.
+pub fn redresser(points: &[(f64, f64)]) -> Vec<(Axe, f64)> {
     if points.len() < 2 {
         return Vec::new();
     }
@@ -392,11 +478,12 @@ pub fn redresser(points: &[(f64, f64)]) -> Vec<(bool, f64)> {
         return Vec::new();
     }
     let sommets = simplifier(points, diagonale * FINESSE);
-    let mut pas: Vec<(bool, f64)> = Vec::new();
+    let mut pas: Vec<(Axe, f64)> = Vec::new();
     for paire in sommets.windows(2) {
         let (dx, dy) = (paire[1].0 - paire[0].0, paire[1].1 - paire[0].1);
-        let horizontal = dx.abs() >= dy.abs();
-        pas.push((horizontal, if horizontal { dx } else { dy }));
+        let axe = Axe::du_deplacement(dx, dy);
+        let (ux, uy) = axe.vecteur();
+        pas.push((axe, dx * ux + dy * uy));
     }
     let pas = fusionner(pas);
     let plus_long = pas.iter().map(|(_, l)| l.abs()).fold(0.0, f64::max);
@@ -407,13 +494,13 @@ pub fn redresser(points: &[(f64, f64)]) -> Vec<(bool, f64)> {
     fusionner(utiles)
 }
 
-/// Réunit les déplacements consécutifs de même sens (horizontal ou vertical).
-fn fusionner(pas: Vec<(bool, f64)>) -> Vec<(bool, f64)> {
-    let mut fusion: Vec<(bool, f64)> = Vec::new();
-    for (horizontal, longueur) in pas {
+/// Réunit les déplacements consécutifs d'un même axe.
+fn fusionner(pas: Vec<(Axe, f64)>) -> Vec<(Axe, f64)> {
+    let mut fusion: Vec<(Axe, f64)> = Vec::new();
+    for (axe, longueur) in pas {
         match fusion.last_mut() {
-            Some((h, l)) if *h == horizontal => *l += longueur,
-            _ => fusion.push((horizontal, longueur)),
+            Some((a, l)) if *a == axe => *l += longueur,
+            _ => fusion.push((axe, longueur)),
         }
     }
     fusion.retain(|(_, l)| l.abs() > 0.0);
@@ -459,6 +546,30 @@ fn simplifier(points: &[(f64, f64)], seuil: f64) -> Vec<(f64, f64)> {
 }
 
 impl Dessin {
+    /// Déduit le côté inconnu d'un axe, s'il est seul : `le_long` est sa
+    /// longueur signée le long de l'axe. Plusieurs côtés inconnus sur un même
+    /// axe se partagent cette longueur : il manque alors des mesures.
+    fn deduire_sur_l_axe(
+        &self,
+        mesures: &mut [Mesure],
+        rangs: &[usize],
+        le_long: f64,
+        ecart: &mut f64,
+        manquantes: &mut usize,
+    ) {
+        match rangs {
+            [seul] => {
+                let longueur = le_long * self.cotes[*seul].sens.signe();
+                if longueur > TOLERANCE_PO {
+                    mesures[*seul] = Mesure::Deduite(longueur);
+                } else {
+                    *ecart = ecart.max(TOLERANCE_PO.max(-longueur));
+                }
+            }
+            plusieurs => *manquantes += plusieurs.len().saturating_sub(1),
+        }
+    }
+
     /// Vrai si rien n'est tracé.
     pub fn est_vide(&self) -> bool {
         self.cotes.is_empty()
@@ -491,7 +602,7 @@ impl Dessin {
         let pas = self.pas_des_fleches();
         match self.cotes.last_mut() {
             Some(dernier) if dernier.sens == sens => dernier.croquis += pas,
-            Some(dernier) if dernier.sens.horizontal() == sens.horizontal() => {
+            Some(dernier) if dernier.sens.axe() == sens.axe() => {
                 let raccourci = (dernier.croquis - pas).max(pas * 0.25);
                 if (raccourci - dernier.croquis).abs() < 1e-9 {
                     return false;
@@ -504,7 +615,7 @@ impl Dessin {
                 saisie: String::new(),
             }),
         }
-        if self.cotes.len() >= 4 {
+        if self.cotes.len() >= 3 {
             let (dx, dy) = self.fin();
             if dx.hypot(dy) <= self.etendue() * PROXIMITE_DE_FERMETURE {
                 self.fermer();
@@ -524,10 +635,10 @@ impl Dessin {
         if pas.is_empty() {
             return false;
         }
-        for (horizontal, longueur) in pas {
-            self.ajouter_pas(horizontal, longueur);
+        for (axe, longueur) in pas {
+            self.ajouter_pas(axe, longueur);
         }
-        if self.cotes.len() >= 4 {
+        if self.cotes.len() >= 3 {
             let (dx, dy) = self.fin();
             if dx.hypot(dy) <= self.etendue() * PROXIMITE_DE_FERMETURE {
                 self.fermer();
@@ -536,13 +647,13 @@ impl Dessin {
         true
     }
 
-    fn ajouter_pas(&mut self, horizontal: bool, longueur: f64) {
+    fn ajouter_pas(&mut self, axe: Axe, longueur: f64) {
         if let Some(dernier) = self.cotes.last_mut()
-            && dernier.sens.horizontal() == horizontal
+            && dernier.sens.axe() == axe
         {
             let somme = dernier.signe() + longueur;
             if somme.abs() > 0.0 {
-                dernier.sens = Sens::selon(horizontal, somme);
+                dernier.sens = Sens::selon(axe, somme);
                 dernier.croquis = somme.abs();
             } else {
                 self.cotes.pop();
@@ -550,7 +661,7 @@ impl Dessin {
             return;
         }
         self.cotes.push(Cote {
-            sens: Sens::selon(horizontal, longueur),
+            sens: Sens::selon(axe, longueur),
             croquis: longueur.abs(),
             saisie: String::new(),
         });
@@ -589,29 +700,43 @@ impl Dessin {
         let avant = self.clone();
         let (dx, dy) = self.fin();
         let seuil = self.etendue() * PART_NEGLIGEABLE;
-        // Le retour au départ : d'abord dans le sens que le dernier côté n'a pas.
-        let dernier_horizontal = self.cotes.last().is_some_and(|c| c.sens.horizontal());
-        let retours = if dernier_horizontal {
-            [(false, -dy), (true, -dx)]
-        } else {
-            [(true, -dx), (false, -dy)]
-        };
-        for (horizontal, longueur) in retours {
+        // Le retour au départ. La fermeture n'invente pas de côté en biais : un
+        // tracé d'équerre un peu de travers ne doit pas recevoir de coin coupé.
+        // Si le dernier côté est en biais et que le départ est dans son
+        // prolongement, il s'allonge jusqu'au départ; sinon, le retour se fait
+        // d'équerre, d'abord dans l'axe que le dernier côté n'a pas.
+        let retour = Axe::du_deplacement(-dx, -dy);
+        let dernier_axe = self.cotes.last().map(|c| c.sens.axe());
+        if matches!(retour, Axe::Descendant | Axe::Montant) && dernier_axe == Some(retour) {
+            let (ux, uy) = retour.vecteur();
+            let longueur = -dx * ux - dy * uy;
             if longueur.abs() > seuil {
-                self.ajouter_pas(horizontal, longueur);
+                self.ajouter_pas(retour, longueur);
+            }
+        } else {
+            let dernier_horizontal = self.cotes.last().is_some_and(|c| c.sens.horizontal());
+            let retours = if dernier_horizontal {
+                [(Axe::Vertical, -dy), (Axe::Horizontal, -dx)]
+            } else {
+                [(Axe::Horizontal, -dx), (Axe::Vertical, -dy)]
+            };
+            for (axe, longueur) in retours {
+                if longueur.abs() > seuil {
+                    self.ajouter_pas(axe, longueur);
+                }
             }
         }
-        // Le dernier côté et le premier se suivent : s'ils vont dans le même
-        // sens, ils n'en font qu'un.
+        // Le dernier côté et le premier se suivent : s'ils ont le même axe, ils
+        // n'en font qu'un.
         while self.cotes.len() > 2
-            && self.cotes[0].sens.horizontal() == self.cotes[self.cotes.len() - 1].sens.horizontal()
+            && self.cotes[0].sens.axe() == self.cotes[self.cotes.len() - 1].sens.axe()
         {
             let Some(dernier) = self.cotes.pop() else {
                 break;
             };
             let somme = self.cotes[0].signe() + dernier.signe();
             if somme.abs() > 0.0 {
-                self.cotes[0].sens = Sens::selon(self.cotes[0].sens.horizontal(), somme);
+                self.cotes[0].sens = Sens::selon(self.cotes[0].sens.axe(), somme);
                 self.cotes[0].croquis = somme.abs();
                 if self.cotes[0].saisie.is_empty() {
                     self.cotes[0].saisie = dernier.saisie;
@@ -620,31 +745,43 @@ impl Dessin {
                 self.cotes.remove(0);
             }
         }
-        // Le petit écart qui reste est repris par le dernier côté de chaque sens.
-        let (dx, dy) = self.fin();
-        let mut valide = self.cotes.len() >= 4 && self.cotes.len().is_multiple_of(2);
-        for (horizontal, ecart) in [(true, dx), (false, dy)] {
-            if let Some(cote) = self
-                .cotes
-                .iter_mut()
-                .rev()
-                .find(|c| c.sens.horizontal() == horizontal)
-            {
-                let corrige = cote.signe() - ecart;
-                if corrige.abs() > 0.0 && (corrige > 0.0) == (cote.signe() > 0.0) {
-                    cote.croquis = corrige.abs();
-                } else {
-                    valide = false;
-                }
-            } else {
-                valide = false;
-            }
-        }
-        if !valide {
+        // Le petit écart qui reste est repris par les deux derniers côtés.
+        if self.cotes.len() < 3 || !self.reprendre_l_ecart() {
             *self = avant;
             return false;
         }
         self.fermee = true;
+        true
+    }
+
+    /// Reprend le petit écart entre la fin du croquis et son départ sur les
+    /// deux derniers côtés (ils n'ont jamais le même axe), sans changer leur
+    /// sens. Retourne faux si c'est impossible.
+    fn reprendre_l_ecart(&mut self) -> bool {
+        let n = self.cotes.len();
+        if n < 2 {
+            return false;
+        }
+        let (dx, dy) = self.fin();
+        let u = self.cotes[n - 2].sens.axe().vecteur();
+        let v = self.cotes[n - 1].sens.axe().vecteur();
+        let determinant = u.0 * v.1 - u.1 * v.0;
+        if determinant.abs() < 1e-9 {
+            return false;
+        }
+        let (wx, wy) = (-dx, -dy);
+        let corrections = [
+            (n - 2, (wx * v.1 - wy * v.0) / determinant),
+            (n - 1, (u.0 * wy - u.1 * wx) / determinant),
+        ];
+        for (rang, correction) in corrections {
+            let avant = self.cotes[rang].signe();
+            let apres = avant + correction;
+            if apres.abs() <= 0.0 || (apres > 0.0) != (avant > 0.0) {
+                return false;
+            }
+            self.cotes[rang].croquis = apres.abs();
+        }
         true
     }
 
@@ -755,33 +892,66 @@ impl Dessin {
         if !self.fermee {
             return Etat::Ouverte;
         }
+        // Ce que donnent les côtés connus, et les côtés inconnus groupés par axe.
+        let (mut rx, mut ry) = (0.0, 0.0);
+        let mut groupes: Vec<(Axe, Vec<usize>)> = Vec::new();
+        for (i, cote) in self.cotes.iter().enumerate() {
+            if let Some(longueur) = mesures[i].pouces() {
+                let (ux, uy) = cote.sens.pas();
+                rx += longueur * ux;
+                ry += longueur * uy;
+            } else {
+                let axe = cote.sens.axe();
+                match groupes.iter_mut().find(|(a, _)| *a == axe) {
+                    Some((_, rangs)) => rangs.push(i),
+                    None => groupes.push((axe, vec![i])),
+                }
+            }
+        }
+        // Les côtés inconnus doivent ramener la forme à son départ. Sur un ou
+        // deux axes, ce retour se décompose d'une seule façon; sur trois axes
+        // ou plus, il ne détermine aucun côté.
         let mut manquantes = 0;
         let mut ecart_maximal: f64 = 0.0;
-        for horizontal in [true, false] {
-            let rangs: Vec<usize> = (0..self.cotes.len())
-                .filter(|&i| self.cotes[i].sens.horizontal() == horizontal)
-                .collect();
-            let inconnus: Vec<usize> = rangs
-                .iter()
-                .copied()
-                .filter(|&i| mesures[i] == Mesure::Manquante)
-                .collect();
-            // Somme signée des côtés connus : elle doit s'annuler.
-            let somme: f64 = rangs
-                .iter()
-                .filter_map(|&i| mesures[i].pouces().map(|x| x * self.cotes[i].sens.signe()))
-                .sum();
-            match inconnus.as_slice() {
-                [] => ecart_maximal = ecart_maximal.max(somme.abs()),
-                [seul] => {
-                    let longueur = -somme * self.cotes[*seul].sens.signe();
-                    if longueur > TOLERANCE_PO {
-                        mesures[*seul] = Mesure::Deduite(longueur);
-                    } else {
-                        ecart_maximal = ecart_maximal.max(TOLERANCE_PO.max(-longueur));
-                    }
-                }
-                plusieurs => manquantes += plusieurs.len() - 1,
+        match groupes.as_slice() {
+            [] => ecart_maximal = rx.abs().max(ry.abs()),
+            [(axe, rangs)] => {
+                let (ux, uy) = axe.vecteur();
+                // Ce que cet axe ne peut pas reprendre : l'écart de travers.
+                ecart_maximal = (rx * uy - ry * ux).abs();
+                let le_long = -(rx * ux + ry * uy);
+                self.deduire_sur_l_axe(
+                    mesures,
+                    rangs,
+                    le_long,
+                    &mut ecart_maximal,
+                    &mut manquantes,
+                );
+            }
+            [(a, rangs_a), (b, rangs_b)] => {
+                let (u, v) = (a.vecteur(), b.vecteur());
+                let determinant = u.0 * v.1 - u.1 * v.0;
+                let (wx, wy) = (-rx, -ry);
+                let le_long_de_a = (wx * v.1 - wy * v.0) / determinant;
+                let le_long_de_b = (u.0 * wy - u.1 * wx) / determinant;
+                self.deduire_sur_l_axe(
+                    mesures,
+                    rangs_a,
+                    le_long_de_a,
+                    &mut ecart_maximal,
+                    &mut manquantes,
+                );
+                self.deduire_sur_l_axe(
+                    mesures,
+                    rangs_b,
+                    le_long_de_b,
+                    &mut ecart_maximal,
+                    &mut manquantes,
+                );
+            }
+            _ => {
+                let inconnus: usize = groupes.iter().map(|(_, rangs)| rangs.len()).sum();
+                manquantes += inconnus - 2;
             }
         }
         if ecart_maximal > TOLERANCE_PO {
@@ -813,29 +983,37 @@ impl Dessin {
 fn se_croise(sommets: &[(f64, f64)]) -> bool {
     let n = sommets.len().saturating_sub(1);
     let eps = TOLERANCE_PO / 4.0;
-    let dans = |a: f64, b: f64, x: f64| x >= a.min(b) - eps && x <= a.max(b) + eps;
     for i in 0..n {
         for j in (i + 2)..n {
             if i == 0 && j == n - 1 {
                 continue;
             }
-            let (a, b, c, d) = (sommets[i], sommets[i + 1], sommets[j], sommets[j + 1]);
-            // Les boîtes des deux côtés se recouvrent-elles ? Pour des côtés
-            // horizontaux ou verticaux, cela suffit.
-            let en_x = dans(a.0, b.0, c.0)
-                || dans(a.0, b.0, d.0)
-                || dans(c.0, d.0, a.0)
-                || dans(c.0, d.0, b.0);
-            let en_y = dans(a.1, b.1, c.1)
-                || dans(a.1, b.1, d.1)
-                || dans(c.1, d.1, a.1)
-                || dans(c.1, d.1, b.1);
-            if en_x && en_y {
+            if se_touchent(sommets[i], sommets[i + 1], sommets[j], sommets[j + 1], eps) {
                 return true;
             }
         }
     }
     false
+}
+
+/// Vrai si les segments `ab` et `cd` se touchent ou se croisent, à `eps` près.
+fn se_touchent(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64), eps: f64) -> bool {
+    // Leurs boîtes doivent se recouvrir.
+    let recouvre =
+        |p: f64, q: f64, r: f64, s: f64| p.min(q) <= r.max(s) + eps && r.min(s) <= p.max(q) + eps;
+    if !recouvre(a.0, b.0, c.0, d.0) || !recouvre(a.1, b.1, c.1, d.1) {
+        return false;
+    }
+    let orientation = |p: (f64, f64), q: (f64, f64), r: (f64, f64)| {
+        (q.0 - p.0) * (r.1 - p.1) - (q.1 - p.1) * (r.0 - p.0)
+    };
+    // Deux points nettement du même côté d'un segment : pas de contact.
+    let d_un_seul_cote = |p: (f64, f64), q: (f64, f64), r: (f64, f64), s: (f64, f64)| {
+        let tolerance = eps * (q.0 - p.0).hypot(q.1 - p.1);
+        let (o1, o2) = (orientation(p, q, r), orientation(p, q, s));
+        (o1 > tolerance && o2 > tolerance) || (o1 < -tolerance && o2 < -tolerance)
+    };
+    !d_un_seul_cote(c, d, a, b) && !d_un_seul_cote(a, b, c, d)
 }
 
 #[cfg(test)]
@@ -873,7 +1051,7 @@ mod tests {
     fn un_trait_devient_un_cote() {
         let pas = redresser(&trait_tremble((10.0, 50.0), (200.0, 58.0)));
         assert_eq!(pas.len(), 1);
-        assert!(pas[0].0, "horizontal");
+        assert_eq!(pas[0].0, Axe::Horizontal);
         assert!((pas[0].1 - 190.0).abs() < 3.0);
         assert!(redresser(&[(5.0, 5.0)]).is_empty());
         assert!(redresser(&[(5.0, 5.0), (5.0, 5.0)]).is_empty());
@@ -1229,6 +1407,133 @@ mod tests {
         dessin.hauteur_des_murs = "abc".into();
         let solution = dessin.resoudre(Format::PiPo);
         assert!(solution.hauteur_invalide && solution.murs().is_none());
+    }
+
+    #[test]
+    fn un_trait_a_45_degres_devient_un_cote_en_biais() {
+        let biais = |b: (f64, f64)| redresser(&[(0.0, 0.0), b]);
+        let pas = biais((100.0, 100.0));
+        assert_eq!(pas[0].0, Axe::Descendant);
+        assert!((pas[0].1 - 100.0 * 2f64.sqrt()).abs() < 1e-9);
+        let pas = biais((100.0, -100.0));
+        assert_eq!(pas[0].0, Axe::Montant);
+        assert!(pas[0].1 > 0.0);
+        let pas = biais((-100.0, 100.0));
+        assert_eq!(pas[0].0, Axe::Montant);
+        assert!(pas[0].1 < 0.0);
+        // À 17° de l'horizontale ou à 70°, le trait reste d'équerre.
+        assert_eq!(biais((100.0, 30.0))[0].0, Axe::Horizontal);
+        assert_eq!(biais((36.0, 100.0))[0].0, Axe::Vertical);
+    }
+
+    fn piece(cotes: &[(Sens, f64, &str)]) -> Dessin {
+        Dessin {
+            cotes: cotes
+                .iter()
+                .map(|(sens, croquis, saisie)| Cote {
+                    sens: *sens,
+                    croquis: *croquis,
+                    saisie: (*saisie).to_string(),
+                })
+                .collect(),
+            fermee: true,
+            ..Dessin::default()
+        }
+    }
+
+    #[test]
+    fn un_coin_coupe_a_45_degres() {
+        // Un rectangle de 12 pi × 10 pi dont un coin est coupé de 2 pi × 2 pi.
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "12"),
+            (Sens::Sud, 80.0, "8"),
+            (Sens::SudOuest, 28.0, ""),
+            (Sens::Ouest, 100.0, "10"),
+            (Sens::Nord, 100.0, "10"),
+        ]);
+        let solution = dessin.resoudre(Format::PiPo);
+        let biais = solution.mesures[2].pouces().unwrap();
+        assert!((biais - 24.0 * 2f64.sqrt()).abs() < 1e-6, "{biais}");
+        match solution.etat {
+            Etat::Complete { aire, perimetre } => {
+                assert!((aire - (144.0 * 120.0 - 24.0 * 24.0 / 2.0)).abs() < 1e-6);
+                assert!((perimetre - (480.0 + 24.0 * 2f64.sqrt())).abs() < 1e-6);
+            }
+            autre => panic!("{autre:?}"),
+        }
+        // Le côté en biais mesuré, c'est un côté d'équerre qui se déduit.
+        dessin.cotes[2].saisie = "2 pi 9,941 po".into();
+        dessin.cotes[3].saisie.clear();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!((solution.mesures[3].pouces().unwrap() - 120.0).abs() < 0.01);
+        // Des mesures qui ne permettent pas de fermer la forme.
+        dessin.cotes[2].saisie = "5".into();
+        dessin.cotes[3].saisie = "10".into();
+        assert!(matches!(
+            dessin.resoudre(Format::PiPo).etat,
+            Etat::NeFermePas(_)
+        ));
+    }
+
+    #[test]
+    fn fermer_par_un_cote_en_biais() {
+        // Est, Sud, Ouest, puis un trait en biais vers le départ : la fermeture
+        // le prolonge jusqu'au départ.
+        let mut dessin = Dessin::default();
+        for (a, b) in [
+            ((0.0, 0.0), (100.0, 0.0)),
+            ((100.0, 0.0), (100.0, 60.0)),
+            ((100.0, 60.0), (60.0, 60.0)),
+            ((60.0, 60.0), (30.0, 30.0)),
+        ] {
+            dessin.ajouter_trace(&trait_tremble(a, b));
+        }
+        assert!(!dessin.fermee);
+        assert!(dessin.fermer());
+        assert_eq!(dessin.cotes.len(), 4);
+        assert_eq!(dessin.cotes[3].sens, Sens::NordOuest);
+        let fin = *dessin.sommets_du_croquis().last().unwrap();
+        assert!(fin.0.abs() < 1e-6 && fin.1.abs() < 1e-6);
+        // Un triangle aux flèches : Est, Sud, puis en biais vers le haut à gauche.
+        let mut triangle = Dessin::default();
+        for sens in [Sens::Est, Sens::Sud, Sens::NordOuest] {
+            triangle.ajouter_cote(sens);
+        }
+        assert!(triangle.fermee || triangle.fermer());
+        assert_eq!(triangle.cotes.len(), 3);
+        inscrire(&mut triangle, &["10", "10"]);
+        match triangle.resoudre(Format::PiPo).etat {
+            Etat::Complete { aire, .. } => assert!((aire - 50.0 * 144.0).abs() < 1e-6),
+            autre => panic!("{autre:?}"),
+        }
+    }
+
+    #[test]
+    fn la_fermeture_n_invente_pas_de_biais() {
+        // Est, Sud, Ouest : l'écart avec le départ est à 45°, mais le retour se
+        // fait d'équerre, comme avant les murs en biais.
+        let mut dessin = Dessin::default();
+        for (a, b) in [
+            ((0.0, 0.0), (100.0, 0.0)),
+            ((100.0, 0.0), (100.0, 60.0)),
+            ((100.0, 60.0), (60.0, 60.0)),
+        ] {
+            dessin.ajouter_trace(&trait_tremble(a, b));
+        }
+        assert!(dessin.fermer());
+        assert!(dessin.cotes.iter().all(|cote| !cote.sens.en_biais()));
+    }
+
+    #[test]
+    fn des_cotes_en_biais_qui_se_croisent() {
+        // Un « sablier » : les deux côtés en biais se croisent.
+        let dessin = piece(&[
+            (Sens::Est, 100.0, "10"),
+            (Sens::SudOuest, 141.0, "14,1421"),
+            (Sens::Est, 100.0, "10"),
+            (Sens::NordOuest, 141.0, ""),
+        ]);
+        assert_eq!(dessin.resoudre(Format::PiPo).etat, Etat::SeCroise);
     }
 
     #[test]

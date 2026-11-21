@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.14 — 2026-11-21 (1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
+> **Version du document :** 1.15 — 2026-11-21 (1.15 : murs en biais à 45°, section 25; 1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -3051,7 +3051,7 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 
 1. L'écran **Dessin** s'ouvre par l'onglet « Dessin » de la barre du bas (le troisième de cinq) ou par le menu ☰ → « Dessiner une pièce ».
 2. Sur la planche, l'utilisateur trace le contour avec le doigt ou la souris : d'un seul geste, ou un côté à la fois (chaque nouveau tracé repart du bout du précédent). Il peut aussi le dessiner avec les **flèches** du bas de la planche (version 0.8.4, à la demande de l'utilisateur : « ajouter les flèches pour dessiner ») : chacune ajoute un côté dans sa direction et ouvre le pavé pour sa mesure; dans l'axe du dernier côté, elle l'allonge ou le raccourcit sans le faire disparaître. Le côté ajouté prend la longueur moyenne des côtés déjà tracés. Les flèches disparaissent quand la forme est fermée.
-3. Le tracé est un **croquis** : il n'est pas à l'échelle. Chaque trait est redressé à l'horizontale ou à la verticale; les tremblements sont écartés. **Tous les angles sont d'équerre** (hypothèse 26).
+3. Le tracé est un **croquis** : il n'est pas à l'échelle. Chaque trait est redressé à l'horizontale, à la verticale ou, s'il est à 45° à 12° près, en **biais à 45°** (version 0.9.0 : « murs en biais », proposé par Claude et accepté par l'utilisateur); les tremblements sont écartés. Les angles sont donc d'équerre ou à 45°; les autres angles ne sont pas pris en charge (hypothèse 26). Le bouton « 45° », à droite des flèches, les fait passer en biais.
 4. Quand le tracé revient près de son point de départ, la forme se ferme d'elle-même. Le bouton « Fermer la forme », au bas de la planche à droite des flèches (depuis la version 0.8.4), ajoute le ou les côtés qui manquent; à cet endroit, il ne déplace pas le pavé en apparaissant.
 5. L'utilisateur touche un côté, puis inscrit sa mesure avec le **pavé de touches** qui s'ouvre sous le dessin : une ou deux rangées de **fractions de pouce** (au seizième, ou à la précision choisie dans les Préférences, comme la bande de fractions du clavier), les chiffres, `Pieds`, `Pouces`, `m` pour les mètres, la barre de fraction, l'espace et l'effacement. Une fraction se place après les pouces : `12` `Pieds` `6` `1/2` donne « 12 pi 6 1/2 po »; toucher une autre fraction la remplace. Sur le bureau, la mesure peut aussi se taper au clavier; un nombre seul est en pieds. « Suivant » (ou Entrée) passe au prochain côté sans mesure. Pendant la saisie, la planche rapetisse pour que le pavé reste visible en entier.
 6. Les mesures s'écrivent sur le dessin **en pieds, pouces et fractions** (ou en mètres, si elles ont été inscrites ainsi), à côté de leur côté. Dès qu'il ne manque qu'un côté dans un sens (gauche-droite ou haut-bas), il est **déduit** des autres et écrit en gris.
@@ -3076,6 +3076,7 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 - **R-75** Le pavé n'appelle pas le clavier du téléphone : dans un navigateur, le champ de la mesure ne prend pas le curseur de lui-même.
 - **R-76** Le zoom ne change que la vue : le croquis, les mesures et les résultats restent les mêmes. Un tracé fait en vue zoomée est ramené à l'échelle du croquis.
 - **R-77** Les fichiers exportés sont écrits par la calculatrice elle-même (`app/src/exportation.rs`), sans bibliothèque ajoutée (liste fermée des dépendances, section 3) : PDF 1.4 avec les polices standard Helvetica (accents en WinAnsi), DXF R12 en ASCII (accents en `\U+XXXX`).
+- **R-80** Les côtés manquants se déduisent de la fermeture de la forme : la somme des côtés (longueur × direction) doit être nulle. Les côtés inconnus se groupent par axe (horizontal, vertical, et les deux diagonales). Sur un seul axe, l'écart de travers doit être nul, et un côté seul se déduit; sur deux axes, le retour au départ se décompose d'une seule façon, et le côté seul de chaque axe se déduit; plusieurs côtés inconnus sur un axe, ou trois axes ou plus, demandent d'autres mesures. Pour une forme d'équerre, cela revient à la règle « un seul côté manquant dans chaque sens ». La diagonale d'équerre ne se donne que pour un rectangle d'équerre. Le croisement des côtés se vérifie pour tous les angles.
 - **R-79** Une ouverture vide ne compte pas; une ouverture incomplète, une hauteur illisible ou des ouvertures plus grandes que les murs sont signalées, et la surface des murs n'est alors pas donnée. Les valeurs proposées par « + Porte » et « + Fenêtre » sont des points de départ, pas des normes.
 - **R-78** Le DXF ne contient que les pièces complètes : un croquis n'a pas d'échelle. Son bouton est grisé tant qu'aucune pièce n'est complète; celui du PDF, tant qu'aucune pièce n'est dessinée.
 
@@ -3090,13 +3091,15 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 | Rectangle 20 × 15 pi, retraits 3 × 6 pi et 12 × 12 po | — | — | nette : 281 pi² | 70 pi 0 po |
 | Deux pièces : 12 × 10 pi et 20 × 15 pi | — | — | total : 420 pi² | — |
 | Flèches → ↓ ← ↑ (la forme se ferme seule) | 12; 10 (pieds) | 12 pi; 10 pi | 120 pi² | 44 pi 0 po |
+| Coin coupé : 12 × 10 pi moins un triangle de 2 × 2 pi | 12; 8; 10; 10 (pieds) | biais : 2 pi 9 15/16 po | 118 pi² | 42 pi 9 15/16 po |
+| Triangle aux flèches → ↓ ↖ | 10; 10 (pieds) | biais : 14 pi 1 11/16 po | 50 pi² | 34 pi 1 11/16 po |
 | Rectangle 12 × 10 pi, murs de 8 pi, une porte 2 pi 8 po × 6 pi 8 po et une fenêtre 3 × 4 pi | — | — | murs : 352 pi²; ouvertures : 29,8 pi²; murs nets : 322 pi² | 44 pi 0 po |
 
 Autres valeurs : la diagonale d'équerre d'un rectangle de 12 pi × 10 pi 6 po est de 15 pi 11 5/16 po; la pièce en L de 250 pi² et de 76 pi de périmètre s'envoie à un outil comme un rectangle de 29,5357 pi × 8,4643 pi; au pavé, `12` `Pieds` `6` `1/2` donne 12 pi 6 1/2 po, soit 150,5 po, et `1/4` ensuite donne 12 pi 6 1/4 po.
 
 ### 25.4 Limites connues
 
-Les murs en biais (prévus, avec l'accord de l'utilisateur, pour la fin), les courbes.
+Les angles autres que l'équerre et 45°, les courbes.
 
 ## Annexe A — Constantes
 
@@ -3514,7 +3517,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-79, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-80, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 
@@ -3557,4 +3560,4 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 23 | En anglais, les nombres s'écrivent à l'anglaise (`1,234.5`, `$1,283.06`, `47.25%`) et les unités impériales portent leurs symboles anglais (`ft`, `in`, `yd`, `ft²`, `yd³`, `bd ft`, `ton`). Une virgule tapée entre des groupes de trois chiffres y sépare les milliers. | 24.3 |
 | 24 | Au premier lancement, la langue est celle de l'appareil si c'est le français ou l'anglais, sinon le français. Un utilisateur qui avait déjà la calculatrice (en français) la garde en français. | 24.2 |
 | 25 | Les raccourcis clavier restent les mêmes dans les deux langues (`P` pour `Pitch`, `T` pour `Rise`, `C` pour `Run`…) : ils ne sont pas refaits d'après les mots anglais. Le manifeste de l'application installable reste en français (un manifeste n'a qu'une langue). | 24.6 |
-| 26 | Dessin d'une pièce : tous les angles sont d'équerre « pour le moment » (réponse de l'utilisateur du 2026-11-21); il a ensuite accepté (« ok pour tout ») les ajouts proposés : ruban, envoi vers un outil, saisie au pavé, retraits, plusieurs pièces, puis les murs en biais, à faire à la fin. Choix de Claude, non confirmés : un nombre inscrit sans unité est en pieds; l'outil reçoit le rectangle de même surface et de même périmètre. | 25 |
+| 26 | Dessin d'une pièce : les angles étaient d'équerre « pour le moment » (réponse de l'utilisateur du 2026-11-21); il a ensuite accepté (« ok pour tout ») les ajouts proposés : ruban, envoi vers un outil, saisie au pavé, retraits, plusieurs pièces, surface des murs, puis les murs en biais. Choix de Claude pour ces derniers : à 45° seulement (le cas courant d'un coin coupé ou d'une baie), sans saisie d'angle. Choix de Claude, non confirmés : un nombre inscrit sans unité est en pieds; l'outil reçoit le rectangle de même surface et de même périmètre. | 25 |

@@ -82,6 +82,8 @@ pub struct Etat {
     historique: Vec<Dessin>,
     /// Le zoom et le décalage de la planche.
     cadrage: Cadrage,
+    /// Vrai quand les flèches dessinent en biais, à 45°.
+    fleches_en_biais: bool,
     /// Vrai quand un geste à deux doigts a interrompu le geste en cours : rien
     /// n'est tracé ni déplacé jusqu'à ce que les doigts se lèvent.
     geste_annule: bool,
@@ -222,6 +224,39 @@ fn cadrer(planche: Rect, sommets: &[(f64, f64)]) -> Echelle {
         ),
         facteur,
     }
+}
+
+/// Où écrire la mesure d'un côté : la direction de l'extérieur de la forme, et
+/// l'ancrage du texte — au-dessus ou au-dessous d'un côté horizontal, à côté
+/// d'un côté vertical, en coin d'un côté en biais.
+fn place_de_la_mesure(a: Pos2, b: Pos2, centre: Pos2) -> (Vec2, Align2) {
+    let le_long = (b - a).normalized();
+    let mut dehors = Vec2::new(-le_long.y, le_long.x);
+    let milieu = a + (b - a) * 0.5;
+    if (milieu - centre).dot(dehors) < 0.0 {
+        dehors = -dehors;
+    }
+    let ancre = if dehors.y.abs() > 0.9 {
+        if dehors.y > 0.0 {
+            Align2::CENTER_TOP
+        } else {
+            Align2::CENTER_BOTTOM
+        }
+    } else if dehors.x.abs() > 0.9 {
+        if dehors.x > 0.0 {
+            Align2::LEFT_CENTER
+        } else {
+            Align2::RIGHT_CENTER
+        }
+    } else {
+        match (dehors.x > 0.0, dehors.y > 0.0) {
+            (true, true) => Align2::LEFT_TOP,
+            (true, false) => Align2::LEFT_BOTTOM,
+            (false, true) => Align2::RIGHT_TOP,
+            (false, false) => Align2::RIGHT_BOTTOM,
+        }
+    };
+    (dehors, ancre)
 }
 
 /// Distance d'un point à un segment.
@@ -756,11 +791,7 @@ fn planche_et_gestes(
         if !planche.expand(4.0).contains(milieu) {
             continue;
         }
-        let dehors = if cote.sens.horizontal() {
-            Vec2::new(0.0, if milieu.y >= centre.y { 1.0 } else { -1.0 })
-        } else {
-            Vec2::new(if milieu.x >= centre.x { 1.0 } else { -1.0 }, 0.0)
-        };
+        let (dehors, ancre) = place_de_la_mesure(s[0], s[1], centre);
         let (texte, couleur) = match mesure {
             Mesure::Lue(_) => (
                 saisie_en_clair(&cote.saisie, prefs)
@@ -772,17 +803,6 @@ fn planche_et_gestes(
             }
             Mesure::Manquante => ("?".to_string(), p.barre_accent),
             Mesure::Invalide => (cote.saisie.trim().to_string(), p.erreur),
-        };
-        let ancre = if cote.sens.horizontal() {
-            if dehors.y > 0.0 {
-                Align2::CENTER_TOP
-            } else {
-                Align2::CENTER_BOTTOM
-            }
-        } else if dehors.x > 0.0 {
-            Align2::LEFT_CENTER
-        } else {
-            Align2::RIGHT_CENTER
         };
         let position = milieu + dehors * 7.0;
         let galere = painter.layout_no_wrap(texte, theme::police_grasse(12.5), couleur);
@@ -842,10 +862,34 @@ fn fleches(
         .size()
         .x
         + 20.0;
+    // Quatre flèches et le bouton « 45° ».
     let largeur_fleche =
-        ((planche.width() - 16.0 - largeur_fermer - 8.0 - 3.0 * 6.0) / 4.0).clamp(30.0, 44.0);
+        ((planche.width() - 16.0 - largeur_fermer - 8.0 - 4.0 * 6.0) / 5.0).clamp(30.0, 44.0);
     let taille = Vec2::new(largeur_fleche, 34.0);
-    let fleches = [
+    let d = std::f32::consts::FRAC_1_SQRT_2;
+    let en_biais = [
+        (
+            Sens::NordOuest,
+            textes::DESSIN_FLECHE_HAUT_GAUCHE,
+            Vec2::new(-d, -d),
+        ),
+        (
+            Sens::NordEst,
+            textes::DESSIN_FLECHE_HAUT_DROITE,
+            Vec2::new(d, -d),
+        ),
+        (
+            Sens::SudOuest,
+            textes::DESSIN_FLECHE_BAS_GAUCHE,
+            Vec2::new(-d, d),
+        ),
+        (
+            Sens::SudEst,
+            textes::DESSIN_FLECHE_BAS_DROITE,
+            Vec2::new(d, d),
+        ),
+    ];
+    let d_equerre = [
         (
             Sens::Ouest,
             textes::DESSIN_FLECHE_GAUCHE,
@@ -855,6 +899,11 @@ fn fleches(
         (Sens::Sud, textes::DESSIN_FLECHE_BAS, Vec2::new(0.0, 1.0)),
         (Sens::Est, textes::DESSIN_FLECHE_DROITE, Vec2::new(1.0, 0.0)),
     ];
+    let fleches = if etat.fleches_en_biais {
+        en_biais
+    } else {
+        d_equerre
+    };
     for (rang, (sens, nom, direction)) in fleches.into_iter().enumerate() {
         let zone = Rect::from_min_size(
             Pos2::new(
@@ -915,6 +964,48 @@ fn fleches(
         }
         reponse.on_hover_text(nom.traduit());
     }
+    // Le bouton « 45° » : les flèches passent en biais, ou reviennent d'équerre.
+    let zone = Rect::from_min_size(
+        Pos2::new(
+            planche.left() + 8.0 + 4.0 * (taille.x + 6.0),
+            planche.bottom() - 8.0 - taille.y,
+        ),
+        taille,
+    );
+    let reponse = ui.interact(zone, egui::Id::unique("fleches-en-biais"), Sense::click());
+    reponse.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::Role::CheckBox,
+            true,
+            etat.fleches_en_biais,
+            textes::DESSIN_FLECHES_EN_BIAIS.traduit(),
+        )
+    });
+    let (fond, encre) = if etat.fleches_en_biais {
+        (p.selection, p.selection_texte)
+    } else if reponse.hovered() {
+        (theme::melanger(p.bouton, p.primaire, 0.12), p.texte)
+    } else {
+        (p.bouton, p.texte)
+    };
+    painter.rect_filled(zone, 8, fond.gamma_multiply(0.94));
+    painter.rect_stroke(
+        zone,
+        8,
+        Stroke::new(1.0, p.bouton_bord),
+        egui::StrokeKind::Inside,
+    );
+    painter.text(
+        zone.center(),
+        Align2::CENTER_CENTER,
+        textes::DESSIN_45_DEGRES.traduit(),
+        theme::police_grasse(12.5),
+        encre,
+    );
+    if reponse.clicked() {
+        etat.fleches_en_biais = !etat.fleches_en_biais;
+    }
+    reponse.on_hover_text(textes::DESSIN_FLECHES_EN_BIAIS.traduit());
     // « Fermer la forme », au bas de la planche, à droite des flèches.
     if dessin.cotes.len() >= 2 {
         let zone = Rect::from_min_size(
@@ -1478,6 +1569,7 @@ pub(crate) fn resultats_de_la_piece(
         .iter()
         .map(|m| m.pouces())
         .collect::<Vec<_>>()[..]
+        && dessin.cotes.iter().all(|cote| !cote.sens.en_biais())
     {
         lignes.push((
             textes::DESSIN_DIAGONALE.traduit().to_string(),

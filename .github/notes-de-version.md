@@ -9,6 +9,13 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.9
+
+- **Murs en biais** : un trait tracé à 45° devient un mur en biais (un coin coupé, une
+  baie), et le bouton **45°** fait passer les flèches en biais. La calculatrice déduit les
+  côtés manquants, en biais ou d'équerre, et calcule la surface comme avant. Les autres
+  angles ne sont pas pris en charge.
+
 ## Nouveautés de la version 0.8
 
 - **Plusieurs pièces** : le bouton **+ Pièce** ajoute une pièce au plan. Chacune a son nom
