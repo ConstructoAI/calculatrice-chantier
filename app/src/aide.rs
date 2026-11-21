@@ -1253,8 +1253,8 @@ pub static FICHES: &[Fiche] = &[
             ),
         )),
         note: Some(t(
-            "Un nombre inscrit sans unité est en pieds. Les murs en biais ne sont pas encore pris en charge.",
-            "A number entered without a unit is in feet. Angled walls are not supported yet.",
+            "Un nombre inscrit sans unité est en pieds. Les boutons `+` et `−` de la planche zooment, `Ajuster` recadre; deux doigts zooment et déplacent la vue, et une forme fermée se déplace au doigt. Les murs en biais ne sont pas encore pris en charge.",
+            "A number entered without a unit is in feet. The `+` and `−` buttons on the board zoom, `Fit` reframes; two fingers zoom and pan, and a closed shape pans with one finger. Angled walls are not supported yet.",
         )),
         mots_cles: "dessin dessiner croquis pièce forme plan surface aire périmètre contour sketch draw drawing room shape floor plan area perimeter outline",
         touches: &[],

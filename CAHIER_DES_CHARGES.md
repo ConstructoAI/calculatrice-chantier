@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.10 — 2026-11-21 (1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
+> **Version du document :** 1.11 — 2026-11-21 (1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -3060,6 +3060,7 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 9. **Plusieurs pièces** : « + Pièce » en ajoute une (30 au plus); chaque pièce a son nom, son dessin et ses retraits; l'écran donne le **total** des surfaces nettes des pièces complètes.
 10. « **Ajouter au ruban** » inscrit les mesures des côtés et les résultats, sous le nom de la pièce. « **Envoyer vers un outil…** » ouvre la liste des outils par métier qui partent d'une longueur et d'une largeur au sol (sauf l'acier); l'outil choisi s'ouvre au clavier avec un rectangle de **même surface (nette) et de même périmètre** que la pièce, ce qui lui donne le même résultat que la pièce dessinée.
 11. « Annuler » remonte jusqu'à 40 étapes de la pièce à l'écran; « Retirer le dernier côté » et « Tout effacer » complètent les boutons.
+12. **Zoom** (version 0.8.2, à la demande de l'utilisateur : « zoom/dézoomer pour le dessin ») : les boutons `+` et `−` du coin de la planche zooment autour de son centre (de ×0,5 à ×8); « Ajuster » apparaît quand la vue a bougé et fait de nouveau tenir la forme. Deux doigts zooment et déplacent la vue (le tracé en cours s'annule); sur le bureau, la molette zoome autour du pointeur et le bouton droit (ou du milieu) déplace la vue. Une forme fermée, qui ne prend plus de tracé, se déplace aussi au doigt. Le quadrillage suit le zoom; les mesures des côtés hors de la vue ne s'écrivent pas. Changer de pièce ou tout effacer remet le cadrage à zéro.
 
 ### 25.2 Règles
 
@@ -3071,6 +3072,7 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 - **R-73** L'outil reçoit le rectangle de même surface et de même périmètre que la pièce; s'il n'existe pas, le carré de même surface, et l'écran le dit. Les deux mesures sont écrites en pieds décimaux (ou en mètres) dans les champs `Longueur` et `Largeur` de l'outil.
 - **R-74** Le geste part de l'endroit où le doigt s'est posé, et toutes les positions reçues pendant une image sont retenues : un tracé rapide ne perd pas son début.
 - **R-75** Le pavé n'appelle pas le clavier du téléphone : dans un navigateur, le champ de la mesure ne prend pas le curseur de lui-même.
+- **R-76** Le zoom ne change que la vue : le croquis, les mesures et les résultats restent les mêmes. Un tracé fait en vue zoomée est ramené à l'échelle du croquis.
 
 ### 25.3 Vecteurs de validation
 
@@ -3505,7 +3507,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-75, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-76, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 

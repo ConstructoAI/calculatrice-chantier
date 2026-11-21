@@ -17,6 +17,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.8.1** : **pieds, pouces et fractions** dans le dessin — le pavé a ses touches
   `Pieds` et `Pouces` et une rangée de fractions de pouce (`12` `Pieds` `6` `1/2` donne
   12 pi 6 1/2 po), et les mesures s'écrivent sur le dessin en pieds, pouces et fractions.
+- **0.8.2** : **zoom** sur le dessin — boutons `+`, `−` et **Ajuster** dans le coin de la
+  planche, deux doigts pour zoomer et déplacer, la molette sur le bureau; une forme fermée
+  se déplace au doigt.
 
 ## Nouveautés de la version 0.7
 

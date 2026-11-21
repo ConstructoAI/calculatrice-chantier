@@ -20,6 +20,48 @@ const PORTEE_DU_TOUCHER: f32 = 30.0;
 /// Format d'un nombre inscrit sans unité : des pieds.
 pub const FORMAT_PAR_DEFAUT: Format = Format::PiPo;
 
+/// Zoom le plus faible et le plus fort de la planche (1 : la forme tient juste).
+const ZOOM_MIN: f32 = 0.5;
+const ZOOM_MAX: f32 = 8.0;
+
+/// Le cadrage de la planche : le zoom, autour du centre de la planche, puis un
+/// décalage en points de l'écran.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Cadrage {
+    zoom: f32,
+    decalage: Vec2,
+}
+
+impl Default for Cadrage {
+    fn default() -> Self {
+        Cadrage {
+            zoom: 1.0,
+            decalage: Vec2::ZERO,
+        }
+    }
+}
+
+impl Cadrage {
+    /// Zoome d'un facteur autour d'un point de l'écran, qui reste en place.
+    fn zoomer(&mut self, centre: Pos2, autour: Pos2, facteur: f32) {
+        if !facteur.is_finite() || facteur <= 0.0 {
+            return;
+        }
+        let zoom = (self.zoom * facteur).clamp(ZOOM_MIN, ZOOM_MAX);
+        let k = zoom / self.zoom;
+        self.decalage = (autour - centre) * (1.0 - k) + self.decalage * k;
+        self.zoom = zoom;
+    }
+
+    /// Applique le cadrage à une échelle qui fait tenir la forme dans la planche.
+    fn appliquer(self, echelle: Echelle, centre: Pos2) -> Echelle {
+        Echelle {
+            origine: centre + (echelle.origine - centre) * self.zoom + self.decalage,
+            facteur: echelle.facteur * self.zoom,
+        }
+    }
+}
+
 /// Ce que l'écran retient d'une image à l'autre.
 #[derive(Default)]
 pub struct Etat {
@@ -35,6 +77,11 @@ pub struct Etat {
     outils_ouverts: bool,
     /// Les états précédents du dessin, pour le bouton « Annuler ».
     historique: Vec<Dessin>,
+    /// Le zoom et le décalage de la planche.
+    cadrage: Cadrage,
+    /// Vrai quand un geste à deux doigts a interrompu le geste en cours : rien
+    /// n'est tracé ni déplacé jusqu'à ce que les doigts se lèvent.
+    geste_annule: bool,
 }
 
 /// Nombre d'étapes que le bouton « Annuler » peut remonter.
@@ -57,6 +104,8 @@ impl Etat {
         self.outils_ouverts = false;
         self.trace.clear();
         self.historique.clear();
+        self.cadrage = Cadrage::default();
+        self.geste_annule = false;
     }
 
     /// Choisit une dimension d'un retrait.
@@ -414,9 +463,17 @@ fn planche_et_gestes(
         Stroke::new(1.0, p.carte_bord),
         egui::StrokeKind::Inside,
     );
-    // Un quadrillage léger, comme une feuille de chantier.
-    let pas = 26.0;
-    let mut x = planche.left() + pas;
+    // Un quadrillage léger, comme une feuille de chantier. Il suit le zoom et
+    // le décalage, avec un pas toujours lisible.
+    let mut pas = 26.0 * etat.cadrage.zoom;
+    while pas > 52.0 {
+        pas /= 2.0;
+    }
+    while pas < 13.0 {
+        pas *= 2.0;
+    }
+    let repere = planche.center() + etat.cadrage.decalage;
+    let mut x = planche.left() + (repere.x - planche.left()).rem_euclid(pas);
     while x < planche.right() {
         painter.line_segment(
             [Pos2::new(x, planche.top()), Pos2::new(x, planche.bottom())],
@@ -424,7 +481,7 @@ fn planche_et_gestes(
         );
         x += pas;
     }
-    let mut y = planche.top() + pas;
+    let mut y = planche.top() + (repere.y - planche.top()).rem_euclid(pas);
     while y < planche.bottom() {
         painter.line_segment(
             [Pos2::new(planche.left(), y), Pos2::new(planche.right(), y)],
@@ -437,13 +494,57 @@ fn planche_et_gestes(
     let a_l_echelle = dessin.sommets_mesures(solution);
     let sommets_croquis = dessin.sommets_du_croquis();
     let sommets = a_l_echelle.as_deref().unwrap_or(&sommets_croquis);
-    let echelle = cadrer(planche, sommets);
+    let centre_de_la_planche = planche.center();
+
+    // --- Zoom et déplacement
+    let (deux_doigts, pincement, molette, survol) = ui.input(|i| {
+        (
+            i.multi_touch(),
+            i.zoom_delta(),
+            i.smooth_scroll_delta,
+            i.pointer.hover_pos(),
+        )
+    });
+    if let Some(toucher) = deux_doigts.filter(|m| planche.contains(m.center_pos)) {
+        // Deux doigts : ils zooment et déplacent, et le tracé en cours s'annule.
+        etat.cadrage
+            .zoomer(centre_de_la_planche, toucher.center_pos, toucher.zoom_delta);
+        etat.cadrage.decalage += toucher.translation_delta;
+        etat.trace.clear();
+        etat.geste_annule = true;
+    } else if let Some(pointeur) = survol.filter(|q| planche.contains(*q)) {
+        // La molette, ou le pincement d'un pavé tactile, zoome autour du pointeur.
+        let facteur = if (pincement - 1.0).abs() > 1e-4 {
+            pincement
+        } else {
+            (molette.y * 0.002).exp()
+        };
+        if (facteur - 1.0).abs() > 1e-4 {
+            etat.cadrage.zoomer(centre_de_la_planche, pointeur, facteur);
+        }
+    }
+    // Glisser avec le bouton droit ou celui du milieu déplace toujours la vue;
+    // avec le doigt ou le bouton gauche, quand la forme est fermée (elle ne
+    // prend plus de tracé).
+    let deplacer = reponse.dragged_by(egui::PointerButton::Secondary)
+        || reponse.dragged_by(egui::PointerButton::Middle)
+        || (dessin.fermee && reponse.dragged_by(egui::PointerButton::Primary));
+    if deplacer && !etat.geste_annule {
+        etat.cadrage.decalage += reponse.drag_delta();
+    }
+
+    let echelle = etat
+        .cadrage
+        .appliquer(cadrer(planche, sommets), centre_de_la_planche);
     // Le tracé, lui, se mesure toujours à l'échelle du croquis.
-    let echelle_du_croquis = cadrer(planche, &sommets_croquis);
+    let echelle_du_croquis = etat
+        .cadrage
+        .appliquer(cadrer(planche, &sommets_croquis), centre_de_la_planche);
     let points: Vec<Pos2> = sommets.iter().map(|s| echelle.vers_l_ecran(*s)).collect();
 
     // --- Gestes
-    if reponse.drag_started() {
+    let trace_permise = !dessin.fermee && !etat.geste_annule;
+    if reponse.drag_started_by(egui::PointerButton::Primary) && trace_permise {
         etat.trace.clear();
         // Le geste part de l'endroit où le doigt s'est posé, pas de celui où
         // le glissement a été reconnu : sinon, un tracé rapide perd son début.
@@ -451,7 +552,10 @@ fn planche_et_gestes(
             etat.trace.push(origine);
         }
     }
-    if reponse.dragged() || reponse.drag_stopped() {
+    if (reponse.dragged_by(egui::PointerButton::Primary)
+        || reponse.drag_stopped_by(egui::PointerButton::Primary))
+        && trace_permise
+    {
         // Toutes les positions de cette image, pas seulement la dernière : un
         // geste rapide en apporte plusieurs à la fois.
         let positions: Vec<Pos2> = ui.input(|i| {
@@ -475,6 +579,11 @@ fn planche_et_gestes(
         }
     }
     if reponse.drag_stopped() {
+        // Un geste interrompu par deux doigts ne trace rien.
+        let annule = std::mem::take(&mut etat.geste_annule);
+        if annule || !reponse.drag_stopped_by(egui::PointerButton::Primary) {
+            etat.trace.clear();
+        }
         let trace: Vec<(f64, f64)> = etat
             .trace
             .iter()
@@ -491,7 +600,7 @@ fn planche_et_gestes(
             .collect();
         etat.trace.clear();
         let avant = dessin.clone();
-        if dessin.ajouter_trace(&trace) {
+        if trace.len() > 1 && dessin.ajouter_trace(&trace) {
             etat.memoriser(&avant);
             modifie = true;
             if dessin.fermee {
@@ -555,6 +664,10 @@ fn planche_et_gestes(
             continue;
         };
         let milieu = s[0] + (s[1] - s[0]) * 0.5;
+        // Un côté hors de la vue (après un zoom) n'écrit pas sa mesure.
+        if !planche.expand(4.0).contains(milieu) {
+            continue;
+        }
         let dehors = if cote.sens.horizontal() {
             Vec2::new(0.0, if milieu.y >= centre.y { 1.0 } else { -1.0 })
         } else {
@@ -606,7 +719,67 @@ fn planche_et_gestes(
             Stroke::new(3.0, p.barre_accent),
         ));
     }
+    boutons_du_zoom(ui, p, &painter, planche, etat);
     modifie
+}
+
+/// Les boutons du zoom, dans le coin de la planche : « + », « − » et, quand la
+/// vue a bougé, « Ajuster », qui fait de nouveau tenir la forme dans la planche.
+fn boutons_du_zoom(ui: &Ui, p: &Palette, painter: &egui::Painter, planche: Rect, etat: &mut Etat) {
+    let cote = 34.0;
+    let mut haut = planche.top() + 8.0;
+    let mut boutons = vec![
+        ("+", textes::DESSIN_ZOOMER, 1.25_f32, cote),
+        ("\u{2212}", textes::DESSIN_DEZOOMER, 0.8, cote),
+    ];
+    if etat.cadrage != Cadrage::default() {
+        boutons.push((
+            textes::DESSIN_AJUSTER.traduit(),
+            textes::DESSIN_AJUSTER,
+            0.0,
+            74.0,
+        ));
+    }
+    for (rang, (signe, nom, facteur, largeur)) in boutons.into_iter().enumerate() {
+        let zone = Rect::from_min_size(
+            Pos2::new(planche.right() - 8.0 - largeur, haut),
+            Vec2::new(largeur, cote),
+        );
+        haut += cote + 6.0;
+        let reponse = ui.interact(
+            zone,
+            egui::Id::unique(("zoom-du-dessin", rang)),
+            Sense::click(),
+        );
+        reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, nom.traduit()));
+        let fond = if reponse.hovered() {
+            theme::melanger(p.bouton, p.primaire, 0.12)
+        } else {
+            p.bouton
+        };
+        painter.rect_filled(zone, 8, fond.gamma_multiply(0.94));
+        painter.rect_stroke(
+            zone,
+            8,
+            Stroke::new(1.0, p.bouton_bord),
+            egui::StrokeKind::Inside,
+        );
+        let police = if signe.chars().count() > 1 {
+            theme::police_grasse(13.0)
+        } else {
+            theme::police_grasse(20.0)
+        };
+        painter.text(zone.center(), Align2::CENTER_CENTER, signe, police, p.texte);
+        if reponse.clicked() {
+            if facteur > 0.0 {
+                etat.cadrage
+                    .zoomer(planche.center(), planche.center(), facteur);
+            } else {
+                etat.cadrage = Cadrage::default();
+            }
+        }
+        reponse.on_hover_text(nom.traduit());
+    }
 }
 
 /// Les boutons sous la planche. Retourne vrai si le dessin a changé.
@@ -661,6 +834,7 @@ fn boutons(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bo
         {
             etat.memoriser(dessin);
             dessin.effacer();
+            etat.cadrage = Cadrage::default();
             etat.choisir(None);
             modifie = true;
         }
@@ -1337,6 +1511,45 @@ mod tests {
         frapper(&mut saisie, Fraction(1, 2), '.');
         assert_eq!(saisie, "12 ft 6 1/2 in ");
         assert!((lire(&saisie) - 150.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn le_zoom_garde_en_place_le_point_vise() {
+        let centre = Pos2::new(200.0, 150.0);
+        let ajustee = Echelle {
+            origine: Pos2::new(60.0, 40.0),
+            facteur: 2.0,
+        };
+        let mut cadrage = Cadrage::default();
+        // Sans zoom, l'échelle reste celle qui fait tenir la forme.
+        let vue = cadrage.appliquer(ajustee, centre);
+        assert_eq!(
+            (vue.origine, vue.facteur),
+            (ajustee.origine, ajustee.facteur)
+        );
+        // Le point du croquis qui est sous le pointeur y reste après le zoom.
+        let pointeur = Pos2::new(300.0, 90.0);
+        let avant = cadrage.appliquer(ajustee, centre);
+        let sous_le_pointeur = (
+            f64::from((pointeur.x - avant.origine.x) / avant.facteur),
+            f64::from((pointeur.y - avant.origine.y) / avant.facteur),
+        );
+        cadrage.zoomer(centre, pointeur, 2.5);
+        let apres = cadrage
+            .appliquer(ajustee, centre)
+            .vers_l_ecran(sous_le_pointeur);
+        assert!(apres.distance(pointeur) < 1e-3, "{apres:?}");
+        assert!((cadrage.zoom - 2.5).abs() < 1e-6);
+        // Les bornes du zoom.
+        cadrage.zoomer(centre, centre, 100.0);
+        assert!((cadrage.zoom - ZOOM_MAX).abs() < 1e-6);
+        cadrage.zoomer(centre, centre, 1e-6);
+        assert!((cadrage.zoom - ZOOM_MIN).abs() < 1e-6);
+        // Un facteur absurde ne change rien.
+        let avant = cadrage;
+        cadrage.zoomer(centre, centre, f32::NAN);
+        cadrage.zoomer(centre, centre, 0.0);
+        assert_eq!(cadrage, avant);
     }
 
     #[test]
