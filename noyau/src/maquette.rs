@@ -20,6 +20,8 @@ pub enum GenreDeFace {
     Meuble(GenreDObjet),
     /// Un bloc d'une cloison.
     Cloison,
+    /// Le dessus d'un mur, à son épaisseur.
+    DessusDeMur,
 }
 
 /// Une face plane : ses sommets `[x, y, z]` et sa normale — pour un mur ou
@@ -72,6 +74,7 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         .sum();
     let mut faces = Vec::new();
     let mut aretes = Vec::new();
+    let exterieur = dessin.contour_exterieur(solution);
 
     // Le plancher, en triangles (la pièce peut avoir des coins rentrants).
     for triangle in trianguler(contour) {
@@ -103,6 +106,19 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         aretes.push([point(0.0, 0.0), point(longueur, 0.0)]);
         aretes.push([point(0.0, hauteur), point(longueur, hauteur)]);
         aretes.push([point(0.0, 0.0), point(0.0, hauteur)]);
+        // Le dessus du mur, à son épaisseur; il se range avec son mur.
+        if let Some(exterieur) = &exterieur
+            && solution.epaisseur_des_murs > 1e-9
+        {
+            let (wa, wb) = (exterieur[cote], exterieur[cote + 1]);
+            let (wa, wb) = ([wa.0, hauteur, wa.1], [wb.0, hauteur, wb.1]);
+            faces.push(Face {
+                genre: GenreDeFace::DessusDeMur,
+                sommets: vec![point(0.0, hauteur), point(longueur, hauteur), wb, wa],
+                normale: dedans,
+            });
+            aretes.push([wa, wb]);
+        }
         let ouvertures: Vec<_> = solution
             .placements
             .iter()
@@ -574,8 +590,33 @@ mod tests {
                 .all(|f| f.genre == GenreDeFace::Cloison)
         );
         let dessus = &maquette.faces[bloc.faces.start];
-        assert!((aire(dessus) - 4.5 * 120.0).abs() < 1e-6);
+        assert!((aire(dessus) - 5.0 * 120.0).abs() < 1e-6);
         assert!(dessus.sommets.iter().all(|s| (s[1] - 96.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn le_dessus_des_murs_a_leur_epaisseur() {
+        let dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        let solution = dessin.resoudre(Format::PiPo);
+        let faces = maquette(&dessin, &solution).unwrap().faces;
+        let dessus: Vec<&Face> = faces
+            .iter()
+            .filter(|f| f.genre == GenreDeFace::DessusDeMur)
+            .collect();
+        assert_eq!(dessus.len(), 4);
+        assert!(
+            dessus
+                .iter()
+                .all(|f| f.sommets.iter().all(|s| (s[1] - 96.0).abs() < 1e-9))
+        );
+        // Le pourtour, à 9 po hors des mesures : (162 × 138) − (144 × 120) po².
+        let aire_totale: f64 = dessus.iter().map(|f| aire(f)).sum();
+        assert!((aire_totale - (162.0 * 138.0 - 144.0 * 120.0)).abs() < 1e-6);
     }
 
     #[test]

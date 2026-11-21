@@ -274,6 +274,14 @@ pub fn dessiner(
                 theme::melanger(base, Color32::BLACK, 0.30 * (1.0 - face.lumiere))
             }
             GenreDeFace::Cloison => theme::melanger(mur, p.texte, 0.28 * (1.0 - face.lumiere)),
+            GenreDeFace::DessusDeMur => {
+                let base = theme::melanger(mur, Color32::WHITE, 0.35);
+                if face.de_l_interieur {
+                    base
+                } else {
+                    base.gamma_multiply(0.28)
+                }
+            }
         };
         // Un maillage plein, sans adoucissement : pas de joint entre deux
         // morceaux d'un même mur.

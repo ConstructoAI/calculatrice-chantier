@@ -7,6 +7,7 @@ use noyau::dessin::{
     Dessin, Etat as EtatDeLaForme, GenreDOuverture, Mesure, Ouverture, Plan, Retrait, Sens,
     Solution,
 };
+use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, MorceauDeMur};
 use noyau::metiers::Quantite;
 use noyau::mobilier::{GenreDObjet, Objet, TraitSurLePlan};
 use noyau::prefs::Preferences;
@@ -150,6 +151,10 @@ enum AutreSaisie {
     Objet(usize, bool),
     /// Une mesure d'une cloison : son rang, et vrai pour son épaisseur.
     Cloison(usize, bool),
+    /// L'épaisseur des murs extérieurs de la pièce.
+    EpaisseurDesMurs,
+    /// L'épaisseur des cloisons de la pièce.
+    EpaisseurDesCloisons,
 }
 
 /// Une mesure d'une porte ou d'une fenêtre.
@@ -172,6 +177,7 @@ impl AutreSaisie {
             AutreSaisie::Ouverture(rang, _) => rang < dessin.ouvertures.len(),
             AutreSaisie::Objet(rang, _) => rang < dessin.objets.len(),
             AutreSaisie::Cloison(rang, _) => rang < dessin.cloisons.len(),
+            AutreSaisie::EpaisseurDesMurs | AutreSaisie::EpaisseurDesCloisons => true,
         }
     }
 }
@@ -364,6 +370,40 @@ fn dessiner_une_cloison(
         .expand2(Vec2::new(2.0, 1.0));
     painter.rect_filled(cadre, 3, p.carte.gamma_multiply(0.9));
     painter.galley(cadre.min + Vec2::new(2.0, 1.0), galere, encre);
+}
+
+/// Un morceau d'un mur extérieur : plein, avec sa face extérieure et ses
+/// jambages; en couleur s'il est du côté choisi.
+fn dessiner_un_morceau_de_mur(
+    painter: &egui::Painter,
+    echelle: &Echelle,
+    morceau: &MorceauDeMur,
+    choisi: Option<usize>,
+    p: &Palette,
+) {
+    let coins: Vec<Pos2> = morceau
+        .coins
+        .iter()
+        .map(|coin| echelle.vers_l_ecran(*coin))
+        .collect();
+    let encre = if choisi == Some(morceau.cote) {
+        p.barre_accent
+    } else {
+        p.primaire
+    };
+    painter.add(egui::Shape::convex_polygon(
+        coins.clone(),
+        encre.gamma_multiply(0.28),
+        Stroke::NONE,
+    ));
+    let trait_ = Stroke::new(1.3, encre);
+    painter.line_segment([coins[3], coins[2]], trait_);
+    if morceau.jambage_au_debut {
+        painter.line_segment([coins[0], coins[3]], trait_);
+    }
+    if morceau.jambage_a_la_fin {
+        painter.line_segment([coins[1], coins[2]], trait_);
+    }
 }
 
 /// La note sous un point de l'écran (la dernière écrite, si elles se
@@ -1072,9 +1112,23 @@ fn planche_et_gestes(
         etat.cadrage.decalage += reponse.drag_delta();
     }
 
+    // Une pièce complète se cadre à l'extérieur de ses murs.
+    let contour_exterieur = if complete {
+        dessin.contour_exterieur(solution)
+    } else {
+        None
+    };
+    let a_cadrer = contour_exterieur.as_deref().unwrap_or(sommets);
     let echelle = etat
         .cadrage
-        .appliquer(cadrer(zone_de_la_forme, sommets), centre_de_la_planche);
+        .appliquer(cadrer(zone_de_la_forme, a_cadrer), centre_de_la_planche);
+    // L'épaisseur des murs à l'écran : ils se dessinent hors des mesures, et
+    // toute leur épaisseur choisit leur côté.
+    let epaisseur_des_murs_a_l_ecran = if complete {
+        solution.epaisseur_des_murs as f32 * echelle.facteur
+    } else {
+        0.0
+    };
     // Le tracé, lui, se mesure toujours à l'échelle du croquis.
     let echelle_du_croquis = etat.cadrage.appliquer(
         cadrer(zone_de_la_forme, &sommets_croquis),
@@ -1369,7 +1423,7 @@ fn planche_et_gestes(
             .map(|(i, s)| (i, distance_au_segment(position, s[0], s[1])))
             .min_by(|a, b| a.1.total_cmp(&b.1));
         match plus_proche {
-            Some((i, distance)) if distance <= PORTEE_DU_TOUCHER => {
+            Some((i, distance)) if distance <= PORTEE_DU_TOUCHER + epaisseur_des_murs_a_l_ecran => {
                 if let Some(rang) = etat.ouverture_a_placer.take()
                     && rang < dessin.ouvertures.len()
                 {
@@ -1492,10 +1546,17 @@ fn planche_et_gestes(
                 debut,
                 fin: (debut.0 + ux * longueur, debut.1 + uy * longueur),
                 longueur,
-                epaisseur: EPAISSEUR_PAR_DEFAUT,
+                epaisseur: solution.epaisseur_des_cloisons,
             };
             let texte = longueur_en_clair(longueur, solution, prefs);
             dessiner_une_cloison(&painter, p, &echelle, &apercu, true, texte);
+        }
+    }
+    // Les murs extérieurs, à leur épaisseur, hors des mesures : pleins, avec
+    // leur face extérieure et leurs jambages; le côté choisi en couleur.
+    if complete {
+        for morceau in dessin.murs_exterieurs(solution) {
+            dessiner_un_morceau_de_mur(&painter, &echelle, &morceau, etat.choisi, p);
         }
     }
     for (i, s) in points.windows(2).enumerate() {
@@ -1597,6 +1658,7 @@ fn planche_et_gestes(
                 placement.porte,
                 encre,
                 p.primaire,
+                epaisseur_des_murs_a_l_ecran,
             );
         }
     }
@@ -1630,7 +1692,8 @@ fn planche_et_gestes(
             Mesure::Manquante => ("?".to_string(), p.barre_accent),
             Mesure::Invalide => (cote.saisie.trim().to_string(), p.erreur),
         };
-        let position = milieu + dehors * 7.0;
+        // Hors du mur, à son épaisseur.
+        let position = milieu + dehors * (7.0 + epaisseur_des_murs_a_l_ecran);
         let galere = painter.layout_no_wrap(texte, theme::police_grasse(12.5), couleur);
         let cadre = ancre
             .anchor_size(position, galere.size())
@@ -2180,6 +2243,20 @@ fn autre_mesure(
             textes::DESSIN_HAUTEUR_EXEMPLE.traduit().to_string(),
             None,
         ),
+        AutreSaisie::EpaisseurDesMurs => (
+            &mut dessin.epaisseur_des_murs,
+            textes::DESSIN_EPAISSEUR_DES_MURS.traduit().to_string(),
+            sans_insecables(
+                &Quantite::Longueur(EPAISSEUR_DES_MURS_PAR_DEFAUT).en_clair(None, prefs),
+            ),
+            None,
+        ),
+        AutreSaisie::EpaisseurDesCloisons => (
+            &mut dessin.epaisseur_des_cloisons,
+            textes::DESSIN_EPAISSEUR_DES_CLOISONS.traduit().to_string(),
+            sans_insecables(&Quantite::Longueur(EPAISSEUR_PAR_DEFAUT).en_clair(None, prefs)),
+            None,
+        ),
         AutreSaisie::Ouverture(rang, champ) => {
             let Some(ouverture) = dessin.ouvertures.get_mut(rang) else {
                 return false;
@@ -2243,6 +2320,8 @@ fn autre_mesure(
             )
         }
         AutreSaisie::Cloison(rang, en_epaisseur) => {
+            // L'indice de l'épaisseur : celle que la pièce donne à ses cloisons.
+            let defaut = dessin.resoudre(FORMAT_PAR_DEFAUT).epaisseur_des_cloisons;
             let Some(cloison) = dessin.cloisons.get_mut(rang) else {
                 return false;
             };
@@ -2250,9 +2329,7 @@ fn autre_mesure(
                 (
                     &mut cloison.epaisseur,
                     textes::DESSIN_EPAISSEUR,
-                    sans_insecables(
-                        &Quantite::Longueur(EPAISSEUR_PAR_DEFAUT).en_clair(None, prefs),
-                    ),
+                    sans_insecables(&Quantite::Longueur(defaut).en_clair(None, prefs)),
                 )
             } else {
                 (
@@ -2454,7 +2531,9 @@ fn sans_insecables(texte: &str) -> String {
 
 /// Le symbole d'une porte — ses montants, son battant ouvert à angle droit et
 /// l'arc de son ouverture — ou d'une fenêtre — un trait double dans le mur —,
-/// entre `q0` et `q1`; `dedans` pointe vers l'intérieur de la pièce.
+/// entre `q0` et `q1`; `dedans` pointe vers l'intérieur de la pièce. Dans un
+/// mur à son `epaisseur` (points), les jambages sont déjà tracés, et la
+/// fenêtre montre ses deux faces et son vitrage.
 fn dessiner_ouverture(
     painter: &egui::Painter,
     (q0, q1): (Pos2, Pos2),
@@ -2462,15 +2541,19 @@ fn dessiner_ouverture(
     porte: bool,
     encre: Color32,
     mur: Color32,
+    epaisseur: f32,
 ) {
     let largeur = q0.distance(q1);
     if largeur < 1.0 {
         return;
     }
     let unite = (q1 - q0) / largeur;
+    let a_l_epaisseur = epaisseur >= 2.0;
     if porte {
-        for q in [q0, q1] {
-            painter.line_segment([q - dedans * 3.5, q + dedans * 3.5], Stroke::new(2.0, mur));
+        if !a_l_epaisseur {
+            for q in [q0, q1] {
+                painter.line_segment([q - dedans * 3.5, q + dedans * 3.5], Stroke::new(2.0, mur));
+            }
         }
         let battant = q0 + dedans * largeur;
         painter.line_segment([q0, battant], Stroke::new(2.2, encre));
@@ -2481,6 +2564,14 @@ fn dessiner_ouverture(
             })
             .collect();
         painter.add(egui::Shape::line(arc, Stroke::new(1.2, encre)));
+    } else if a_l_epaisseur {
+        for (part, largeur_du_trait) in [(0.0, 1.0), (0.5, 1.5), (1.0, 1.0)] {
+            let decalage = -dedans * epaisseur * part;
+            painter.line_segment(
+                [q0 + decalage, q1 + decalage],
+                Stroke::new(largeur_du_trait, encre),
+            );
+        }
     } else {
         for decalage in [-3.0, 3.0] {
             painter.line_segment(
@@ -2534,6 +2625,15 @@ fn murs(
             egui::Button::new(texte).selected(etat.autre_choisi == Some(AutreSaisie::Hauteur));
         if ui.add(bouton).clicked() {
             etat.choisir_autre(Some(AutreSaisie::Hauteur));
+        }
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(textes::DESSIN_EPAISSEUR_DES_MURS.traduit()).size(13.5));
+        let texte = longueur_en_clair(solution.epaisseur_des_murs, solution, prefs);
+        let cible = AutreSaisie::EpaisseurDesMurs;
+        let bouton = egui::Button::new(texte).selected(etat.autre_choisi == Some(cible));
+        if ui.add(bouton).clicked() {
+            etat.choisir_autre(Some(cible));
         }
     });
     if solution.hauteur_invalide {
@@ -2820,6 +2920,15 @@ fn cloisons(
             .font(theme::police_grasse(13.0))
             .color(p.titre),
     );
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(textes::DESSIN_EPAISSEUR_DES_CLOISONS.traduit()).size(13.5));
+        let texte = longueur_en_clair(solution.epaisseur_des_cloisons, solution, prefs);
+        let cible = AutreSaisie::EpaisseurDesCloisons;
+        let bouton = egui::Button::new(texte).selected(etat.autre_choisi == Some(cible));
+        if ui.add(bouton).clicked() {
+            etat.choisir_autre(Some(cible));
+        }
+    });
     let mut a_enlever = None;
     for rang in 0..dessin.cloisons.len() {
         ui.horizontal_wrapped(|ui| {
@@ -2839,17 +2948,10 @@ fn cloisons(
                 .get(rang)
                 .copied()
                 .flatten()
-                .map_or(EPAISSEUR_PAR_DEFAUT, |c| c.epaisseur);
+                .map_or(solution.epaisseur_des_cloisons, |c| c.epaisseur);
             let textes_des_boutons = [
                 (false, mesure_du_bouton(&cloison.longueur, "?", prefs)),
-                (
-                    true,
-                    if cloison.epaisseur.trim().is_empty() {
-                        longueur_en_clair(epaisseur, solution, prefs)
-                    } else {
-                        mesure_du_bouton(&cloison.epaisseur, "", prefs)
-                    },
-                ),
+                (true, longueur_en_clair(epaisseur, solution, prefs)),
             ];
             for (en_epaisseur, texte) in textes_des_boutons {
                 if en_epaisseur {

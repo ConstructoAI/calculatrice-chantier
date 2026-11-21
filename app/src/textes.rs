@@ -417,6 +417,8 @@ pub const DESSIN_AJOUTER_UNE_CLOISON: Texte = t("+ Cloison", "+ Partition");
 pub const DESSIN_EPAISSEUR: Texte = t("épaisseur", "thickness");
 /// Devant l'épaisseur d'une cloison, dans sa ligne.
 pub const DESSIN_EP: Texte = t("ép.", "thk.");
+pub const DESSIN_EPAISSEUR_DES_MURS: Texte = t("Épaisseur des murs", "Wall thickness");
+pub const DESSIN_EPAISSEUR_DES_CLOISONS: Texte = t("Épaisseur des cloisons", "Partition thickness");
 pub const DESSIN_TRACER_LA_CLOISON: Texte = t(
     "Glissez d'un bout à l'autre de la cloison",
     "Drag from one end of the partition to the other",

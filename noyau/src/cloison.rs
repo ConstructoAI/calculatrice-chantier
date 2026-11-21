@@ -1,14 +1,13 @@
 //! Les cloisons d'une pièce (section 25) : des murs intérieurs tracés sur le
-//! plan, d'équerre ou à 45°, d'une épaisseur donnée — 4 1/2 po sans épaisseur
-//! inscrite : un colombage de 2 × 4 et une feuille de gypse de 1/2 po de
-//! chaque côté.
+//! plan, d'équerre ou à 45°, d'une épaisseur donnée — la leur, sinon celle
+//! que la pièce donne à ses cloisons (5 po par défaut).
 
 use serde::{Deserialize, Serialize};
 
 use crate::dessin::{Axe, Sens};
 
-/// L'épaisseur d'une cloison sans épaisseur inscrite, en pouces.
-pub const EPAISSEUR_PAR_DEFAUT: f64 = 4.5;
+/// L'épaisseur des cloisons d'une pièce qui n'en donne pas, en pouces.
+pub const EPAISSEUR_PAR_DEFAUT: f64 = 5.0;
 /// Un segment du plan, d'un bout à l'autre (pouces) : un mur, ou l'axe d'une
 /// cloison.
 pub type Segment = ((f64, f64), (f64, f64));
@@ -24,7 +23,7 @@ pub struct Cloison {
     pub debut: (f64, f64),
     pub sens: Sens,
     pub longueur: String,
-    /// Vide : 4 1/2 po.
+    /// Vide : celle des cloisons de la pièce.
     pub epaisseur: String,
 }
 

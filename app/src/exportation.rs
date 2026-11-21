@@ -4,7 +4,7 @@
 //! (R-77), en texte ASCII : le PDF code ses accents en WinAnsi, le DXF en
 //! `\U+XXXX`.
 
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan};
+use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, MorceauDeMur, Plan};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::{Format, Systeme};
@@ -40,6 +40,12 @@ struct PieceExportee {
     notes: Vec<(String, (f64, f64))>,
     /// Les cloisons d'une pièce complète : leurs quatre coins (pouces).
     cloisons: Vec<[(f64, f64); 4]>,
+    /// Les murs extérieurs d'une pièce complète, à leur épaisseur, et le
+    /// contour de leur extérieur; vides sans épaisseur.
+    murs_exterieurs: Vec<MorceauDeMur>,
+    contour_exterieur: Vec<(f64, f64)>,
+    /// L'épaisseur des murs extérieurs (pouces), zéro sans murs dessinés.
+    epaisseur_des_murs: f64,
 }
 
 /// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
@@ -156,6 +162,15 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     } else {
         Vec::new()
     };
+    let murs_exterieurs = dessin.murs_exterieurs(&solution);
+    let (contour_exterieur, epaisseur_des_murs) = if murs_exterieurs.is_empty() {
+        (Vec::new(), 0.0)
+    } else {
+        (
+            dessin.contour_exterieur(&solution).unwrap_or_default(),
+            solution.epaisseur_des_murs,
+        )
+    };
     PieceExportee {
         nom: sans_insecables(nom),
         sommets,
@@ -172,6 +187,9 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         objets,
         notes,
         cloisons,
+        murs_exterieurs,
+        contour_exterieur,
+        epaisseur_des_murs,
     }
 }
 
@@ -187,6 +205,8 @@ const NOIR: Couleur = (0.10, 0.12, 0.16);
 const GRIS: Couleur = (0.45, 0.48, 0.52);
 /// Le plein des cloisons.
 const BLEU_PALE: Couleur = (0.82, 0.87, 0.95);
+/// Le plein des murs extérieurs.
+const MUR_PLEIN: Couleur = (0.74, 0.80, 0.90);
 const BLEU: Couleur = (0.0, 0.40, 0.80);
 const ORANGE: Couleur = (0.85, 0.38, 0.05);
 const FILET: Couleur = (0.80, 0.83, 0.87);
@@ -257,6 +277,7 @@ fn ouvertures_sur_la_page(
     page: &mut Page,
     points: &[(f64, f64)],
     ouvertures: &[(usize, f64, f64, bool)],
+    epaisseur: f64,
 ) {
     let sens = aire_signee(points);
     for &(cote, t0, t1, porte) in ouvertures {
@@ -270,11 +291,28 @@ fn ouvertures_sur_la_page(
         else {
             continue;
         };
-        page.trait_(&[q0, q1], 4.2, BLANC);
+        // Un mur sans épaisseur s'interrompt en blanc; un mur à son
+        // épaisseur l'est déjà.
+        if epaisseur <= 0.0 {
+            page.trait_(&[q0, q1], 4.2, BLANC);
+        }
         if porte {
             let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
             page.trait_(&[q0, battant], 1.2, NOIR);
             page.trait_(&arc_de_porte(q0, u, dedans, largeur), 0.6, GRIS);
+        } else if epaisseur > 0.0 {
+            // La fenêtre traverse le mur : ses deux faces et son vitrage.
+            for (part, largeur_du_trait) in [(0.0, 0.5), (0.5, 0.8), (1.0, 0.5)] {
+                let k = -epaisseur * part;
+                page.trait_(
+                    &[
+                        (q0.0 + dedans.0 * k, q0.1 + dedans.1 * k),
+                        (q1.0 + dedans.0 * k, q1.1 + dedans.1 * k),
+                    ],
+                    largeur_du_trait,
+                    BLEU,
+                );
+            }
         } else {
             for decalage in [-1.6, 1.6] {
                 page.trait_(
@@ -510,14 +548,34 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
     }
     a_cadrer.extend(piece.notes.iter().map(|(_, position)| *position));
     a_cadrer.extend(piece.cloisons.iter().flatten().copied());
+    a_cadrer.extend(piece.contour_exterieur.iter().copied());
     let vers_la_page = ajuster(&a_cadrer, cadre);
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
-    page.trait_(&points, 1.8, BLEU);
-    ouvertures_sur_la_page(&mut page, &points, &piece.ouvertures);
-    // Les objets, à la même échelle que la forme.
+    // L'échelle de la page, en points par pouce.
     let origine = vers_la_page((0.0, 0.0));
     let un_pouce = vers_la_page((1.0, 0.0));
     let echelle = (un_pouce.0 - origine.0).hypot(un_pouce.1 - origine.1);
+    let epaisseur_des_murs = piece.epaisseur_des_murs * echelle;
+    // Les murs à leur épaisseur, pleins : l'intérieur, l'extérieur et les
+    // jambages; sans épaisseur, le contour.
+    if piece.murs_exterieurs.is_empty() {
+        page.trait_(&points, 1.8, BLEU);
+    } else {
+        for morceau in &piece.murs_exterieurs {
+            let [a, b, c, d] = morceau.coins.map(&vers_la_page);
+            page.polygone_plein(&[a, b, c, d], MUR_PLEIN);
+            page.trait_(&[a, b], 1.4, BLEU);
+            page.trait_(&[d, c], 1.0, BLEU);
+            if morceau.jambage_au_debut {
+                page.trait_(&[a, d], 1.0, BLEU);
+            }
+            if morceau.jambage_a_la_fin {
+                page.trait_(&[b, c], 1.0, BLEU);
+            }
+        }
+    }
+    ouvertures_sur_la_page(&mut page, &points, &piece.ouvertures, epaisseur_des_murs);
+    // Les objets, à la même échelle que la forme.
     for (nom, centre, traits) in &piece.objets {
         for trait_ in traits {
             match *trait_ {
@@ -587,6 +645,11 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         );
         // La page a l'axe des y vers le haut.
         let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
+        // La mesure s'écrit hors du mur, à son épaisseur.
+        let milieu = (
+            milieu.0 + nx * epaisseur_des_murs,
+            milieu.1 + ny * epaisseur_des_murs,
+        );
         let (position, alignement) = if ny.abs() > 0.9 {
             if ny > 0.0 {
                 ((milieu.0, milieu.1 + 5.0), Alignement::Centre)
@@ -962,6 +1025,7 @@ fn ouvertures_dans_le_dxf(
     points: &[(f64, f64)],
     ouvertures: &[(usize, f64, f64, bool)],
     facteur: f64,
+    epaisseur: f64,
 ) {
     let sens = aire_signee(points);
     for &(cote, t0, t1, porte) in ouvertures {
@@ -993,6 +1057,17 @@ fn ouvertures_dans_le_dxf(
                 largeur,
                 (angles.0.rem_euclid(360.0), angles.1.rem_euclid(360.0)),
             );
+        } else if epaisseur > 0.0 {
+            // La fenêtre traverse le mur : ses deux faces et son vitrage.
+            for part in [0.0, 0.5, 1.0] {
+                let k = -epaisseur * part;
+                ligne_dxf(
+                    dxf,
+                    "OUVERTURES",
+                    (q0.0 + dedans.0 * k, q0.1 + dedans.1 * k),
+                    (q1.0 + dedans.0 * k, q1.1 + dedans.1 * k),
+                );
+            }
         } else {
             let ecart = 2.0 * facteur;
             for decalage in [-ecart, ecart] {
@@ -1071,6 +1146,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             .flat_map(|(_, _, traits)| traits.iter().flat_map(etendue_d_un_trait))
             .chain(piece.notes.iter().map(|(_, position)| *position))
             .chain(piece.cloisons.iter().flatten().copied())
+            .chain(piece.contour_exterieur.iter().copied())
             .map(|(x, y)| (x * facteur, -y * facteur))
             .chain(points.iter().copied())
             .collect();
@@ -1082,7 +1158,10 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         let points: Vec<(f64, f64)> = points.iter().map(|&(x, y)| (x + decalage, y)).collect();
         let (largeur, hauteur) = (droite - gauche, haut - bas);
         let taille = (largeur.max(hauteur) * 0.025).clamp(3.0 * facteur, 12.0 * facteur);
-        for (cote, segment) in points.windows(2).enumerate() {
+        // Sans épaisseur, le mur est un trait, interrompu aux portes et aux
+        // fenêtres; à son épaisseur, il se trace plus bas.
+        let sans_epaisseur = piece.murs_exterieurs.is_empty();
+        for (cote, segment) in points.windows(2).enumerate().filter(|_| sans_epaisseur) {
             // Le mur s'interrompt aux portes et aux fenêtres.
             let point = |t: f64| {
                 (
@@ -1105,7 +1184,13 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 depuis = depuis.max(t1);
             }
         }
-        ouvertures_dans_le_dxf(&mut entites, &points, &piece.ouvertures, facteur);
+        ouvertures_dans_le_dxf(
+            &mut entites,
+            &points,
+            &piece.ouvertures,
+            facteur,
+            piece.epaisseur_des_murs * facteur,
+        );
         // Les objets, sur le calque MOBILIER.
         let vers_le_dxf = |(x, y): (f64, f64)| (x * facteur + decalage, -y * facteur);
         for (nom, centre, traits) in &piece.objets {
@@ -1127,6 +1212,18 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 Alignement::Centre,
                 nom,
             );
+        }
+        // Les murs à leur épaisseur : l'intérieur, l'extérieur et les jambages.
+        for morceau in &piece.murs_exterieurs {
+            let [a, b, c, d] = morceau.coins.map(vers_le_dxf);
+            ligne_dxf(&mut entites, "MURS", a, b);
+            ligne_dxf(&mut entites, "MURS", d, c);
+            if morceau.jambage_au_debut {
+                ligne_dxf(&mut entites, "MURS", a, d);
+            }
+            if morceau.jambage_a_la_fin {
+                ligne_dxf(&mut entites, "MURS", b, c);
+            }
         }
         // Les cloisons, sur le calque CLOISONS.
         for coins in &piece.cloisons {
@@ -1164,6 +1261,9 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 (segment[0].1 + segment[1].1) / 2.0,
             );
             let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
+            // La mesure s'écrit hors du mur, à son épaisseur.
+            let epaisseur = piece.epaisseur_des_murs * facteur;
+            let milieu = (milieu.0 + nx * epaisseur, milieu.1 + ny * epaisseur);
             let (position, alignement) = if ny.abs() > 0.9 {
                 (
                     (milieu.0, milieu.1 + ny.signum() * taille * 1.2),
@@ -1294,6 +1394,8 @@ mod tests {
                 cote(Sens::Nord, 150.0, ""),
             ],
             fermee: true,
+            // Des murs sans épaisseur : un trait par côté.
+            epaisseur_des_murs: "0".to_string(),
             ..Dessin::default()
         }
     }
@@ -1479,6 +1581,37 @@ mod tests {
         assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nCLOISONS\r\n").count(), 4);
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert_eq!(pdf.matches("0.820 0.870 0.950 rg").count(), 1);
+    }
+
+    #[test]
+    fn les_murs_a_leur_epaisseur_dans_le_pdf_et_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.epaisseur_des_murs = String::new();
+        chambre.ouvertures = vec![noyau::dessin::Ouverture {
+            largeur: "3 pi".into(),
+            hauteur: "4 pi".into(),
+            genre: Some(noyau::dessin::GenreDOuverture::Fenetre),
+            cote: Some(0),
+            position: String::new(),
+            allege: String::new(),
+        }];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Cinq morceaux de mur (le mur du haut coupé par la fenêtre) : leur
+        // intérieur, leur extérieur, et les deux jambages de la fenêtre.
+        assert_eq!(
+            dxf.matches("\r\nLINE\r\n  8\r\nMURS\r\n").count(),
+            5 + 5 + 2
+        );
+        // Le coin extérieur, à 9 po hors des mesures : la pièce commence à
+        // x = 0 par l'extérieur de son mur (le DXF a les y vers le haut).
+        assert!(dxf.contains("\r\n 10\r\n0.0000\r\n 20\r\n9.0000\r\n"));
+        // La fenêtre traverse le mur : trois traits.
+        assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nOUVERTURES\r\n").count(), 3);
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert_eq!(pdf.matches("0.740 0.800 0.900 rg").count(), 5);
+        // Les murs pleins n'ont pas besoin d'être interrompus en blanc.
+        assert!(!pdf.contains("1.000 1.000 1.000 RG"));
     }
 
     #[test]

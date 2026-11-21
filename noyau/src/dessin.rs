@@ -167,6 +167,46 @@ impl Cote {
     }
 }
 
+/// L'épaisseur des murs extérieurs d'une pièce sans épaisseur inscrite, en
+/// pouces. Les murs se dessinent hors des mesures, qui sont celles de
+/// l'intérieur de la pièce.
+pub const EPAISSEUR_DES_MURS_PAR_DEFAUT: f64 = 9.0;
+
+/// Un morceau plein d'un mur extérieur, entre ses ouvertures : ses quatre
+/// coins (pouces) — l'intérieur, de son début à sa fin, puis l'extérieur, de
+/// sa fin à son début — et ses jambages (ses bouts contre une ouverture).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MorceauDeMur {
+    pub cote: usize,
+    pub coins: [(f64, f64); 4],
+    pub jambage_au_debut: bool,
+    pub jambage_a_la_fin: bool,
+}
+
+/// Le sens d'un côté et la direction de l'extérieur de la pièce.
+#[derive(Clone, Copy)]
+struct Repere {
+    u: (f64, f64),
+    dehors: (f64, f64),
+}
+
+/// Le repère de chaque côté d'un contour fermé.
+fn reperes_des_cotes(sommets: &[(f64, f64)]) -> Vec<Repere> {
+    let aire: f64 = sommets
+        .windows(2)
+        .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+        .sum();
+    sommets
+        .windows(2)
+        .map(|s| {
+            let longueur = (s[1].0 - s[0].0).hypot(s[1].1 - s[0].1).max(1e-12);
+            let u = ((s[1].0 - s[0].0) / longueur, (s[1].1 - s[0].1) / longueur);
+            let dehors = if aire > 0.0 { (u.1, -u.0) } else { (-u.1, u.0) };
+            Repere { u, dehors }
+        })
+        .collect()
+}
+
 /// Une note écrite sur le plan : son texte, et sa place en pouces dans le
 /// repère du plan (le départ du tracé en (0, 0), y vers le bas), comme un objet.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -195,6 +235,10 @@ pub struct Dessin {
     pub notes: Vec<Note>,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
+    /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.
+    pub epaisseur_des_murs: String,
+    /// L'épaisseur des cloisons qui n'ont pas la leur; vide : 5 po.
+    pub epaisseur_des_cloisons: String,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -428,6 +472,10 @@ pub struct Solution {
     pub objets: Vec<(f64, f64)>,
     /// Chaque cloison à ses mesures; `None` si sa longueur est illisible.
     pub cloisons: Vec<Option<crate::cloison::CloisonMesuree>>,
+    /// L'épaisseur des murs extérieurs (pouces); zéro : pas de mur dessiné.
+    pub epaisseur_des_murs: f64,
+    /// L'épaisseur des cloisons qui n'ont pas la leur (pouces).
+    pub epaisseur_des_cloisons: f64,
 }
 
 impl Solution {
@@ -899,6 +947,106 @@ impl Dessin {
         (longueurs.len() == self.cotes.len()).then(|| self.sommets(&longueurs))
     }
 
+    /// Les coins de l'extérieur des murs, un par sommet (le contour fermé) :
+    /// les côtés repoussés vers l'extérieur de l'épaisseur des murs, chaque
+    /// coin à la rencontre de deux côtés repoussés. `None` tant que la forme
+    /// n'est pas complète.
+    pub fn contour_exterieur(&self, solution: &Solution) -> Option<Vec<(f64, f64)>> {
+        if !matches!(solution.etat, Etat::Complete { .. }) {
+            return None;
+        }
+        let sommets = self.sommets_mesures(solution)?;
+        let n = sommets.len().checked_sub(1).filter(|n| *n >= 3)?;
+        let e = solution.epaisseur_des_murs;
+        let reperes = reperes_des_cotes(&sommets);
+        let mut contour: Vec<(f64, f64)> = (0..n)
+            .map(|i| {
+                let avant = (i + n - 1) % n;
+                let (r1, r2) = (reperes[avant], reperes[i]);
+                let p1 = (
+                    sommets[avant].0 + r1.dehors.0 * e,
+                    sommets[avant].1 + r1.dehors.1 * e,
+                );
+                let p2 = (
+                    sommets[i].0 + r2.dehors.0 * e,
+                    sommets[i].1 + r2.dehors.1 * e,
+                );
+                let croix = r1.u.0 * r2.u.1 - r1.u.1 * r2.u.0;
+                if croix.abs() < 1e-9 {
+                    p2
+                } else {
+                    let s = ((p2.0 - p1.0) * r2.u.1 - (p2.1 - p1.1) * r2.u.0) / croix;
+                    (p1.0 + r1.u.0 * s, p1.1 + r1.u.1 * s)
+                }
+            })
+            .collect();
+        contour.push(contour[0]);
+        Some(contour)
+    }
+
+    /// Les murs extérieurs à leur épaisseur, hors des mesures : leurs morceaux
+    /// pleins, interrompus par les portes et les fenêtres. Vide tant que la
+    /// forme n'est pas complète, ou si l'épaisseur des murs est nulle.
+    pub fn murs_exterieurs(&self, solution: &Solution) -> Vec<MorceauDeMur> {
+        let e = solution.epaisseur_des_murs;
+        let (Some(sommets), Some(contour)) = (
+            self.sommets_mesures(solution),
+            self.contour_exterieur(solution),
+        ) else {
+            return Vec::new();
+        };
+        if e <= 1e-9 {
+            return Vec::new();
+        }
+        let mut morceaux = Vec::new();
+        for (cote, repere) in reperes_des_cotes(&sommets).into_iter().enumerate() {
+            let (a, b) = (sommets[cote], sommets[cote + 1]);
+            let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+            let Repere { u, dehors } = repere;
+            let interieur = |t: f64| (a.0 + u.0 * t, a.1 + u.1 * t);
+            let exterieur = |t: f64| {
+                if t <= 1e-9 {
+                    contour[cote]
+                } else if t >= longueur - 1e-9 {
+                    contour[cote + 1]
+                } else {
+                    (a.0 + u.0 * t + dehors.0 * e, a.1 + u.1 * t + dehors.1 * e)
+                }
+            };
+            let mut vides: Vec<(f64, f64)> = solution
+                .placements
+                .iter()
+                .flatten()
+                .filter(|placement| placement.cote == cote)
+                .map(|placement| {
+                    (
+                        placement.debut.clamp(0.0, longueur),
+                        placement.fin.clamp(0.0, longueur),
+                    )
+                })
+                .collect();
+            vides.sort_by(|x, y| x.0.total_cmp(&y.0));
+            let mut depuis = 0.0_f64;
+            for (t0, t1) in vides.into_iter().chain([(longueur, longueur)]) {
+                if t0 > depuis + 1e-6 {
+                    morceaux.push(MorceauDeMur {
+                        cote,
+                        coins: [
+                            interieur(depuis),
+                            interieur(t0),
+                            exterieur(t0),
+                            exterieur(depuis),
+                        ],
+                        jambage_au_debut: depuis > 1e-9,
+                        jambage_a_la_fin: t0 < longueur - 1e-9,
+                    });
+                }
+                depuis = depuis.max(t1);
+            }
+        }
+        morceaux
+    }
+
     /// Lit les mesures inscrites, déduit celles qui peuvent l'être et calcule
     /// l'aire et le périmètre quand la forme est complète. Un nombre sans
     /// unité est lu dans le format `defaut`.
@@ -1011,13 +1159,38 @@ impl Dessin {
                 )
             })
             .collect();
+        // Une épaisseur sans unité se lit en pouces (en millimètres si les
+        // mesures sont métriques) : « 9 » fait un mur de 9 po, pas de 9 pi.
+        let format_des_epaisseurs =
+            if modele.and_then(Format::systeme) == Some(crate::unites::Systeme::Metrique) {
+                Format::Mm
+            } else {
+                Format::PoFrac
+            };
+        let lire_une_epaisseur = |texte: &str, nulle_permise: bool| match analyser_longueur(
+            texte.trim(),
+            format_des_epaisseurs,
+        ) {
+            Ok(v)
+                if v.est_longueur()
+                    && v.base.is_finite()
+                    && (v.base > 0.0 || (nulle_permise && v.base >= 0.0)) =>
+            {
+                Some(v.base)
+            }
+            _ => None,
+        };
+        let epaisseur_des_murs = lire_une_epaisseur(&self.epaisseur_des_murs, true)
+            .unwrap_or(EPAISSEUR_DES_MURS_PAR_DEFAUT);
+        let epaisseur_des_cloisons = lire_une_epaisseur(&self.epaisseur_des_cloisons, false)
+            .unwrap_or(crate::cloison::EPAISSEUR_PAR_DEFAUT);
         let cloisons = self
             .cloisons
             .iter()
             .map(|cloison| {
                 let longueur = lire(&cloison.longueur)?;
                 let epaisseur =
-                    lire(&cloison.epaisseur).unwrap_or(crate::cloison::EPAISSEUR_PAR_DEFAUT);
+                    lire_une_epaisseur(&cloison.epaisseur, false).unwrap_or(epaisseur_des_cloisons);
                 let (ux, uy) = cloison.sens.pas();
                 Some(crate::cloison::CloisonMesuree {
                     debut: cloison.debut,
@@ -1041,6 +1214,8 @@ impl Dessin {
             placements,
             objets,
             cloisons,
+            epaisseur_des_murs,
+            epaisseur_des_cloisons,
         }
     }
 
@@ -1604,6 +1779,70 @@ mod tests {
             fermee: true,
             ..Dessin::default()
         }
+    }
+
+    #[test]
+    fn les_murs_exterieurs_a_leur_epaisseur() {
+        // Une chambre de 12 pi × 10 pi, une porte de 2 pi 8 po au mur du bas.
+        let mut dessin = piece(&[
+            (Sens::Est, 200.0, "12"),
+            (Sens::Sud, 150.0, "10"),
+            (Sens::Ouest, 200.0, ""),
+            (Sens::Nord, 150.0, ""),
+        ]);
+        dessin.ouvertures = vec![Ouverture {
+            largeur: "2 pi 8 po".into(),
+            hauteur: "6 pi 8 po".into(),
+            genre: Some(GenreDOuverture::Porte),
+            cote: Some(2),
+            position: "1".into(),
+            allege: String::new(),
+        }];
+        let solution = dessin.resoudre(Format::PiPo);
+        // 9 po par défaut, hors des mesures.
+        assert_eq!(solution.epaisseur_des_murs, 9.0);
+        assert_eq!(
+            dessin.contour_exterieur(&solution).unwrap(),
+            vec![
+                (-9.0, -9.0),
+                (153.0, -9.0),
+                (153.0, 129.0),
+                (-9.0, 129.0),
+                (-9.0, -9.0)
+            ]
+        );
+        // Le mur du bas s'interrompt à la porte : deux morceaux, chacun avec
+        // son jambage contre elle.
+        let morceaux = dessin.murs_exterieurs(&solution);
+        assert_eq!(morceaux.len(), 5);
+        let du_bas: Vec<&MorceauDeMur> = morceaux.iter().filter(|m| m.cote == 2).collect();
+        assert_eq!(du_bas.len(), 2);
+        assert!(du_bas[0].jambage_a_la_fin && !du_bas[0].jambage_au_debut);
+        assert!(du_bas[1].jambage_au_debut && !du_bas[1].jambage_a_la_fin);
+        // Une épaisseur sans unité se lit en pouces; nulle, pas de mur.
+        dessin.epaisseur_des_murs = "6".into();
+        assert_eq!(dessin.resoudre(Format::PiPo).epaisseur_des_murs, 6.0);
+        dessin.epaisseur_des_murs = "0".into();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!(dessin.murs_exterieurs(&solution).is_empty());
+        // Les cloisons prennent l'épaisseur que la pièce leur donne, sauf la leur.
+        dessin.cloisons = vec![
+            crate::cloison::Cloison {
+                longueur: "10".into(),
+                ..Default::default()
+            },
+            crate::cloison::Cloison {
+                longueur: "10".into(),
+                epaisseur: "4".into(),
+                ..Default::default()
+            },
+        ];
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!(solution.cloisons[0].unwrap().epaisseur, 5.0);
+        dessin.epaisseur_des_cloisons = "6 po".into();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!(solution.cloisons[0].unwrap().epaisseur, 6.0);
+        assert_eq!(solution.cloisons[1].unwrap().epaisseur, 4.0);
     }
 
     #[test]
