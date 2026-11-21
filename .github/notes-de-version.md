@@ -15,6 +15,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   baie), et le bouton **45°** fait passer les flèches en biais. La calculatrice déduit les
   côtés manquants, en biais ou d'équerre, et calcule la surface comme avant. Les autres
   angles ne sont pas pris en charge.
+- **0.9.1** : les **portes et les fenêtres dessinées** — après « + Porte » ou « + Fenêtre »,
+  touchez leur mur : la porte paraît avec son battant et l'arc de son ouverture, la fenêtre
+  avec son trait double. « Placer » les déplace; leur distance au coin se règle au pavé.
+  Elles paraissent aussi dans le PDF et le DXF.
 
 ## Nouveautés de la version 0.8
 

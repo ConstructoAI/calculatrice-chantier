@@ -30,6 +30,9 @@ struct PieceExportee {
     aire_nette: Option<f64>,
     perimetre: Option<f64>,
     modele: Option<Format>,
+    /// Les portes et les fenêtres : leur mur, leurs bords en part de la
+    /// longueur du mur (de 0 à 1), et vrai pour une porte.
+    ouvertures: Vec<(usize, f64, f64, bool)>,
 }
 
 /// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
@@ -94,6 +97,22 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         EtatDeLaForme::Complete { perimetre, .. } => (solution.aire_nette(), Some(perimetre)),
         _ => (None, None),
     };
+    let ouvertures = solution
+        .placements
+        .iter()
+        .flatten()
+        .filter_map(|placement| {
+            let longueur = solution.mesures.get(placement.cote)?.pouces()?;
+            (longueur > 0.0).then(|| {
+                (
+                    placement.cote,
+                    placement.debut / longueur,
+                    placement.fin / longueur,
+                    placement.porte,
+                )
+            })
+        })
+        .collect();
     PieceExportee {
         nom: sans_insecables(nom),
         sommets,
@@ -106,6 +125,7 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         aire_nette,
         perimetre,
         modele: solution.modele,
+        ouvertures,
     }
 }
 
@@ -122,6 +142,106 @@ const GRIS: Couleur = (0.45, 0.48, 0.52);
 const BLEU: Couleur = (0.0, 0.40, 0.80);
 const ORANGE: Couleur = (0.85, 0.38, 0.05);
 const FILET: Couleur = (0.80, 0.83, 0.87);
+const BLANC: Couleur = (1.0, 1.0, 1.0);
+
+/// Une ouverture sur un contour : ses deux bords, le sens du mur, celui de
+/// l'intérieur de la pièce et sa largeur.
+struct Geometrie {
+    q0: (f64, f64),
+    q1: (f64, f64),
+    u: (f64, f64),
+    dedans: (f64, f64),
+    largeur: f64,
+}
+
+/// La géométrie d'une ouverture; `aire_signee` donne le sens du contour.
+fn geometrie_d_une_ouverture(
+    points: &[(f64, f64)],
+    aire_signee: f64,
+    (cote, t0, t1): (usize, f64, f64),
+) -> Option<Geometrie> {
+    let (a, b) = (points.get(cote)?, points.get(cote + 1)?);
+    let le_long = (b.0 - a.0, b.1 - a.1);
+    let q0 = (a.0 + le_long.0 * t0, a.1 + le_long.1 * t0);
+    let q1 = (a.0 + le_long.0 * t1, a.1 + le_long.1 * t1);
+    let largeur = (q1.0 - q0.0).hypot(q1.1 - q0.1);
+    if largeur <= 1e-9 {
+        return None;
+    }
+    let u = ((q1.0 - q0.0) / largeur, (q1.1 - q0.1) / largeur);
+    let dedans = if aire_signee > 0.0 {
+        (-u.1, u.0)
+    } else {
+        (u.1, -u.0)
+    };
+    Some(Geometrie {
+        q0,
+        q1,
+        u,
+        dedans,
+        largeur,
+    })
+}
+
+fn aire_signee(points: &[(f64, f64)]) -> f64 {
+    points
+        .windows(2)
+        .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+        .sum()
+}
+
+/// L'arc d'ouverture d'une porte : un quart de cercle autour de son montant.
+fn arc_de_porte(q0: (f64, f64), u: (f64, f64), dedans: (f64, f64), rayon: f64) -> Vec<(f64, f64)> {
+    (0..=16)
+        .map(|i| {
+            let angle = std::f64::consts::FRAC_PI_2 * f64::from(i) / 16.0;
+            (
+                q0.0 + (u.0 * angle.cos() + dedans.0 * angle.sin()) * rayon,
+                q0.1 + (u.1 * angle.cos() + dedans.1 * angle.sin()) * rayon,
+            )
+        })
+        .collect()
+}
+
+/// Les portes et les fenêtres sur la page : le mur s'interrompt, puis le
+/// battant et son arc, ou le trait double d'une fenêtre.
+fn ouvertures_sur_la_page(
+    page: &mut Page,
+    points: &[(f64, f64)],
+    ouvertures: &[(usize, f64, f64, bool)],
+) {
+    let sens = aire_signee(points);
+    for &(cote, t0, t1, porte) in ouvertures {
+        let Some(Geometrie {
+            q0,
+            q1,
+            u,
+            dedans,
+            largeur,
+        }) = geometrie_d_une_ouverture(points, sens, (cote, t0, t1))
+        else {
+            continue;
+        };
+        page.trait_(&[q0, q1], 4.2, BLANC);
+        if porte {
+            let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
+            page.trait_(&[q0, battant], 1.2, NOIR);
+            page.trait_(&arc_de_porte(q0, u, dedans, largeur), 0.6, GRIS);
+        } else {
+            for decalage in [-1.6, 1.6] {
+                page.trait_(
+                    &[
+                        (q0.0 + dedans.0 * decalage, q0.1 + dedans.1 * decalage),
+                        (q1.0 + dedans.0 * decalage, q1.1 + dedans.1 * decalage),
+                    ],
+                    0.6,
+                    BLEU,
+                );
+            }
+            page.trait_(&[q0, q1], 0.4, BLEU);
+        }
+    }
+}
 
 /// Alignement d'un texte par rapport à son point d'ancrage.
 #[derive(Clone, Copy)]
@@ -315,6 +435,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
     let vers_la_page = ajuster(&piece.sommets, cadre);
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
     page.trait_(&points, 1.8, BLEU);
+    ouvertures_sur_la_page(&mut page, &points, &piece.ouvertures);
     let nombre = points.len().saturating_sub(1).max(1);
     let centre = (
         points.iter().take(nombre).map(|q| q.0).sum::<f64>() / nombre as f64,
@@ -678,6 +799,74 @@ fn ligne_dxf(dxf: &mut String, calque: &str, a: (f64, f64), b: (f64, f64)) {
     }
 }
 
+fn arc_dxf(dxf: &mut String, calque: &str, centre: (f64, f64), rayon: f64, angles: (f64, f64)) {
+    groupe(dxf, 0, "ARC");
+    groupe(dxf, 8, calque);
+    for (code, valeur) in [
+        (10, centre.0),
+        (20, centre.1),
+        (30, 0.0),
+        (40, rayon),
+        (50, angles.0),
+        (51, angles.1),
+    ] {
+        groupe(dxf, code, &nombre_dxf(valeur));
+    }
+}
+
+/// Les portes (battant et arc) et les fenêtres (trait double et vitrage) sur
+/// le calque OUVERTURES. Le DXF a l'axe des y vers le haut.
+fn ouvertures_dans_le_dxf(
+    dxf: &mut String,
+    points: &[(f64, f64)],
+    ouvertures: &[(usize, f64, f64, bool)],
+    facteur: f64,
+) {
+    let sens = aire_signee(points);
+    for &(cote, t0, t1, porte) in ouvertures {
+        let Some(Geometrie {
+            q0,
+            q1,
+            u,
+            dedans,
+            largeur,
+        }) = geometrie_d_une_ouverture(points, sens, (cote, t0, t1))
+        else {
+            continue;
+        };
+        if porte {
+            let battant = (q0.0 + dedans.0 * largeur, q0.1 + dedans.1 * largeur);
+            ligne_dxf(dxf, "OUVERTURES", q0, battant);
+            // L'arc va, dans le sens trigonométrique, du mur au battant.
+            let vers_le_mur = u.1.atan2(u.0).to_degrees();
+            let vers_le_battant = dedans.1.atan2(dedans.0).to_degrees();
+            let angles = if ((vers_le_battant - vers_le_mur).rem_euclid(360.0) - 90.0).abs() < 1.0 {
+                (vers_le_mur, vers_le_battant)
+            } else {
+                (vers_le_battant, vers_le_mur)
+            };
+            arc_dxf(
+                dxf,
+                "OUVERTURES",
+                q0,
+                largeur,
+                (angles.0.rem_euclid(360.0), angles.1.rem_euclid(360.0)),
+            );
+        } else {
+            let ecart = 2.0 * facteur;
+            for decalage in [-ecart, ecart] {
+                ligne_dxf(
+                    dxf,
+                    "OUVERTURES",
+                    (q0.0 + dedans.0 * decalage, q0.1 + dedans.1 * decalage),
+                    (q1.0 + dedans.0 * decalage, q1.1 + dedans.1 * decalage),
+                );
+            }
+            ligne_dxf(dxf, "OUVERTURES", q0, q1);
+        }
+    }
+}
+
 /// Un texte, ancré (horizontalement) à gauche, au centre ou à droite, et
 /// centré verticalement sur son point.
 fn texte_dans_le_dxf(
@@ -743,9 +932,30 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         let points: Vec<(f64, f64)> = points.iter().map(|&(x, y)| (x + decalage, y)).collect();
         let (largeur, hauteur) = (droite - gauche, haut - bas);
         let taille = (largeur.max(hauteur) * 0.025).clamp(3.0 * facteur, 12.0 * facteur);
-        for segment in points.windows(2) {
-            ligne_dxf(&mut entites, "MURS", segment[0], segment[1]);
+        for (cote, segment) in points.windows(2).enumerate() {
+            // Le mur s'interrompt aux portes et aux fenêtres.
+            let point = |t: f64| {
+                (
+                    segment[0].0 + (segment[1].0 - segment[0].0) * t,
+                    segment[0].1 + (segment[1].1 - segment[0].1) * t,
+                )
+            };
+            let mut coupures: Vec<(f64, f64)> = piece
+                .ouvertures
+                .iter()
+                .filter(|ouverture| ouverture.0 == cote)
+                .map(|ouverture| (ouverture.1, ouverture.2))
+                .collect();
+            coupures.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let mut depuis = 0.0_f64;
+            for (t0, t1) in coupures.into_iter().chain([(1.0, 1.0)]) {
+                if t0 > depuis + 1e-9 {
+                    ligne_dxf(&mut entites, "MURS", point(depuis), point(t0));
+                }
+                depuis = depuis.max(t1);
+            }
         }
+        ouvertures_dans_le_dxf(&mut entites, &points, &piece.ouvertures, facteur);
         let nombre = points.len().saturating_sub(1).max(1);
         let centre = (
             points.iter().take(nombre).map(|q| q.0).sum::<f64>() / nombre as f64,
@@ -840,7 +1050,13 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
     groupe(&mut dxf, 73, "0");
     groupe(&mut dxf, 40, "0.0");
     groupe(&mut dxf, 0, "ENDTAB");
-    let calques = [("0", "7"), ("MURS", "5"), ("COTES", "7"), ("PIECES", "3")];
+    let calques = [
+        ("0", "7"),
+        ("MURS", "5"),
+        ("COTES", "7"),
+        ("PIECES", "3"),
+        ("OUVERTURES", "1"),
+    ];
     groupe(&mut dxf, 0, "TABLE");
     groupe(&mut dxf, 2, "LAYER");
     groupe(&mut dxf, 70, &calques.len().to_string());
@@ -971,6 +1187,42 @@ mod tests {
 
     fn plan_d_une_piece(dessin: Dessin) -> Plan {
         Plan::d_une_piece(dessin)
+    }
+
+    #[test]
+    fn les_portes_et_les_fenetres_sont_dessinees() {
+        let mut chambre = rectangle("12", "10");
+        chambre.ouvertures = vec![
+            noyau::dessin::Ouverture {
+                largeur: "2 pi 8 po".into(),
+                hauteur: "6 pi 8 po".into(),
+                genre: Some(noyau::dessin::GenreDOuverture::Porte),
+                cote: Some(0),
+                position: String::new(),
+            },
+            noyau::dessin::Ouverture {
+                largeur: "3".into(),
+                hauteur: "4".into(),
+                genre: Some(noyau::dessin::GenreDOuverture::Fenetre),
+                cote: Some(1),
+                position: "2".into(),
+            },
+        ];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        assert!(dxf.contains("\r\nOUVERTURES\r\n"));
+        // Les murs interrompus : deux tronçons pour chacun des deux premiers murs.
+        let murs = dxf.matches("\r\nLINE\r\n  8\r\nMURS\r\n").count();
+        assert_eq!(murs, 6);
+        // La porte : son battant et son arc; la fenêtre : trois traits.
+        let ouvertures = dxf.matches("\r\nLINE\r\n  8\r\nOUVERTURES\r\n").count();
+        assert_eq!(ouvertures, 4);
+        assert_eq!(dxf.matches("\r\nARC\r\n").count(), 1);
+        // Le battant mesure la largeur de la porte : 32 po.
+        assert!(dxf.contains("\r\n 40\r\n32.0000\r\n"));
+        // Le PDF interrompt les murs, en blanc.
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("1.000 1.000 1.000 RG"));
     }
 
     #[test]

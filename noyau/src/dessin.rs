@@ -188,6 +188,43 @@ pub struct Dessin {
 pub struct Ouverture {
     pub largeur: String,
     pub hauteur: String,
+    /// Porte ou fenêtre. Absent d'un dessin de la version 0.8 : une ouverture
+    /// de 6 pi ou plus de haut est alors une porte.
+    pub genre: Option<GenreDOuverture>,
+    /// Le rang du côté (du mur) où elle se trouve; `None` tant qu'elle n'est
+    /// pas placée.
+    pub cote: Option<usize>,
+    /// La distance entre le premier coin de son mur et son bord, telle
+    /// qu'elle a été inscrite; vide : l'ouverture est centrée.
+    pub position: String,
+}
+
+/// Le genre d'une ouverture, pour la dessiner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GenreDOuverture {
+    Porte,
+    Fenetre,
+}
+
+impl Ouverture {
+    /// Vrai pour une porte. Sans genre, une ouverture de 6 pi (72 po) ou plus
+    /// de haut en est une; `hauteur` est sa hauteur en pouces, si elle est lisible.
+    pub fn est_une_porte(&self, hauteur: Option<f64>) -> bool {
+        match self.genre {
+            Some(genre) => genre == GenreDOuverture::Porte,
+            None => hauteur.is_some_and(|h| h >= 72.0),
+        }
+    }
+}
+
+/// Où se trouve une ouverture, pour la dessiner : son mur, et ses deux bords
+/// en pouces depuis le premier coin de ce mur.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Placement {
+    pub cote: usize,
+    pub debut: f64,
+    pub fin: f64,
+    pub porte: bool,
 }
 
 /// La surface des murs d'une pièce, en pouces carrés.
@@ -356,6 +393,9 @@ pub struct Solution {
     pub hauteur_invalide: bool,
     /// Aire de chaque ouverture (pouces carrés), comme pour les retraits.
     pub ouvertures: Vec<Option<f64>>,
+    /// Où dessiner chaque ouverture : `None` si elle n'est pas placée, si la
+    /// longueur de son mur n'est pas connue ou si elle est plus large que lui.
+    pub placements: Vec<Option<Placement>>,
 }
 
 impl Solution {
@@ -871,6 +911,36 @@ impl Dessin {
                 }
             })
             .collect();
+        // Une distance au coin peut être nulle : la porte est contre le coin.
+        let lire_ou_zero = |texte: &str| match analyser_longueur(texte.trim(), defaut) {
+            Ok(v) if v.est_longueur() && v.base >= 0.0 && v.base.is_finite() => Some(v.base),
+            _ => None,
+        };
+        let placements = self
+            .ouvertures
+            .iter()
+            .map(|ouverture| {
+                let cote = ouverture.cote?;
+                let longueur_du_mur = mesures.get(cote)?.pouces()?;
+                let largeur = lire(&ouverture.largeur)?;
+                if largeur > longueur_du_mur + TOLERANCE_PO {
+                    return None;
+                }
+                let largeur = largeur.min(longueur_du_mur);
+                let libre = longueur_du_mur - largeur;
+                let debut = if ouverture.position.trim().is_empty() {
+                    libre / 2.0
+                } else {
+                    lire_ou_zero(&ouverture.position)?.min(libre)
+                };
+                Some(Placement {
+                    cote,
+                    debut,
+                    fin: debut + largeur,
+                    porte: ouverture.est_une_porte(lire(&ouverture.hauteur)),
+                })
+            })
+            .collect();
         Solution {
             mesures,
             etat,
@@ -879,6 +949,7 @@ impl Dessin {
             hauteur,
             hauteur_invalide: !texte_de_la_hauteur.is_empty() && hauteur.is_none(),
             ouvertures,
+            placements,
         }
     }
 
@@ -1389,10 +1460,12 @@ mod tests {
         dessin.ouvertures.push(Ouverture {
             largeur: "2 pi 8 po".into(),
             hauteur: "6 pi 8 po".into(),
+            ..Ouverture::default()
         });
         dessin.ouvertures.push(Ouverture {
             largeur: "3".into(),
             hauteur: "4".into(),
+            ..Ouverture::default()
         });
         let murs = dessin.resoudre(Format::PiPo).murs().unwrap();
         assert!((murs.ouvertures - (32.0 * 80.0 + 36.0 * 48.0)).abs() < 1e-6);
@@ -1401,6 +1474,7 @@ mod tests {
         dessin.ouvertures.push(Ouverture {
             largeur: "3".into(),
             hauteur: String::new(),
+            ..Ouverture::default()
         });
         assert_eq!(dessin.resoudre(Format::PiPo).murs(), None);
         dessin.ouvertures.pop();
@@ -1534,6 +1608,66 @@ mod tests {
             (Sens::NordOuest, 141.0, ""),
         ]);
         assert_eq!(dessin.resoudre(Format::PiPo).etat, Etat::SeCroise);
+    }
+
+    #[test]
+    fn les_ouvertures_se_placent_sur_leur_mur() {
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "12"),
+            (Sens::Sud, 100.0, "10"),
+            (Sens::Ouest, 120.0, ""),
+            (Sens::Nord, 100.0, ""),
+        ]);
+        let ouverture =
+            |largeur: &str, hauteur: &str, cote: Option<usize>, position: &str| Ouverture {
+                largeur: largeur.into(),
+                hauteur: hauteur.into(),
+                genre: None,
+                cote,
+                position: position.into(),
+            };
+        dessin.ouvertures = vec![
+            // Une porte centrée sur le premier mur : (144 − 32) / 2 = 56 po.
+            ouverture("2 pi 8 po", "6 pi 8 po", Some(0), ""),
+            // Une fenêtre à 2 pi du coin, sur le deuxième mur.
+            ouverture("3", "4", Some(1), "2"),
+            // Contre le coin, puis trop loin : elle reste dans son mur.
+            ouverture("3", "4", Some(2), "0"),
+            ouverture("3", "4", Some(3), "20"),
+            // Pas placée; plus large que son mur; sur un mur qui n'existe pas.
+            ouverture("3", "4", None, ""),
+            ouverture("13", "4", Some(1), ""),
+            ouverture("3", "4", Some(9), ""),
+        ];
+        let p = dessin.resoudre(Format::PiPo).placements;
+        assert_eq!(
+            p[0],
+            Some(Placement {
+                cote: 0,
+                debut: 56.0,
+                fin: 88.0,
+                porte: true
+            })
+        );
+        assert_eq!(
+            p[1],
+            Some(Placement {
+                cote: 1,
+                debut: 24.0,
+                fin: 60.0,
+                porte: false
+            })
+        );
+        assert_eq!(p[2].map(|p| (p.debut, p.fin)), Some((0.0, 36.0)));
+        assert_eq!(p[3].map(|p| (p.debut, p.fin)), Some((84.0, 120.0)));
+        assert_eq!(&p[4..], &[None, None, None]);
+        // Le genre inscrit l'emporte sur la hauteur.
+        dessin.ouvertures[0].genre = Some(GenreDOuverture::Fenetre);
+        assert!(!dessin.resoudre(Format::PiPo).placements[0].unwrap().porte);
+        // Tant que la longueur d'un mur n'est pas connue, rien n'y est dessiné.
+        dessin.cotes[0].saisie.clear();
+        dessin.cotes[2].saisie.clear();
+        assert_eq!(dessin.resoudre(Format::PiPo).placements[0], None);
     }
 
     #[test]

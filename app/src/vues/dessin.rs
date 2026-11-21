@@ -3,7 +3,8 @@
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use noyau::dessin::{
-    Dessin, Etat as EtatDeLaForme, Mesure, Ouverture, Plan, Retrait, Sens, Solution,
+    Dessin, Etat as EtatDeLaForme, GenreDOuverture, Mesure, Ouverture, Plan, Retrait, Sens,
+    Solution,
 };
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
@@ -84,6 +85,8 @@ pub struct Etat {
     cadrage: Cadrage,
     /// Vrai quand les flèches dessinent en biais, à 45°.
     fleches_en_biais: bool,
+    /// L'ouverture qui attend qu'on touche son mur pour s'y placer.
+    ouverture_a_placer: Option<usize>,
     /// Vrai quand un geste à deux doigts a interrompu le geste en cours : rien
     /// n'est tracé ni déplacé jusqu'à ce que les doigts se lèvent.
     geste_annule: bool,
@@ -96,8 +99,17 @@ enum AutreSaisie {
     Retrait(usize, bool),
     /// La hauteur des murs.
     Hauteur,
-    /// Une dimension d'une ouverture : son rang, et vrai pour sa hauteur.
-    Ouverture(usize, bool),
+    /// Une mesure d'une ouverture : son rang, et laquelle.
+    Ouverture(usize, ChampDOuverture),
+}
+
+/// Une mesure d'une porte ou d'une fenêtre.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChampDOuverture {
+    Largeur,
+    Hauteur,
+    /// La distance au premier coin de son mur.
+    Position,
 }
 
 impl AutreSaisie {
@@ -133,6 +145,7 @@ impl Etat {
         self.historique.clear();
         self.cadrage = Cadrage::default();
         self.geste_annule = false;
+        self.ouverture_a_placer = None;
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -737,8 +750,40 @@ fn planche_et_gestes(
             .map(|(i, s)| (i, distance_au_segment(position, s[0], s[1])))
             .min_by(|a, b| a.1.total_cmp(&b.1));
         match plus_proche {
-            Some((i, distance)) if distance <= PORTEE_DU_TOUCHER => etat.choisir(Some(i)),
-            _ => etat.choisir(None),
+            Some((i, distance)) if distance <= PORTEE_DU_TOUCHER => {
+                if let Some(rang) = etat.ouverture_a_placer.take()
+                    && rang < dessin.ouvertures.len()
+                {
+                    // L'ouverture se centre là où le mur a été touché.
+                    etat.memoriser(dessin);
+                    let (a, b) = (points[i], points[i + 1]);
+                    let le_long = b - a;
+                    let t = ((position - a).dot(le_long) / le_long.length_sq().max(1e-6))
+                        .clamp(0.0, 1.0);
+                    let longueur = solution.mesures.get(i).and_then(|m| m.pouces());
+                    let largeur = pouces_de(&dessin.ouvertures[rang].largeur);
+                    let ouverture = &mut dessin.ouvertures[rang];
+                    ouverture.cote = Some(i);
+                    ouverture.position = match (longueur, largeur) {
+                        (Some(longueur), Some(largeur)) if largeur <= longueur => {
+                            let debut = (f64::from(t) * longueur - largeur / 2.0)
+                                .clamp(0.0, longueur - largeur);
+                            sans_insecables(
+                                &Quantite::Longueur(debut).en_clair(solution.modele, prefs),
+                            )
+                        }
+                        _ => String::new(),
+                    };
+                    modifie = true;
+                } else {
+                    etat.choisir(Some(i));
+                }
+            }
+            _ => {
+                if etat.ouverture_a_placer.is_none() {
+                    etat.choisir(None);
+                }
+            }
         }
     }
 
@@ -775,6 +820,51 @@ fn planche_et_gestes(
         painter.circle_stroke(*depart, 8.0, Stroke::new(2.0, p.barre_accent));
         painter.circle_filled(*fin, 5.5, p.barre_accent);
     }
+    // Les portes et les fenêtres, sur leur mur, ouvertes vers l'intérieur.
+    if dessin.fermee && points.len() > 3 {
+        let aire_signee: f32 = points
+            .windows(2)
+            .map(|s| s[0].x * s[1].y - s[1].x * s[0].y)
+            .sum();
+        for (rang, placement) in solution.placements.iter().enumerate() {
+            let Some(placement) = placement else {
+                continue;
+            };
+            let (Some(a), Some(b), Some(longueur)) = (
+                points.get(placement.cote),
+                points.get(placement.cote + 1),
+                solution
+                    .mesures
+                    .get(placement.cote)
+                    .and_then(|m| m.pouces()),
+            ) else {
+                continue;
+            };
+            let le_long = *b - *a;
+            let q0 = *a + le_long * (placement.debut / longueur) as f32;
+            let q1 = *a + le_long * (placement.fin / longueur) as f32;
+            let unite = le_long.normalized();
+            let dedans = if aire_signee > 0.0 {
+                Vec2::new(-unite.y, unite.x)
+            } else {
+                Vec2::new(unite.y, -unite.x)
+            };
+            let choisie = etat.ouverture_a_placer == Some(rang)
+                || matches!(etat.autre_choisi, Some(AutreSaisie::Ouverture(r, _)) if r == rang);
+            let encre = if choisie { p.barre_accent } else { p.texte };
+            // Le mur s'interrompt.
+            painter.line_segment([q0, q1], Stroke::new(7.0, p.carte));
+            dessiner_ouverture(
+                &painter,
+                (q0, q1),
+                dedans,
+                placement.porte,
+                encre,
+                p.primaire,
+            );
+        }
+    }
+
     // Les mesures, à côté de chaque côté, vers l'extérieur de la forme.
     let centre = if points.is_empty() {
         planche.center()
@@ -826,6 +916,20 @@ fn planche_et_gestes(
             etat.trace.clone(),
             Stroke::new(3.0, p.barre_accent),
         ));
+    }
+    // Une ouverture attend qu'on touche son mur.
+    if let Some(ouverture) = etat
+        .ouverture_a_placer
+        .and_then(|rang| dessin.ouvertures.get(rang))
+    {
+        let porte = ouverture.est_une_porte(pouces_de(&ouverture.hauteur));
+        painter.text(
+            planche.left_top() + Vec2::new(12.0, 12.0),
+            Align2::LEFT_TOP,
+            textes::dessin_toucher_le_mur(porte),
+            theme::police_grasse(13.0),
+            p.barre_accent,
+        );
     }
     boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
     if !dessin.fermee && fleches(ui, p, &painter, planche, dessin, etat) {
@@ -1266,20 +1370,35 @@ fn autre_mesure(
             textes::DESSIN_HAUTEUR_EXEMPLE.traduit(),
             None,
         ),
-        AutreSaisie::Ouverture(rang, en_hauteur) => {
+        AutreSaisie::Ouverture(rang, champ) => {
             let Some(ouverture) = dessin.ouvertures.get_mut(rang) else {
                 return false;
             };
-            let saisie = if en_hauteur {
-                &mut ouverture.hauteur
-            } else {
-                &mut ouverture.largeur
+            let (saisie, dimension, indice, ensuite) = match champ {
+                ChampDOuverture::Largeur => (
+                    &mut ouverture.largeur,
+                    textes::DESSIN_LARGEUR,
+                    textes::DESSIN_EXEMPLE.traduit(),
+                    Some(ChampDOuverture::Hauteur),
+                ),
+                ChampDOuverture::Hauteur => (
+                    &mut ouverture.hauteur,
+                    textes::DESSIN_HAUTEUR,
+                    textes::DESSIN_EXEMPLE.traduit(),
+                    Some(ChampDOuverture::Position),
+                ),
+                ChampDOuverture::Position => (
+                    &mut ouverture.position,
+                    textes::DESSIN_POSITION,
+                    textes::DESSIN_POSITION_EXEMPLE.traduit(),
+                    None,
+                ),
             };
             (
                 saisie,
-                textes::dessin_ouverture(rang + 1, en_hauteur),
-                textes::DESSIN_EXEMPLE.traduit(),
-                (!en_hauteur).then_some(AutreSaisie::Ouverture(rang, true)),
+                textes::dessin_ouverture(rang + 1, dimension.traduit()),
+                indice,
+                ensuite.map(|champ| AutreSaisie::Ouverture(rang, champ)),
             )
         }
     };
@@ -1403,6 +1522,66 @@ fn retraits(
     modifie
 }
 
+/// La valeur en pouces d'une mesure inscrite, si elle est lisible.
+fn pouces_de(saisie: &str) -> Option<f64> {
+    noyau::analyse::analyser_longueur(saisie.trim(), FORMAT_PAR_DEFAUT)
+        .ok()
+        .filter(|v| v.est_longueur() && v.base > 0.0 && v.base.is_finite())
+        .map(|v| v.base)
+}
+
+/// Les espaces insécables d'un texte affiché deviennent des espaces, pour
+/// qu'il se relise comme une mesure tapée.
+fn sans_insecables(texte: &str) -> String {
+    texte
+        .chars()
+        .map(|c| if c as u32 == 0xA0 { ' ' } else { c })
+        .collect()
+}
+
+/// Le symbole d'une porte — ses montants, son battant ouvert à angle droit et
+/// l'arc de son ouverture — ou d'une fenêtre — un trait double dans le mur —,
+/// entre `q0` et `q1`; `dedans` pointe vers l'intérieur de la pièce.
+fn dessiner_ouverture(
+    painter: &egui::Painter,
+    (q0, q1): (Pos2, Pos2),
+    dedans: Vec2,
+    porte: bool,
+    encre: Color32,
+    mur: Color32,
+) {
+    let largeur = q0.distance(q1);
+    if largeur < 1.0 {
+        return;
+    }
+    let unite = (q1 - q0) / largeur;
+    if porte {
+        for q in [q0, q1] {
+            painter.line_segment([q - dedans * 3.5, q + dedans * 3.5], Stroke::new(2.0, mur));
+        }
+        let battant = q0 + dedans * largeur;
+        painter.line_segment([q0, battant], Stroke::new(2.2, encre));
+        let arc: Vec<Pos2> = (0..=16)
+            .map(|i| {
+                let angle = std::f32::consts::FRAC_PI_2 * i as f32 / 16.0;
+                q0 + (unite * angle.cos() + dedans * angle.sin()) * largeur
+            })
+            .collect();
+        painter.add(egui::Shape::line(arc, Stroke::new(1.2, encre)));
+    } else {
+        for decalage in [-3.0, 3.0] {
+            painter.line_segment(
+                [q0 + dedans * decalage, q1 + dedans * decalage],
+                Stroke::new(1.4, encre),
+            );
+        }
+        painter.line_segment([q0, q1], Stroke::new(1.0, encre));
+        for q in [q0, q1] {
+            painter.line_segment([q - dedans * 3.5, q + dedans * 3.5], Stroke::new(2.0, mur));
+        }
+    }
+}
+
 /// Une mesure inscrite, en clair pour un bouton, ou le mot qui la nomme si
 /// elle est vide.
 fn mesure_du_bouton(saisie: &str, vide: &str, prefs: &Preferences) -> String {
@@ -1454,23 +1633,62 @@ fn murs(
     let mut a_enlever = None;
     for rang in 0..dessin.ouvertures.len() {
         ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new(format!("{}.", rang + 1)).font(theme::police_grasse(13.5)));
-            for en_hauteur in [false, true] {
+            let ouverture = &dessin.ouvertures[rang];
+            let nom = if ouverture.est_une_porte(pouces_de(&ouverture.hauteur)) {
+                textes::DESSIN_PORTE
+            } else {
+                textes::DESSIN_FENETRE
+            };
+            ui.label(
+                RichText::new(format!("{}. {}", rang + 1, nom.traduit()))
+                    .font(theme::police_grasse(13.5)),
+            );
+            // Son mur, et le bouton pour la placer sur un mur en le touchant.
+            let (ou, couleur) = match ouverture.cote {
+                Some(cote) => (textes::dessin_sur_le_cote(cote + 1), p.texte_attenue),
+                None => (
+                    textes::DESSIN_PAS_PLACEE.traduit().to_string(),
+                    p.barre_accent,
+                ),
+            };
+            ui.label(RichText::new(ou).color(couleur));
+            let en_placement = etat.ouverture_a_placer == Some(rang);
+            if ui
+                .add(egui::Button::new(textes::DESSIN_PLACER.traduit()).selected(en_placement))
+                .clicked()
+            {
+                etat.ouverture_a_placer = if en_placement { None } else { Some(rang) };
+            }
+            for champ in [ChampDOuverture::Largeur, ChampDOuverture::Hauteur] {
                 let ouverture = &dessin.ouvertures[rang];
-                let (saisie, vide) = if en_hauteur {
+                let (saisie, vide) = if champ == ChampDOuverture::Hauteur {
                     (&ouverture.hauteur, textes::DESSIN_HAUTEUR.traduit())
                 } else {
                     (&ouverture.largeur, textes::DESSIN_LARGEUR.traduit())
                 };
-                let cible = AutreSaisie::Ouverture(rang, en_hauteur);
+                let cible = AutreSaisie::Ouverture(rang, champ);
                 let bouton = egui::Button::new(mesure_du_bouton(saisie, vide, prefs))
                     .selected(etat.autre_choisi == Some(cible));
                 if ui.add(bouton).clicked() {
                     etat.choisir_autre(Some(cible));
                 }
-                if !en_hauteur {
+                if champ == ChampDOuverture::Largeur {
                     ui.label("×");
                 }
+            }
+            // La distance au premier coin de son mur; vide : centrée.
+            let position = dessin.ouvertures[rang].position.trim();
+            let texte = if position.is_empty() {
+                textes::DESSIN_CENTREE.traduit().to_string()
+            } else {
+                textes::dessin_a_du_coin(&mesure_du_bouton(position, "", prefs))
+            };
+            let cible = AutreSaisie::Ouverture(rang, ChampDOuverture::Position);
+            if ui
+                .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                .clicked()
+            {
+                etat.choisir_autre(Some(cible));
             }
             if let Some(Some(aire)) = solution.ouvertures.get(rang)
                 && *aire > 0.0
@@ -1495,6 +1713,7 @@ fn murs(
         etat.memoriser(dessin);
         dessin.ouvertures.remove(rang);
         etat.choisir_autre(None);
+        etat.ouverture_a_placer = None;
         modifie = true;
     }
     // Ce qui empêche de calculer la surface des murs.
@@ -1515,23 +1734,33 @@ fn murs(
         let modeles = [
             (
                 textes::DESSIN_AJOUTER_PORTE,
+                GenreDOuverture::Porte,
                 format!("2 {pieds} 8 {pouces}"),
                 format!("6 {pieds} 8 {pouces}"),
             ),
             (
                 textes::DESSIN_AJOUTER_FENETRE,
+                GenreDOuverture::Fenetre,
                 format!("3 {pieds}"),
                 format!("4 {pieds}"),
             ),
         ];
-        for (nom, largeur, hauteur) in modeles {
+        for (nom, genre, largeur, hauteur) in modeles {
             if ui.add(egui::Button::new(nom.traduit())).clicked() {
                 etat.memoriser(dessin);
-                dessin.ouvertures.push(Ouverture { largeur, hauteur });
-                etat.choisir_autre(Some(AutreSaisie::Ouverture(
-                    dessin.ouvertures.len() - 1,
-                    false,
-                )));
+                // Sur le côté choisi, s'il y en a un, centrée; puis on peut
+                // toucher un autre mur pour l'y placer.
+                let cote = etat.choisi;
+                dessin.ouvertures.push(Ouverture {
+                    largeur,
+                    hauteur,
+                    genre: Some(genre),
+                    cote,
+                    position: String::new(),
+                });
+                let rang = dessin.ouvertures.len() - 1;
+                etat.choisir_autre(Some(AutreSaisie::Ouverture(rang, ChampDOuverture::Largeur)));
+                etat.ouverture_a_placer = Some(rang);
                 modifie = true;
             }
         }

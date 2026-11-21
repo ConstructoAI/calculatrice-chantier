@@ -386,15 +386,44 @@ pub const DESSIN_OUVERTURES_TROP_GRANDES: Texte = t(
 );
 
 /// « Ouverture 1 : largeur ».
-pub fn dessin_ouverture(rang: usize, en_hauteur: bool) -> String {
-    let dimension = if en_hauteur {
-        DESSIN_HAUTEUR
-    } else {
-        DESSIN_LARGEUR
-    };
+pub fn dessin_ouverture(rang: usize, dimension: &str) -> String {
     match langue::en_cours() {
-        Langue::Francais => format!("Ouverture {rang} : {}", dimension.traduit()),
-        Langue::Anglais => format!("Opening {rang}: {}", dimension.traduit()),
+        Langue::Francais => format!("Ouverture {rang} : {dimension}"),
+        Langue::Anglais => format!("Opening {rang}: {dimension}"),
+    }
+}
+
+pub const DESSIN_PORTE: Texte = t("Porte", "Door");
+pub const DESSIN_FENETRE: Texte = t("Fenêtre", "Window");
+pub const DESSIN_PLACER: Texte = t("Placer", "Place");
+pub const DESSIN_PAS_PLACEE: Texte = t("pas placée", "not placed");
+pub const DESSIN_CENTREE: Texte = t("centrée", "centred");
+pub const DESSIN_POSITION: Texte = t("distance du coin", "distance from the corner");
+pub const DESSIN_POSITION_EXEMPLE: Texte = t("vide : centrée", "empty: centred");
+
+/// « côté 3 » : le mur d'une ouverture.
+pub fn dessin_sur_le_cote(rang: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("côté {rang}"),
+        Langue::Anglais => format!("side {rang}"),
+    }
+}
+
+/// « à 3 pi 0 po du coin ».
+pub fn dessin_a_du_coin(distance: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("à {distance} du coin"),
+        Langue::Anglais => format!("{distance} from the corner"),
+    }
+}
+
+/// La consigne affichée sur la planche quand une ouverture attend son mur.
+pub fn dessin_toucher_le_mur(porte: bool) -> &'static str {
+    match (langue::en_cours(), porte) {
+        (Langue::Francais, true) => "Touchez le mur de la porte",
+        (Langue::Francais, false) => "Touchez le mur de la fenêtre",
+        (Langue::Anglais, true) => "Tap the wall for the door",
+        (Langue::Anglais, false) => "Tap the wall for the window",
     }
 }
 pub const DESSIN_AJOUTER_UNE_PIECE: Texte = t("+ Pièce", "+ Room");
