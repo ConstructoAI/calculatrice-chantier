@@ -411,6 +411,15 @@ pub const DESSIN_TOURNER: Texte = t("Glissez pour tourner", "Drag to turn");
 pub const DESSIN_MURS_PAR_DEFAUT: Texte = t("murs de 8 pi par défaut", "8 ft walls by default");
 
 pub const DESSIN_OBJETS: Texte = t("Objets (escalier, mobilier)", "Objects (stairs, furniture)");
+pub const DESSIN_NOTES: Texte = t("Notes sur le plan", "Notes on the plan");
+pub const DESSIN_AJOUTER_UNE_NOTE: Texte = t("+ Note", "+ Note");
+/// Ce que montre sur le plan une note encore vide.
+pub const DESSIN_NOTE: Texte = t("Note", "Note");
+pub const DESSIN_NOTE_INDICE: Texte = t("Écrivez la note", "Type the note");
+pub const DESSIN_TOUCHER_POUR_LA_NOTE: Texte = t(
+    "Touchez le plan pour placer la note",
+    "Tap the plan to place the note",
+);
 pub const DESSIN_PIVOTER: Texte = t("Pivoter", "Rotate");
 pub const DESSIN_PROFONDEUR: Texte = t("profondeur", "depth");
 

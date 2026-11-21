@@ -167,6 +167,15 @@ impl Cote {
     }
 }
 
+/// Une note écrite sur le plan : son texte, et sa place en pouces dans le
+/// repère du plan (le départ du tracé en (0, 0), y vers le bas), comme un objet.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Note {
+    pub texte: String,
+    pub position: (f64, f64),
+}
+
 /// La forme dessinée : ses côtés dans l'ordre du tracé.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -182,6 +191,8 @@ pub struct Dessin {
     pub ouvertures: Vec<Ouverture>,
     /// L'escalier et le mobilier, posés sur le plan.
     pub objets: Vec<crate::mobilier::Objet>,
+    /// Les notes écrites sur le plan.
+    pub notes: Vec<Note>,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.

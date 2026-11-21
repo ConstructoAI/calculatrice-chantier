@@ -36,6 +36,8 @@ struct PieceExportee {
     /// Les objets d'une pièce complète : leur nom, leur centre et leurs traits,
     /// sur le plan (pouces).
     objets: Vec<(String, (f64, f64), Vec<noyau::mobilier::TraitSurLePlan>)>,
+    /// Les notes écrites d'une pièce complète : leur texte et leur place.
+    notes: Vec<(String, (f64, f64))>,
 }
 
 /// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
@@ -132,6 +134,16 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     } else {
         Vec::new()
     };
+    let notes = if complete {
+        dessin
+            .notes
+            .iter()
+            .filter(|note| !note.texte.trim().is_empty())
+            .map(|note| (note.texte.trim().to_string(), note.position))
+            .collect()
+    } else {
+        Vec::new()
+    };
     PieceExportee {
         nom: sans_insecables(nom),
         sommets,
@@ -146,6 +158,7 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         modele: solution.modele,
         ouvertures,
         objets,
+        notes,
     }
 }
 
@@ -464,6 +477,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
     for (_, _, traits) in &piece.objets {
         a_cadrer.extend(traits.iter().flat_map(etendue_d_un_trait));
     }
+    a_cadrer.extend(piece.notes.iter().map(|(_, position)| *position));
     let vers_la_page = ajuster(&a_cadrer, cadre);
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
     page.trait_(&points, 1.8, BLEU);
@@ -500,6 +514,17 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
             Alignement::Centre,
             GRIS,
             nom,
+        );
+    }
+    // Les notes, par-dessus.
+    for (texte, position) in &piece.notes {
+        page.texte(
+            vers_la_page(*position),
+            8.0,
+            false,
+            Alignement::Centre,
+            NOIR,
+            texte,
         );
     }
     let nombre = points.len().saturating_sub(1).max(1);
@@ -1002,6 +1027,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             .objets
             .iter()
             .flat_map(|(_, _, traits)| traits.iter().flat_map(etendue_d_un_trait))
+            .chain(piece.notes.iter().map(|(_, position)| *position))
             .map(|(x, y)| (x * facteur, -y * facteur))
             .chain(points.iter().copied())
             .collect();
@@ -1057,6 +1083,17 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 taille * 0.8,
                 Alignement::Centre,
                 nom,
+            );
+        }
+        // Les notes, sur le calque NOTES.
+        for (texte, position) in &piece.notes {
+            texte_dans_le_dxf(
+                &mut entites,
+                "NOTES",
+                vers_le_dxf(*position),
+                taille * 0.8,
+                Alignement::Centre,
+                texte,
             );
         }
         let nombre = points.len().saturating_sub(1).max(1);
@@ -1160,6 +1197,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("PIECES", "3"),
         ("OUVERTURES", "1"),
         ("MOBILIER", "6"),
+        ("NOTES", "2"),
     ];
     groupe(&mut dxf, 0, "TABLE");
     groupe(&mut dxf, 2, "LAYER");
@@ -1348,6 +1386,28 @@ mod tests {
         assert!(dxf.contains("\r\nLit\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Lit)") && pdf.contains("(Laveuse)"));
+    }
+
+    #[test]
+    fn les_notes_paraissent_dans_le_pdf_et_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.notes = vec![
+            noyau::dessin::Note {
+                texte: "Prise 220 V ici".to_string(),
+                position: (30.0, 40.0),
+            },
+            noyau::dessin::Note {
+                texte: "   ".to_string(),
+                position: (60.0, 60.0),
+            },
+        ];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // La note écrite, sur le calque NOTES; la note vide ne s'exporte pas.
+        assert_eq!(dxf.matches("\r\nTEXT\r\n  8\r\nNOTES\r\n").count(), 1);
+        assert!(dxf.contains("\r\nPrise 220 V ici\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(Prise 220 V ici)"));
     }
 
     #[test]

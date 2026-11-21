@@ -16,6 +16,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   cuisinière, puis touchez la pièce pour le poser. Faites-le glisser, **Pivoter** le tourne,
   et ses dimensions se règlent au pavé. Chacun a son symbole sur le plan, paraît en blocs dans
   la vue 3D, et passe au PDF et au DXF.
+- **0.10.1** : des **notes** (texte) sur le plan — touchez **+ Note**, puis l'endroit du plan,
+  et écrivez-la. Elle se fait glisser, se retire avec **Enlever**, et passe au PDF et au DXF
+  (calque NOTES).
 
 ## Nouveautés de la version 0.9
 

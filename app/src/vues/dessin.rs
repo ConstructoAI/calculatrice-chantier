@@ -105,6 +105,19 @@ pub struct Etat {
     objet_tire: Option<(usize, (f64, f64))>,
     /// Le passage du plan à l'écran à l'image précédente, pour saisir un objet.
     derniere_echelle: Option<Echelle>,
+    /// Vrai quand une note attend qu'on touche le plan pour s'y poser.
+    note_a_placer: bool,
+    /// La note choisie : son cadre paraît en couleur.
+    note_choisie: Option<usize>,
+    /// La note que le doigt déplace : son rang, et l'écart (pouces) entre le
+    /// point saisi et sa place.
+    note_tiree: Option<(usize, (f64, f64))>,
+    /// Où sont les notes à l'écran, d'une image à la suivante.
+    notes_a_l_ecran: Vec<(usize, Rect)>,
+    /// La note dont le champ doit prendre le clavier.
+    viser_la_note: Option<usize>,
+    /// La note qu'on écrit d'affilée : elle a déjà son étape d'« Annuler ».
+    note_ecrite: Option<usize>,
     /// Vrai quand la planche montre la pièce en 3D.
     vue_3d: bool,
     /// La caméra de la vue 3D.
@@ -181,6 +194,12 @@ impl Etat {
         self.objet_choisi = None;
         self.objet_tire = None;
         self.derniere_echelle = None;
+        self.note_a_placer = false;
+        self.note_choisie = None;
+        self.note_tiree = None;
+        self.notes_a_l_ecran.clear();
+        self.viser_la_note = None;
+        self.note_ecrite = None;
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -250,6 +269,16 @@ impl Echelle {
             f64::from((point.y - self.origine.y) / self.facteur),
         )
     }
+}
+
+/// La note sous un point de l'écran (la dernière écrite, si elles se
+/// chevauchent), d'après leurs cadres de l'image précédente.
+fn note_sous(etat: &Etat, point: Pos2) -> Option<usize> {
+    etat.notes_a_l_ecran
+        .iter()
+        .rev()
+        .find(|(_, cadre)| cadre.expand(4.0).contains(point))
+        .map(|(rang, _)| *rang)
 }
 
 /// L'objet sous un point du plan (le plus haut dans la liste, s'ils se
@@ -462,6 +491,10 @@ pub fn afficher(
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
                 && objets(ui, p, dessin, etat, &solution, prefs)
+            {
+                action = Some(Action::Modifie);
+            }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. }) && notes(ui, p, dessin, etat)
             {
                 action = Some(Action::Modifie);
             }
@@ -845,8 +878,30 @@ fn planche_et_gestes(
     }
     // Un objet saisi au doigt se déplace, lui aussi, au lieu de la vue.
     let complete = matches!(solution.etat, EtatDeLaForme::Complete { .. });
+    // Une note saisie au doigt se déplace aussi; elle passe avant les objets,
+    // qu'elle recouvre.
+    let note_saisie = if complete
+        && etat.ouverture_tiree.is_none()
+        && reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(origine) = ui.input(|i| i.pointer.press_origin())
+        && let Some(echelle) = etat.derniere_echelle
+        && let Some(rang) = note_sous(etat, origine)
+        && rang < dessin.notes.len()
+    {
+        let point = echelle.vers_le_plan(origine);
+        let position = dessin.notes[rang].position;
+        Some((rang, (point.0 - position.0, point.1 - position.1)))
+    } else {
+        None
+    };
+    if let Some((rang, ecart)) = note_saisie {
+        etat.memoriser(dessin);
+        etat.note_tiree = Some((rang, ecart));
+        etat.note_choisie = Some(rang);
+    }
     let objet_saisi = if complete
         && etat.ouverture_tiree.is_none()
+        && etat.note_tiree.is_none()
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -869,7 +924,8 @@ fn planche_et_gestes(
         || (dessin.fermee
             && reponse.dragged_by(egui::PointerButton::Primary)
             && etat.ouverture_tiree.is_none()
-            && etat.objet_tire.is_none());
+            && etat.objet_tire.is_none()
+            && etat.note_tiree.is_none());
     if deplacer && !etat.geste_annule {
         etat.cadrage.decalage += reponse.drag_delta();
     }
@@ -936,6 +992,23 @@ fn planche_et_gestes(
         }
         if !reponse.dragged() {
             etat.objet_tire = None;
+        }
+    }
+    // La note qui se déplace, au pouce près.
+    if let Some((rang, ecart)) = etat.note_tiree {
+        if reponse.dragged()
+            && let Some(pointeur) = reponse.interact_pointer_pos()
+            && rang < dessin.notes.len()
+        {
+            let point = echelle.vers_le_plan(pointeur);
+            let position = ((point.0 - ecart.0).round(), (point.1 - ecart.1).round());
+            if dessin.notes[rang].position != position {
+                dessin.notes[rang].position = position;
+                modifie = true;
+            }
+        }
+        if !reponse.dragged() {
+            etat.note_tiree = None;
         }
     }
     etat.derniere_echelle = complete.then_some(echelle);
@@ -1009,6 +1082,36 @@ fn planche_et_gestes(
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
+        && etat.note_a_placer
+    {
+        // La note se pose là où le plan a été touché, et son champ prend le
+        // clavier.
+        let (x, y) = echelle.vers_le_plan(position);
+        etat.memoriser(dessin);
+        dessin.notes.push(noyau::dessin::Note {
+            texte: String::new(),
+            position: (x.round(), y.round()),
+        });
+        let rang = dessin.notes.len() - 1;
+        etat.note_a_placer = false;
+        etat.note_choisie = Some(rang);
+        etat.viser_la_note = Some(rang);
+        etat.choisir(None);
+        modifie = true;
+    } else if reponse.clicked()
+        && let Some(position) = reponse.interact_pointer_pos()
+        && complete
+        && etat.ouverture_a_placer.is_none()
+        && etat.objet_a_placer.is_none()
+        && let Some(rang) = note_sous(etat, position)
+    {
+        // Toucher une note la choisit et ouvre son champ.
+        etat.note_choisie = Some(rang);
+        etat.viser_la_note = Some(rang);
+        etat.choisir(None);
+    } else if reponse.clicked()
+        && let Some(position) = reponse.interact_pointer_pos()
+        && complete
         && let Some(genre) = etat.objet_a_placer
     {
         // L'objet se pose là où la pièce a été touchée.
@@ -1042,10 +1145,12 @@ fn planche_et_gestes(
     {
         // Toucher un objet le choisit.
         etat.objet_choisi = Some(rang);
+        etat.note_choisie = None;
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
     {
         etat.objet_choisi = None;
+        etat.note_choisie = None;
         let plus_proche = points
             .windows(2)
             .enumerate()
@@ -1297,12 +1402,47 @@ fn planche_et_gestes(
         painter.rect_filled(cadre, 4, p.carte.gamma_multiply(0.92));
         painter.galley(cadre.min + Vec2::new(3.0, 1.0), galere, couleur);
     }
+    // Les notes, par-dessus tout : leur texte dans un cadre clair.
+    etat.notes_a_l_ecran.clear();
+    if complete {
+        for (rang, note) in dessin.notes.iter().enumerate() {
+            let choisie =
+                etat.note_choisie == Some(rang) || etat.note_tiree.is_some_and(|(r, _)| r == rang);
+            let (texte, couleur) = if note.texte.trim().is_empty() {
+                (textes::DESSIN_NOTE.traduit().to_string(), p.texte_attenue)
+            } else {
+                (note.texte.trim().to_string(), p.texte)
+            };
+            let galere = painter.layout(texte, theme::police(12.5), couleur, 180.0);
+            let cadre = Rect::from_center_size(echelle.vers_l_ecran(note.position), galere.size())
+                .expand2(Vec2::new(5.0, 3.0));
+            painter.rect_filled(cadre, 4, p.carte.gamma_multiply(0.94));
+            let bord = if choisie {
+                Stroke::new(1.8, p.barre_accent)
+            } else {
+                Stroke::new(1.0, p.carte_bord)
+            };
+            painter.rect_stroke(cadre, 4, bord, egui::StrokeKind::Inside);
+            painter.galley(cadre.min + Vec2::new(5.0, 3.0), galere, couleur);
+            etat.notes_a_l_ecran.push((rang, cadre));
+        }
+    }
     // Le tracé en cours.
     if etat.trace.len() > 1 {
         painter.add(egui::Shape::line(
             etat.trace.clone(),
             Stroke::new(3.0, p.barre_accent),
         ));
+    }
+    // Une note attend qu'on touche le plan.
+    if etat.note_a_placer {
+        painter.text(
+            planche.left_top() + Vec2::new(12.0, 12.0),
+            Align2::LEFT_TOP,
+            textes::DESSIN_TOUCHER_POUR_LA_NOTE.traduit(),
+            theme::police_grasse(13.0),
+            p.barre_accent,
+        );
     }
     // Un objet attend qu'on touche la pièce.
     if let Some(genre) = etat.objet_a_placer {
@@ -2147,6 +2287,7 @@ fn murs(
             {
                 etat.ouverture_a_placer = if en_placement { None } else { Some(rang) };
                 etat.objet_a_placer = None;
+                etat.note_a_placer = false;
             }
             for champ in [ChampDOuverture::Largeur, ChampDOuverture::Hauteur] {
                 let ouverture = &dessin.ouvertures[rang];
@@ -2268,6 +2409,7 @@ fn murs(
                 etat.choisir_autre(Some(AutreSaisie::Ouverture(rang, ChampDOuverture::Largeur)));
                 etat.ouverture_a_placer = Some(rang);
                 etat.objet_a_placer = None;
+                etat.note_a_placer = false;
                 modifie = true;
             }
         }
@@ -2366,9 +2508,79 @@ fn objets(
             if ui.add(bouton).clicked() {
                 etat.objet_a_placer = if en_attente { None } else { Some(genre) };
                 etat.ouverture_a_placer = None;
+                etat.note_a_placer = false;
             }
         }
     });
+    modifie
+}
+
+/// Les notes écrites sur le plan : leur texte, et le bouton pour en ajouter.
+/// Retourne vrai si le dessin a changé.
+fn notes(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool {
+    let mut modifie = false;
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_NOTES.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    let mut a_enlever = None;
+    for rang in 0..dessin.notes.len() {
+        ui.horizontal(|ui| {
+            let numero =
+                ui.label(RichText::new(format!("{}.", rang + 1)).font(theme::police_grasse(13.5)));
+            let avant = dessin.notes[rang].texte.clone();
+            let champ = egui::TextEdit::singleline(&mut dessin.notes[rang].texte)
+                .desired_width((ui.available_width() - 90.0).clamp(120.0, 320.0))
+                .char_limit(120)
+                .hint_text(textes::DESSIN_NOTE_INDICE.traduit());
+            let reponse = ui.add(champ).labelled_by(numero.id);
+            cadre_de_saisie(ui, p, &reponse);
+            if etat.viser_la_note == Some(rang) {
+                etat.viser_la_note = None;
+                reponse.request_focus();
+            }
+            if reponse.gained_focus() {
+                etat.note_choisie = Some(rang);
+                etat.choisir(None);
+            }
+            if reponse.changed() {
+                // Une seule étape d'« Annuler » pour ce qui s'écrit d'affilée.
+                if etat.note_ecrite != Some(rang) {
+                    let mut precedent = dessin.clone();
+                    precedent.notes[rang].texte = avant;
+                    etat.memoriser(&precedent);
+                    etat.note_ecrite = Some(rang);
+                }
+                modifie = true;
+            }
+            if reponse.lost_focus() && etat.note_ecrite == Some(rang) {
+                etat.note_ecrite = None;
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                .clicked()
+            {
+                a_enlever = Some(rang);
+            }
+        });
+    }
+    if let Some(rang) = a_enlever {
+        etat.memoriser(dessin);
+        dessin.notes.remove(rang);
+        etat.note_choisie = None;
+        etat.note_tiree = None;
+        etat.note_ecrite = None;
+        modifie = true;
+    }
+    let bouton =
+        egui::Button::new(textes::DESSIN_AJOUTER_UNE_NOTE.traduit()).selected(etat.note_a_placer);
+    if ui.add(bouton).clicked() {
+        etat.note_a_placer = !etat.note_a_placer;
+        etat.objet_a_placer = None;
+        etat.ouverture_a_placer = None;
+    }
     modifie
 }
 
