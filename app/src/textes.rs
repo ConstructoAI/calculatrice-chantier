@@ -350,6 +350,8 @@ pub fn dessin_rectangle_equivalent(longueur: &str, largeur: &str, exact: bool) -
 pub const DESSIN_DIAGONALE: Texte = t("Diagonale d'équerre", "Square-up diagonal");
 pub const DESSIN_EXEMPLE: Texte = t("12 pi 6 po", "12 ft 6 in");
 pub const DESSIN_COTE_SUIVANT: Texte = t("Suivant", "Next");
+pub const DESSIN_TOUCHE_ESPACE: Texte = t("esp.", "space");
+pub const DESSIN_TOUCHE_RECULER: Texte = t("eff.", "del");
 pub const DESSIN_SURFACE: Texte = t("Surface", "Area");
 pub const DESSIN_PERIMETRE: Texte = t("Périmètre", "Perimeter");
 pub const DESSIN_MESURE_INVALIDE: Texte = t(

@@ -484,7 +484,11 @@ fn mesure_du_cote(
             cadre_de_saisie(ui, p, &reponse);
             if etat.viser_le_champ {
                 etat.viser_le_champ = false;
-                reponse.request_focus();
+                // Sur un téléphone, viser le champ ouvrirait le clavier du
+                // système par-dessus le pavé de touches.
+                if !crate::plateforme::NAVIGATEUR {
+                    reponse.request_focus();
+                }
             }
             if reponse.changed() {
                 modifie = true;
@@ -502,6 +506,12 @@ fn mesure_du_cote(
                 suivant = true;
             }
         });
+        ui.add_space(4.0);
+        match pave_de_touches(ui, p, &mut cote.saisie, prefs) {
+            Some(Frappe::Modifie) => modifie = true,
+            Some(Frappe::Suivant) => suivant = true,
+            None => {}
+        }
         if matches!(solution.mesures.get(rang), Some(Mesure::Invalide)) {
             ui.label(
                 RichText::new(textes::DESSIN_MESURE_INVALIDE.traduit())
@@ -660,4 +670,184 @@ fn bilan(
         }
     }
     action
+}
+
+/// Ce qu'une touche du pavé a fait.
+enum Frappe {
+    Modifie,
+    Suivant,
+}
+
+/// Une touche du pavé de mesure.
+#[derive(Clone, Copy)]
+enum ToucheDeMesure {
+    Chiffre(char),
+    Decimale,
+    /// Une unité : son symbole dans la langue en cours.
+    Unite(&'static str),
+    Barre,
+    Espace,
+    Reculer,
+    Suivant,
+}
+
+/// Applique une touche à la mesure en cours d'écriture.
+fn frapper(saisie: &mut String, touche: ToucheDeMesure, decimal: char) {
+    match touche {
+        ToucheDeMesure::Chiffre(c) => saisie.push(c),
+        ToucheDeMesure::Decimale => saisie.push(decimal),
+        ToucheDeMesure::Barre => saisie.push('/'),
+        ToucheDeMesure::Espace => {
+            if !saisie.is_empty() && !saisie.ends_with(' ') {
+                saisie.push(' ');
+            }
+        }
+        ToucheDeMesure::Unite(symbole) => {
+            // « 12 » puis « pi » donne « 12 pi », prêt pour la suite.
+            let debut = saisie.trim_end().to_string();
+            if !debut.is_empty() {
+                *saisie = format!("{debut} {symbole} ");
+            }
+        }
+        ToucheDeMesure::Reculer => {
+            let debut = saisie.trim_end();
+            // Une unité s'efface d'un coup, un chiffre à la fois.
+            let coupe = match debut.rfind(' ') {
+                Some(i) if debut[i + 1..].chars().all(char::is_alphabetic) => i,
+                None if !debut.is_empty() && debut.chars().all(char::is_alphabetic) => 0,
+                _ => debut.char_indices().next_back().map_or(0, |(i, _)| i),
+            };
+            *saisie = debut[..coupe].trim_end().to_string();
+        }
+        ToucheDeMesure::Suivant => {}
+    }
+}
+
+/// Le pavé de touches sous le champ : chiffres, pieds, pouces, fraction, mètres.
+/// On inscrit une mesure sans le clavier du téléphone.
+fn pave_de_touches(
+    ui: &mut Ui,
+    p: &Palette,
+    saisie: &mut String,
+    prefs: &Preferences,
+) -> Option<Frappe> {
+    use ToucheDeMesure::{Barre, Chiffre, Decimale, Espace, Reculer, Suivant, Unite};
+    let decimal = noyau::format::separateur_decimal(prefs);
+    let pieds = noyau::etiquettes::symbole(Format::PiDec);
+    let pouces = noyau::etiquettes::symbole(Format::PoDec);
+    let rangees: [&[(ToucheDeMesure, f32)]; 4] = [
+        &[
+            (Chiffre('7'), 1.0),
+            (Chiffre('8'), 1.0),
+            (Chiffre('9'), 1.0),
+            (Unite(pieds), 1.0),
+            (Reculer, 1.0),
+        ],
+        &[
+            (Chiffre('4'), 1.0),
+            (Chiffre('5'), 1.0),
+            (Chiffre('6'), 1.0),
+            (Unite(pouces), 1.0),
+            (Unite("m"), 1.0),
+        ],
+        &[
+            (Chiffre('1'), 1.0),
+            (Chiffre('2'), 1.0),
+            (Chiffre('3'), 1.0),
+            (Barre, 1.0),
+            (Espace, 1.0),
+        ],
+        &[(Chiffre('0'), 1.0), (Decimale, 1.0), (Suivant, 3.0)],
+    ];
+    let ecart = 5.0;
+    let largeur = ((ui.available_width() - 4.0 * ecart) / 5.0).clamp(36.0, 84.0);
+    let mut frappe = None;
+    for rangee in rangees {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = ecart;
+            for &(touche, parts) in rangee {
+                let libelle = match touche {
+                    Chiffre(c) => c.to_string(),
+                    Decimale => decimal.to_string(),
+                    Unite(symbole) => symbole.to_string(),
+                    Barre => "/".to_string(),
+                    Espace => textes::DESSIN_TOUCHE_ESPACE.traduit().to_string(),
+                    Reculer => textes::DESSIN_TOUCHE_RECULER.traduit().to_string(),
+                    Suivant => textes::DESSIN_COTE_SUIVANT.traduit().to_string(),
+                };
+                let taille = Vec2::new(largeur * parts + ecart * (parts - 1.0), 38.0);
+                let bouton = if matches!(touche, Suivant) {
+                    bouton_principal(p, &libelle, 14.5)
+                } else {
+                    egui::Button::new(RichText::new(&libelle).font(theme::police_grasse(15.5)))
+                };
+                if ui.add(bouton.min_size(taille)).clicked() {
+                    if matches!(touche, Suivant) {
+                        frappe = Some(Frappe::Suivant);
+                    } else {
+                        frapper(saisie, touche, decimal);
+                        frappe = Some(Frappe::Modifie);
+                    }
+                }
+            }
+        });
+        ui.add_space(1.0);
+    }
+    frappe
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn le_pave_ecrit_une_mesure_lisible() {
+        use ToucheDeMesure::{Barre, Chiffre, Decimale, Espace, Reculer, Unite};
+        let mut saisie = String::new();
+        // Une unité seule n'écrit rien.
+        frapper(&mut saisie, Unite("pi"), ',');
+        assert_eq!(saisie, "");
+        for touche in [
+            Chiffre('1'),
+            Chiffre('2'),
+            Unite("pi"),
+            Chiffre('6'),
+            Espace,
+            Chiffre('1'),
+            Barre,
+            Chiffre('2'),
+            Unite("po"),
+        ] {
+            frapper(&mut saisie, touche, ',');
+        }
+        assert_eq!(saisie, "12 pi 6 1/2 po ");
+        let lue = noyau::analyse::analyser_longueur(&saisie, FORMAT_PAR_DEFAUT).unwrap();
+        assert!((lue.base - 150.5).abs() < 1e-9);
+        // Reculer : l'unité d'un coup, puis un caractère à la fois.
+        frapper(&mut saisie, Reculer, ',');
+        assert_eq!(saisie, "12 pi 6 1/2");
+        frapper(&mut saisie, Reculer, ',');
+        assert_eq!(saisie, "12 pi 6 1/");
+        for _ in 0..4 {
+            frapper(&mut saisie, Reculer, ',');
+        }
+        assert_eq!(saisie, "12");
+        frapper(&mut saisie, Reculer, ',');
+        frapper(&mut saisie, Reculer, ',');
+        frapper(&mut saisie, Reculer, ',');
+        assert_eq!(saisie, "");
+        // En métrique, avec la virgule décimale.
+        for touche in [
+            Chiffre('3'),
+            Decimale,
+            Chiffre('8'),
+            Chiffre('1'),
+            Unite("m"),
+        ] {
+            frapper(&mut saisie, touche, ',');
+        }
+        assert_eq!(saisie, "3,81 m ");
+        let lue = noyau::analyse::analyser_longueur(&saisie, FORMAT_PAR_DEFAUT).unwrap();
+        assert!((lue.base - 150.0).abs() < 0.001);
+    }
 }

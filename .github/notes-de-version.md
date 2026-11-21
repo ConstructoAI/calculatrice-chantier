@@ -20,6 +20,8 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   vérifier sur place.
 - **0.7.2** : **Envoyer vers un outil** — la pièce dessinée part vers la dalle de béton,
   l'armature, les pavés, l'excavation ou un autre outil, qui s'ouvre avec ses mesures.
+- **0.7.3** : un **pavé de touches** sous le champ de la mesure (chiffres, pieds, pouces,
+  fraction, mètres) : on inscrit une mesure sans le clavier du téléphone.
 
 ## Nouveautés de la version 0.6
 
