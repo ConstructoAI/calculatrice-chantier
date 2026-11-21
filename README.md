@@ -133,7 +133,9 @@ les mètres. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des 
 est connu, la calculatrice donne la surface, le périmètre et, pour un rectangle, la diagonale
 d'équerre. Ajoutez des retraits (îlot, trémie, colonne) pour la surface nette, d'autres pièces
 avec **+ Pièce** pour le total, puis inscrivez le tout au ruban ou envoyez la pièce vers un
-outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures.
+outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons `+` et `−`
+zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
+dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle).
 
 ## Installer sur un téléphone ou une tablette
 

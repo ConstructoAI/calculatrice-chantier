@@ -20,6 +20,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.8.2** : **zoom** sur le dessin — boutons `+`, `−` et **Ajuster** dans le coin de la
   planche, deux doigts pour zoomer et déplacer, la molette sur le bureau; une forme fermée
   se déplace au doigt.
+- **0.8.3** : **exporter le plan** en PDF (une page par pièce, avec ses mesures et ses
+  résultats, et le total) ou en DXF pour AutoCAD, LibreCAD ou QCAD (les pièces complètes,
+  à l'échelle réelle).
 
 ## Nouveautés de la version 0.7
 

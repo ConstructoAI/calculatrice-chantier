@@ -35,14 +35,20 @@ pub enum Lecture {
     Illisible,
 }
 
-/// Un fichier texte à exporter.
-// Le titre et le filtre ne servent que sur le bureau.
+/// Un fichier texte à exporter : un ruban, ou le plan dessiné (PDF et DXF
+/// sont écrits en ASCII).
+// Le titre, le filtre et l'extension ne servent que sur le bureau.
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub struct Fichier<'a> {
     /// Titre de la boîte « Enregistrer sous » (bureau).
     pub titre: &'a str,
     /// Nom du type de fichier dans cette boîte (bureau).
     pub filtre: &'a str,
+    /// Extension du type de fichier, sans le point (bureau).
+    pub extension: &'a str,
+    /// Type du fichier pour le navigateur (« application/pdf »).
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub type_mime: &'a str,
     /// Nom de fichier proposé, extension comprise.
     pub nom: &'a str,
     pub contenu: &'a str,

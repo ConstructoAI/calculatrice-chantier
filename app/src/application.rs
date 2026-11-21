@@ -591,6 +591,8 @@ impl Application {
         let fichier = Fichier {
             titre: textes::TITRE_EXPORTER.traduit(),
             filtre: textes::FILTRE_TEXTE.traduit(),
+            extension: "txt",
+            type_mime: "text/plain;charset=utf-8",
             nom: &stockage::nom_de_fichier(&nom),
             contenu: &stockage::contenu_exporte(&texte),
         };
@@ -598,6 +600,47 @@ impl Application {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
             Export::Annule => {}
             Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
+        }
+    }
+
+    /// Exporte le plan dessiné (section 25), en PDF ou en DXF. Bureau : boîte
+    /// « Enregistrer sous »; navigateur : téléchargement.
+    fn exporter_le_dessin(&mut self, ctx: &egui::Context, format: vues::dessin::FormatDExport) {
+        let prefs = self.moteur.preferences();
+        let (iso, date) = stockage::maintenant();
+        let (contenu, extension, type_mime, filtre) = match format {
+            vues::dessin::FormatDExport::Pdf => (
+                crate::exportation::pdf_du_plan(&self.plan, prefs, &date),
+                "pdf",
+                "application/pdf",
+                textes::FILTRE_PDF.traduit(),
+            ),
+            vues::dessin::FormatDExport::Dxf => {
+                let Some(contenu) = crate::exportation::dxf_du_plan(&self.plan, prefs) else {
+                    return;
+                };
+                (
+                    contenu,
+                    "dxf",
+                    "image/vnd.dxf",
+                    textes::FILTRE_DXF.traduit(),
+                )
+            }
+        };
+        let jour = iso.get(..10).unwrap_or_default();
+        let nom = stockage::nom_de_fichier_avec(&textes::dessin_nom_de_fichier(jour), extension);
+        let fichier = Fichier {
+            titre: textes::TITRE_EXPORTER_DESSIN.traduit(),
+            filtre,
+            extension,
+            type_mime,
+            nom: &nom,
+            contenu: &contenu,
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_DESSIN_EXPORTE),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_DESSIN_EXPORT_ECHEC),
         }
     }
 
@@ -1125,6 +1168,9 @@ impl Application {
                 match action {
                     Some(vues::dessin::Action::Modifie) => self.dessin_a_sauvegarder = true,
                     Some(vues::dessin::Action::Fermer) => self.aller(Vue::Accueil),
+                    Some(vues::dessin::Action::Exporter(format)) => {
+                        self.exporter_le_dessin(ui.ctx(), format);
+                    }
                     Some(vues::dessin::Action::VersOutil { id, champs }) => {
                         if let Some(c) = noyau::metiers::calculateur(id) {
                             let saisies = self

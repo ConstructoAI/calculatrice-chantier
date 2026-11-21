@@ -406,6 +406,73 @@ pub const DESSIN_TOUCHE_PIEDS: Texte = t("Pieds", "Feet");
 pub const DESSIN_ZOOMER: Texte = t("Zoomer", "Zoom in");
 pub const DESSIN_DEZOOMER: Texte = t("Dézoomer", "Zoom out");
 pub const DESSIN_AJUSTER: Texte = t("Ajuster", "Fit");
+pub const DESSIN_EXPORTER: Texte = t("Exporter le plan", "Export the plan");
+pub const DESSIN_EXPORTER_PDF: Texte = t("Exporter en PDF", "Export as PDF");
+pub const DESSIN_EXPORTER_DXF: Texte = t("Exporter en DXF", "Export as DXF");
+pub const DESSIN_DXF_IMPOSSIBLE: Texte = t(
+    "Le DXF demande au moins une pièce complète, à l'échelle de ses mesures.",
+    "DXF needs at least one complete room, drawn to its measurements.",
+);
+pub const TITRE_EXPORTER_DESSIN: Texte = t("Exporter le plan", "Export the plan");
+pub const FILTRE_PDF: Texte = t("Document PDF", "PDF document");
+pub const FILTRE_DXF: Texte = t("Dessin DXF", "DXF drawing");
+pub const AVIS_DESSIN_EXPORTE: Texte = t("Plan exporté.", "Plan exported.");
+pub const AVIS_DESSIN_EXPORT_ECHEC: Texte = t(
+    "Le plan n'a pas pu être exporté.",
+    "The plan could not be exported.",
+);
+pub const DESSIN_EXPORT_CROQUIS: Texte = t(
+    "Croquis : mesures incomplètes, pas à l'échelle.",
+    "Sketch: measurements incomplete, not to scale.",
+);
+pub const DESSIN_EXPORT_COTES: Texte = t("Côtés", "Sides");
+pub const DESSIN_EXPORT_DEDUITE: Texte = t("déduite", "worked out");
+pub const DESSIN_EXPORT_PIECE: Texte = t("Pièce", "Room");
+pub const DESSIN_EXPORT_INCOMPLETE: Texte = t("incomplète", "incomplete");
+pub const DESSIN_EXPORT_TOTAL: Texte = t("Total des surfaces nettes", "Total net area");
+pub const DESSIN_EXPORT_PIED: Texte = tel("Constructo AI · constructoai.ca");
+
+/// « Retrait 2 », dans la liste des résultats d'une pièce exportée.
+pub fn dessin_retrait_numero(rang: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Retrait {rang}"),
+        Langue::Anglais => format!("Deduction {rang}"),
+    }
+}
+
+/// En-tête des pages du plan exporté.
+pub fn dessin_export_entete(date: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Constructo AI · Dessin des pièces · {date}"),
+        Langue::Anglais => format!("Constructo AI · Room sketch · {date}"),
+    }
+}
+
+/// « Page 2 de 3 ».
+pub fn dessin_export_page(numero: usize, total: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Page {numero} de {total}"),
+        Langue::Anglais => format!("Page {numero} of {total}"),
+    }
+}
+
+/// Titre du plan exporté : « Plan : 3 pièces ».
+pub fn dessin_export_plan(pieces: usize) -> String {
+    match (langue::en_cours(), pieces) {
+        (Langue::Francais, 0 | 1) => format!("Plan : {pieces} pièce"),
+        (Langue::Francais, _) => format!("Plan : {pieces} pièces"),
+        (Langue::Anglais, 1) => "Plan: 1 room".to_string(),
+        (Langue::Anglais, _) => format!("Plan: {pieces} rooms"),
+    }
+}
+
+/// Nom proposé pour le fichier du plan exporté (sans l'extension).
+pub fn dessin_nom_de_fichier(jour: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Plan {jour}"),
+        Langue::Anglais => format!("Plan {jour}"),
+    }
+}
 pub const DESSIN_TOUCHE_POUCES: Texte = t("Pouces", "Inches");
 pub const DESSIN_TOUCHE_RECULER: Texte = t("eff.", "del");
 pub const DESSIN_SURFACE: Texte = t("Surface", "Area");

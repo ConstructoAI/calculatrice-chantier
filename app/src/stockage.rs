@@ -265,6 +265,11 @@ pub fn maintenant() -> (String, String) {
 
 /// Nom de fichier sûr à partir du nom d'un ruban.
 pub fn nom_de_fichier(nom: &str) -> String {
+    nom_de_fichier_avec(nom, "txt")
+}
+
+/// Nom de fichier sûr, avec l'extension donnée (sans le point).
+pub fn nom_de_fichier_avec(nom: &str, extension: &str) -> String {
     let propre: String = nom
         .chars()
         .map(|c| match c {
@@ -279,7 +284,7 @@ pub fn nom_de_fichier(nom: &str) -> String {
     } else {
         &propre
     };
-    format!("{base}.txt")
+    format!("{base}.{extension}")
 }
 
 #[cfg(test)]

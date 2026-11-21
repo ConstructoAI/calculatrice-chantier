@@ -161,7 +161,7 @@ pub fn exporter(fichier: &Fichier<'_>) -> Export {
     let choix = rfd::FileDialog::new()
         .set_title(fichier.titre)
         .set_file_name(fichier.nom)
-        .add_filter(fichier.filtre, &["txt"])
+        .add_filter(fichier.filtre, &[fichier.extension])
         .save_file();
     match choix {
         None => Export::Annule,

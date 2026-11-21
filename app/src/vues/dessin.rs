@@ -126,6 +126,13 @@ impl Etat {
     }
 }
 
+/// Format d'export du plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FormatDExport {
+    Pdf,
+    Dxf,
+}
+
 pub enum Action {
     /// Le dessin ou une mesure ont changé : à conserver.
     Modifie,
@@ -136,6 +143,8 @@ pub enum Action {
         entrees: Vec<(String, String)>,
         resultats: Vec<(String, String)>,
     },
+    /// Exporter le plan (toutes les pièces) en PDF ou en DXF.
+    Exporter(FormatDExport),
     /// Ouvrir un outil de métier avec la longueur et la largeur de la pièce.
     VersOutil {
         id: &'static str,
@@ -202,14 +211,14 @@ fn distance_au_segment(p: Pos2, a: Pos2, b: Pos2) -> f32 {
 }
 
 /// Texte d'une longueur en pouces, dans le système des mesures inscrites.
-fn longueur_en_clair(pouces: f64, solution: &Solution, prefs: &Preferences) -> String {
+pub(crate) fn longueur_en_clair(pouces: f64, solution: &Solution, prefs: &Preferences) -> String {
     Quantite::Longueur(pouces).en_clair(solution.modele, prefs)
 }
 
 /// Une mesure telle qu'elle a été inscrite, remise au propre dans son système :
 /// « 20 » devient « 20 pi 0 po », « 3,81 m » devient « 3,810 m ». `None` si
 /// elle est illisible.
-fn saisie_en_clair(saisie: &str, prefs: &Preferences) -> Option<String> {
+pub(crate) fn saisie_en_clair(saisie: &str, prefs: &Preferences) -> Option<String> {
     let valeur = noyau::analyse::analyser_longueur(saisie.trim(), FORMAT_PAR_DEFAUT)
         .ok()
         .filter(|v| v.est_longueur() && v.base > 0.0 && v.base.is_finite())?;
@@ -225,7 +234,7 @@ fn premier_cote_a_mesurer(solution: &Solution) -> Option<usize> {
 }
 
 /// Nom d'une pièce : celui que l'utilisateur a donné, sinon « Pièce 2 ».
-fn nom_de_la_piece(plan: &Plan, rang: usize) -> String {
+pub(crate) fn nom_de_la_piece(plan: &Plan, rang: usize) -> String {
     match plan.pieces.get(rang).map(|piece| piece.nom.trim()) {
         Some(nom) if !nom.is_empty() => nom.to_string(),
         _ => textes::dessin_piece(rang + 1),
@@ -326,8 +335,12 @@ pub fn afficher(
                 action = Some(Action::Modifie);
             }
         }
-        if la_piece_et_le_total(ui, p, plan, etat, prefs) {
+        let (modifie, export) = la_piece_et_le_total(ui, p, plan, etat, prefs);
+        if modifie {
             action = Some(Action::Modifie);
+        }
+        if let Some(format) = export {
+            action = Some(Action::Exporter(format));
         }
         ui.add_space(10.0);
     });
@@ -380,7 +393,7 @@ fn la_piece_et_le_total(
     plan: &mut Plan,
     etat: &mut Etat,
     prefs: &Preferences,
-) -> bool {
+) -> (bool, Option<FormatDExport>) {
     let mut modifie = false;
     let courante = plan.courante;
     let nombre = plan.pieces.len();
@@ -439,7 +452,43 @@ fn la_piece_et_le_total(
             );
         });
     }
-    modifie
+    // L'export du plan, toutes pièces comprises.
+    let mut export = None;
+    let une_piece_dessinee = plan.pieces.iter().any(|piece| !piece.dessin.est_vide());
+    let une_piece_complete = plan.pieces.iter().any(|piece| {
+        matches!(
+            piece.dessin.resoudre(FORMAT_PAR_DEFAUT).etat,
+            EtatDeLaForme::Complete { .. }
+        )
+    });
+    ui.add_space(10.0);
+    ui.label(
+        RichText::new(textes::DESSIN_EXPORTER.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add_enabled(
+                une_piece_dessinee,
+                egui::Button::new(textes::DESSIN_EXPORTER_PDF.traduit()),
+            )
+            .clicked()
+        {
+            export = Some(FormatDExport::Pdf);
+        }
+        if ui
+            .add_enabled(
+                une_piece_complete,
+                egui::Button::new(textes::DESSIN_EXPORTER_DXF.traduit()),
+            )
+            .on_disabled_hover_text(textes::DESSIN_DXF_IMPOSSIBLE.traduit())
+            .clicked()
+        {
+            export = Some(FormatDExport::Dxf);
+        }
+    });
+    (modifie, export)
 }
 
 /// Dessine la planche et traite les gestes. Retourne vrai si le dessin a changé.

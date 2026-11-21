@@ -91,17 +91,17 @@ impl Depot {
 
 /// Fait télécharger le fichier par le navigateur, sous le nom proposé.
 pub fn exporter(fichier: &Fichier<'_>) -> Export {
-    match telecharger(fichier.nom, fichier.contenu) {
+    match telecharger(fichier.nom, fichier.contenu, fichier.type_mime) {
         Some(()) => Export::Reussi,
         None => Export::Echec,
     }
 }
 
-fn telecharger(nom: &str, contenu: &str) -> Option<()> {
+fn telecharger(nom: &str, contenu: &str, type_mime: &str) -> Option<()> {
     let document = document()?;
     let morceaux = js_sys::Array::of1(&wasm_bindgen::JsValue::from_str(contenu));
     let options = web_sys::BlobPropertyBag::new();
-    options.set_type("text/plain;charset=utf-8");
+    options.set_type(type_mime);
     let blob = web_sys::Blob::new_with_str_sequence_and_options(&morceaux, &options).ok()?;
     // L'adresse temporaire n'est pas révoquée : le navigateur peut encore en
     // avoir besoin après le clic, et elle disparaît avec la page.
