@@ -410,6 +410,36 @@ pub const DESSIN_REVENIR_AU_PLAN: Texte = t("Revenir au plan", "Back to the plan
 pub const DESSIN_TOURNER: Texte = t("Glissez pour tourner", "Drag to turn");
 pub const DESSIN_MURS_PAR_DEFAUT: Texte = t("murs de 8 pi par défaut", "8 ft walls by default");
 
+pub const DESSIN_OBJETS: Texte = t("Objets (escalier, mobilier)", "Objects (stairs, furniture)");
+pub const DESSIN_PIVOTER: Texte = t("Pivoter", "Rotate");
+pub const DESSIN_PROFONDEUR: Texte = t("profondeur", "depth");
+
+/// Le nom d'un objet de la pièce.
+pub fn objet(genre: noyau::mobilier::GenreDObjet) -> Texte {
+    use noyau::mobilier::GenreDObjet;
+    match genre {
+        GenreDObjet::Escalier => t("Escalier", "Stairs"),
+        GenreDObjet::Lit => t("Lit", "Bed"),
+        GenreDObjet::Table => t("Table", "Table"),
+        GenreDObjet::Sofa => t("Sofa", "Sofa"),
+        GenreDObjet::Comptoir => t("Comptoir", "Counter"),
+        GenreDObjet::Toilette => t("Toilette", "Toilet"),
+        GenreDObjet::Bain => t("Bain", "Bathtub"),
+        GenreDObjet::Douche => t("Douche", "Shower"),
+        GenreDObjet::Laveuse => t("Laveuse", "Washer"),
+        GenreDObjet::Refrigerateur => t("Réfrigérateur", "Fridge"),
+        GenreDObjet::Cuisiniere => t("Cuisinière", "Range"),
+    }
+}
+
+/// La consigne affichée sur la planche quand un objet attend sa place.
+pub fn dessin_toucher_pour_placer(nom: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Touchez la pièce pour placer : {nom}"),
+        Langue::Anglais => format!("Tap the room to place: {nom}"),
+    }
+}
+
 /// « allège 3 pi 0 po » : le bas d'une fenêtre.
 pub fn dessin_allege(hauteur: &str) -> String {
     match langue::en_cours() {

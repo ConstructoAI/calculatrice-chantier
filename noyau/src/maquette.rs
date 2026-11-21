@@ -4,6 +4,7 @@
 //! y vers le haut.
 
 use crate::dessin::{Dessin, Etat, Solution};
+use crate::mobilier::{GenreDObjet, Objet};
 
 /// Hauteur des murs quand elle n'est pas inscrite : 8 pi.
 pub const HAUTEUR_PAR_DEFAUT: f64 = 96.0;
@@ -15,15 +16,18 @@ pub enum GenreDeFace {
     Mur,
     Vitre,
     Porte,
+    /// Un bloc de l'escalier ou d'un meuble.
+    Meuble(GenreDObjet),
 }
 
-/// Une face plane : ses sommets `[x, y, z]` et, pour un mur ou une
-/// ouverture, la direction de l'intérieur de la pièce (horizontale).
+/// Une face plane : ses sommets `[x, y, z]` et sa normale — pour un mur ou
+/// une ouverture, la direction de l'intérieur de la pièce; pour un meuble,
+/// celle de l'extérieur du meuble.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Face {
     pub genre: GenreDeFace,
     pub sommets: Vec<[f64; 3]>,
-    pub vers_l_interieur: [f64; 3],
+    pub normale: [f64; 3],
 }
 
 /// La maquette d'une pièce : ses faces, et les arêtes à tracer par-dessus
@@ -59,7 +63,7 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         faces.push(Face {
             genre: GenreDeFace::Plancher,
             sommets: triangle.iter().map(|&(x, z)| [x, 0.0, z]).collect(),
-            vers_l_interieur: [0.0, 1.0, 0.0],
+            normale: [0.0, 1.0, 0.0],
         });
     }
 
@@ -120,7 +124,7 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                     faces.push(Face {
                         genre: GenreDeFace::Mur,
                         sommets: rectangle(t0, t1, depuis, bas),
-                        vers_l_interieur: dedans,
+                        normale: dedans,
                     });
                 }
                 depuis = f64::max(depuis, haut);
@@ -143,12 +147,101 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                         GenreDeFace::Vitre
                     },
                     sommets: rectangle(placement.debut, placement.fin, bas, haut),
-                    vers_l_interieur: dedans,
+                    normale: dedans,
                 });
             }
         }
     }
+    // Les objets : des blocs à leur hauteur; l'escalier, une marche par bloc,
+    // de la flèche jusqu'au haut des murs.
+    for (objet, &dimensions) in dessin.objets.iter().zip(&solution.objets) {
+        if objet.genre == GenreDObjet::Escalier {
+            let marches = (dimensions.1 / 10.0).round().clamp(3.0, 20.0) as usize;
+            for k in 0..marches {
+                let v0 = 1.0 - (k + 1) as f64 / marches as f64;
+                let v1 = 1.0 - k as f64 / marches as f64;
+                let haut = hauteur * (k + 1) as f64 / marches as f64;
+                // Le devant d'une marche est caché par la suivante, plus haute.
+                let cache = k + 1 < marches;
+                bloc(
+                    &mut faces,
+                    &mut aretes,
+                    objet,
+                    dimensions,
+                    (v0, v1),
+                    haut,
+                    cache,
+                );
+            }
+        } else {
+            let (_, _, haut) = objet.genre.dimensions();
+            bloc(
+                &mut faces,
+                &mut aretes,
+                objet,
+                dimensions,
+                (0.0, 1.0),
+                haut,
+                false,
+            );
+        }
+    }
     Some(Maquette { faces, aretes })
+}
+
+/// Un bloc posé sur le plancher : la partie (v0, v1) d'un objet, jusqu'à
+/// `haut`. Ses faces regardent vers l'extérieur; `sans_l_avant` omet celle
+/// du côté v0.
+fn bloc(
+    faces: &mut Vec<Face>,
+    aretes: &mut Vec<[[f64; 3]; 2]>,
+    objet: &Objet,
+    dimensions: (f64, f64),
+    (v0, v1): (f64, f64),
+    haut: f64,
+    sans_l_avant: bool,
+) {
+    let coin = |u: f64, v: f64, y: f64| {
+        let (x, z) = objet.vers_le_plan((u, v), dimensions);
+        [x, y, z]
+    };
+    let bas = [
+        coin(0.0, v0, 0.0),
+        coin(1.0, v0, 0.0),
+        coin(1.0, v1, 0.0),
+        coin(0.0, v1, 0.0),
+    ];
+    let dessus = [
+        coin(0.0, v0, haut),
+        coin(1.0, v0, haut),
+        coin(1.0, v1, haut),
+        coin(0.0, v1, haut),
+    ];
+    let centre = (
+        bas.iter().map(|s| s[0]).sum::<f64>() / 4.0,
+        bas.iter().map(|s| s[2]).sum::<f64>() / 4.0,
+    );
+    let genre = GenreDeFace::Meuble(objet.genre);
+    faces.push(Face {
+        genre,
+        sommets: dessus.to_vec(),
+        normale: [0.0, 1.0, 0.0],
+    });
+    for k in 0..4 {
+        let (a, b) = (k, (k + 1) % 4);
+        aretes.push([dessus[a], dessus[b]]);
+        if k == 0 && sans_l_avant {
+            continue;
+        }
+        let milieu = ((bas[a][0] + bas[b][0]) / 2.0, (bas[a][2] + bas[b][2]) / 2.0);
+        let (nx, nz) = (milieu.0 - centre.0, milieu.1 - centre.1);
+        let longueur = nx.hypot(nz).max(1e-12);
+        faces.push(Face {
+            genre,
+            sommets: vec![bas[a], bas[b], dessus[b], dessus[a]],
+            normale: [nx / longueur, 0.0, nz / longueur],
+        });
+    }
 }
 
 /// Découpe un contour simple en triangles (méthode des oreilles). Le contour
@@ -292,10 +385,49 @@ mod tests {
             .iter()
             .find(|f| f.genre == GenreDeFace::Mur && f.sommets.iter().all(|s| s[2].abs() < 1e-9))
             .unwrap();
-        assert!(mur_du_haut.vers_l_interieur[2] > 0.0);
+        assert!(mur_du_haut.normale[2] > 0.0);
         // Une pièce incomplète n'a pas de maquette.
         dessin.cotes[1].saisie.clear();
         assert!(maquette(&dessin, &dessin.resoudre(Format::PiPo)).is_none());
+    }
+
+    #[test]
+    fn un_lit_et_un_escalier_en_blocs() {
+        let mut dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        dessin.objets = vec![
+            Objet::nouveau(GenreDObjet::Lit, (72.0, 60.0)),
+            Objet::nouveau(GenreDObjet::Escalier, (24.0, 60.0)),
+        ];
+        let solution = dessin.resoudre(Format::PiPo);
+        let faces = maquette(&dessin, &solution).unwrap().faces;
+        let meubles: Vec<&Face> = faces
+            .iter()
+            .filter(|f| f.genre == GenreDeFace::Meuble(GenreDObjet::Lit))
+            .collect();
+        // Le lit : un dessus et quatre côtés, de 24 po de haut.
+        assert_eq!(meubles.len(), 5);
+        let dessus = meubles
+            .iter()
+            .find(|f| f.normale == [0.0, 1.0, 0.0])
+            .unwrap();
+        assert!((aire(dessus) - 60.0 * 80.0).abs() < 1e-6);
+        assert!(dessus.sommets.iter().all(|s| (s[1] - 24.0).abs() < 1e-9));
+        // L'escalier de 10 pi : 12 marches, jusqu'au haut des murs (8 pi).
+        let marches: Vec<&Face> = faces
+            .iter()
+            .filter(|f| f.genre == GenreDeFace::Meuble(GenreDObjet::Escalier) && f.normale[1] > 0.5)
+            .collect();
+        assert_eq!(marches.len(), 12);
+        let plus_haut = marches
+            .iter()
+            .flat_map(|f| f.sommets.iter().map(|s| s[1]))
+            .fold(0.0, f64::max);
+        assert!((plus_haut - 96.0).abs() < 1e-9);
     }
 
     #[test]

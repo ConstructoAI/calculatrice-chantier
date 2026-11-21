@@ -4,6 +4,7 @@
 
 use eframe::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use noyau::maquette::{GenreDeFace, Maquette};
+use noyau::mobilier::GenreDObjet;
 
 use crate::theme::{self, Palette};
 
@@ -74,6 +75,22 @@ struct Projetee {
     lumiere: f32,
 }
 
+/// La couleur d'un meuble dans la vue 3D.
+fn couleur_d_un_meuble(genre: GenreDObjet) -> Color32 {
+    match genre {
+        GenreDObjet::Escalier => Color32::from_rgb(176, 132, 92),
+        GenreDObjet::Lit => Color32::from_rgb(128, 148, 182),
+        GenreDObjet::Table => Color32::from_rgb(160, 114, 76),
+        GenreDObjet::Sofa => Color32::from_rgb(136, 136, 148),
+        GenreDObjet::Comptoir => Color32::from_rgb(204, 204, 210),
+        GenreDObjet::Toilette | GenreDObjet::Bain => Color32::from_rgb(246, 246, 250),
+        GenreDObjet::Douche => Color32::from_rgb(176, 214, 236),
+        GenreDObjet::Laveuse | GenreDObjet::Refrigerateur | GenreDObjet::Cuisiniere => {
+            Color32::from_rgb(220, 224, 230)
+        }
+    }
+}
+
 /// Peint la maquette dans la zone.
 pub fn dessiner(
     painter: &egui::Painter,
@@ -142,12 +159,22 @@ pub fn dessiner(
         }
         let n = points.len() as f64;
         milieu = [milieu[0] / n, milieu[1] / n, milieu[2] / n];
+        // Les faces d'un meuble tournées vers l'arrière ne se voient pas.
+        if matches!(face.genre, GenreDeFace::Meuble(_))
+            && scalaire(face.normale, moins(oeil, milieu)) <= 0.0
+        {
+            continue;
+        }
         projetees.push(Projetee {
             genre: face.genre,
             points,
             profondeur: profondeur / n,
-            de_l_interieur: scalaire(face.vers_l_interieur, moins(oeil, milieu)) > 0.0,
-            lumiere: (0.5 + 0.5 * scalaire(face.vers_l_interieur, lumiere).abs()) as f32,
+            de_l_interieur: scalaire(face.normale, moins(oeil, milieu)) > 0.0,
+            lumiere: if face.normale[1].abs() > 0.5 {
+                1.0
+            } else {
+                (0.5 + 0.5 * scalaire(face.normale, lumiere).abs()) as f32
+            },
         });
     }
     // La maquette tient dans la zone.
@@ -174,11 +201,20 @@ pub fn dessiner(
         )
     };
 
-    // Le plancher d'abord, puis le reste, du plus loin au plus proche.
+    // Le plancher d'abord, puis les murs vus de l'intérieur (ils sont derrière
+    // tout ce qui est dans la pièce), puis les meubles, enfin les murs vus de
+    // l'extérieur, translucides, devant; chaque groupe du plus loin au plus
+    // proche. Un grand mur trié avec les meubles par son seul milieu en
+    // cacherait.
+    let rang = |face: &Projetee| match face.genre {
+        GenreDeFace::Plancher => 0,
+        GenreDeFace::Meuble(_) => 2,
+        _ if face.de_l_interieur => 1,
+        _ => 3,
+    };
     projetees.sort_by(|a, b| {
-        let rang = |genre: GenreDeFace| u8::from(genre != GenreDeFace::Plancher);
-        rang(a.genre)
-            .cmp(&rang(b.genre))
+        rang(a)
+            .cmp(&rang(b))
             .then(b.profondeur.total_cmp(&a.profondeur))
     });
     let mur = theme::melanger(p.carte, p.texte, 0.17);
@@ -201,6 +237,10 @@ pub fn dessiner(
             }
             GenreDeFace::Porte => {
                 porte.gamma_multiply(if face.de_l_interieur { 1.0 } else { 0.35 })
+            }
+            GenreDeFace::Meuble(genre) => {
+                let base = couleur_d_un_meuble(genre);
+                theme::melanger(base, Color32::BLACK, 0.30 * (1.0 - face.lumiere))
             }
         };
         // Un maillage plein, sans adoucissement : pas de joint entre deux

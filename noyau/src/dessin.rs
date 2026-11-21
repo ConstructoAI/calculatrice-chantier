@@ -180,6 +180,8 @@ pub struct Dessin {
     pub hauteur_des_murs: String,
     /// Les portes et les fenêtres, retirées de la surface des murs.
     pub ouvertures: Vec<Ouverture>,
+    /// L'escalier et le mobilier, posés sur le plan.
+    pub objets: Vec<crate::mobilier::Objet>,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -408,6 +410,9 @@ pub struct Solution {
     /// Où dessiner chaque ouverture : `None` si elle n'est pas placée, si la
     /// longueur de son mur n'est pas connue ou si elle est plus large que lui.
     pub placements: Vec<Option<Placement>>,
+    /// La largeur et la profondeur de chaque objet, en pouces (celles de
+    /// départ si elles ne sont pas lisibles).
+    pub objets: Vec<(f64, f64)>,
 }
 
 impl Solution {
@@ -969,6 +974,17 @@ impl Dessin {
                 })
             })
             .collect();
+        let objets = self
+            .objets
+            .iter()
+            .map(|objet| {
+                let (largeur, profondeur, _) = objet.genre.dimensions();
+                (
+                    lire(&objet.largeur).unwrap_or(largeur),
+                    lire(&objet.profondeur).unwrap_or(profondeur),
+                )
+            })
+            .collect();
         Solution {
             mesures,
             etat,
@@ -978,6 +994,7 @@ impl Dessin {
             hauteur_invalide: !texte_de_la_hauteur.is_empty() && hauteur.is_none(),
             ouvertures,
             placements,
+            objets,
         }
     }
 

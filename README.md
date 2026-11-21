@@ -136,7 +136,8 @@ est connu, la calculatrice donne la surface, le périmètre et, pour un rectangl
 d'équerre. Ajoutez des retraits (îlot, trémie, colonne) pour la surface nette, la hauteur des murs et
 leurs portes et fenêtres — placées sur leur mur et dessinées sur le plan — pour la surface
 nette des murs, d'autres pièces avec **+ Pièce**
-pour le total, et voyez la pièce **en 3D** (bouton **3D**; glissez pour tourner), puis inscrivez le tout au ruban ou envoyez la pièce vers un
+pour le total, posez l'escalier et le mobilier (lit, table, sofa, comptoir, toilette, bain…), et voyez la
+pièce **en 3D** (bouton **3D**; glissez pour tourner), puis inscrivez le tout au ruban ou envoyez la pièce vers un
 outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons `+` et `−`
 zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
 dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle).

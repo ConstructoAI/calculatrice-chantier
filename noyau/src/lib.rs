@@ -15,6 +15,7 @@ pub mod langue;
 pub mod maquette;
 pub mod memoire;
 pub mod metiers;
+pub mod mobilier;
 pub mod moteur;
 pub mod persistance;
 pub mod prefs;

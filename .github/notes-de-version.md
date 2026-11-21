@@ -9,6 +9,14 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.10
+
+- **Escalier et mobilier** : dans le dessin, ajoutez un escalier, un lit, une table, un sofa,
+  un comptoir, une toilette, un bain, une douche, une laveuse, un réfrigérateur ou une
+  cuisinière, puis touchez la pièce pour le poser. Faites-le glisser, **Pivoter** le tourne,
+  et ses dimensions se règlent au pavé. Chacun a son symbole sur le plan, paraît en blocs dans
+  la vue 3D, et passe au PDF et au DXF.
+
 ## Nouveautés de la version 0.9
 
 - **Murs en biais** : un trait tracé à 45° devient un mur en biais (un coin coupé, une

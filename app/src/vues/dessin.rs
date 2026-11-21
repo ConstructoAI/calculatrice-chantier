@@ -7,6 +7,7 @@ use noyau::dessin::{
     Solution,
 };
 use noyau::metiers::Quantite;
+use noyau::mobilier::{GenreDObjet, Objet, TraitSurLePlan};
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
 
@@ -95,6 +96,15 @@ pub struct Etat {
     /// Où sont les ouvertures à l'écran, d'une image à la suivante : leur rang
     /// et leurs deux bords.
     ouvertures_a_l_ecran: Vec<(usize, Pos2, Pos2)>,
+    /// L'objet qui attend qu'on touche la pièce pour s'y poser.
+    objet_a_placer: Option<GenreDObjet>,
+    /// L'objet choisi : il paraît en couleur.
+    objet_choisi: Option<usize>,
+    /// L'objet que le doigt déplace : son rang, et l'écart (pouces) entre le
+    /// point saisi et son centre.
+    objet_tire: Option<(usize, (f64, f64))>,
+    /// Le passage du plan à l'écran à l'image précédente, pour saisir un objet.
+    derniere_echelle: Option<Echelle>,
     /// Vrai quand la planche montre la pièce en 3D.
     vue_3d: bool,
     /// La caméra de la vue 3D.
@@ -113,6 +123,8 @@ enum AutreSaisie {
     Hauteur,
     /// Une mesure d'une ouverture : son rang, et laquelle.
     Ouverture(usize, ChampDOuverture),
+    /// Une dimension d'un objet : son rang, et vrai pour sa profondeur.
+    Objet(usize, bool),
 }
 
 /// Une mesure d'une porte ou d'une fenêtre.
@@ -133,6 +145,7 @@ impl AutreSaisie {
             AutreSaisie::Retrait(rang, _) => rang < dessin.retraits.len(),
             AutreSaisie::Hauteur => true,
             AutreSaisie::Ouverture(rang, _) => rang < dessin.ouvertures.len(),
+            AutreSaisie::Objet(rang, _) => rang < dessin.objets.len(),
         }
     }
 }
@@ -164,6 +177,10 @@ impl Etat {
         self.ouvertures_a_l_ecran.clear();
         self.vue_3d = false;
         self.orbite = super::maquette::Orbite::default();
+        self.objet_a_placer = None;
+        self.objet_choisi = None;
+        self.objet_tire = None;
+        self.derniere_echelle = None;
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -225,6 +242,24 @@ impl Echelle {
             self.origine.y + y as f32 * self.facteur,
         )
     }
+
+    /// Le point du plan (pouces) sous un point de l'écran.
+    fn vers_le_plan(&self, point: Pos2) -> (f64, f64) {
+        (
+            f64::from((point.x - self.origine.x) / self.facteur),
+            f64::from((point.y - self.origine.y) / self.facteur),
+        )
+    }
+}
+
+/// L'objet sous un point du plan (le plus haut dans la liste, s'ils se
+/// chevauchent).
+fn objet_sous(dessin: &Dessin, solution: &Solution, point: (f64, f64)) -> Option<usize> {
+    dessin
+        .objets
+        .iter()
+        .zip(&solution.objets)
+        .rposition(|(objet, dimensions)| objet.contient(point, *dimensions))
 }
 
 /// Cadre la forme dans la planche. Sans forme : un point par unité, depuis le coin.
@@ -423,6 +458,11 @@ pub fn afficher(
                 action = Some(Action::Modifie);
             }
             if dessin.fermee && murs(ui, p, dessin, etat, &solution, prefs) {
+                action = Some(Action::Modifie);
+            }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && objets(ui, p, dessin, etat, &solution, prefs)
+            {
                 action = Some(Action::Modifie);
             }
         }
@@ -803,11 +843,33 @@ fn planche_et_gestes(
             ChampDOuverture::Position,
         )));
     }
+    // Un objet saisi au doigt se déplace, lui aussi, au lieu de la vue.
+    let complete = matches!(solution.etat, EtatDeLaForme::Complete { .. });
+    let objet_saisi = if complete
+        && etat.ouverture_tiree.is_none()
+        && reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(origine) = ui.input(|i| i.pointer.press_origin())
+        && let Some(echelle) = etat.derniere_echelle
+    {
+        let point = echelle.vers_le_plan(origine);
+        objet_sous(dessin, solution, point).map(|rang| {
+            let centre = dessin.objets[rang].centre;
+            (rang, (point.0 - centre.0, point.1 - centre.1))
+        })
+    } else {
+        None
+    };
+    if let Some((rang, ecart)) = objet_saisi {
+        etat.memoriser(dessin);
+        etat.objet_tire = Some((rang, ecart));
+        etat.objet_choisi = Some(rang);
+    }
     let deplacer = reponse.dragged_by(egui::PointerButton::Secondary)
         || reponse.dragged_by(egui::PointerButton::Middle)
         || (dessin.fermee
             && reponse.dragged_by(egui::PointerButton::Primary)
-            && etat.ouverture_tiree.is_none());
+            && etat.ouverture_tiree.is_none()
+            && etat.objet_tire.is_none());
     if deplacer && !etat.geste_annule {
         etat.cadrage.decalage += reponse.drag_delta();
     }
@@ -851,6 +913,32 @@ fn planche_et_gestes(
             etat.ouverture_tiree = None;
         }
     }
+
+    // L'objet qui se déplace : son nouveau centre, au pouce près (au
+    // centimètre en métrique).
+    if let Some((rang, ecart)) = etat.objet_tire {
+        if reponse.dragged()
+            && let Some(pointeur) = reponse.interact_pointer_pos()
+            && rang < dessin.objets.len()
+        {
+            let point = echelle.vers_le_plan(pointeur);
+            let metrique =
+                solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique);
+            let pas = if metrique { 1.0 / 2.54 } else { 1.0 };
+            let centre = (
+                ((point.0 - ecart.0) / pas).round() * pas,
+                ((point.1 - ecart.1) / pas).round() * pas,
+            );
+            if dessin.objets[rang].centre != centre {
+                dessin.objets[rang].centre = centre;
+                modifie = true;
+            }
+        }
+        if !reponse.dragged() {
+            etat.objet_tire = None;
+        }
+    }
+    etat.derniere_echelle = complete.then_some(echelle);
 
     // --- Gestes
     let trace_permise = !dessin.fermee && !etat.geste_annule;
@@ -920,6 +1008,20 @@ fn planche_et_gestes(
         }
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
+        && complete
+        && let Some(genre) = etat.objet_a_placer
+    {
+        // L'objet se pose là où la pièce a été touchée.
+        let (x, y) = echelle.vers_le_plan(position);
+        etat.memoriser(dessin);
+        dessin
+            .objets
+            .push(Objet::nouveau(genre, (x.round(), y.round())));
+        etat.objet_a_placer = None;
+        etat.objet_choisi = Some(dessin.objets.len() - 1);
+        modifie = true;
+    } else if reponse.clicked()
+        && let Some(position) = reponse.interact_pointer_pos()
         && etat.ouverture_a_placer.is_none()
         && let Some((rang, _, _)) = etat
             .ouvertures_a_l_ecran
@@ -934,7 +1036,16 @@ fn planche_et_gestes(
         )));
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
+        && complete
+        && etat.ouverture_a_placer.is_none()
+        && let Some(rang) = objet_sous(dessin, solution, echelle.vers_le_plan(position))
     {
+        // Toucher un objet le choisit.
+        etat.objet_choisi = Some(rang);
+    } else if reponse.clicked()
+        && let Some(position) = reponse.interact_pointer_pos()
+    {
+        etat.objet_choisi = None;
         let plus_proche = points
             .windows(2)
             .enumerate()
@@ -987,6 +1098,56 @@ fn planche_et_gestes(
             theme::police(14.5),
             p.texte_attenue,
         );
+    }
+    // Les objets : leur rectangle, plein, leur symbole et leur nom.
+    if complete {
+        for (rang, (objet, &dimensions)) in dessin.objets.iter().zip(&solution.objets).enumerate() {
+            let choisi = etat.objet_choisi == Some(rang)
+                || etat.objet_tire.is_some_and(|(r, _)| r == rang)
+                || matches!(etat.autre_choisi, Some(AutreSaisie::Objet(r, _)) if r == rang);
+            let encre = if choisi {
+                p.barre_accent
+            } else {
+                p.texte_attenue
+            };
+            let coins: Vec<Pos2> = objet
+                .coins(dimensions)
+                .iter()
+                .map(|coin| echelle.vers_l_ecran(*coin))
+                .collect();
+            painter.add(egui::Shape::convex_polygon(
+                coins.clone(),
+                theme::melanger(p.carte, p.texte, 0.06),
+                Stroke::NONE,
+            ));
+            for trait_ in objet.traits_sur_le_plan(dimensions) {
+                match trait_ {
+                    TraitSurLePlan::Ligne(a, b) => {
+                        painter.line_segment(
+                            [echelle.vers_l_ecran(a), echelle.vers_l_ecran(b)],
+                            Stroke::new(1.3, encre),
+                        );
+                    }
+                    TraitSurLePlan::Cercle(centre, rayon) => {
+                        painter.circle_stroke(
+                            echelle.vers_l_ecran(centre),
+                            rayon as f32 * echelle.facteur,
+                            Stroke::new(1.3, encre),
+                        );
+                    }
+                }
+            }
+            let plus_petit = coins[0].distance(coins[1]).min(coins[1].distance(coins[2]));
+            if plus_petit > 34.0 {
+                painter.text(
+                    echelle.vers_l_ecran(objet.centre),
+                    Align2::CENTER_CENTER,
+                    textes::objet(objet.genre).traduit(),
+                    theme::police(10.5),
+                    encre,
+                );
+            }
+        }
     }
     for (i, s) in points.windows(2).enumerate() {
         let choisi = etat.choisi == Some(i);
@@ -1142,6 +1303,16 @@ fn planche_et_gestes(
             etat.trace.clone(),
             Stroke::new(3.0, p.barre_accent),
         ));
+    }
+    // Un objet attend qu'on touche la pièce.
+    if let Some(genre) = etat.objet_a_placer {
+        painter.text(
+            planche.left_top() + Vec2::new(12.0, 12.0),
+            Align2::LEFT_TOP,
+            textes::dessin_toucher_pour_placer(textes::objet(genre).traduit()),
+            theme::police_grasse(13.0),
+            p.barre_accent,
+        );
     }
     // Une ouverture attend qu'on touche son mur.
     if let Some(ouverture) = etat
@@ -1605,14 +1776,14 @@ fn autre_mesure(
             (
                 saisie,
                 textes::dessin_retrait(rang + 1, en_largeur),
-                textes::DESSIN_EXEMPLE.traduit(),
+                textes::DESSIN_EXEMPLE.traduit().to_string(),
                 (!en_largeur).then_some(AutreSaisie::Retrait(rang, true)),
             )
         }
         AutreSaisie::Hauteur => (
             &mut dessin.hauteur_des_murs,
             textes::DESSIN_HAUTEUR_DES_MURS.traduit().to_string(),
-            textes::DESSIN_HAUTEUR_EXEMPLE.traduit(),
+            textes::DESSIN_HAUTEUR_EXEMPLE.traduit().to_string(),
             None,
         ),
         AutreSaisie::Ouverture(rang, champ) => {
@@ -1653,8 +1824,28 @@ fn autre_mesure(
             (
                 saisie,
                 textes::dessin_ouverture(rang + 1, dimension.traduit()),
-                indice,
+                indice.to_string(),
                 ensuite.map(|champ| AutreSaisie::Ouverture(rang, champ)),
+            )
+        }
+        AutreSaisie::Objet(rang, en_profondeur) => {
+            let Some(objet) = dessin.objets.get_mut(rang) else {
+                return false;
+            };
+            let nom = textes::objet(objet.genre).traduit();
+            let (largeur, profondeur, _) = objet.genre.dimensions();
+            let (saisie, dimension, depart) = if en_profondeur {
+                (&mut objet.profondeur, textes::DESSIN_PROFONDEUR, profondeur)
+            } else {
+                (&mut objet.largeur, textes::DESSIN_LARGEUR, largeur)
+            };
+            // L'indice : la dimension de départ, en pieds et pouces.
+            let indice = sans_insecables(&Quantite::Longueur(depart).en_clair(None, prefs));
+            (
+                saisie,
+                format!("{nom} : {}", dimension.traduit()),
+                indice,
+                (!en_profondeur).then_some(AutreSaisie::Objet(rang, true)),
             )
         }
     };
@@ -1955,6 +2146,7 @@ fn murs(
                 .clicked()
             {
                 etat.ouverture_a_placer = if en_placement { None } else { Some(rang) };
+                etat.objet_a_placer = None;
             }
             for champ in [ChampDOuverture::Largeur, ChampDOuverture::Hauteur] {
                 let ouverture = &dessin.ouvertures[rang];
@@ -2075,7 +2267,105 @@ fn murs(
                 let rang = dessin.ouvertures.len() - 1;
                 etat.choisir_autre(Some(AutreSaisie::Ouverture(rang, ChampDOuverture::Largeur)));
                 etat.ouverture_a_placer = Some(rang);
+                etat.objet_a_placer = None;
                 modifie = true;
+            }
+        }
+    });
+    modifie
+}
+
+/// Les objets de la pièce : l'escalier et le mobilier, leurs dimensions, et
+/// les boutons pour en ajouter. Retourne vrai si le dessin a changé.
+fn objets(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_OBJETS.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    let (mut a_pivoter, mut a_enlever) = (None, None);
+    for rang in 0..dessin.objets.len() {
+        ui.horizontal_wrapped(|ui| {
+            let objet = &dessin.objets[rang];
+            let choisi = etat.objet_choisi == Some(rang);
+            let nom = RichText::new(format!(
+                "{}. {}",
+                rang + 1,
+                textes::objet(objet.genre).traduit()
+            ))
+            .font(theme::police_grasse(13.5));
+            if ui.add(egui::Button::new(nom).selected(choisi)).clicked() {
+                etat.objet_choisi = if choisi { None } else { Some(rang) };
+            }
+            let (largeur, profondeur) = solution.objets.get(rang).copied().unwrap_or_default();
+            for (en_profondeur, saisie, valeur) in [
+                (false, &objet.largeur, largeur),
+                (true, &objet.profondeur, profondeur),
+            ] {
+                let texte = if saisie.trim().is_empty() {
+                    longueur_en_clair(valeur, solution, prefs)
+                } else {
+                    mesure_du_bouton(saisie, "", prefs)
+                };
+                let cible = AutreSaisie::Objet(rang, en_profondeur);
+                if ui
+                    .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                    .clicked()
+                {
+                    etat.choisir_autre(Some(cible));
+                    etat.objet_choisi = Some(rang);
+                }
+                if !en_profondeur {
+                    ui.label("×");
+                }
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_PIVOTER.traduit()))
+                .clicked()
+            {
+                a_pivoter = Some(rang);
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                .clicked()
+            {
+                a_enlever = Some(rang);
+            }
+        });
+    }
+    if let Some(rang) = a_pivoter {
+        etat.memoriser(dessin);
+        let objet = &mut dessin.objets[rang];
+        objet.rotation = (objet.rotation + 1) % 4;
+        etat.objet_choisi = Some(rang);
+        modifie = true;
+    }
+    if let Some(rang) = a_enlever {
+        etat.memoriser(dessin);
+        dessin.objets.remove(rang);
+        etat.objet_choisi = None;
+        etat.objet_tire = None;
+        etat.choisir_autre(None);
+        modifie = true;
+    }
+    // Un bouton par genre : on touche ensuite la pièce pour y poser l'objet.
+    ui.horizontal_wrapped(|ui| {
+        for genre in GenreDObjet::TOUS {
+            let en_attente = etat.objet_a_placer == Some(genre);
+            let bouton = egui::Button::new(format!("+ {}", textes::objet(genre).traduit()))
+                .selected(en_attente);
+            if ui.add(bouton).clicked() {
+                etat.objet_a_placer = if en_attente { None } else { Some(genre) };
+                etat.ouverture_a_placer = None;
             }
         }
     });

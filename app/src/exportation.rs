@@ -33,6 +33,9 @@ struct PieceExportee {
     /// Les portes et les fenêtres : leur mur, leurs bords en part de la
     /// longueur du mur (de 0 à 1), et vrai pour une porte.
     ouvertures: Vec<(usize, f64, f64, bool)>,
+    /// Les objets d'une pièce complète : leur nom, leur centre et leurs traits,
+    /// sur le plan (pouces).
+    objets: Vec<(String, (f64, f64), Vec<noyau::mobilier::TraitSurLePlan>)>,
 }
 
 /// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
@@ -113,6 +116,22 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
             })
         })
         .collect();
+    let objets = if complete {
+        dessin
+            .objets
+            .iter()
+            .zip(&solution.objets)
+            .map(|(objet, &dimensions)| {
+                (
+                    textes::objet(objet.genre).traduit().to_string(),
+                    objet.centre,
+                    objet.traits_sur_le_plan(dimensions),
+                )
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
     PieceExportee {
         nom: sans_insecables(nom),
         sommets,
@@ -126,6 +145,7 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         perimetre,
         modele: solution.modele,
         ouvertures,
+        objets,
     }
 }
 
@@ -377,6 +397,14 @@ impl Page {
     }
 }
 
+/// Les points extrêmes d'un trait d'objet, pour le cadrage.
+fn etendue_d_un_trait(trait_: &noyau::mobilier::TraitSurLePlan) -> Vec<(f64, f64)> {
+    match *trait_ {
+        noyau::mobilier::TraitSurLePlan::Ligne(a, b) => vec![a, b],
+        noyau::mobilier::TraitSurLePlan::Cercle((x, y), r) => vec![(x - r, y - r), (x + r, y + r)],
+    }
+}
+
 /// Place des sommets (pouces, y vers le bas) dans un cadre de la page (points,
 /// y vers le haut), à la plus grande échelle qui les y fait tenir.
 fn ajuster(
@@ -432,10 +460,48 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
 
     // La forme, ajustée à son cadre; la place des mesures autour.
     let cadre = (MARGE + 84.0, 372.0, LARGEUR_PAGE - MARGE - 84.0, 684.0);
-    let vers_la_page = ajuster(&piece.sommets, cadre);
+    let mut a_cadrer = piece.sommets.clone();
+    for (_, _, traits) in &piece.objets {
+        a_cadrer.extend(traits.iter().flat_map(etendue_d_un_trait));
+    }
+    let vers_la_page = ajuster(&a_cadrer, cadre);
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
     page.trait_(&points, 1.8, BLEU);
     ouvertures_sur_la_page(&mut page, &points, &piece.ouvertures);
+    // Les objets, à la même échelle que la forme.
+    let origine = vers_la_page((0.0, 0.0));
+    let un_pouce = vers_la_page((1.0, 0.0));
+    let echelle = (un_pouce.0 - origine.0).hypot(un_pouce.1 - origine.1);
+    for (nom, centre, traits) in &piece.objets {
+        for trait_ in traits {
+            match *trait_ {
+                noyau::mobilier::TraitSurLePlan::Ligne(a, b) => {
+                    page.trait_(&[vers_la_page(a), vers_la_page(b)], 0.7, GRIS);
+                }
+                noyau::mobilier::TraitSurLePlan::Cercle(c, rayon) => {
+                    let c = vers_la_page(c);
+                    let cercle: Vec<(f64, f64)> = (0..=24)
+                        .map(|k| {
+                            let angle = std::f64::consts::TAU * f64::from(k) / 24.0;
+                            (
+                                c.0 + rayon * echelle * angle.cos(),
+                                c.1 + rayon * echelle * angle.sin(),
+                            )
+                        })
+                        .collect();
+                    page.trait_(&cercle, 0.7, GRIS);
+                }
+            }
+        }
+        page.texte(
+            vers_la_page(*centre),
+            7.0,
+            false,
+            Alignement::Centre,
+            GRIS,
+            nom,
+        );
+    }
     let nombre = points.len().saturating_sub(1).max(1);
     let centre = (
         points.iter().take(nombre).map(|q| q.0).sum::<f64>() / nombre as f64,
@@ -799,6 +865,14 @@ fn ligne_dxf(dxf: &mut String, calque: &str, a: (f64, f64), b: (f64, f64)) {
     }
 }
 
+fn cercle_dxf(dxf: &mut String, calque: &str, centre: (f64, f64), rayon: f64) {
+    groupe(dxf, 0, "CIRCLE");
+    groupe(dxf, 8, calque);
+    for (code, valeur) in [(10, centre.0), (20, centre.1), (30, 0.0), (40, rayon)] {
+        groupe(dxf, code, &nombre_dxf(valeur));
+    }
+}
+
 fn arc_dxf(dxf: &mut String, calque: &str, centre: (f64, f64), rayon: f64, angles: (f64, f64)) {
     groupe(dxf, 0, "ARC");
     groupe(dxf, 8, calque);
@@ -924,10 +998,17 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             .iter()
             .map(|&(x, y)| (x * facteur, -y * facteur))
             .collect();
-        let gauche = points.iter().map(|q| q.0).fold(f64::MAX, f64::min);
-        let droite = points.iter().map(|q| q.0).fold(f64::MIN, f64::max);
-        let bas = points.iter().map(|q| q.1).fold(f64::MAX, f64::min);
-        let haut = points.iter().map(|q| q.1).fold(f64::MIN, f64::max);
+        let etendue: Vec<(f64, f64)> = piece
+            .objets
+            .iter()
+            .flat_map(|(_, _, traits)| traits.iter().flat_map(etendue_d_un_trait))
+            .map(|(x, y)| (x * facteur, -y * facteur))
+            .chain(points.iter().copied())
+            .collect();
+        let gauche = etendue.iter().map(|q| q.0).fold(f64::MAX, f64::min);
+        let droite = etendue.iter().map(|q| q.0).fold(f64::MIN, f64::max);
+        let bas = etendue.iter().map(|q| q.1).fold(f64::MAX, f64::min);
+        let haut = etendue.iter().map(|q| q.1).fold(f64::MIN, f64::max);
         let decalage = depart - gauche;
         let points: Vec<(f64, f64)> = points.iter().map(|&(x, y)| (x + decalage, y)).collect();
         let (largeur, hauteur) = (droite - gauche, haut - bas);
@@ -956,6 +1037,28 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             }
         }
         ouvertures_dans_le_dxf(&mut entites, &points, &piece.ouvertures, facteur);
+        // Les objets, sur le calque MOBILIER.
+        let vers_le_dxf = |(x, y): (f64, f64)| (x * facteur + decalage, -y * facteur);
+        for (nom, centre, traits) in &piece.objets {
+            for trait_ in traits {
+                match *trait_ {
+                    noyau::mobilier::TraitSurLePlan::Ligne(a, b) => {
+                        ligne_dxf(&mut entites, "MOBILIER", vers_le_dxf(a), vers_le_dxf(b));
+                    }
+                    noyau::mobilier::TraitSurLePlan::Cercle(c, rayon) => {
+                        cercle_dxf(&mut entites, "MOBILIER", vers_le_dxf(c), rayon * facteur);
+                    }
+                }
+            }
+            texte_dans_le_dxf(
+                &mut entites,
+                "MOBILIER",
+                vers_le_dxf(*centre),
+                taille * 0.8,
+                Alignement::Centre,
+                nom,
+            );
+        }
         let nombre = points.len().saturating_sub(1).max(1);
         let centre = (
             points.iter().take(nombre).map(|q| q.0).sum::<f64>() / nombre as f64,
@@ -1056,6 +1159,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("COTES", "7"),
         ("PIECES", "3"),
         ("OUVERTURES", "1"),
+        ("MOBILIER", "6"),
     ];
     groupe(&mut dxf, 0, "TABLE");
     groupe(&mut dxf, 2, "LAYER");
@@ -1225,6 +1329,25 @@ mod tests {
         // Le PDF interrompt les murs, en blanc.
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("1.000 1.000 1.000 RG"));
+    }
+
+    #[test]
+    fn les_objets_paraissent_dans_le_pdf_et_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.objets = vec![
+            noyau::mobilier::Objet::nouveau(noyau::mobilier::GenreDObjet::Lit, (72.0, 60.0)),
+            noyau::mobilier::Objet::nouveau(noyau::mobilier::GenreDObjet::Laveuse, (20.0, 20.0)),
+        ];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        assert!(dxf.contains("\r\nMOBILIER\r\n"));
+        // Le lit : son contour, ses deux oreillers et le pli du drap; la laveuse : son tambour.
+        let lignes = dxf.matches("\r\nLINE\r\n  8\r\nMOBILIER\r\n").count();
+        assert_eq!(lignes, 4 + 8 + 1 + 4);
+        assert_eq!(dxf.matches("\r\nCIRCLE\r\n").count(), 1);
+        assert!(dxf.contains("\r\nLit\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(Lit)") && pdf.contains("(Laveuse)"));
     }
 
     #[test]
