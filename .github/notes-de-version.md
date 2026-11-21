@@ -19,6 +19,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.10.1** : des **notes** (texte) sur le plan — touchez **+ Note**, puis l'endroit du plan,
   et écrivez-la. Elle se fait glisser, se retire avec **Enlever**, et passe au PDF et au DXF
   (calque NOTES).
+- **0.10.2** : les **cloisons** (murs intérieurs) — touchez **+ Cloison**, puis glissez d'un
+  bout à l'autre : la cloison se redresse d'équerre (ou à 45°) et ses bouts vont jusqu'aux
+  murs voisins. Longueur et épaisseur (4 1/2 po par défaut) au pavé; les résultats donnent la
+  longueur des cloisons et leur surface (2 faces). En 3D, au PDF et au DXF (calque CLOISONS).
 
 ## Nouveautés de la version 0.9
 

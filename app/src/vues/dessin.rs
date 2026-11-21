@@ -2,6 +2,7 @@
 //! doigt ou la souris, puis on touche chaque côté pour y inscrire sa mesure.
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
+use noyau::cloison::{Cloison, CloisonMesuree, EPAISSEUR_PAR_DEFAUT, Segment, redresser};
 use noyau::dessin::{
     Dessin, Etat as EtatDeLaForme, GenreDOuverture, Mesure, Ouverture, Plan, Retrait, Sens,
     Solution,
@@ -118,6 +119,15 @@ pub struct Etat {
     viser_la_note: Option<usize>,
     /// La note qu'on écrit d'affilée : elle a déjà son étape d'« Annuler ».
     note_ecrite: Option<usize>,
+    /// Vrai quand le prochain glissement sur le plan trace une cloison.
+    cloison_a_tracer: bool,
+    /// La cloison qu'on trace : son départ et le point atteint (pouces).
+    cloison_en_trace: Option<Segment>,
+    /// La cloison choisie.
+    cloison_choisie: Option<usize>,
+    /// La cloison que le doigt déplace : son rang, et l'écart (pouces) entre
+    /// le point saisi et son départ.
+    cloison_tiree: Option<(usize, (f64, f64))>,
     /// Vrai quand la planche montre la pièce en 3D.
     vue_3d: bool,
     /// La caméra de la vue 3D.
@@ -138,6 +148,8 @@ enum AutreSaisie {
     Ouverture(usize, ChampDOuverture),
     /// Une dimension d'un objet : son rang, et vrai pour sa profondeur.
     Objet(usize, bool),
+    /// Une mesure d'une cloison : son rang, et vrai pour son épaisseur.
+    Cloison(usize, bool),
 }
 
 /// Une mesure d'une porte ou d'une fenêtre.
@@ -159,6 +171,7 @@ impl AutreSaisie {
             AutreSaisie::Hauteur => true,
             AutreSaisie::Ouverture(rang, _) => rang < dessin.ouvertures.len(),
             AutreSaisie::Objet(rang, _) => rang < dessin.objets.len(),
+            AutreSaisie::Cloison(rang, _) => rang < dessin.cloisons.len(),
         }
     }
 }
@@ -200,6 +213,10 @@ impl Etat {
         self.notes_a_l_ecran.clear();
         self.viser_la_note = None;
         self.note_ecrite = None;
+        self.cloison_a_tracer = false;
+        self.cloison_en_trace = None;
+        self.cloison_choisie = None;
+        self.cloison_tiree = None;
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -269,6 +286,84 @@ impl Echelle {
             f64::from((point.y - self.origine.y) / self.facteur),
         )
     }
+}
+
+/// La cloison sous un point du plan (pouces), à `marge` près.
+fn cloison_sous(solution: &Solution, point: (f64, f64), marge: f64) -> Option<usize> {
+    solution
+        .cloisons
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(rang, cloison)| match cloison {
+            Some(c) if c.distance(point) <= c.epaisseur / 2.0 + marge => Some(rang),
+            _ => None,
+        })
+}
+
+/// Où s'arrête une cloison qu'on trace : les murs de la pièce et les autres
+/// cloisons.
+fn appuis_des_cloisons(sommets: &[(f64, f64)], solution: &Solution) -> Vec<Segment> {
+    let mut appuis: Vec<_> = sommets.windows(2).map(|s| (s[0], s[1])).collect();
+    appuis.extend(solution.cloisons.iter().flatten().map(|c| (c.debut, c.fin)));
+    appuis
+}
+
+/// Le pas des déplacements sur le plan : le pouce, ou le centimètre en métrique.
+fn pas_du_plan(solution: &Solution) -> f64 {
+    if solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique) {
+        1.0 / 2.54
+    } else {
+        1.0
+    }
+}
+
+/// La distance (pouces) sous laquelle le bout d'une cloison va au mur : une
+/// vingtaine de points à l'écran, quel que soit le zoom.
+fn aimant_des_cloisons(echelle: &Echelle) -> f64 {
+    f64::from(18.0 / echelle.facteur).max(3.0)
+}
+
+/// Une cloison sur le plan : pleine, avec sa longueur à côté.
+fn dessiner_une_cloison(
+    painter: &egui::Painter,
+    p: &Palette,
+    echelle: &Echelle,
+    cloison: &CloisonMesuree,
+    choisie: bool,
+    longueur: String,
+) {
+    let coins: Vec<Pos2> = cloison
+        .coins()
+        .iter()
+        .map(|coin| echelle.vers_l_ecran(*coin))
+        .collect();
+    let encre = if choisie { p.barre_accent } else { p.primaire };
+    painter.add(egui::Shape::convex_polygon(
+        coins,
+        encre.gamma_multiply(0.45),
+        Stroke::new(1.4, encre),
+    ));
+    let (a, b) = (
+        echelle.vers_l_ecran(cloison.debut),
+        echelle.vers_l_ecran(cloison.fin),
+    );
+    let le_long = (b - a).normalized();
+    // La longueur s'écrit au-dessus d'une cloison horizontale, à droite d'une
+    // cloison verticale : deux cloisons qui se touchent ne mêlent pas leurs
+    // longueurs.
+    let normale = Vec2::new(-le_long.y, le_long.x);
+    let a_cote = if normale.x - normale.y >= 0.0 {
+        normale
+    } else {
+        -normale
+    };
+    let ecart = cloison.epaisseur as f32 * echelle.facteur / 2.0 + 10.0;
+    let galere = painter.layout_no_wrap(longueur, theme::police_grasse(11.0), encre);
+    let cadre = Rect::from_center_size(a + (b - a) * 0.5 + a_cote * ecart, galere.size())
+        .expand2(Vec2::new(2.0, 1.0));
+    painter.rect_filled(cadre, 3, p.carte.gamma_multiply(0.9));
+    painter.galley(cadre.min + Vec2::new(2.0, 1.0), galere, encre);
 }
 
 /// La note sous un point de l'écran (la dernière écrite, si elles se
@@ -487,6 +582,11 @@ pub fn afficher(
                 action = Some(Action::Modifie);
             }
             if dessin.fermee && murs(ui, p, dessin, etat, &solution, prefs) {
+                action = Some(Action::Modifie);
+            }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && cloisons(ui, p, dessin, etat, &solution, prefs)
+            {
                 action = Some(Action::Modifie);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
@@ -832,6 +932,7 @@ fn planche_et_gestes(
             .zoomer(centre_de_la_planche, toucher.center_pos, toucher.zoom_delta);
         etat.cadrage.decalage += toucher.translation_delta;
         etat.trace.clear();
+        etat.cloison_en_trace = None;
         etat.geste_annule = true;
     } else if let Some(pointeur) = survol.filter(|q| planche.contains(*q)) {
         // La molette, ou le pincement d'un pavé tactile, zoome autour du pointeur.
@@ -878,9 +979,20 @@ fn planche_et_gestes(
     }
     // Un objet saisi au doigt se déplace, lui aussi, au lieu de la vue.
     let complete = matches!(solution.etat, EtatDeLaForme::Complete { .. });
+    // Une cloison se trace d'un glissement, de son départ à son arrivée.
+    if complete
+        && etat.cloison_a_tracer
+        && reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(origine) = ui.input(|i| i.pointer.press_origin())
+        && let Some(echelle) = etat.derniere_echelle
+    {
+        let depart = echelle.vers_le_plan(origine);
+        etat.cloison_en_trace = Some((depart, depart));
+    }
     // Une note saisie au doigt se déplace aussi; elle passe avant les objets,
     // qu'elle recouvre.
     let note_saisie = if complete
+        && etat.cloison_en_trace.is_none()
         && etat.ouverture_tiree.is_none()
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
@@ -899,7 +1011,35 @@ fn planche_et_gestes(
         etat.note_tiree = Some((rang, ecart));
         etat.note_choisie = Some(rang);
     }
+    // Une cloison saisie au doigt se déplace d'un bloc.
+    let cloison_saisie = if complete
+        && etat.cloison_en_trace.is_none()
+        && etat.ouverture_tiree.is_none()
+        && etat.note_tiree.is_none()
+        && reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(origine) = ui.input(|i| i.pointer.press_origin())
+        && let Some(echelle) = etat.derniere_echelle
+        && let Some(rang) = cloison_sous(
+            solution,
+            echelle.vers_le_plan(origine),
+            f64::from(8.0 / echelle.facteur),
+        )
+        && rang < dessin.cloisons.len()
+    {
+        let point = echelle.vers_le_plan(origine);
+        let debut = dessin.cloisons[rang].debut;
+        Some((rang, (point.0 - debut.0, point.1 - debut.1)))
+    } else {
+        None
+    };
+    if let Some((rang, ecart)) = cloison_saisie {
+        etat.memoriser(dessin);
+        etat.cloison_tiree = Some((rang, ecart));
+        etat.cloison_choisie = Some(rang);
+    }
     let objet_saisi = if complete
+        && etat.cloison_en_trace.is_none()
+        && etat.cloison_tiree.is_none()
         && etat.ouverture_tiree.is_none()
         && etat.note_tiree.is_none()
         && reponse.drag_started_by(egui::PointerButton::Primary)
@@ -925,7 +1065,9 @@ fn planche_et_gestes(
             && reponse.dragged_by(egui::PointerButton::Primary)
             && etat.ouverture_tiree.is_none()
             && etat.objet_tire.is_none()
-            && etat.note_tiree.is_none());
+            && etat.note_tiree.is_none()
+            && etat.cloison_tiree.is_none()
+            && etat.cloison_en_trace.is_none());
     if deplacer && !etat.geste_annule {
         etat.cadrage.decalage += reponse.drag_delta();
     }
@@ -992,6 +1134,58 @@ fn planche_et_gestes(
         }
         if !reponse.dragged() {
             etat.objet_tire = None;
+        }
+    }
+    // La cloison qu'on trace suit le doigt; elle naît quand il se lève.
+    if let Some((depart, atteint)) = etat.cloison_en_trace {
+        let atteint = reponse
+            .interact_pointer_pos()
+            .map_or(atteint, |pointeur| echelle.vers_le_plan(pointeur));
+        etat.cloison_en_trace = Some((depart, atteint));
+        if !reponse.dragged() {
+            etat.cloison_en_trace = None;
+            let appuis = appuis_des_cloisons(sommets, solution);
+            if let Some((sens, debut, longueur)) = redresser(
+                depart,
+                atteint,
+                &appuis,
+                aimant_des_cloisons(&echelle),
+                pas_du_plan(solution),
+            ) {
+                etat.memoriser(dessin);
+                dessin.cloisons.push(Cloison {
+                    debut,
+                    sens,
+                    longueur: sans_insecables(
+                        &Quantite::Longueur(longueur).en_clair(solution.modele, prefs),
+                    ),
+                    epaisseur: String::new(),
+                });
+                etat.cloison_choisie = Some(dessin.cloisons.len() - 1);
+                etat.cloison_a_tracer = false;
+                modifie = true;
+            }
+        }
+    }
+    // La cloison qui se déplace, au pouce près (au centimètre en métrique).
+    if let Some((rang, ecart)) = etat.cloison_tiree {
+        if reponse.dragged()
+            && let Some(pointeur) = reponse.interact_pointer_pos()
+            && rang < dessin.cloisons.len()
+        {
+            let point = echelle.vers_le_plan(pointeur);
+            let pas = pas_du_plan(solution);
+            let debut = (
+                ((point.0 - ecart.0) / pas).round() * pas,
+                ((point.1 - ecart.1) / pas).round() * pas,
+            );
+            if dessin.cloisons[rang].debut != debut {
+                dessin.cloisons[rang].debut = debut;
+                modifie = true;
+            }
+        }
+        if !reponse.dragged() {
+            etat.cloison_tiree = None;
         }
     }
     // La note qui se déplace, au pouce près.
@@ -1079,6 +1273,8 @@ fn planche_et_gestes(
                 etat.choisir(premier_cote_a_mesurer(&solution).or(Some(0)));
             }
         }
+    } else if reponse.clicked() && etat.cloison_a_tracer {
+        // Une cloison se trace en glissant : un simple toucher n'y fait rien.
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
@@ -1141,16 +1337,32 @@ fn planche_et_gestes(
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
         && etat.ouverture_a_placer.is_none()
+        && let Some(rang) = cloison_sous(
+            solution,
+            echelle.vers_le_plan(position),
+            f64::from(8.0 / echelle.facteur),
+        )
+    {
+        // Toucher une cloison la choisit.
+        etat.cloison_choisie = Some(rang);
+        etat.objet_choisi = None;
+        etat.note_choisie = None;
+    } else if reponse.clicked()
+        && let Some(position) = reponse.interact_pointer_pos()
+        && complete
+        && etat.ouverture_a_placer.is_none()
         && let Some(rang) = objet_sous(dessin, solution, echelle.vers_le_plan(position))
     {
         // Toucher un objet le choisit.
         etat.objet_choisi = Some(rang);
         etat.note_choisie = None;
+        etat.cloison_choisie = None;
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
     {
         etat.objet_choisi = None;
         etat.note_choisie = None;
+        etat.cloison_choisie = None;
         let plus_proche = points
             .windows(2)
             .enumerate()
@@ -1252,6 +1464,38 @@ fn planche_et_gestes(
                     encre,
                 );
             }
+        }
+    }
+    // Les cloisons, et celle qu'on trace.
+    if complete {
+        for (rang, cloison) in solution.cloisons.iter().enumerate() {
+            let Some(cloison) = cloison else {
+                continue;
+            };
+            let choisie = etat.cloison_choisie == Some(rang)
+                || etat.cloison_tiree.is_some_and(|(r, _)| r == rang)
+                || matches!(etat.autre_choisi, Some(AutreSaisie::Cloison(r, _)) if r == rang);
+            let longueur = longueur_en_clair(cloison.longueur, solution, prefs);
+            dessiner_une_cloison(&painter, p, &echelle, cloison, choisie, longueur);
+        }
+        if let Some((depart, atteint)) = etat.cloison_en_trace
+            && let Some((sens, debut, longueur)) = redresser(
+                depart,
+                atteint,
+                &appuis_des_cloisons(sommets, solution),
+                aimant_des_cloisons(&echelle),
+                pas_du_plan(solution),
+            )
+        {
+            let (ux, uy) = sens.pas();
+            let apercu = CloisonMesuree {
+                debut,
+                fin: (debut.0 + ux * longueur, debut.1 + uy * longueur),
+                longueur,
+                epaisseur: EPAISSEUR_PAR_DEFAUT,
+            };
+            let texte = longueur_en_clair(longueur, solution, prefs);
+            dessiner_une_cloison(&painter, p, &echelle, &apercu, true, texte);
         }
     }
     for (i, s) in points.windows(2).enumerate() {
@@ -1433,6 +1677,16 @@ fn planche_et_gestes(
             etat.trace.clone(),
             Stroke::new(3.0, p.barre_accent),
         ));
+    }
+    // Une cloison attend son glissement.
+    if etat.cloison_a_tracer {
+        painter.text(
+            planche.left_top() + Vec2::new(12.0, 12.0),
+            Align2::LEFT_TOP,
+            textes::DESSIN_TRACER_LA_CLOISON.traduit(),
+            theme::police_grasse(13.0),
+            p.barre_accent,
+        );
     }
     // Une note attend qu'on touche le plan.
     if etat.note_a_placer {
@@ -1988,6 +2242,37 @@ fn autre_mesure(
                 (!en_profondeur).then_some(AutreSaisie::Objet(rang, true)),
             )
         }
+        AutreSaisie::Cloison(rang, en_epaisseur) => {
+            let Some(cloison) = dessin.cloisons.get_mut(rang) else {
+                return false;
+            };
+            let (saisie, dimension, indice) = if en_epaisseur {
+                (
+                    &mut cloison.epaisseur,
+                    textes::DESSIN_EPAISSEUR,
+                    sans_insecables(
+                        &Quantite::Longueur(EPAISSEUR_PAR_DEFAUT).en_clair(None, prefs),
+                    ),
+                )
+            } else {
+                (
+                    &mut cloison.longueur,
+                    textes::DESSIN_LONGUEUR,
+                    textes::DESSIN_EXEMPLE.traduit().to_string(),
+                )
+            };
+            (
+                saisie,
+                format!(
+                    "{} {} : {}",
+                    textes::DESSIN_CLOISON.traduit(),
+                    rang + 1,
+                    dimension.traduit()
+                ),
+                indice,
+                None,
+            )
+        }
     };
     let mut modifie = false;
     let mut suivant = false;
@@ -2288,6 +2573,7 @@ fn murs(
                 etat.ouverture_a_placer = if en_placement { None } else { Some(rang) };
                 etat.objet_a_placer = None;
                 etat.note_a_placer = false;
+                etat.cloison_a_tracer = false;
             }
             for champ in [ChampDOuverture::Largeur, ChampDOuverture::Hauteur] {
                 let ouverture = &dessin.ouvertures[rang];
@@ -2410,6 +2696,7 @@ fn murs(
                 etat.ouverture_a_placer = Some(rang);
                 etat.objet_a_placer = None;
                 etat.note_a_placer = false;
+                etat.cloison_a_tracer = false;
                 modifie = true;
             }
         }
@@ -2509,9 +2796,98 @@ fn objets(
                 etat.objet_a_placer = if en_attente { None } else { Some(genre) };
                 etat.ouverture_a_placer = None;
                 etat.note_a_placer = false;
+                etat.cloison_a_tracer = false;
             }
         }
     });
+    modifie
+}
+
+/// Les cloisons de la pièce : leur longueur et leur épaisseur, et le bouton
+/// pour en tracer une. Retourne vrai si le dessin a changé.
+fn cloisons(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_CLOISONS.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    let mut a_enlever = None;
+    for rang in 0..dessin.cloisons.len() {
+        ui.horizontal_wrapped(|ui| {
+            let cloison = &dessin.cloisons[rang];
+            let choisie = etat.cloison_choisie == Some(rang);
+            let nom = RichText::new(format!(
+                "{}. {}",
+                rang + 1,
+                textes::DESSIN_CLOISON.traduit()
+            ))
+            .font(theme::police_grasse(13.5));
+            if ui.add(egui::Button::new(nom).selected(choisie)).clicked() {
+                etat.cloison_choisie = if choisie { None } else { Some(rang) };
+            }
+            let epaisseur = solution
+                .cloisons
+                .get(rang)
+                .copied()
+                .flatten()
+                .map_or(EPAISSEUR_PAR_DEFAUT, |c| c.epaisseur);
+            let textes_des_boutons = [
+                (false, mesure_du_bouton(&cloison.longueur, "?", prefs)),
+                (
+                    true,
+                    if cloison.epaisseur.trim().is_empty() {
+                        longueur_en_clair(epaisseur, solution, prefs)
+                    } else {
+                        mesure_du_bouton(&cloison.epaisseur, "", prefs)
+                    },
+                ),
+            ];
+            for (en_epaisseur, texte) in textes_des_boutons {
+                if en_epaisseur {
+                    ui.label(textes::DESSIN_EP.traduit());
+                }
+                let cible = AutreSaisie::Cloison(rang, en_epaisseur);
+                if ui
+                    .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                    .clicked()
+                {
+                    etat.choisir_autre(Some(cible));
+                    etat.cloison_choisie = Some(rang);
+                }
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                .clicked()
+            {
+                a_enlever = Some(rang);
+            }
+        });
+    }
+    if let Some(rang) = a_enlever {
+        etat.memoriser(dessin);
+        dessin.cloisons.remove(rang);
+        etat.cloison_choisie = None;
+        etat.cloison_tiree = None;
+        etat.choisir_autre(None);
+        modifie = true;
+    }
+    let bouton = egui::Button::new(textes::DESSIN_AJOUTER_UNE_CLOISON.traduit())
+        .selected(etat.cloison_a_tracer);
+    if ui.add(bouton).clicked() {
+        etat.cloison_a_tracer = !etat.cloison_a_tracer;
+        etat.objet_a_placer = None;
+        etat.ouverture_a_placer = None;
+        etat.note_a_placer = false;
+    }
     modifie
 }
 
@@ -2580,6 +2956,7 @@ fn notes(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool
         etat.note_a_placer = !etat.note_a_placer;
         etat.objet_a_placer = None;
         etat.ouverture_a_placer = None;
+        etat.cloison_a_tracer = false;
     }
     modifie
 }
@@ -2666,6 +3043,19 @@ pub(crate) fn resultats_de_la_piece(
             lignes.push((
                 textes::DESSIN_MURS_NETS.traduit().to_string(),
                 aire_en_clair(murs.nette),
+            ));
+        }
+    }
+    let longueur_des_cloisons = solution.longueur_des_cloisons();
+    if longueur_des_cloisons > 0.0 {
+        lignes.push((
+            textes::DESSIN_LONGUEUR_DES_CLOISONS.traduit().to_string(),
+            longueur(longueur_des_cloisons),
+        ));
+        if let Some(surface) = solution.surface_des_cloisons() {
+            lignes.push((
+                textes::DESSIN_SURFACE_DES_CLOISONS.traduit().to_string(),
+                aire_en_clair(surface),
             ));
         }
     }

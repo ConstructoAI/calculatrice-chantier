@@ -82,7 +82,7 @@ impl Axe {
 
     /// L'axe d'un déplacement : en biais s'il est à 45° à quelques degrés
     /// près, sinon horizontal ou vertical.
-    fn du_deplacement(dx: f64, dy: f64) -> Axe {
+    pub(crate) fn du_deplacement(dx: f64, dy: f64) -> Axe {
         let angle = dy.atan2(dx).to_degrees().rem_euclid(180.0);
         if (angle - 45.0).abs() <= BANDE_DU_BIAIS {
             Axe::Descendant
@@ -141,7 +141,7 @@ impl Sens {
         }
     }
 
-    fn selon(axe: Axe, longueur_signee: f64) -> Sens {
+    pub(crate) fn selon(axe: Axe, longueur_signee: f64) -> Sens {
         if longueur_signee >= 0.0 {
             axe.positif()
         } else {
@@ -193,6 +193,8 @@ pub struct Dessin {
     pub objets: Vec<crate::mobilier::Objet>,
     /// Les notes écrites sur le plan.
     pub notes: Vec<Note>,
+    /// Les cloisons : des murs intérieurs.
+    pub cloisons: Vec<crate::cloison::Cloison>,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -424,9 +426,22 @@ pub struct Solution {
     /// La largeur et la profondeur de chaque objet, en pouces (celles de
     /// départ si elles ne sont pas lisibles).
     pub objets: Vec<(f64, f64)>,
+    /// Chaque cloison à ses mesures; `None` si sa longueur est illisible.
+    pub cloisons: Vec<Option<crate::cloison::CloisonMesuree>>,
 }
 
 impl Solution {
+    /// La longueur des cloisons lisibles, en pouces.
+    pub fn longueur_des_cloisons(&self) -> f64 {
+        self.cloisons.iter().flatten().map(|c| c.longueur).sum()
+    }
+
+    /// La surface des cloisons, leurs deux faces, si la hauteur des murs est
+    /// connue (pouces carrés).
+    pub fn surface_des_cloisons(&self) -> Option<f64> {
+        Some(2.0 * self.longueur_des_cloisons() * self.hauteur?)
+    }
+
     /// Somme des retraits, s'ils sont tous lisibles.
     pub fn aire_des_retraits(&self) -> Option<f64> {
         self.retraits.iter().copied().sum()
@@ -996,6 +1011,25 @@ impl Dessin {
                 )
             })
             .collect();
+        let cloisons = self
+            .cloisons
+            .iter()
+            .map(|cloison| {
+                let longueur = lire(&cloison.longueur)?;
+                let epaisseur =
+                    lire(&cloison.epaisseur).unwrap_or(crate::cloison::EPAISSEUR_PAR_DEFAUT);
+                let (ux, uy) = cloison.sens.pas();
+                Some(crate::cloison::CloisonMesuree {
+                    debut: cloison.debut,
+                    fin: (
+                        cloison.debut.0 + ux * longueur,
+                        cloison.debut.1 + uy * longueur,
+                    ),
+                    longueur,
+                    epaisseur,
+                })
+            })
+            .collect();
         Solution {
             mesures,
             etat,
@@ -1006,6 +1040,7 @@ impl Dessin {
             ouvertures,
             placements,
             objets,
+            cloisons,
         }
     }
 

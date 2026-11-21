@@ -2353,6 +2353,12 @@ fn transposer_le_dessin(
                 .iter_mut()
                 .flat_map(|objet| [&mut objet.largeur, &mut objet.profondeur]),
         )
+        .chain(
+            dessin
+                .cloisons
+                .iter_mut()
+                .flat_map(|cloison| [&mut cloison.longueur, &mut cloison.epaisseur]),
+        )
         .chain(std::iter::once(&mut dessin.hauteur_des_murs));
     for saisie in mesures {
         if !saisie.trim().is_empty() {

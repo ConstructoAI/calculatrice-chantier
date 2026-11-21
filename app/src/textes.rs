@@ -411,6 +411,18 @@ pub const DESSIN_TOURNER: Texte = t("Glissez pour tourner", "Drag to turn");
 pub const DESSIN_MURS_PAR_DEFAUT: Texte = t("murs de 8 pi par défaut", "8 ft walls by default");
 
 pub const DESSIN_OBJETS: Texte = t("Objets (escalier, mobilier)", "Objects (stairs, furniture)");
+pub const DESSIN_CLOISONS: Texte = t("Cloisons (murs intérieurs)", "Partitions (interior walls)");
+pub const DESSIN_CLOISON: Texte = t("Cloison", "Partition");
+pub const DESSIN_AJOUTER_UNE_CLOISON: Texte = t("+ Cloison", "+ Partition");
+pub const DESSIN_EPAISSEUR: Texte = t("épaisseur", "thickness");
+/// Devant l'épaisseur d'une cloison, dans sa ligne.
+pub const DESSIN_EP: Texte = t("ép.", "thk.");
+pub const DESSIN_TRACER_LA_CLOISON: Texte = t(
+    "Glissez d'un bout à l'autre de la cloison",
+    "Drag from one end of the partition to the other",
+);
+pub const DESSIN_LONGUEUR_DES_CLOISONS: Texte = t("Longueur des cloisons", "Partition length");
+pub const DESSIN_SURFACE_DES_CLOISONS: Texte = t("Cloisons (2 faces)", "Partitions (2 faces)");
 pub const DESSIN_NOTES: Texte = t("Notes sur le plan", "Notes on the plan");
 pub const DESSIN_AJOUTER_UNE_NOTE: Texte = t("+ Note", "+ Note");
 /// Ce que montre sur le plan une note encore vide.

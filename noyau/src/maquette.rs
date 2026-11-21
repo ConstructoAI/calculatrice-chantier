@@ -4,7 +4,7 @@
 //! y vers le haut.
 
 use crate::dessin::{Dessin, Etat, Solution};
-use crate::mobilier::{GenreDObjet, Objet};
+use crate::mobilier::GenreDObjet;
 
 /// Hauteur des murs quand elle n'est pas inscrite : 8 pi.
 pub const HAUTEUR_PAR_DEFAUT: f64 = 96.0;
@@ -18,6 +18,8 @@ pub enum GenreDeFace {
     Porte,
     /// Un bloc de l'escalier ou d'un meuble.
     Meuble(GenreDObjet),
+    /// Un bloc d'une cloison.
+    Cloison,
 }
 
 /// Une face plane : ses sommets `[x, y, z]` et sa normale — pour un mur ou
@@ -36,6 +38,19 @@ pub struct Face {
 pub struct Maquette {
     pub faces: Vec<Face>,
     pub aretes: Vec<[[f64; 3]; 2]>,
+    /// Les blocs : les marches, les meubles et les cloisons.
+    pub blocs: Vec<Bloc>,
+}
+
+/// Un bloc posé sur le plancher (une marche, un meuble, une cloison) : son
+/// empreinte (x, z) et ses faces et ses arêtes, qui se suivent dans celles de
+/// la maquette. Les blocs se peignent dans l'ordre que donne leur empreinte
+/// vue de la caméra (`ordre_des_blocs`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bloc {
+    pub coins: [(f64, f64); 4],
+    pub faces: std::ops::Range<usize>,
+    pub aretes: std::ops::Range<usize>,
 }
 
 /// La maquette d'une pièce complète; `None` tant que ses mesures ne la
@@ -154,7 +169,13 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
     }
     // Les objets : des blocs à leur hauteur; l'escalier, une marche par bloc,
     // de la flèche jusqu'au haut des murs.
+    let mut blocs = Vec::new();
     for (objet, &dimensions) in dessin.objets.iter().zip(&solution.objets) {
+        let genre = GenreDeFace::Meuble(objet.genre);
+        let coins = |v0: f64, v1: f64| {
+            [(0.0, v0), (1.0, v0), (1.0, v1), (0.0, v1)]
+                .map(|coin| objet.vers_le_plan(coin, dimensions))
+        };
         if objet.genre == GenreDObjet::Escalier {
             let marches = (dimensions.1 / 10.0).round().clamp(3.0, 20.0) as usize;
             for k in 0..marches {
@@ -163,65 +184,71 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 let haut = hauteur * (k + 1) as f64 / marches as f64;
                 // Le devant d'une marche est caché par la suivante, plus haute.
                 let cache = k + 1 < marches;
+                let coins = coins(v0, v1);
                 bloc(
                     &mut faces,
                     &mut aretes,
-                    objet,
-                    dimensions,
-                    (v0, v1),
+                    &mut blocs,
+                    coins,
                     haut,
+                    genre,
                     cache,
                 );
             }
         } else {
             let (_, _, haut) = objet.genre.dimensions();
+            let coins = coins(0.0, 1.0);
             bloc(
                 &mut faces,
                 &mut aretes,
-                objet,
-                dimensions,
-                (0.0, 1.0),
+                &mut blocs,
+                coins,
                 haut,
+                genre,
                 false,
             );
         }
     }
-    Some(Maquette { faces, aretes })
+    // Les cloisons, jusqu'au haut des murs.
+    for cloison in solution.cloisons.iter().flatten() {
+        let genre = GenreDeFace::Cloison;
+        let coins = cloison.coins();
+        bloc(
+            &mut faces,
+            &mut aretes,
+            &mut blocs,
+            coins,
+            hauteur,
+            genre,
+            false,
+        );
+    }
+    Some(Maquette {
+        faces,
+        aretes,
+        blocs,
+    })
 }
 
-/// Un bloc posé sur le plancher : la partie (v0, v1) d'un objet, jusqu'à
-/// `haut`. Ses faces regardent vers l'extérieur; `sans_l_avant` omet celle
-/// du côté v0.
+/// Un bloc posé sur le plancher, de son empreinte `coins` (x, z) jusqu'à
+/// `haut` : son dessus et ses côtés, tournés vers l'extérieur;
+/// `sans_l_avant` omet le côté du premier au deuxième coin.
 fn bloc(
     faces: &mut Vec<Face>,
     aretes: &mut Vec<[[f64; 3]; 2]>,
-    objet: &Objet,
-    dimensions: (f64, f64),
-    (v0, v1): (f64, f64),
+    blocs: &mut Vec<Bloc>,
+    coins: [(f64, f64); 4],
     haut: f64,
+    genre: GenreDeFace,
     sans_l_avant: bool,
 ) {
-    let coin = |u: f64, v: f64, y: f64| {
-        let (x, z) = objet.vers_le_plan((u, v), dimensions);
-        [x, y, z]
-    };
-    let bas = [
-        coin(0.0, v0, 0.0),
-        coin(1.0, v0, 0.0),
-        coin(1.0, v1, 0.0),
-        coin(0.0, v1, 0.0),
-    ];
-    let dessus = [
-        coin(0.0, v0, haut),
-        coin(1.0, v0, haut),
-        coin(1.0, v1, haut),
-        coin(0.0, v1, haut),
-    ];
+    let (premiere_face, premiere_arete) = (faces.len(), aretes.len());
+    let bas = coins.map(|(x, z)| [x, 0.0, z]);
+    let dessus = coins.map(|(x, z)| [x, haut, z]);
     let centre = (
-        bas.iter().map(|s| s[0]).sum::<f64>() / 4.0,
-        bas.iter().map(|s| s[2]).sum::<f64>() / 4.0,
+        coins.iter().map(|c| c.0).sum::<f64>() / 4.0,
+        coins.iter().map(|c| c.1).sum::<f64>() / 4.0,
     );
-    let genre = GenreDeFace::Meuble(objet.genre);
     faces.push(Face {
         genre,
         sommets: dessus.to_vec(),
@@ -233,7 +260,10 @@ fn bloc(
         if k == 0 && sans_l_avant {
             continue;
         }
-        let milieu = ((bas[a][0] + bas[b][0]) / 2.0, (bas[a][2] + bas[b][2]) / 2.0);
+        let milieu = (
+            (coins[a].0 + coins[b].0) / 2.0,
+            (coins[a].1 + coins[b].1) / 2.0,
+        );
         let (nx, nz) = (milieu.0 - centre.0, milieu.1 - centre.1);
         let longueur = nx.hypot(nz).max(1e-12);
         faces.push(Face {
@@ -242,6 +272,92 @@ fn bloc(
             normale: [nx / longueur, 0.0, nz / longueur],
         });
     }
+    blocs.push(Bloc {
+        coins,
+        faces: premiere_face..faces.len(),
+        aretes: premiere_arete..aretes.len(),
+    });
+}
+
+/// L'ordre où peindre les blocs, du plus loin au plus proche, vus d'un œil
+/// placé en `oeil` (x, z) : un bloc passe avant un autre quand une droite
+/// sépare leurs empreintes et que l'œil est du côté de l'autre. Sans droite
+/// qui les sépare (ils se chevauchent), le plus loin de l'œil passe avant.
+pub fn ordre_des_blocs(blocs: &[Bloc], oeil: (f64, f64)) -> Vec<usize> {
+    let n = blocs.len();
+    let distance = |bloc: &Bloc| {
+        let x = bloc.coins.iter().map(|c| c.0).sum::<f64>() / 4.0;
+        let z = bloc.coins.iter().map(|c| c.1).sum::<f64>() / 4.0;
+        (x - oeil.0).hypot(z - oeil.1)
+    };
+    // derriere[i] : les blocs à peindre avant i.
+    let mut derriere: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for i in 0..n {
+        for j in i + 1..n {
+            match devant(&blocs[i], &blocs[j], oeil) {
+                Some(true) => derriere[i].push(j),
+                Some(false) => derriere[j].push(i),
+                None => {}
+            }
+        }
+    }
+    let mut peint = vec![false; n];
+    let mut ordre = Vec::with_capacity(n);
+    while ordre.len() < n {
+        let restants = (0..n).filter(|&i| !peint[i]);
+        let prets: Vec<usize> = restants
+            .clone()
+            .filter(|&i| derriere[i].iter().all(|&j| peint[j]))
+            .collect();
+        // Un cercle (rare) : le plus loin des restants.
+        let candidats: Vec<usize> = if prets.is_empty() {
+            restants.collect()
+        } else {
+            prets
+        };
+        let Some(choisi) = candidats
+            .into_iter()
+            .max_by(|&a, &b| distance(&blocs[a]).total_cmp(&distance(&blocs[b])))
+        else {
+            break;
+        };
+        peint[choisi] = true;
+        ordre.push(choisi);
+    }
+    ordre
+}
+
+/// Vrai si `a` est devant `b` pour l'œil, faux s'il est derrière; `None` si
+/// aucune droite ne sépare leurs empreintes.
+fn devant(a: &Bloc, b: &Bloc, oeil: (f64, f64)) -> Option<bool> {
+    let etendue = |coins: &[(f64, f64); 4], axe: (f64, f64)| {
+        coins
+            .iter()
+            .map(|c| c.0 * axe.0 + c.1 * axe.1)
+            .fold((f64::MAX, f64::MIN), |(bas, haut), v| {
+                (bas.min(v), haut.max(v))
+            })
+    };
+    for coins in [&a.coins, &b.coins] {
+        for k in 0..4 {
+            let (p, q) = (coins[k], coins[(k + 1) % 4]);
+            let axe = (p.1 - q.1, q.0 - p.0);
+            let norme = axe.0.hypot(axe.1);
+            if norme < 1e-9 {
+                continue;
+            }
+            let ((a0, a1), (b0, b1)) = (etendue(&a.coins, axe), etendue(&b.coins, axe));
+            let oeil_sur_l_axe = oeil.0 * axe.0 + oeil.1 * axe.1;
+            let marge = 1e-6 * norme;
+            if a1 <= b0 + marge {
+                return Some(oeil_sur_l_axe < (a1 + b0) / 2.0);
+            }
+            if b1 <= a0 + marge {
+                return Some(oeil_sur_l_axe > (b1 + a0) / 2.0);
+            }
+        }
+    }
+    None
 }
 
 /// Découpe un contour simple en triangles (méthode des oreilles). Le contour
@@ -293,7 +409,9 @@ pub fn trianguler(contour: &[(f64, f64)]) -> Vec<[(f64, f64); 3]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cloison::Cloison;
     use crate::dessin::{Cote, GenreDOuverture, Ouverture, Sens};
+    use crate::mobilier::Objet;
     use crate::unites::Format;
 
     fn piece(cotes: &[(Sens, &str)]) -> Dessin {
@@ -428,6 +546,59 @@ mod tests {
             .flat_map(|f| f.sommets.iter().map(|s| s[1]))
             .fold(0.0, f64::max);
         assert!((plus_haut - 96.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn une_cloison_monte_jusqu_au_haut_des_murs() {
+        let mut dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        dessin.cloisons = vec![Cloison {
+            debut: (48.0, 0.0),
+            sens: Sens::Sud,
+            longueur: "10".to_string(),
+            epaisseur: String::new(),
+        }];
+        let solution = dessin.resoudre(Format::PiPo);
+        let maquette = maquette(&dessin, &solution).unwrap();
+        assert_eq!(maquette.blocs.len(), 1);
+        let bloc = &maquette.blocs[0];
+        assert_eq!(bloc.faces.len(), 5);
+        assert_eq!(bloc.aretes.len(), 4);
+        assert!(
+            maquette.faces[bloc.faces.clone()]
+                .iter()
+                .all(|f| f.genre == GenreDeFace::Cloison)
+        );
+        let dessus = &maquette.faces[bloc.faces.start];
+        assert!((aire(dessus) - 4.5 * 120.0).abs() < 1e-6);
+        assert!(dessus.sommets.iter().all(|s| (s[1] - 96.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn les_blocs_se_peignent_du_plus_loin_au_plus_proche() {
+        let bloc = |coins: [(f64, f64); 4]| Bloc {
+            coins,
+            faces: 0..0,
+            aretes: 0..0,
+        };
+        let carre =
+            |x: f64, z: f64| bloc([(x, z), (x + 10.0, z), (x + 10.0, z + 10.0), (x, z + 10.0)]);
+        // Deux blocs côte à côte : vu de la droite, celui de gauche d'abord.
+        let blocs = [carre(20.0, 0.0), carre(0.0, 0.0)];
+        assert_eq!(ordre_des_blocs(&blocs, (100.0, 5.0)), vec![1, 0]);
+        assert_eq!(ordre_des_blocs(&blocs, (-100.0, 5.0)), vec![0, 1]);
+        // Une longue cloison et un petit bloc devant son bout : vu de devant,
+        // la cloison d'abord, même si son milieu est plus proche de l'œil.
+        let cloison = bloc([(0.0, 0.0), (200.0, 0.0), (200.0, 4.0), (0.0, 4.0)]);
+        let petit = carre(190.0, 10.0);
+        assert_eq!(
+            ordre_des_blocs(&[petit, cloison], (20.0, 300.0)),
+            vec![1, 0]
+        );
     }
 
     #[test]

@@ -73,6 +73,8 @@ struct Projetee {
     de_l_interieur: bool,
     /// Éclairage d'un mur, de 0 à 1, selon sa direction.
     lumiere: f32,
+    /// Le bloc de la face (une marche, un meuble, une cloison), s'il y en a un.
+    bloc: Option<usize>,
 }
 
 /// La couleur d'un meuble dans la vue 3D.
@@ -139,8 +141,23 @@ pub fn dessiner(
     };
     let lumiere = unitaire([0.45, 0.0, 0.75]);
 
+    // Le bloc de chaque face, et les arêtes qui appartiennent à un bloc.
+    let mut bloc_de_la_face = vec![None; maquette.faces.len()];
+    let mut arete_d_un_bloc = vec![false; maquette.aretes.len()];
+    for (rang, bloc) in maquette.blocs.iter().enumerate() {
+        for face in bloc.faces.clone() {
+            if let Some(case) = bloc_de_la_face.get_mut(face) {
+                *case = Some(rang);
+            }
+        }
+        for arete in bloc.aretes.clone() {
+            if let Some(case) = arete_d_un_bloc.get_mut(arete) {
+                *case = true;
+            }
+        }
+    }
     let mut projetees = Vec::with_capacity(maquette.faces.len());
-    for face in &maquette.faces {
+    for (indice, face) in maquette.faces.iter().enumerate() {
         let mut points = Vec::with_capacity(face.sommets.len());
         let mut profondeur = 0.0;
         let mut milieu = [0.0; 3];
@@ -159,13 +176,13 @@ pub fn dessiner(
         }
         let n = points.len() as f64;
         milieu = [milieu[0] / n, milieu[1] / n, milieu[2] / n];
-        // Les faces d'un meuble tournées vers l'arrière ne se voient pas.
-        if matches!(face.genre, GenreDeFace::Meuble(_))
-            && scalaire(face.normale, moins(oeil, milieu)) <= 0.0
-        {
+        // Les faces d'un bloc tournées vers l'arrière ne se voient pas.
+        let bloc = bloc_de_la_face[indice];
+        if bloc.is_some() && scalaire(face.normale, moins(oeil, milieu)) <= 0.0 {
             continue;
         }
         projetees.push(Projetee {
+            bloc,
             genre: face.genre,
             points,
             profondeur: profondeur / n,
@@ -202,26 +219,40 @@ pub fn dessiner(
     };
 
     // Le plancher d'abord, puis les murs vus de l'intérieur (ils sont derrière
-    // tout ce qui est dans la pièce), puis les meubles, enfin les murs vus de
-    // l'extérieur, translucides, devant; chaque groupe du plus loin au plus
-    // proche. Un grand mur trié avec les meubles par son seul milieu en
-    // cacherait.
-    let rang = |face: &Projetee| match face.genre {
-        GenreDeFace::Plancher => 0,
-        GenreDeFace::Meuble(_) => 2,
+    // tout ce qui est dans la pièce), puis les blocs, enfin les murs vus de
+    // l'extérieur, translucides, devant. Les blocs se suivent dans l'ordre que
+    // donne leur empreinte vue de l'œil : une longue cloison triée par son
+    // seul milieu passerait devant le meuble qui la cache. Le reste va du plus
+    // loin au plus proche.
+    let ordre = noyau::maquette::ordre_des_blocs(&maquette.blocs, (oeil[0], oeil[2]));
+    let mut place_du_bloc = vec![0; maquette.blocs.len()];
+    for (place, &bloc) in ordre.iter().enumerate() {
+        place_du_bloc[bloc] = place;
+    }
+    let rang = |face: &Projetee| match (face.genre, face.bloc) {
+        (GenreDeFace::Plancher, _) => 0,
+        (_, Some(_)) => 2,
         _ if face.de_l_interieur => 1,
         _ => 3,
     };
+    let place = |face: &Projetee| face.bloc.map(|bloc| place_du_bloc[bloc]);
     projetees.sort_by(|a, b| {
         rang(a)
             .cmp(&rang(b))
+            .then(place(a).cmp(&place(b)))
             .then(b.profondeur.total_cmp(&a.profondeur))
     });
     let mur = theme::melanger(p.carte, p.texte, 0.17);
     let plancher = Color32::from_rgb(214, 186, 148);
     let vitre = Color32::from_rgb(150, 205, 240);
     let porte = Color32::from_rgb(150, 104, 66);
-    for face in &projetees {
+    let trait_ = Stroke::new(1.2, p.texte.gamma_multiply(0.55));
+    let tracer = |arete: &[[f64; 3]; 2]| {
+        if let (Some((xa, ya, _)), Some((xb, yb, _))) = (projeter(arete[0]), projeter(arete[1])) {
+            painter.line_segment([vers_l_ecran((xa, ya)), vers_l_ecran((xb, yb))], trait_);
+        }
+    };
+    for (k, face) in projetees.iter().enumerate() {
         let couleur = match face.genre {
             GenreDeFace::Plancher => plancher,
             GenreDeFace::Mur => {
@@ -242,6 +273,7 @@ pub fn dessiner(
                 let base = couleur_d_un_meuble(genre);
                 theme::melanger(base, Color32::BLACK, 0.30 * (1.0 - face.lumiere))
             }
+            GenreDeFace::Cloison => theme::melanger(mur, p.texte, 0.28 * (1.0 - face.lumiere)),
         };
         // Un maillage plein, sans adoucissement : pas de joint entre deux
         // morceaux d'un même mur.
@@ -253,12 +285,23 @@ pub fn dessiner(
             maillage.add_triangle(0, k, k + 1);
         }
         painter.add(egui::Shape::mesh(maillage));
+        // Après la dernière face d'un bloc, ses arêtes : le bloc suivant, s'il
+        // est devant, les cache.
+        if let Some(bloc) = face.bloc
+            && projetees
+                .get(k + 1)
+                .is_none_or(|suivante| suivante.bloc != Some(bloc))
+            && let Some(bloc) = maquette.blocs.get(bloc)
+        {
+            for arete in &maquette.aretes[bloc.aretes.clone()] {
+                tracer(arete);
+            }
+        }
     }
-    // Les arêtes, par-dessus.
-    let trait_ = Stroke::new(1.2, p.texte.gamma_multiply(0.55));
-    for arete in &maquette.aretes {
-        if let (Some((xa, ya, _)), Some((xb, yb, _))) = (projeter(arete[0]), projeter(arete[1])) {
-            painter.line_segment([vers_l_ecran((xa, ya)), vers_l_ecran((xb, yb))], trait_);
+    // Les arêtes des murs et des ouvertures, par-dessus.
+    for (arete, d_un_bloc) in maquette.aretes.iter().zip(&arete_d_un_bloc) {
+        if !d_un_bloc {
+            tracer(arete);
         }
     }
 }

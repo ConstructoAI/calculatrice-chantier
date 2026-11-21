@@ -38,6 +38,8 @@ struct PieceExportee {
     objets: Vec<(String, (f64, f64), Vec<noyau::mobilier::TraitSurLePlan>)>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
+    /// Les cloisons d'une pièce complète : leurs quatre coins (pouces).
+    cloisons: Vec<[(f64, f64); 4]>,
 }
 
 /// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
@@ -144,6 +146,16 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     } else {
         Vec::new()
     };
+    let cloisons = if complete {
+        solution
+            .cloisons
+            .iter()
+            .flatten()
+            .map(|cloison| cloison.coins())
+            .collect()
+    } else {
+        Vec::new()
+    };
     PieceExportee {
         nom: sans_insecables(nom),
         sommets,
@@ -159,6 +171,7 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         ouvertures,
         objets,
         notes,
+        cloisons,
     }
 }
 
@@ -172,6 +185,8 @@ const MARGE: f64 = 54.0;
 type Couleur = (f64, f64, f64);
 const NOIR: Couleur = (0.10, 0.12, 0.16);
 const GRIS: Couleur = (0.45, 0.48, 0.52);
+/// Le plein des cloisons.
+const BLEU_PALE: Couleur = (0.82, 0.87, 0.95);
 const BLEU: Couleur = (0.0, 0.40, 0.80);
 const ORANGE: Couleur = (0.85, 0.38, 0.05);
 const FILET: Couleur = (0.80, 0.83, 0.87);
@@ -383,6 +398,22 @@ impl Page {
         self.operateurs.push_str(" S\n");
     }
 
+    /// Un polygone plein, de la couleur donnée.
+    fn polygone_plein(&mut self, points: &[(f64, f64)], couleur: Couleur) {
+        let Some((premier, suite)) = points.split_first() else {
+            return;
+        };
+        self.operateurs.push_str(&format!(
+            "{:.3} {:.3} {:.3} rg {:.2} {:.2} m",
+            couleur.0, couleur.1, couleur.2, premier.0, premier.1
+        ));
+        for point in suite {
+            self.operateurs
+                .push_str(&format!(" {:.2} {:.2} l", point.0, point.1));
+        }
+        self.operateurs.push_str(" h f\n");
+    }
+
     /// Un texte, ancré à gauche, au centre ou à droite de sa position.
     fn texte(
         &mut self,
@@ -478,6 +509,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         a_cadrer.extend(traits.iter().flat_map(etendue_d_un_trait));
     }
     a_cadrer.extend(piece.notes.iter().map(|(_, position)| *position));
+    a_cadrer.extend(piece.cloisons.iter().flatten().copied());
     let vers_la_page = ajuster(&a_cadrer, cadre);
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
     page.trait_(&points, 1.8, BLEU);
@@ -515,6 +547,16 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
             GRIS,
             nom,
         );
+    }
+    // Les cloisons, pleines.
+    for coins in &piece.cloisons {
+        let contour: Vec<(f64, f64)> = coins
+            .iter()
+            .chain(coins.first())
+            .map(|coin| vers_la_page(*coin))
+            .collect();
+        page.polygone_plein(&contour, BLEU_PALE);
+        page.trait_(&contour, 0.9, BLEU);
     }
     // Les notes, par-dessus.
     for (texte, position) in &piece.notes {
@@ -1028,6 +1070,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             .iter()
             .flat_map(|(_, _, traits)| traits.iter().flat_map(etendue_d_un_trait))
             .chain(piece.notes.iter().map(|(_, position)| *position))
+            .chain(piece.cloisons.iter().flatten().copied())
             .map(|(x, y)| (x * facteur, -y * facteur))
             .chain(points.iter().copied())
             .collect();
@@ -1084,6 +1127,17 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 Alignement::Centre,
                 nom,
             );
+        }
+        // Les cloisons, sur le calque CLOISONS.
+        for coins in &piece.cloisons {
+            for k in 0..4 {
+                ligne_dxf(
+                    &mut entites,
+                    "CLOISONS",
+                    vers_le_dxf(coins[k]),
+                    vers_le_dxf(coins[(k + 1) % 4]),
+                );
+            }
         }
         // Les notes, sur le calque NOTES.
         for (texte, position) in &piece.notes {
@@ -1198,6 +1252,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("OUVERTURES", "1"),
         ("MOBILIER", "6"),
         ("NOTES", "2"),
+        ("CLOISONS", "5"),
     ];
     groupe(&mut dxf, 0, "TABLE");
     groupe(&mut dxf, 2, "LAYER");
@@ -1408,6 +1463,22 @@ mod tests {
         assert!(dxf.contains("\r\nPrise 220 V ici\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Prise 220 V ici)"));
+    }
+
+    #[test]
+    fn les_cloisons_paraissent_dans_le_pdf_et_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.cloisons = vec![noyau::cloison::Cloison {
+            debut: (48.0, 0.0),
+            sens: noyau::dessin::Sens::Sud,
+            longueur: "10".to_string(),
+            epaisseur: String::new(),
+        }];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nCLOISONS\r\n").count(), 4);
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert_eq!(pdf.matches("0.820 0.870 0.950 rg").count(), 1);
     }
 
     #[test]
