@@ -142,7 +142,7 @@ pub struct Application {
     /// Le logo, affiché à gauche du titre.
     marque: egui::TextureHandle,
     /// La pièce dessinée (section 25), et ce que son écran retient.
-    dessin: noyau::dessin::Dessin,
+    plan: noyau::dessin::Plan,
     etat_du_dessin: vues::dessin::Etat,
     dessin_a_sauvegarder: bool,
 }
@@ -166,13 +166,15 @@ impl Application {
         noyau::langue::choisir(langue);
         let rubans = stockage::charger_rubans(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
-        let (mut dessin, langue_du_dessin) = stockage::charger_dessin(&depot);
-        transposer_le_dessin(
-            &mut dessin,
-            langue_du_dessin,
-            langue,
-            &chargement.etat.preferences,
-        );
+        let (mut plan, langue_du_dessin) = stockage::charger_dessin(&depot);
+        for piece in &mut plan.pieces {
+            transposer_le_dessin(
+                &mut piece.dessin,
+                langue_du_dessin,
+                langue,
+                &chargement.etat.preferences,
+            );
+        }
         // Des saisies écrites dans l'autre langue sont récrites dans celle-ci.
         let saisies_a_sauvegarder = langue_des_saisies != langue;
         transposer_les_saisies(
@@ -222,7 +224,7 @@ impl Application {
             langue_appliquee: None,
             _rampe: theme::creer_la_rampe(&cc.egui_ctx),
             marque: theme::creer_la_marque(&cc.egui_ctx),
-            dessin,
+            plan,
             etat_du_dessin: vues::dessin::Etat::default(),
             dessin_a_sauvegarder: langue_du_dessin != langue,
         }
@@ -296,12 +298,14 @@ impl Application {
             langue,
             self.moteur.preferences(),
         );
-        transposer_le_dessin(
-            &mut self.dessin,
-            ancienne,
-            langue,
-            self.moteur.preferences(),
-        );
+        for piece in &mut self.plan.pieces {
+            transposer_le_dessin(
+                &mut piece.dessin,
+                ancienne,
+                langue,
+                self.moteur.preferences(),
+            );
+        }
         self.dessin_a_sauvegarder = true;
         self.moteur.changer_de_langue(langue);
         self.saisies_a_sauvegarder = true;
@@ -500,7 +504,7 @@ impl Application {
         if self.dessin_a_sauvegarder {
             self.dessin_a_sauvegarder = false;
             let langue = self.moteur.preferences().langue;
-            if stockage::enregistrer_dessin(&self.depot, &self.dessin, langue).is_err() {
+            if stockage::enregistrer_dessin(&self.depot, &self.plan, langue).is_err() {
                 self.signaler_l_echec_d_ecriture();
             }
         }
@@ -1114,7 +1118,7 @@ impl Application {
                 let action = vues::dessin::afficher(
                     ui,
                     p,
-                    &mut self.dessin,
+                    &mut self.plan,
                     &mut self.etat_du_dessin,
                     self.moteur.preferences(),
                 );
@@ -1140,7 +1144,11 @@ impl Application {
                             self.aller(Vue::Accueil);
                         }
                     }
-                    Some(vues::dessin::Action::Consigner { entrees, resultats }) => {
+                    Some(vues::dessin::Action::Consigner {
+                        titre,
+                        entrees,
+                        resultats,
+                    }) => {
                         let entrees: Vec<(&str, String)> = entrees
                             .iter()
                             .map(|(l, v)| (l.as_str(), v.clone()))
@@ -1149,8 +1157,7 @@ impl Application {
                             .iter()
                             .map(|(l, v)| (l.as_str(), v.clone()))
                             .collect();
-                        self.moteur
-                            .consigner(textes::DESSIN_TITRE.traduit(), &entrees, &resultats);
+                        self.moteur.consigner(&titre, &entrees, &resultats);
                         self.a_sauvegarder = true;
                         self.annoncer(ui.ctx(), textes::AVIS_AJOUTE_AU_RUBAN);
                     }
@@ -1954,7 +1961,7 @@ impl eframe::App for Application {
         }
         if self.dessin_a_sauvegarder {
             let langue = self.moteur.preferences().langue;
-            let _ = stockage::enregistrer_dessin(&self.depot, &self.dessin, langue);
+            let _ = stockage::enregistrer_dessin(&self.depot, &self.plan, langue);
         }
     }
 

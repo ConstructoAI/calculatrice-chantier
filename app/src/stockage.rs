@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::io;
 
 use chrono::{Datelike, Timelike};
-use noyau::dessin::Dessin;
+use noyau::dessin::{Dessin, Plan};
 use noyau::langue::Langue;
 use noyau::{EtatPersistant, LigneRuban};
 use serde::{Deserialize, Serialize};
@@ -192,36 +192,51 @@ const VERSION_DESSIN: u32 = 1;
 #[serde(default)]
 struct FichierDessin {
     version: u32,
+    /// La pièce unique des versions 0.7 (lue, plus jamais écrite).
+    #[serde(skip_serializing)]
     dessin: Dessin,
+    /// Les pièces (depuis la version 0.8).
+    plan: Option<Plan>,
     /// Langue dans laquelle les mesures sont écrites (section 24).
     langue: Langue,
 }
 
-/// Lit le dessin en cours (section 25) et la langue de ses mesures; un dessin
-/// vide si la donnée est absente, illisible ou incohérente.
-pub fn charger_dessin(depot: &Depot) -> (Dessin, Langue) {
-    match depot.lire(FICHIER_DESSIN) {
+/// Lit les pièces dessinées (section 25) et la langue de leurs mesures; un
+/// plan vide si la donnée est absente, illisible ou incohérente.
+pub fn charger_dessin(depot: &Depot) -> (Plan, Langue) {
+    let lu = match depot.lire(FICHIER_DESSIN) {
         Lecture::Texte(texte) => serde_json::from_str::<FichierDessin>(&texte)
             .ok()
-            .filter(|fichier| fichier.version == VERSION_DESSIN)
-            .filter(|fichier| {
-                fichier
-                    .dessin
-                    .cotes
-                    .iter()
-                    .all(|cote| cote.croquis.is_finite() && cote.croquis > 0.0)
-            })
-            .map(|fichier| (fichier.dessin, fichier.langue))
-            .unwrap_or_default(),
-        Lecture::Absent | Lecture::Illisible => (Dessin::default(), Langue::default()),
+            .filter(|fichier| fichier.version == VERSION_DESSIN),
+        Lecture::Absent | Lecture::Illisible => None,
+    };
+    let Some(fichier) = lu else {
+        return (Plan::default(), Langue::default());
+    };
+    let mut plan = fichier
+        .plan
+        .unwrap_or_else(|| Plan::d_une_piece(fichier.dessin));
+    plan.normaliser();
+    let coherent = plan.pieces.iter().all(|piece| {
+        piece
+            .dessin
+            .cotes
+            .iter()
+            .all(|cote| cote.croquis.is_finite() && cote.croquis > 0.0)
+    });
+    if coherent {
+        (plan, fichier.langue)
+    } else {
+        (Plan::default(), Langue::default())
     }
 }
 
-/// Enregistre le dessin en cours et la langue de ses mesures.
-pub fn enregistrer_dessin(depot: &Depot, dessin: &Dessin, langue: Langue) -> io::Result<()> {
+/// Enregistre les pièces dessinées et la langue de leurs mesures.
+pub fn enregistrer_dessin(depot: &Depot, plan: &Plan, langue: Langue) -> io::Result<()> {
     let fichier = FichierDessin {
         version: VERSION_DESSIN,
-        dessin: dessin.clone(),
+        dessin: Dessin::default(),
+        plan: Some(plan.clone()),
         langue,
     };
     depot.ecrire(FICHIER_DESSIN, &en_json(&fichier)?)
@@ -470,7 +485,7 @@ mod tests {
         let d = DossierTemporaire::nouveau("dessin");
         assert_eq!(
             charger_dessin(&d.depot()),
-            (Dessin::default(), Langue::Francais)
+            (Plan::default(), Langue::Francais)
         );
         let mut dessin = Dessin::default();
         dessin.ajouter_trace(&[
@@ -482,13 +497,36 @@ mod tests {
         ]);
         assert!(dessin.fermee);
         dessin.cotes[0].saisie = "12 ft 6 in".to_string();
-        enregistrer_dessin(&d.depot(), &dessin, Langue::Anglais).unwrap();
-        assert_eq!(charger_dessin(&d.depot()), (dessin, Langue::Anglais));
-        // Un fichier abîmé ou incohérent donne un dessin vide, sans erreur.
-        fs::write(d.0.join("dessin.json"), "{ \"version\": 1, \"dessin\": { \"cotes\": [{ \"sens\": \"Est\", \"croquis\": -4.0 }] } }").unwrap();
-        assert_eq!(charger_dessin(&d.depot()).0, Dessin::default());
+        let mut plan = Plan::d_une_piece(dessin.clone());
+        plan.pieces[0].nom = "Kitchen".to_string();
+        plan.ajouter();
+        enregistrer_dessin(&d.depot(), &plan, Langue::Anglais).unwrap();
+        assert_eq!(charger_dessin(&d.depot()), (plan, Langue::Anglais));
+        // Un dessin de la version 0.7 (une seule pièce) devient un plan d'une pièce.
+        let ancien = format!(
+            "{{ \"version\": 1, \"langue\": \"Anglais\", \"dessin\": {} }}",
+            serde_json::to_string(&dessin).unwrap()
+        );
+        fs::write(d.0.join("dessin.json"), ancien).unwrap();
+        assert_eq!(
+            charger_dessin(&d.depot()),
+            (Plan::d_une_piece(dessin), Langue::Anglais)
+        );
+        // Un fichier abîmé ou incohérent donne un plan vide, sans erreur.
+        fs::write(
+            d.0.join("dessin.json"),
+            "{ \"version\": 1, \"dessin\": { \"cotes\": [{ \"sens\": \"Est\", \"croquis\": -4.0 }] } }",
+        )
+        .unwrap();
+        assert_eq!(charger_dessin(&d.depot()).0, Plan::default());
+        fs::write(
+            d.0.join("dessin.json"),
+            "{ \"version\": 1, \"plan\": { \"pieces\": [], \"courante\": 9 } }",
+        )
+        .unwrap();
+        assert_eq!(charger_dessin(&d.depot()).0, Plan::default());
         fs::write(d.0.join("dessin.json"), "pas du json").unwrap();
-        assert_eq!(charger_dessin(&d.depot()).0, Dessin::default());
+        assert_eq!(charger_dessin(&d.depot()).0, Plan::default());
     }
 
     #[test]

@@ -9,6 +9,12 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.8
+
+- **Plusieurs pièces** : le bouton **+ Pièce** ajoute une pièce au plan. Chacune a son nom
+  (cuisine, salon), son dessin et ses retraits; la calculatrice donne le **total** des
+  surfaces.
+
 ## Nouveautés de la version 0.7
 
 - **Dessin d'une pièce** : dans le nouvel onglet **Dessin**, tracez le contour d'une pièce

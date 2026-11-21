@@ -100,6 +100,94 @@ pub struct Retrait {
     pub largeur: String,
 }
 
+/// Une pièce du plan : son nom et son dessin.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Piece {
+    /// Le nom donné par l'utilisateur; vide tant qu'il n'en a pas donné.
+    pub nom: String,
+    pub dessin: Dessin,
+}
+
+/// Les pièces dessinées : toujours au moins une, dont celle qui est à l'écran.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Plan {
+    pub pieces: Vec<Piece>,
+    /// Rang de la pièce à l'écran.
+    pub courante: usize,
+}
+
+impl Default for Plan {
+    fn default() -> Self {
+        Plan {
+            pieces: vec![Piece::default()],
+            courante: 0,
+        }
+    }
+}
+
+/// Nombre maximal de pièces d'un plan.
+pub const MAX_PIECES: usize = 30;
+
+impl Plan {
+    /// Un plan d'une seule pièce.
+    pub fn d_une_piece(dessin: Dessin) -> Plan {
+        Plan {
+            pieces: vec![Piece {
+                nom: String::new(),
+                dessin,
+            }],
+            courante: 0,
+        }
+    }
+
+    /// Remet le plan dans ses règles : au moins une pièce, et une pièce
+    /// courante qui existe.
+    pub fn normaliser(&mut self) {
+        if self.pieces.is_empty() {
+            self.pieces.push(Piece::default());
+        }
+        self.courante = self.courante.min(self.pieces.len() - 1);
+    }
+
+    /// La pièce à l'écran.
+    pub fn piece(&mut self) -> &mut Piece {
+        self.normaliser();
+        &mut self.pieces[self.courante]
+    }
+
+    /// Ajoute une pièce vide et la met à l'écran. Retourne faux si le plan est plein.
+    pub fn ajouter(&mut self) -> bool {
+        if self.pieces.len() >= MAX_PIECES {
+            return false;
+        }
+        self.pieces.push(Piece::default());
+        self.courante = self.pieces.len() - 1;
+        true
+    }
+
+    /// Supprime la pièce à l'écran; la dernière pièce est seulement vidée.
+    pub fn supprimer_la_courante(&mut self) {
+        self.normaliser();
+        if self.pieces.len() == 1 {
+            self.pieces[0] = Piece::default();
+        } else {
+            self.pieces.remove(self.courante);
+        }
+        self.normaliser();
+    }
+
+    /// Somme des surfaces nettes des pièces complètes (en pouces carrés), et
+    /// leur nombre. Une pièce incomplète ne compte pas.
+    pub fn total(&self, defaut: Format) -> (f64, usize) {
+        self.pieces
+            .iter()
+            .filter_map(|piece| piece.dessin.resoudre(defaut).aire_nette())
+            .fold((0.0, 0), |(somme, nombre), aire| (somme + aire, nombre + 1))
+    }
+}
+
 /// Ce que l'on sait d'un côté.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mesure {
@@ -868,6 +956,54 @@ mod tests {
         let solution = dessin.resoudre(Format::PiPo);
         assert!(solution.aire_des_retraits().is_some());
         assert_eq!(solution.aire_nette(), None);
+    }
+
+    #[test]
+    fn plusieurs_pieces_et_leur_total() {
+        let rectangle = |longueur: &str, largeur: &str| {
+            let mut dessin = Dessin::default();
+            dessin.ajouter_trace(&contour(&[
+                (0.0, 0.0),
+                (100.0, 0.0),
+                (100.0, 60.0),
+                (0.0, 60.0),
+                (0.0, 5.0),
+            ]));
+            inscrire(&mut dessin, &[longueur, largeur]);
+            dessin
+        };
+        let mut plan = Plan::default();
+        assert_eq!(plan.pieces.len(), 1);
+        assert_eq!(plan.total(Format::PiPo), (0.0, 0));
+        plan.piece().dessin = rectangle("12", "10");
+        plan.piece().nom = "Cuisine".into();
+        assert!(plan.ajouter());
+        assert_eq!(plan.courante, 1);
+        plan.piece().dessin = rectangle("20", "15");
+        // Une troisième pièce, encore sans mesures : elle ne compte pas.
+        assert!(plan.ajouter());
+        plan.piece().dessin = rectangle("", "");
+        assert_eq!(plan.total(Format::PiPo), (420.0 * 144.0, 2));
+        // Supprimer la pièce à l'écran.
+        plan.courante = 0;
+        plan.supprimer_la_courante();
+        assert_eq!(plan.pieces.len(), 2);
+        assert_eq!(plan.total(Format::PiPo), (300.0 * 144.0, 1));
+        // La dernière pièce ne disparaît pas : elle est vidée.
+        plan.supprimer_la_courante();
+        plan.supprimer_la_courante();
+        assert_eq!(plan, Plan::default());
+        // Un plan abîmé est remis dans ses règles.
+        let mut abime = Plan {
+            pieces: Vec::new(),
+            courante: 7,
+        };
+        abime.normaliser();
+        assert_eq!(abime, Plan::default());
+        for _ in 0..MAX_PIECES + 5 {
+            abime.ajouter();
+        }
+        assert_eq!(abime.pieces.len(), MAX_PIECES);
     }
 
     #[test]

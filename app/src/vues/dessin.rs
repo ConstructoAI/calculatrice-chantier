@@ -2,7 +2,7 @@
 //! doigt ou la souris, puis on touche chaque côté pour y inscrire sa mesure.
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Retrait, Solution};
+use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan, Retrait, Solution};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
@@ -46,6 +46,17 @@ impl Etat {
         self.viser_le_champ = rang.is_some();
     }
 
+    /// Une autre pièce vient à l'écran : rien n'y est choisi, et « Annuler »
+    /// ne remonte pas dans la pièce précédente.
+    fn changer_de_piece(&mut self) {
+        self.choisi = None;
+        self.retrait_choisi = None;
+        self.viser_le_champ = false;
+        self.outils_ouverts = false;
+        self.trace.clear();
+        self.historique.clear();
+    }
+
     /// Choisit une dimension d'un retrait.
     fn choisir_un_retrait(&mut self, lequel: Option<(usize, bool)>) {
         self.choisi = None;
@@ -70,6 +81,7 @@ pub enum Action {
     Fermer,
     /// Inscrire la pièce au ruban : ses mesures, puis ses résultats.
     Consigner {
+        titre: String,
         entrees: Vec<(String, String)>,
         resultats: Vec<(String, String)>,
     },
@@ -151,10 +163,18 @@ fn premier_cote_a_mesurer(solution: &Solution) -> Option<usize> {
         .position(|m| matches!(m, Mesure::Manquante | Mesure::Invalide))
 }
 
+/// Nom d'une pièce : celui que l'utilisateur a donné, sinon « Pièce 2 ».
+fn nom_de_la_piece(plan: &Plan, rang: usize) -> String {
+    match plan.pieces.get(rang).map(|piece| piece.nom.trim()) {
+        Some(nom) if !nom.is_empty() => nom.to_string(),
+        _ => textes::dessin_piece(rang + 1),
+    }
+}
+
 pub fn afficher(
     ui: &mut Ui,
     p: &Palette,
-    dessin: &mut Dessin,
+    plan: &mut Plan,
     etat: &mut Etat,
     prefs: &Preferences,
 ) -> Option<Action> {
@@ -167,55 +187,191 @@ pub fn afficher(
     ) {
         action = Some(Action::Fermer);
     }
-    if etat.choisi.is_some_and(|i| i >= dessin.cotes.len()) {
-        etat.choisi = None;
-    }
-    if etat
-        .retrait_choisi
-        .is_some_and(|(i, _)| i >= dessin.retraits.len())
-    {
-        etat.retrait_choisi = None;
-    }
-    let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-
-    // La planche à dessin : hors de la zone qui défile, pour que le doigt trace
-    // au lieu de faire défiler l'écran.
-    let largeur = ui.available_width() - 20.0;
-    let hauteur = (ui.available_height() - 250.0).clamp(170.0, largeur.max(170.0));
-    ui.add_space(8.0);
-    let (planche, reponse) = ui
-        .horizontal(|ui| {
-            ui.add_space(10.0);
-            ui.allocate_exact_size(Vec2::new(largeur, hauteur), Sense::click_and_drag())
-        })
-        .inner;
-    reponse.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::Role::Canvas, true, textes::DESSIN_PLANCHE.traduit())
-    });
-    if planche_et_gestes(ui, p, planche, &reponse, dessin, etat, &solution, prefs) {
+    plan.normaliser();
+    if barre_des_pieces(ui, p, plan, etat) {
         action = Some(Action::Modifie);
+    }
+    let courante = plan.courante;
+    let titre = textes::avec_tiret(
+        textes::DESSIN_TITRE.traduit(),
+        &nom_de_la_piece(plan, courante),
+    );
+    {
+        let dessin = &mut plan.pieces[courante].dessin;
+        if etat.choisi.is_some_and(|i| i >= dessin.cotes.len()) {
+            etat.choisi = None;
+        }
+        if etat
+            .retrait_choisi
+            .is_some_and(|(i, _)| i >= dessin.retraits.len())
+        {
+            etat.retrait_choisi = None;
+        }
+        let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+
+        // La planche à dessin : hors de la zone qui défile, pour que le doigt
+        // trace au lieu de faire défiler l'écran.
+        let largeur = ui.available_width() - 20.0;
+        let hauteur = (ui.available_height() - 250.0).clamp(170.0, largeur.max(170.0));
+        ui.add_space(6.0);
+        let (planche, reponse) = ui
+            .horizontal(|ui| {
+                ui.add_space(10.0);
+                ui.allocate_exact_size(Vec2::new(largeur, hauteur), Sense::click_and_drag())
+            })
+            .inner;
+        reponse.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::Role::Canvas, true, textes::DESSIN_PLANCHE.traduit())
+        });
+        if planche_et_gestes(ui, p, planche, &reponse, dessin, etat, &solution, prefs) {
+            action = Some(Action::Modifie);
+        }
     }
 
     corps(ui, "dessin", |ui| {
-        // Les mesures peuvent avoir changé pendant cette image.
-        let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-        if boutons(ui, p, dessin, etat) {
-            action = Some(Action::Modifie);
+        {
+            let dessin = &mut plan.pieces[courante].dessin;
+            // Les mesures peuvent avoir changé pendant cette image.
+            let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+            if boutons(ui, p, dessin, etat) {
+                action = Some(Action::Modifie);
+            }
+            ui.add_space(6.0);
+            if mesure_du_cote(ui, p, dessin, etat, &solution, prefs) {
+                action = Some(Action::Modifie);
+            }
+            let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+            match bilan(ui, p, dessin, etat, &solution, prefs) {
+                Some(Action::Consigner {
+                    entrees, resultats, ..
+                }) => {
+                    action = Some(Action::Consigner {
+                        titre: titre.clone(),
+                        entrees,
+                        resultats,
+                    });
+                }
+                Some(autre) => action = Some(autre),
+                None => {}
+            }
+            if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
+                action = Some(Action::Modifie);
+            }
         }
-        ui.add_space(6.0);
-        if mesure_du_cote(ui, p, dessin, etat, &solution, prefs) {
-            action = Some(Action::Modifie);
-        }
-        let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-        if let Some(consigner) = bilan(ui, p, dessin, etat, &solution, prefs) {
-            action = Some(consigner);
-        }
-        if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
+        if la_piece_et_le_total(ui, p, plan, etat, prefs) {
             action = Some(Action::Modifie);
         }
         ui.add_space(10.0);
     });
     action
+}
+
+/// La rangée des pièces, sous l'en-tête : une pastille par pièce, et « + Pièce ».
+/// Retourne vrai si le plan a changé.
+fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) -> bool {
+    let mut modifie = false;
+    ui.add_space(6.0);
+    egui::ScrollArea::horizontal()
+        .id_salt("pieces-du-plan")
+        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(10.0);
+                for rang in 0..plan.pieces.len() {
+                    let bouton = egui::Button::new(nom_de_la_piece(plan, rang))
+                        .selected(rang == plan.courante);
+                    if ui.add(bouton).clicked() && rang != plan.courante {
+                        plan.courante = rang;
+                        etat.changer_de_piece();
+                        modifie = true;
+                    }
+                }
+                if plan.pieces.len() < noyau::dessin::MAX_PIECES
+                    && ui
+                        .add(bouton_principal(
+                            p,
+                            textes::DESSIN_AJOUTER_UNE_PIECE.traduit(),
+                            13.0,
+                        ))
+                        .clicked()
+                    && plan.ajouter()
+                {
+                    etat.changer_de_piece();
+                    modifie = true;
+                }
+                ui.add_space(10.0);
+            });
+        });
+    modifie
+}
+
+/// Le nom de la pièce à l'écran, sa suppression, et le total des pièces.
+fn la_piece_et_le_total(
+    ui: &mut Ui,
+    p: &Palette,
+    plan: &mut Plan,
+    etat: &mut Etat,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    let courante = plan.courante;
+    let nombre = plan.pieces.len();
+    ui.add_space(10.0);
+    let libelle = ui.label(
+        RichText::new(textes::DESSIN_NOM_DE_LA_PIECE.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    let mut supprimer = false;
+    ui.horizontal_wrapped(|ui| {
+        let indice = textes::dessin_piece(courante + 1);
+        let champ = egui::TextEdit::singleline(&mut plan.pieces[courante].nom)
+            .desired_width((ui.available_width() - 190.0).clamp(110.0, 240.0))
+            .char_limit(40)
+            .hint_text(indice);
+        let reponse = ui.add(champ).labelled_by(libelle.id);
+        cadre_de_saisie(ui, p, &reponse);
+        if reponse.changed() {
+            modifie = true;
+        }
+        let vide = nombre == 1 && plan.pieces[0] == noyau::dessin::Piece::default();
+        if ui
+            .add_enabled(
+                !vide,
+                egui::Button::new(textes::DESSIN_SUPPRIMER_LA_PIECE.traduit()),
+            )
+            .clicked()
+        {
+            supprimer = true;
+        }
+    });
+    if supprimer {
+        plan.supprimer_la_courante();
+        etat.changer_de_piece();
+        modifie = true;
+    }
+    if plan.pieces.len() > 1 {
+        let (aire, completes) = plan.total(FORMAT_PAR_DEFAUT);
+        // Le total s'écrit dans le système de la première mesure du plan.
+        let modele = plan
+            .pieces
+            .iter()
+            .find_map(|piece| piece.dessin.resoudre(FORMAT_PAR_DEFAUT).modele);
+        ui.add_space(8.0);
+        carte(ui, p, |ui| {
+            ui.label(
+                RichText::new(textes::dessin_total(completes, plan.pieces.len()))
+                    .font(theme::police_grasse(13.5))
+                    .color(p.titre),
+            );
+            ui.label(
+                RichText::new(Quantite::Aire(aire).en_clair(modele, prefs))
+                    .font(theme::police_grasse(17.0))
+                    .color(p.texte),
+            );
+        });
+    }
+    modifie
 }
 
 /// Dessine la planche et traite les gestes. Retourne vrai si le dessin a changé.
@@ -270,12 +426,34 @@ fn planche_et_gestes(
     // --- Gestes
     if reponse.drag_started() {
         etat.trace.clear();
+        // Le geste part de l'endroit où le doigt s'est posé, pas de celui où
+        // le glissement a été reconnu : sinon, un tracé rapide perd son début.
+        if let Some(origine) = ui.input(|i| i.pointer.press_origin()) {
+            etat.trace.push(origine);
+        }
     }
-    if reponse.dragged()
-        && let Some(position) = reponse.interact_pointer_pos()
-        && etat.trace.last().is_none_or(|d| d.distance(position) > 1.5)
-    {
-        etat.trace.push(position);
+    if reponse.dragged() || reponse.drag_stopped() {
+        // Toutes les positions de cette image, pas seulement la dernière : un
+        // geste rapide en apporte plusieurs à la fois.
+        let positions: Vec<Pos2> = ui.input(|i| {
+            i.events
+                .iter()
+                .filter_map(|evenement| match evenement {
+                    egui::Event::PointerMoved(position) => Some(*position),
+                    egui::Event::PointerButton {
+                        pos,
+                        pressed: false,
+                        ..
+                    } => Some(*pos),
+                    _ => None,
+                })
+                .collect()
+        });
+        for position in positions.into_iter().chain(reponse.interact_pointer_pos()) {
+            if etat.trace.last().is_none_or(|d| d.distance(position) > 1.5) {
+                etat.trace.push(position);
+            }
+        }
     }
     if reponse.drag_stopped() {
         let trace: Vec<(f64, f64)> = etat
@@ -804,6 +982,7 @@ fn bilan(
                         })
                         .collect();
                     action = Some(Action::Consigner {
+                        titre: String::new(),
                         entrees,
                         resultats: resultats.clone(),
                     });

@@ -338,6 +338,27 @@ pub const DESSIN_ENLEVER: Texte = t("Enlever", "Remove");
 pub const DESSIN_LONGUEUR: Texte = t("longueur", "length");
 pub const DESSIN_LARGEUR: Texte = t("largeur", "width");
 pub const DESSIN_SURFACE_NETTE: Texte = t("Surface nette", "Net area");
+pub const DESSIN_AJOUTER_UNE_PIECE: Texte = t("+ Pièce", "+ Room");
+pub const DESSIN_NOM_DE_LA_PIECE: Texte = t("Nom de la pièce", "Room name");
+pub const DESSIN_SUPPRIMER_LA_PIECE: Texte = t("Supprimer la pièce", "Delete the room");
+
+/// « Pièce 2 » : le nom d'une pièce qui n'en a pas reçu.
+pub fn dessin_piece(rang: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Pièce {rang}"),
+        Langue::Anglais => format!("Room {rang}"),
+    }
+}
+
+/// Titre du total des pièces.
+pub fn dessin_total(completes: usize, nombre: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais if completes == nombre => format!("Total des {nombre} pièces"),
+        Langue::Francais => format!("Total des pièces complètes ({completes} de {nombre})"),
+        Langue::Anglais if completes == nombre => format!("Total of the {nombre} rooms"),
+        Langue::Anglais => format!("Total of the complete rooms ({completes} of {nombre})"),
+    }
+}
 pub const DESSIN_RETRAIT_INCOMPLET: Texte = t(
     "Un retrait est incomplet : inscrivez sa longueur et sa largeur.",
     "A deduction is incomplete: enter its length and its width.",
