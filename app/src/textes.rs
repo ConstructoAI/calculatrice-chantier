@@ -345,6 +345,40 @@ pub const DESSIN_ENLEVER: Texte = t("Enlever", "Remove");
 pub const DESSIN_LONGUEUR: Texte = t("longueur", "length");
 pub const DESSIN_LARGEUR: Texte = t("largeur", "width");
 pub const DESSIN_SURFACE_NETTE: Texte = t("Surface nette", "Net area");
+pub const DESSIN_MURS: Texte = t("Murs (peinture, gypse)", "Walls (paint, drywall)");
+pub const DESSIN_HAUTEUR_DES_MURS: Texte = t("Hauteur des murs", "Wall height");
+pub const DESSIN_HAUTEUR: Texte = t("hauteur", "height");
+pub const DESSIN_HAUTEUR_EXEMPLE: Texte = t("8 pi 0 po", "8 ft 0 in");
+pub const DESSIN_AJOUTER_PORTE: Texte = t("+ Porte", "+ Door");
+pub const DESSIN_AJOUTER_FENETRE: Texte = t("+ Fenêtre", "+ Window");
+pub const DESSIN_SURFACE_DES_MURS: Texte = t("Surface des murs", "Wall area");
+pub const DESSIN_PORTES_ET_FENETRES: Texte = t("Portes et fenêtres", "Doors and windows");
+pub const DESSIN_MURS_NETS: Texte = t("Surface nette des murs", "Net wall area");
+pub const DESSIN_HAUTEUR_INVALIDE: Texte = t(
+    "Hauteur illisible. Exemple : 8 pi 0 po.",
+    "Unreadable height. Example: 8 ft 0 in.",
+);
+pub const DESSIN_OUVERTURE_INCOMPLETE: Texte = t(
+    "Une porte ou une fenêtre est incomplète : inscrivez sa largeur et sa hauteur.",
+    "A door or window is incomplete: enter its width and its height.",
+);
+pub const DESSIN_OUVERTURES_TROP_GRANDES: Texte = t(
+    "Les portes et les fenêtres dépassent la surface des murs.",
+    "The doors and windows exceed the wall area.",
+);
+
+/// « Ouverture 1 : largeur ».
+pub fn dessin_ouverture(rang: usize, en_hauteur: bool) -> String {
+    let dimension = if en_hauteur {
+        DESSIN_HAUTEUR
+    } else {
+        DESSIN_LARGEUR
+    };
+    match langue::en_cours() {
+        Langue::Francais => format!("Ouverture {rang} : {}", dimension.traduit()),
+        Langue::Anglais => format!("Opening {rang}: {}", dimension.traduit()),
+    }
+}
 pub const DESSIN_AJOUTER_UNE_PIECE: Texte = t("+ Pièce", "+ Room");
 pub const DESSIN_NOM_DE_LA_PIECE: Texte = t("Nom de la pièce", "Room name");
 pub const DESSIN_SUPPRIMER_LA_PIECE: Texte = t("Supprimer la pièce", "Delete the room");

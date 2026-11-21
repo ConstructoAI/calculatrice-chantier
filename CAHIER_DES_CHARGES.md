@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.13 — 2026-11-21 (1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
+> **Version du document :** 1.14 — 2026-11-21 (1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -3062,6 +3062,7 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 11. « Annuler » remonte jusqu'à 40 étapes de la pièce à l'écran; « Retirer le dernier côté » et « Tout effacer » complètent les boutons.
 12. **Zoom** (version 0.8.2, à la demande de l'utilisateur : « zoom/dézoomer pour le dessin ») : les boutons `+` et `−` du coin de la planche zooment autour de son centre (de ×0,5 à ×8); « Ajuster » apparaît quand la vue a bougé et fait de nouveau tenir la forme. Deux doigts zooment et déplacent la vue (le tracé en cours s'annule); sur le bureau, la molette zoome autour du pointeur et le bouton droit (ou du milieu) déplace la vue. Une forme fermée, qui ne prend plus de tracé, se déplace aussi au doigt. Le quadrillage suit le zoom; les mesures des côtés hors de la vue ne s'écrivent pas. Changer de pièce ou tout effacer remet le cadrage à zéro.
 13. **Export** (version 0.8.3, à la demande de l'utilisateur : « exporter en pdf et dxf le dessin ») : « Exporter en PDF » produit un document au format Lettre — une page de résumé quand le plan n'a pas exactement une pièce (surface nette et périmètre de chacune, total), puis une page par pièce dessinée : son nom, la date, la forme ajustée à la page avec ses mesures (les déduites en gris), ses résultats et la liste de ses côtés. Une pièce incomplète y figure en croquis, signalé comme tel. « Exporter en DXF » produit un dessin DXF R12 en ASCII, pour AutoCAD, LibreCAD ou QCAD : les pièces complètes à l'échelle réelle (unité : le pouce, ou le millimètre si les mesures sont métriques), côte à côte, sur les calques MURS (contour), COTES (mesures) et PIECES (nom et surface nette). Bureau : boîte « Enregistrer sous »; navigateur : téléchargement. Le nom proposé est « Plan AAAA-MM-JJ ».
+14. **Murs** (version 0.8.5, proposé par Claude et accepté par l'utilisateur) : chaque pièce fermée a une hauteur de murs et une liste de portes et de fenêtres (largeur × hauteur). « + Porte » en ajoute une de 2 pi 8 po × 6 pi 8 po, « + Fenêtre » une de 3 pi × 4 pi, à ajuster ensuite au pavé. Les résultats s'enrichissent de la surface des murs (périmètre × hauteur) et, s'il y a des ouvertures, de leur surface et de la surface nette des murs; ils passent au ruban et au PDF. « Envoyer vers un outil » donne aussi la hauteur des murs à l'outil qui en a une (la peinture d'une pièce, par exemple); un champ d'outil se reconnaît à son libellé court.
 
 ### 25.2 Règles
 
@@ -3075,6 +3076,7 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 - **R-75** Le pavé n'appelle pas le clavier du téléphone : dans un navigateur, le champ de la mesure ne prend pas le curseur de lui-même.
 - **R-76** Le zoom ne change que la vue : le croquis, les mesures et les résultats restent les mêmes. Un tracé fait en vue zoomée est ramené à l'échelle du croquis.
 - **R-77** Les fichiers exportés sont écrits par la calculatrice elle-même (`app/src/exportation.rs`), sans bibliothèque ajoutée (liste fermée des dépendances, section 3) : PDF 1.4 avec les polices standard Helvetica (accents en WinAnsi), DXF R12 en ASCII (accents en `\U+XXXX`).
+- **R-79** Une ouverture vide ne compte pas; une ouverture incomplète, une hauteur illisible ou des ouvertures plus grandes que les murs sont signalées, et la surface des murs n'est alors pas donnée. Les valeurs proposées par « + Porte » et « + Fenêtre » sont des points de départ, pas des normes.
 - **R-78** Le DXF ne contient que les pièces complètes : un croquis n'a pas d'échelle. Son bouton est grisé tant qu'aucune pièce n'est complète; celui du PDF, tant qu'aucune pièce n'est dessinée.
 
 ### 25.3 Vecteurs de validation
@@ -3088,12 +3090,13 @@ Ajouté le 2026-11-21 (version 0.7.0), à la demande de l'utilisateur : « dessi
 | Rectangle 20 × 15 pi, retraits 3 × 6 pi et 12 × 12 po | — | — | nette : 281 pi² | 70 pi 0 po |
 | Deux pièces : 12 × 10 pi et 20 × 15 pi | — | — | total : 420 pi² | — |
 | Flèches → ↓ ← ↑ (la forme se ferme seule) | 12; 10 (pieds) | 12 pi; 10 pi | 120 pi² | 44 pi 0 po |
+| Rectangle 12 × 10 pi, murs de 8 pi, une porte 2 pi 8 po × 6 pi 8 po et une fenêtre 3 × 4 pi | — | — | murs : 352 pi²; ouvertures : 29,8 pi²; murs nets : 322 pi² | 44 pi 0 po |
 
 Autres valeurs : la diagonale d'équerre d'un rectangle de 12 pi × 10 pi 6 po est de 15 pi 11 5/16 po; la pièce en L de 250 pi² et de 76 pi de périmètre s'envoie à un outil comme un rectangle de 29,5357 pi × 8,4643 pi; au pavé, `12` `Pieds` `6` `1/2` donne 12 pi 6 1/2 po, soit 150,5 po, et `1/4` ensuite donne 12 pi 6 1/4 po.
 
 ### 25.4 Limites connues
 
-Les murs en biais (prévus, avec l'accord de l'utilisateur, pour la fin), la surface des murs moins les portes et les fenêtres (prévue), les courbes.
+Les murs en biais (prévus, avec l'accord de l'utilisateur, pour la fin), les courbes.
 
 ## Annexe A — Constantes
 
@@ -3511,7 +3514,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-78, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-79, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 

@@ -25,6 +25,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   à l'échelle réelle).
 - **0.8.4** : **dessiner avec les flèches** — quatre flèches au bas de la planche : chacune
   ajoute un côté dans sa direction, puis le pavé s'ouvre pour sa mesure.
+- **0.8.5** : **surface des murs** — la hauteur des murs de chaque pièce, les portes et les
+  fenêtres (`+ Porte`, `+ Fenêtre`), et la surface nette des murs; la peinture d'une pièce
+  reçoit aussi la hauteur.
 
 ## Nouveautés de la version 0.7
 

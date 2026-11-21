@@ -132,8 +132,9 @@ sont mis d'équerre. Touchez ensuite un côté et inscrivez sa mesure avec le pa
 `Pouces` et les fractions de pouce (`12` `Pieds` `6` `1/2` donne 12 pi 6 1/2 po), ou `m` pour
 les mètres. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres; quand tout
 est connu, la calculatrice donne la surface, le périmètre et, pour un rectangle, la diagonale
-d'équerre. Ajoutez des retraits (îlot, trémie, colonne) pour la surface nette, d'autres pièces
-avec **+ Pièce** pour le total, puis inscrivez le tout au ruban ou envoyez la pièce vers un
+d'équerre. Ajoutez des retraits (îlot, trémie, colonne) pour la surface nette, la hauteur des murs et
+leurs portes et fenêtres pour la surface nette des murs, d'autres pièces avec **+ Pièce**
+pour le total, puis inscrivez le tout au ruban ou envoyez la pièce vers un
 outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons `+` et `−`
 zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
 dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle).

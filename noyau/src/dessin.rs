@@ -90,6 +90,29 @@ pub struct Dessin {
     pub fermee: bool,
     /// Ce qui se retire de la surface : un îlot, une trémie, une colonne.
     pub retraits: Vec<Retrait>,
+    /// La hauteur des murs, telle qu'elle a été inscrite; vide s'il n'y en a pas.
+    pub hauteur_des_murs: String,
+    /// Les portes et les fenêtres, retirées de la surface des murs.
+    pub ouvertures: Vec<Ouverture>,
+}
+
+/// Une ouverture dans les murs : une porte ou une fenêtre.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Ouverture {
+    pub largeur: String,
+    pub hauteur: String,
+}
+
+/// La surface des murs d'une pièce, en pouces carrés.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Murs {
+    /// Périmètre × hauteur des murs.
+    pub brute: f64,
+    /// Les portes et les fenêtres.
+    pub ouvertures: f64,
+    /// Ce qui reste à peindre ou à couvrir.
+    pub nette: f64,
 }
 
 /// Un rectangle à retirer de la surface de la pièce.
@@ -241,12 +264,40 @@ pub struct Solution {
     /// Aire de chaque retrait, en pouces carrés : zéro s'il est vide, `None`
     /// s'il est incomplet ou illisible.
     pub retraits: Vec<Option<f64>>,
+    /// La hauteur des murs (pouces), si elle est inscrite et lisible.
+    pub hauteur: Option<f64>,
+    /// Vrai si une hauteur est inscrite mais illisible.
+    pub hauteur_invalide: bool,
+    /// Aire de chaque ouverture (pouces carrés), comme pour les retraits.
+    pub ouvertures: Vec<Option<f64>>,
 }
 
 impl Solution {
     /// Somme des retraits, s'ils sont tous lisibles.
     pub fn aire_des_retraits(&self) -> Option<f64> {
         self.retraits.iter().copied().sum()
+    }
+
+    /// Somme des portes et des fenêtres, si elles sont toutes lisibles.
+    pub fn aire_des_ouvertures(&self) -> Option<f64> {
+        self.ouvertures.iter().copied().sum()
+    }
+
+    /// La surface des murs : `None` si la pièce n'est pas complète, si la
+    /// hauteur manque, si une ouverture est incomplète, ou si les ouvertures
+    /// dépassent les murs.
+    pub fn murs(&self) -> Option<Murs> {
+        let Etat::Complete { perimetre, .. } = self.etat else {
+            return None;
+        };
+        let brute = perimetre * self.hauteur?;
+        let ouvertures = self.aire_des_ouvertures()?;
+        let nette = brute - ouvertures;
+        (nette > 0.0).then_some(Murs {
+            brute,
+            ouvertures,
+            nette,
+        })
     }
 
     /// Surface de la pièce moins les retraits; `None` si la forme n'est pas
@@ -293,18 +344,32 @@ pub fn longueur_a_taper(pouces: f64, metrique: bool, decimal: char) -> String {
 }
 
 /// Les outils par métier qui partent d'une longueur et d'une largeur au sol :
-/// l'outil, puis le rang de ces deux champs.
-pub fn outils_d_une_piece() -> Vec<(&'static Calculateur, usize, usize)> {
+/// l'outil, le rang de ces deux champs, et celui de la hauteur s'il en a une
+/// (la peinture d'une pièce, par exemple). Un champ se reconnaît à son
+/// libellé court (« Longueur ») ou, s'il n'en a pas, à son libellé.
+pub fn outils_d_une_piece() -> Vec<(&'static Calculateur, usize, usize, Option<usize>)> {
     let rang = |c: &Calculateur, nom: &str| {
         c.champs.iter().position(|champ| {
-            champ.libelle.fr == nom && matches!(champ.nature, Nature::Longueur(_))
+            let libelle = if champ.court.est_vide() {
+                champ.libelle.fr
+            } else {
+                champ.court.fr
+            };
+            libelle == nom && matches!(champ.nature, Nature::Longueur(_))
         })
     };
     Metier::TOUS
         .iter()
         .filter(|metier| **metier != Metier::Acier)
         .flat_map(|metier| metier.calculateurs())
-        .filter_map(|c| Some((c, rang(c, "Longueur")?, rang(c, "Largeur")?)))
+        .filter_map(|c| {
+            Some((
+                c,
+                rang(c, "Longueur")?,
+                rang(c, "Largeur")?,
+                rang(c, "Hauteur"),
+            ))
+        })
         .collect()
 }
 
@@ -652,11 +717,31 @@ impl Dessin {
                 }
             })
             .collect();
+        let texte_de_la_hauteur = self.hauteur_des_murs.trim();
+        let hauteur = if texte_de_la_hauteur.is_empty() {
+            None
+        } else {
+            lire(texte_de_la_hauteur)
+        };
+        let ouvertures = self
+            .ouvertures
+            .iter()
+            .map(|ouverture| {
+                if ouverture.largeur.trim().is_empty() && ouverture.hauteur.trim().is_empty() {
+                    Some(0.0)
+                } else {
+                    Some(lire(&ouverture.largeur)? * lire(&ouverture.hauteur)?)
+                }
+            })
+            .collect();
         Solution {
             mesures,
             etat,
             modele,
             retraits,
+            hauteur,
+            hauteur_invalide: !texte_de_la_hauteur.is_empty() && hauteur.is_none(),
+            ouvertures,
         }
     }
 
@@ -959,10 +1044,16 @@ mod tests {
         assert!(
             outils
                 .iter()
-                .any(|(c, l, w)| c.id == "dalle" && *l == 0 && *w == 1)
+                .any(|(c, l, w, h)| c.id == "dalle" && *l == 0 && *w == 1 && h.is_none())
+        );
+        // La peinture d'une pièce reçoit aussi la hauteur des murs.
+        assert!(
+            outils
+                .iter()
+                .any(|(c, l, w, h)| c.id == "peinture" && *l == 0 && *w == 1 && *h == Some(2))
         );
         assert!(outils.len() >= 8);
-        assert!(outils.iter().all(|(c, _, _)| c.metier != Metier::Acier));
+        assert!(outils.iter().all(|(c, _, _, _)| c.metier != Metier::Acier));
     }
 
     #[test]
@@ -1097,6 +1188,47 @@ mod tests {
             Etat::Complete { aire, .. } => assert!((aire - 250.0 * 144.0).abs() < 1e-6),
             autre => panic!("{autre:?}"),
         }
+    }
+
+    #[test]
+    fn surface_des_murs_moins_les_ouvertures() {
+        let mut dessin = Dessin::default();
+        dessin.ajouter_trace(&contour(&[
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 60.0),
+            (0.0, 60.0),
+            (0.0, 5.0),
+        ]));
+        inscrire(&mut dessin, &["12", "10"]);
+        assert_eq!(dessin.resoudre(Format::PiPo).murs(), None);
+        // 44 pi de périmètre × 8 pi de hauteur = 352 pi².
+        dessin.hauteur_des_murs = "8".into();
+        let murs = dessin.resoudre(Format::PiPo).murs().unwrap();
+        assert!((murs.brute - 352.0 * 144.0).abs() < 1e-6);
+        assert_eq!((murs.ouvertures, murs.nette), (0.0, murs.brute));
+        // Une porte de 2 pi 8 po × 6 pi 8 po et une fenêtre de 3 pi × 4 pi.
+        dessin.ouvertures.push(Ouverture {
+            largeur: "2 pi 8 po".into(),
+            hauteur: "6 pi 8 po".into(),
+        });
+        dessin.ouvertures.push(Ouverture {
+            largeur: "3".into(),
+            hauteur: "4".into(),
+        });
+        let murs = dessin.resoudre(Format::PiPo).murs().unwrap();
+        assert!((murs.ouvertures - (32.0 * 80.0 + 36.0 * 48.0)).abs() < 1e-6);
+        assert!((murs.nette - (352.0 * 144.0 - 32.0 * 80.0 - 36.0 * 48.0)).abs() < 1e-6);
+        // Une ouverture incomplète, ou une hauteur illisible : pas de surface des murs.
+        dessin.ouvertures.push(Ouverture {
+            largeur: "3".into(),
+            hauteur: String::new(),
+        });
+        assert_eq!(dessin.resoudre(Format::PiPo).murs(), None);
+        dessin.ouvertures.pop();
+        dessin.hauteur_des_murs = "abc".into();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!(solution.hauteur_invalide && solution.murs().is_none());
     }
 
     #[test]

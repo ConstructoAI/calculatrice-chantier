@@ -2,7 +2,9 @@
 //! doigt ou la souris, puis on touche chaque côté pour y inscrire sa mesure.
 
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan, Retrait, Sens, Solution};
+use noyau::dessin::{
+    Dessin, Etat as EtatDeLaForme, Mesure, Ouverture, Plan, Retrait, Sens, Solution,
+};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
@@ -69,8 +71,9 @@ pub struct Etat {
     pub choisi: Option<usize>,
     /// Le tracé en cours, en points de l'écran.
     trace: Vec<Pos2>,
-    /// Le retrait dont on inscrit une dimension : son rang, et vrai pour sa largeur.
-    retrait_choisi: Option<(usize, bool)>,
+    /// L'autre mesure qu'on inscrit : une dimension d'un retrait, la hauteur
+    /// des murs, ou une dimension d'une porte ou d'une fenêtre.
+    autre_choisi: Option<AutreSaisie>,
     /// Vrai quand le champ de la mesure doit prendre le clavier.
     viser_le_champ: bool,
     /// Vrai quand la liste des outils qui peuvent recevoir la pièce est ouverte.
@@ -84,6 +87,28 @@ pub struct Etat {
     geste_annule: bool,
 }
 
+/// Une mesure autre que celle d'un côté.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AutreSaisie {
+    /// Une dimension d'un retrait : son rang, et vrai pour sa largeur.
+    Retrait(usize, bool),
+    /// La hauteur des murs.
+    Hauteur,
+    /// Une dimension d'une ouverture : son rang, et vrai pour sa hauteur.
+    Ouverture(usize, bool),
+}
+
+impl AutreSaisie {
+    /// Vrai si la mesure existe encore dans le dessin.
+    fn existe(self, dessin: &Dessin) -> bool {
+        match self {
+            AutreSaisie::Retrait(rang, _) => rang < dessin.retraits.len(),
+            AutreSaisie::Hauteur => true,
+            AutreSaisie::Ouverture(rang, _) => rang < dessin.ouvertures.len(),
+        }
+    }
+}
+
 /// Nombre d'étapes que le bouton « Annuler » peut remonter.
 const PROFONDEUR_DE_L_HISTORIQUE: usize = 40;
 
@@ -91,7 +116,7 @@ impl Etat {
     /// Choisit un côté et place le curseur dans le champ de sa mesure.
     fn choisir(&mut self, rang: Option<usize>) {
         self.choisi = rang;
-        self.retrait_choisi = None;
+        self.autre_choisi = None;
         self.viser_le_champ = rang.is_some();
     }
 
@@ -99,7 +124,7 @@ impl Etat {
     /// ne remonte pas dans la pièce précédente.
     fn changer_de_piece(&mut self) {
         self.choisi = None;
-        self.retrait_choisi = None;
+        self.autre_choisi = None;
         self.viser_le_champ = false;
         self.outils_ouverts = false;
         self.trace.clear();
@@ -108,10 +133,10 @@ impl Etat {
         self.geste_annule = false;
     }
 
-    /// Choisit une dimension d'un retrait.
-    fn choisir_un_retrait(&mut self, lequel: Option<(usize, bool)>) {
+    /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
+    fn choisir_autre(&mut self, lequel: Option<AutreSaisie>) {
         self.choisi = None;
-        self.retrait_choisi = lequel;
+        self.autre_choisi = lequel;
         self.viser_le_champ = lequel.is_some();
     }
 
@@ -149,7 +174,7 @@ pub enum Action {
     VersOutil {
         id: &'static str,
         /// (rang du champ, ce qu'il faut y inscrire)
-        champs: [(usize, String); 2],
+        champs: Vec<(usize, String)>,
     },
 }
 
@@ -271,11 +296,8 @@ pub fn afficher(
         if etat.choisi.is_some_and(|i| i >= dessin.cotes.len()) {
             etat.choisi = None;
         }
-        if etat
-            .retrait_choisi
-            .is_some_and(|(i, _)| i >= dessin.retraits.len())
-        {
-            etat.retrait_choisi = None;
+        if etat.autre_choisi.is_some_and(|autre| !autre.existe(dessin)) {
+            etat.autre_choisi = None;
         }
         let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
 
@@ -284,7 +306,7 @@ pub fn afficher(
         let largeur = ui.available_width() - 20.0;
         // Pendant qu'on inscrit une mesure, la planche rapetisse pour laisser
         // voir le pavé de touches en entier, même sur un téléphone.
-        let reserve = if etat.choisi.is_some() || etat.retrait_choisi.is_some() {
+        let reserve = if etat.choisi.is_some() || etat.autre_choisi.is_some() {
             410.0
         } else {
             250.0
@@ -332,6 +354,9 @@ pub fn afficher(
                 None => {}
             }
             if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
+                action = Some(Action::Modifie);
+            }
+            if dessin.fermee && murs(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
         }
@@ -1043,8 +1068,8 @@ fn mesure_du_cote(
     solution: &Solution,
     prefs: &Preferences,
 ) -> bool {
-    if let Some((rang, en_largeur)) = etat.retrait_choisi {
-        return dimension_du_retrait(ui, p, dessin, etat, rang, en_largeur, prefs);
+    if let Some(autre) = etat.autre_choisi {
+        return autre_mesure(ui, p, dessin, etat, autre, prefs);
     }
     let Some(rang) = etat.choisi else {
         return false;
@@ -1117,34 +1142,63 @@ fn mesure_du_cote(
     modifie
 }
 
-/// Le champ d'une dimension d'un retrait, avec le pavé de touches.
-fn dimension_du_retrait(
+/// Le champ d'une autre mesure (retrait, hauteur des murs, ouverture), avec le
+/// pavé de touches.
+fn autre_mesure(
     ui: &mut Ui,
     p: &Palette,
     dessin: &mut Dessin,
     etat: &mut Etat,
-    rang: usize,
-    en_largeur: bool,
+    autre: AutreSaisie,
     prefs: &Preferences,
 ) -> bool {
-    let Some(retrait) = dessin.retraits.get_mut(rang) else {
-        return false;
-    };
-    let saisie = if en_largeur {
-        &mut retrait.largeur
-    } else {
-        &mut retrait.longueur
+    let (saisie, titre, indice, ensuite) = match autre {
+        AutreSaisie::Retrait(rang, en_largeur) => {
+            let Some(retrait) = dessin.retraits.get_mut(rang) else {
+                return false;
+            };
+            let saisie = if en_largeur {
+                &mut retrait.largeur
+            } else {
+                &mut retrait.longueur
+            };
+            (
+                saisie,
+                textes::dessin_retrait(rang + 1, en_largeur),
+                textes::DESSIN_EXEMPLE.traduit(),
+                (!en_largeur).then_some(AutreSaisie::Retrait(rang, true)),
+            )
+        }
+        AutreSaisie::Hauteur => (
+            &mut dessin.hauteur_des_murs,
+            textes::DESSIN_HAUTEUR_DES_MURS.traduit().to_string(),
+            textes::DESSIN_HAUTEUR_EXEMPLE.traduit(),
+            None,
+        ),
+        AutreSaisie::Ouverture(rang, en_hauteur) => {
+            let Some(ouverture) = dessin.ouvertures.get_mut(rang) else {
+                return false;
+            };
+            let saisie = if en_hauteur {
+                &mut ouverture.hauteur
+            } else {
+                &mut ouverture.largeur
+            };
+            (
+                saisie,
+                textes::dessin_ouverture(rang + 1, en_hauteur),
+                textes::DESSIN_EXEMPLE.traduit(),
+                (!en_hauteur).then_some(AutreSaisie::Ouverture(rang, true)),
+            )
+        }
     };
     let mut modifie = false;
     let mut suivant = false;
     carte(ui, p, |ui| {
-        let libelle = ui.label(
-            RichText::new(textes::dessin_retrait(rang + 1, en_largeur))
-                .font(theme::police_grasse(13.5)),
-        );
+        let libelle = ui.label(RichText::new(titre).font(theme::police_grasse(13.5)));
         let champ = egui::TextEdit::singleline(saisie)
             .desired_width((ui.available_width() - 20.0).clamp(90.0, 260.0))
-            .hint_text(textes::DESSIN_EXEMPLE.traduit());
+            .hint_text(indice);
         let reponse = ui.add(champ).labelled_by(libelle.id);
         cadre_de_saisie(ui, p, &reponse);
         if etat.viser_le_champ {
@@ -1167,8 +1221,8 @@ fn dimension_du_retrait(
         }
     });
     if suivant {
-        // De la longueur à la largeur, puis l'éditeur se referme.
-        etat.choisir_un_retrait((!en_largeur).then_some((rang, true)));
+        // De la première dimension à la seconde, puis l'éditeur se referme.
+        etat.choisir_autre(ensuite);
     }
     modifie
 }
@@ -1209,10 +1263,10 @@ fn retraits(
                 } else {
                     saisie_en_clair(saisie, prefs).unwrap_or_else(|| saisie.to_string())
                 };
-                let choisi = etat.retrait_choisi == Some((rang, en_largeur));
-                let bouton = egui::Button::new(texte).selected(choisi);
+                let cible = AutreSaisie::Retrait(rang, en_largeur);
+                let bouton = egui::Button::new(texte).selected(etat.autre_choisi == Some(cible));
                 if ui.add(bouton).clicked() {
-                    etat.choisir_un_retrait(Some((rang, en_largeur)));
+                    etat.choisir_autre(Some(cible));
                 }
                 if !en_largeur {
                     ui.label("×");
@@ -1241,7 +1295,7 @@ fn retraits(
     if let Some(rang) = a_enlever {
         etat.memoriser(dessin);
         dessin.retraits.remove(rang);
-        etat.choisir_un_retrait(None);
+        etat.choisir_autre(None);
         modifie = true;
     }
     if ui
@@ -1252,10 +1306,233 @@ fn retraits(
     {
         etat.memoriser(dessin);
         dessin.retraits.push(Retrait::default());
-        etat.choisir_un_retrait(Some((dessin.retraits.len() - 1, false)));
+        etat.choisir_autre(Some(AutreSaisie::Retrait(dessin.retraits.len() - 1, false)));
         modifie = true;
     }
     modifie
+}
+
+/// Une mesure inscrite, en clair pour un bouton, ou le mot qui la nomme si
+/// elle est vide.
+fn mesure_du_bouton(saisie: &str, vide: &str, prefs: &Preferences) -> String {
+    let saisie = saisie.trim();
+    if saisie.is_empty() {
+        vide.to_string()
+    } else {
+        saisie_en_clair(saisie, prefs).unwrap_or_else(|| saisie.to_string())
+    }
+}
+
+/// Les murs : leur hauteur, puis les portes et les fenêtres à retirer. La
+/// surface des murs s'ajoute aux résultats de la pièce.
+fn murs(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_MURS.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(textes::DESSIN_HAUTEUR_DES_MURS.traduit()).size(13.5));
+        let texte = mesure_du_bouton(
+            &dessin.hauteur_des_murs,
+            textes::DESSIN_HAUTEUR_EXEMPLE.traduit(),
+            prefs,
+        );
+        let bouton =
+            egui::Button::new(texte).selected(etat.autre_choisi == Some(AutreSaisie::Hauteur));
+        if ui.add(bouton).clicked() {
+            etat.choisir_autre(Some(AutreSaisie::Hauteur));
+        }
+    });
+    if solution.hauteur_invalide {
+        ui.label(
+            RichText::new(textes::DESSIN_HAUTEUR_INVALIDE.traduit())
+                .size(12.5)
+                .color(p.erreur),
+        );
+    }
+    let mut a_enlever = None;
+    for rang in 0..dessin.ouvertures.len() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(format!("{}.", rang + 1)).font(theme::police_grasse(13.5)));
+            for en_hauteur in [false, true] {
+                let ouverture = &dessin.ouvertures[rang];
+                let (saisie, vide) = if en_hauteur {
+                    (&ouverture.hauteur, textes::DESSIN_HAUTEUR.traduit())
+                } else {
+                    (&ouverture.largeur, textes::DESSIN_LARGEUR.traduit())
+                };
+                let cible = AutreSaisie::Ouverture(rang, en_hauteur);
+                let bouton = egui::Button::new(mesure_du_bouton(saisie, vide, prefs))
+                    .selected(etat.autre_choisi == Some(cible));
+                if ui.add(bouton).clicked() {
+                    etat.choisir_autre(Some(cible));
+                }
+                if !en_hauteur {
+                    ui.label("×");
+                }
+            }
+            if let Some(Some(aire)) = solution.ouvertures.get(rang)
+                && *aire > 0.0
+            {
+                ui.label(
+                    RichText::new(format!(
+                        "= {}",
+                        Quantite::Aire(*aire).en_clair(solution.modele, prefs)
+                    ))
+                    .color(p.texte_attenue),
+                );
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                .clicked()
+            {
+                a_enlever = Some(rang);
+            }
+        });
+    }
+    if let Some(rang) = a_enlever {
+        etat.memoriser(dessin);
+        dessin.ouvertures.remove(rang);
+        etat.choisir_autre(None);
+        modifie = true;
+    }
+    // Ce qui empêche de calculer la surface des murs.
+    if solution.hauteur.is_some() && matches!(solution.etat, EtatDeLaForme::Complete { .. }) {
+        let message = match (solution.aire_des_ouvertures(), solution.murs()) {
+            (None, _) => Some(textes::DESSIN_OUVERTURE_INCOMPLETE),
+            (Some(_), None) => Some(textes::DESSIN_OUVERTURES_TROP_GRANDES),
+            _ => None,
+        };
+        if let Some(message) = message {
+            ui.label(RichText::new(message.traduit()).size(12.5).color(p.erreur));
+        }
+    }
+    // Une porte (32 po × 80 po) ou une fenêtre (3 pi × 4 pi) à ajuster ensuite.
+    let pieds = noyau::etiquettes::symbole(Format::PiDec);
+    let pouces = noyau::etiquettes::symbole(Format::PoDec);
+    ui.horizontal_wrapped(|ui| {
+        let modeles = [
+            (
+                textes::DESSIN_AJOUTER_PORTE,
+                format!("2 {pieds} 8 {pouces}"),
+                format!("6 {pieds} 8 {pouces}"),
+            ),
+            (
+                textes::DESSIN_AJOUTER_FENETRE,
+                format!("3 {pieds}"),
+                format!("4 {pieds}"),
+            ),
+        ];
+        for (nom, largeur, hauteur) in modeles {
+            if ui.add(egui::Button::new(nom.traduit())).clicked() {
+                etat.memoriser(dessin);
+                dessin.ouvertures.push(Ouverture { largeur, hauteur });
+                etat.choisir_autre(Some(AutreSaisie::Ouverture(
+                    dessin.ouvertures.len() - 1,
+                    false,
+                )));
+                modifie = true;
+            }
+        }
+    });
+    modifie
+}
+
+/// Les résultats d'une pièce complète : surface, périmètre, diagonale d'un
+/// rectangle, surface nette, puis les murs. `detail` ajoute une ligne par
+/// retrait et la hauteur des murs (pour l'export).
+pub(crate) fn resultats_de_la_piece(
+    dessin: &Dessin,
+    solution: &Solution,
+    prefs: &Preferences,
+    detail: bool,
+) -> Vec<(String, String)> {
+    let EtatDeLaForme::Complete { aire, perimetre } = solution.etat else {
+        return Vec::new();
+    };
+    let aire_en_clair = |po2: f64| Quantite::Aire(po2).en_clair(solution.modele, prefs);
+    let longueur = |pouces: f64| longueur_en_clair(pouces, solution, prefs);
+    let mut lignes = vec![
+        (
+            textes::DESSIN_SURFACE.traduit().to_string(),
+            aire_en_clair(aire),
+        ),
+        (
+            textes::DESSIN_PERIMETRE.traduit().to_string(),
+            longueur(perimetre),
+        ),
+    ];
+    // Un rectangle est d'équerre quand ses deux diagonales ont cette longueur.
+    if let [Some(a), Some(b), _, _] = solution
+        .mesures
+        .iter()
+        .map(|m| m.pouces())
+        .collect::<Vec<_>>()[..]
+    {
+        lignes.push((
+            textes::DESSIN_DIAGONALE.traduit().to_string(),
+            longueur(a.hypot(b)),
+        ));
+    }
+    if detail {
+        for (rang, (retrait, aire_du_retrait)) in
+            dessin.retraits.iter().zip(&solution.retraits).enumerate()
+        {
+            let Some(aire_du_retrait) = aire_du_retrait.filter(|a| *a > 0.0) else {
+                continue;
+            };
+            lignes.push((
+                textes::dessin_retrait_numero(rang + 1),
+                format!(
+                    "{} × {} = {}",
+                    mesure_du_bouton(&retrait.longueur, "?", prefs),
+                    mesure_du_bouton(&retrait.largeur, "?", prefs),
+                    aire_en_clair(aire_du_retrait)
+                ),
+            ));
+        }
+    }
+    if let (Some(nette), Some(retiree)) = (solution.aire_nette(), solution.aire_des_retraits())
+        && retiree > 0.0
+    {
+        lignes.push((
+            textes::DESSIN_SURFACE_NETTE.traduit().to_string(),
+            aire_en_clair(nette),
+        ));
+    }
+    if let Some(murs) = solution.murs() {
+        if detail && let Some(hauteur) = solution.hauteur {
+            lignes.push((
+                textes::DESSIN_HAUTEUR_DES_MURS.traduit().to_string(),
+                longueur(hauteur),
+            ));
+        }
+        lignes.push((
+            textes::DESSIN_SURFACE_DES_MURS.traduit().to_string(),
+            aire_en_clair(murs.brute),
+        ));
+        if murs.ouvertures > 0.0 {
+            lignes.push((
+                textes::DESSIN_PORTES_ET_FENETRES.traduit().to_string(),
+                aire_en_clair(murs.ouvertures),
+            ));
+            lignes.push((
+                textes::DESSIN_MURS_NETS.traduit().to_string(),
+                aire_en_clair(murs.nette),
+            ));
+        }
+    }
+    lignes
 }
 
 /// Où en est la forme : ce qu'il reste à faire, ou la surface et le périmètre.
@@ -1288,37 +1565,12 @@ fn bilan(
         ),
         EtatDeLaForme::SeCroise => consigne(ui, textes::DESSIN_SE_CROISE.traduit(), p.erreur),
         EtatDeLaForme::Complete { aire, perimetre } => {
-            let mut resultats = vec![
-                (
-                    textes::DESSIN_SURFACE.traduit().to_string(),
-                    Quantite::Aire(aire).en_clair(solution.modele, prefs),
-                ),
-                (
-                    textes::DESSIN_PERIMETRE.traduit().to_string(),
-                    longueur_en_clair(perimetre, solution, prefs),
-                ),
-            ];
-            // Un rectangle est d'équerre quand ses deux diagonales ont cette longueur.
-            if let [Some(a), Some(b), _, _] = solution
-                .mesures
-                .iter()
-                .map(|m| m.pouces())
-                .collect::<Vec<_>>()[..]
-            {
-                resultats.push((
-                    textes::DESSIN_DIAGONALE.traduit().to_string(),
-                    longueur_en_clair(a.hypot(b), solution, prefs),
-                ));
-            }
-            // Les retraits : la surface nette, ou ce qui empêche de la calculer.
+            let resultats = resultats_de_la_piece(dessin, solution, prefs, false);
+            // Les retraits : ce qui empêche de calculer la surface nette.
             let nette = solution.aire_nette();
             let aire_utile = nette.unwrap_or(aire);
             if !dessin.retraits.is_empty() {
                 match (nette, solution.aire_des_retraits()) {
-                    (Some(nette), Some(retiree)) if retiree > 0.0 => resultats.push((
-                        textes::DESSIN_SURFACE_NETTE.traduit().to_string(),
-                        Quantite::Aire(nette).en_clair(solution.modele, prefs),
-                    )),
                     (None, Some(_)) => {
                         consigne(ui, textes::DESSIN_RETRAITS_TROP_GRANDS.traduit(), p.erreur);
                     }
@@ -1392,17 +1644,21 @@ fn bilan(
                         .color(p.texte_attenue),
                     );
                     ui.add_space(2.0);
-                    for (c, rang_longueur, rang_largeur) in noyau::dessin::outils_d_une_piece() {
+                    for (c, rang_longueur, rang_largeur, rang_hauteur) in
+                        noyau::dessin::outils_d_une_piece()
+                    {
                         let libelle = textes::avec_tiret(c.metier.nom_court(), c.nom.traduit());
                         if ui.add(egui::Button::new(libelle)).clicked() {
                             etat.outils_ouverts = false;
-                            action = Some(Action::VersOutil {
-                                id: c.id,
-                                champs: [
-                                    (rang_longueur, a_taper(longueur)),
-                                    (rang_largeur, a_taper(largeur)),
-                                ],
-                            });
+                            let mut champs = vec![
+                                (rang_longueur, a_taper(longueur)),
+                                (rang_largeur, a_taper(largeur)),
+                            ];
+                            // La hauteur des murs, si l'outil en a une.
+                            if let (Some(rang), Some(hauteur)) = (rang_hauteur, solution.hauteur) {
+                                champs.push((rang, a_taper(hauteur)));
+                            }
+                            action = Some(Action::VersOutil { id: c.id, champs });
                         }
                     }
                 }

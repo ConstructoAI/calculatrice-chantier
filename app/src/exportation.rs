@@ -4,13 +4,15 @@
 //! (R-77), en texte ASCII : le PDF code ses accents en WinAnsi, le DXF en
 //! `\U+XXXX`.
 
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan, Solution};
+use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, Plan};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::{Format, Systeme};
 
 use crate::textes;
-use crate::vues::dessin::{FORMAT_PAR_DEFAUT, longueur_en_clair, nom_de_la_piece, saisie_en_clair};
+use crate::vues::dessin::{
+    FORMAT_PAR_DEFAUT, longueur_en_clair, nom_de_la_piece, resultats_de_la_piece, saisie_en_clair,
+};
 
 /// Ce qu'on exporte d'une pièce.
 struct PieceExportee {
@@ -85,72 +87,14 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         sommets,
         a_l_echelle: complete,
         cotes,
-        resultats: resultats(dessin, &solution, prefs),
+        resultats: resultats_de_la_piece(dessin, &solution, prefs, true)
+            .into_iter()
+            .map(|(libelle, valeur)| (sans_insecables(&libelle), sans_insecables(&valeur)))
+            .collect(),
         aire_nette,
         perimetre,
         modele: solution.modele,
     }
-}
-
-/// Les résultats d'une pièce, comme à l'écran.
-fn resultats(dessin: &Dessin, solution: &Solution, prefs: &Preferences) -> Vec<(String, String)> {
-    let EtatDeLaForme::Complete { aire, perimetre } = solution.etat else {
-        return Vec::new();
-    };
-    let aire_en_clair =
-        |po2: f64| sans_insecables(&Quantite::Aire(po2).en_clair(solution.modele, prefs));
-    let longueur = |pouces: f64| sans_insecables(&longueur_en_clair(pouces, solution, prefs));
-    let mut lignes = vec![
-        (
-            textes::DESSIN_SURFACE.traduit().to_string(),
-            aire_en_clair(aire),
-        ),
-        (
-            textes::DESSIN_PERIMETRE.traduit().to_string(),
-            longueur(perimetre),
-        ),
-    ];
-    if let [Some(a), Some(b), _, _] = solution
-        .mesures
-        .iter()
-        .map(|m| m.pouces())
-        .collect::<Vec<_>>()[..]
-    {
-        lignes.push((
-            textes::DESSIN_DIAGONALE.traduit().to_string(),
-            longueur(a.hypot(b)),
-        ));
-    }
-    let dimension = |saisie: &str| {
-        saisie_en_clair(saisie, prefs)
-            .map(|texte| sans_insecables(&texte))
-            .unwrap_or_else(|| saisie.trim().to_string())
-    };
-    for (rang, (retrait, aire_du_retrait)) in
-        dessin.retraits.iter().zip(&solution.retraits).enumerate()
-    {
-        let Some(aire_du_retrait) = aire_du_retrait.filter(|a| *a > 0.0) else {
-            continue;
-        };
-        lignes.push((
-            textes::dessin_retrait_numero(rang + 1),
-            format!(
-                "{} × {} = {}",
-                dimension(&retrait.longueur),
-                dimension(&retrait.largeur),
-                aire_en_clair(aire_du_retrait)
-            ),
-        ));
-    }
-    if let (Some(nette), Some(retiree)) = (solution.aire_nette(), solution.aire_des_retraits())
-        && retiree > 0.0
-    {
-        lignes.push((
-            textes::DESSIN_SURFACE_NETTE.traduit().to_string(),
-            aire_en_clair(nette),
-        ));
-    }
-    lignes
 }
 
 // ---------------------------------------------------------------------- PDF
@@ -901,7 +845,7 @@ mod tests {
                 cote(Sens::Nord, 150.0, ""),
             ],
             fermee: true,
-            retraits: Vec::new(),
+            ..Dessin::default()
         }
     }
 
