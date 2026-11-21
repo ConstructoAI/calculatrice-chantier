@@ -87,6 +87,10 @@ pub struct Etat {
     fleches_en_biais: bool,
     /// L'ouverture qui attend qu'on touche son mur pour s'y placer.
     ouverture_a_placer: Option<usize>,
+    /// Vrai quand la planche montre la pièce en 3D.
+    vue_3d: bool,
+    /// La caméra de la vue 3D.
+    orbite: super::maquette::Orbite,
     /// Vrai quand un geste à deux doigts a interrompu le geste en cours : rien
     /// n'est tracé ni déplacé jusqu'à ce que les doigts se lèvent.
     geste_annule: bool,
@@ -108,6 +112,8 @@ enum AutreSaisie {
 enum ChampDOuverture {
     Largeur,
     Hauteur,
+    /// La hauteur du bas d'une fenêtre (son allège).
+    Allege,
     /// La distance au premier coin de son mur.
     Position,
 }
@@ -146,6 +152,8 @@ impl Etat {
         self.cadrage = Cadrage::default();
         self.geste_annule = false;
         self.ouverture_a_placer = None;
+        self.vue_3d = false;
+        self.orbite = super::maquette::Orbite::default();
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -585,6 +593,104 @@ fn planche_et_gestes(
         Stroke::new(1.0, p.carte_bord),
         egui::StrokeKind::Inside,
     );
+    // La vue 3D, quand elle est choisie et que la pièce est complète.
+    if etat.vue_3d {
+        if let Some(maquette) = noyau::maquette::maquette(dessin, solution) {
+            if reponse.dragged() {
+                etat.orbite.tourner(reponse.drag_delta());
+            }
+            let (pincement, molette, survol) =
+                ui.input(|i| (i.zoom_delta(), i.smooth_scroll_delta, i.pointer.hover_pos()));
+            if survol.is_some_and(|q| planche.contains(q)) {
+                let facteur = if (pincement - 1.0).abs() > 1e-4 {
+                    pincement
+                } else {
+                    (molette.y * 0.002).exp()
+                };
+                etat.orbite.zoomer(facteur);
+            }
+            super::maquette::dessiner(&painter, planche.shrink(12.0), &maquette, &etat.orbite, p);
+            let consigne = if solution.hauteur.is_none() {
+                format!(
+                    "{} · {}",
+                    textes::DESSIN_TOURNER.traduit(),
+                    textes::DESSIN_MURS_PAR_DEFAUT.traduit()
+                )
+            } else {
+                textes::DESSIN_TOURNER.traduit().to_string()
+            };
+            painter.text(
+                planche.left_top() + Vec2::new(12.0, 12.0),
+                Align2::LEFT_TOP,
+                consigne,
+                theme::police(12.5),
+                p.texte_attenue,
+            );
+            // Le zoom, et le retour au plan.
+            let cote = 34.0;
+            let a_droite = planche.right() - 8.0 - cote;
+            let plus =
+                Rect::from_min_size(Pos2::new(a_droite, planche.top() + 8.0), Vec2::splat(cote));
+            if bouton_de_planche(
+                ui,
+                &painter,
+                plus,
+                "+",
+                textes::DESSIN_ZOOMER.traduit(),
+                false,
+                p,
+            ) {
+                etat.orbite.zoomer(1.25);
+            }
+            let moins = plus.translate(Vec2::new(0.0, cote + 6.0));
+            if bouton_de_planche(
+                ui,
+                &painter,
+                moins,
+                "\u{2212}",
+                textes::DESSIN_DEZOOMER.traduit(),
+                false,
+                p,
+            ) {
+                etat.orbite.zoomer(0.8);
+            }
+            let ajuster = Rect::from_min_size(
+                Pos2::new(planche.right() - 8.0 - 74.0, moins.bottom() + 6.0),
+                Vec2::new(74.0, cote),
+            );
+            if etat.orbite != super::maquette::Orbite::default()
+                && bouton_de_planche(
+                    ui,
+                    &painter,
+                    ajuster,
+                    textes::DESSIN_AJUSTER.traduit(),
+                    textes::DESSIN_AJUSTER.traduit(),
+                    false,
+                    p,
+                )
+            {
+                etat.orbite = super::maquette::Orbite::default();
+            }
+            let plan = Rect::from_min_size(
+                Pos2::new(planche.left() + 8.0, planche.bottom() - 8.0 - cote),
+                Vec2::new(52.0, cote),
+            );
+            if bouton_de_planche(
+                ui,
+                &painter,
+                plan,
+                textes::DESSIN_2D.traduit(),
+                textes::DESSIN_REVENIR_AU_PLAN.traduit(),
+                true,
+                p,
+            ) {
+                etat.vue_3d = false;
+            }
+            return modifie;
+        }
+        etat.vue_3d = false;
+    }
+
     // Un quadrillage léger, comme une feuille de chantier. Il suit le zoom et
     // le décalage, avec un pas toujours lisible.
     let mut pas = 26.0 * etat.cadrage.zoom;
@@ -932,6 +1038,25 @@ fn planche_et_gestes(
         );
     }
     boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
+    // La vue 3D, pour une pièce complète.
+    let bouton_3d = Rect::from_min_size(
+        Pos2::new(planche.left() + 8.0, planche.bottom() - 42.0),
+        Vec2::new(52.0, 34.0),
+    );
+    if dessin.fermee
+        && matches!(solution.etat, EtatDeLaForme::Complete { .. })
+        && bouton_de_planche(
+            ui,
+            &painter,
+            bouton_3d,
+            textes::DESSIN_3D.traduit(),
+            textes::DESSIN_VOIR_EN_3D.traduit(),
+            false,
+            p,
+        )
+    {
+        etat.vue_3d = true;
+    }
     if !dessin.fermee && fleches(ui, p, &painter, planche, dessin, etat) {
         modifie = true;
     }
@@ -1374,6 +1499,7 @@ fn autre_mesure(
             let Some(ouverture) = dessin.ouvertures.get_mut(rang) else {
                 return false;
             };
+            let porte = ouverture.est_une_porte(pouces_de(&ouverture.hauteur));
             let (saisie, dimension, indice, ensuite) = match champ {
                 ChampDOuverture::Largeur => (
                     &mut ouverture.largeur,
@@ -1385,6 +1511,16 @@ fn autre_mesure(
                     &mut ouverture.hauteur,
                     textes::DESSIN_HAUTEUR,
                     textes::DESSIN_EXEMPLE.traduit(),
+                    Some(if porte {
+                        ChampDOuverture::Position
+                    } else {
+                        ChampDOuverture::Allege
+                    }),
+                ),
+                ChampDOuverture::Allege => (
+                    &mut ouverture.allege,
+                    textes::DESSIN_ALLEGE,
+                    textes::DESSIN_ALLEGE_EXEMPLE.traduit(),
                     Some(ChampDOuverture::Position),
                 ),
                 ChampDOuverture::Position => (
@@ -1520,6 +1656,47 @@ fn retraits(
         modifie = true;
     }
     modifie
+}
+
+/// Un petit bouton peint sur la planche; retourne vrai s'il est touché.
+fn bouton_de_planche(
+    ui: &Ui,
+    painter: &egui::Painter,
+    zone: Rect,
+    texte: &str,
+    nom: &str,
+    mis_en_avant: bool,
+    p: &Palette,
+) -> bool {
+    let reponse = ui.interact(
+        zone,
+        egui::Id::unique(("bouton-de-planche", nom)),
+        Sense::click(),
+    );
+    reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, nom));
+    let (fond, encre) = if mis_en_avant {
+        (p.selection, p.selection_texte)
+    } else if reponse.hovered() {
+        (theme::melanger(p.bouton, p.primaire, 0.12), p.texte)
+    } else {
+        (p.bouton, p.texte)
+    };
+    painter.rect_filled(zone, 8, fond.gamma_multiply(0.94));
+    painter.rect_stroke(
+        zone,
+        8,
+        Stroke::new(1.0, p.bouton_bord),
+        egui::StrokeKind::Inside,
+    );
+    let police = if texte.chars().count() > 1 {
+        theme::police_grasse(13.0)
+    } else {
+        theme::police_grasse(20.0)
+    };
+    painter.text(zone.center(), Align2::CENTER_CENTER, texte, police, encre);
+    let clic = reponse.clicked();
+    reponse.on_hover_text(nom);
+    clic
 }
 
 /// La valeur en pouces d'une mesure inscrite, si elle est lisible.
@@ -1676,6 +1853,22 @@ fn murs(
                     ui.label("×");
                 }
             }
+            // L'allège d'une fenêtre : la hauteur de son bas.
+            let ouverture = &dessin.ouvertures[rang];
+            if !ouverture.est_une_porte(pouces_de(&ouverture.hauteur)) {
+                let cible = AutreSaisie::Ouverture(rang, ChampDOuverture::Allege);
+                let texte = textes::dessin_allege(&mesure_du_bouton(
+                    &ouverture.allege,
+                    textes::DESSIN_ALLEGE_DEFAUT.traduit(),
+                    prefs,
+                ));
+                if ui
+                    .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                    .clicked()
+                {
+                    etat.choisir_autre(Some(cible));
+                }
+            }
             // La distance au premier coin de son mur; vide : centrée.
             let position = dessin.ouvertures[rang].position.trim();
             let texte = if position.is_empty() {
@@ -1757,6 +1950,7 @@ fn murs(
                     genre: Some(genre),
                     cote,
                     position: String::new(),
+                    allege: String::new(),
                 });
                 let rang = dessin.ouvertures.len() - 1;
                 etat.choisir_autre(Some(AutreSaisie::Ouverture(rang, ChampDOuverture::Largeur)));

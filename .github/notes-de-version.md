@@ -19,6 +19,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   touchez leur mur : la porte paraît avec son battant et l'arc de son ouverture, la fenêtre
   avec son trait double. « Placer » les déplace; leur distance au coin se règle au pavé.
   Elles paraissent aussi dans le PDF et le DXF.
+- **0.9.2** : la **vue 3D** — le bouton **3D** montre la pièce en 3D, murs à leur hauteur,
+  portes et fenêtres dans les murs; glissez pour tourner, `+` et `−` pour zoomer. Chaque
+  fenêtre a son **allège** (la hauteur de son bas, 3 pi par défaut).
 
 ## Nouveautés de la version 0.8
 

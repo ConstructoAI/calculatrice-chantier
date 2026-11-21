@@ -2339,12 +2339,14 @@ fn transposer_le_dessin(
                 .iter_mut()
                 .flat_map(|retrait| [&mut retrait.longueur, &mut retrait.largeur]),
         )
-        .chain(
-            dessin
-                .ouvertures
-                .iter_mut()
-                .flat_map(|ouverture| [&mut ouverture.largeur, &mut ouverture.hauteur]),
-        )
+        .chain(dessin.ouvertures.iter_mut().flat_map(|ouverture| {
+            [
+                &mut ouverture.largeur,
+                &mut ouverture.hauteur,
+                &mut ouverture.allege,
+                &mut ouverture.position,
+            ]
+        }))
         .chain(std::iter::once(&mut dessin.hauteur_des_murs));
     for saisie in mesures {
         if !saisie.trim().is_empty() {

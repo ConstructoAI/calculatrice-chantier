@@ -197,7 +197,16 @@ pub struct Ouverture {
     /// La distance entre le premier coin de son mur et son bord, telle
     /// qu'elle a été inscrite; vide : l'ouverture est centrée.
     pub position: String,
+    /// La hauteur du bas d'une fenêtre (son allège), telle qu'elle a été
+    /// inscrite; vide : 3 pi. Une porte part du plancher.
+    pub allege: String,
 }
+
+/// L'allège d'une fenêtre quand elle n'est pas inscrite : 3 pi.
+pub const ALLEGE_PAR_DEFAUT: f64 = 36.0;
+/// La hauteur d'une porte ou d'une fenêtre quand elle n'est pas lisible.
+const HAUTEUR_DE_PORTE_PAR_DEFAUT: f64 = 80.0;
+const HAUTEUR_DE_FENETRE_PAR_DEFAUT: f64 = 48.0;
 
 /// Le genre d'une ouverture, pour la dessiner.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -225,6 +234,9 @@ pub struct Placement {
     pub debut: f64,
     pub fin: f64,
     pub porte: bool,
+    /// Le bas et le haut de l'ouverture, en pouces depuis le plancher.
+    pub bas: f64,
+    pub haut: f64,
 }
 
 /// La surface des murs d'une pièce, en pouces carrés.
@@ -933,11 +945,27 @@ impl Dessin {
                 } else {
                     lire_ou_zero(&ouverture.position)?.min(libre)
                 };
+                let hauteur = lire(&ouverture.hauteur);
+                let porte = ouverture.est_une_porte(hauteur);
+                let bas = if porte {
+                    0.0
+                } else if ouverture.allege.trim().is_empty() {
+                    ALLEGE_PAR_DEFAUT
+                } else {
+                    lire_ou_zero(&ouverture.allege).unwrap_or(ALLEGE_PAR_DEFAUT)
+                };
+                let hauteur = hauteur.unwrap_or(if porte {
+                    HAUTEUR_DE_PORTE_PAR_DEFAUT
+                } else {
+                    HAUTEUR_DE_FENETRE_PAR_DEFAUT
+                });
                 Some(Placement {
                     cote,
                     debut,
                     fin: debut + largeur,
-                    porte: ouverture.est_une_porte(lire(&ouverture.hauteur)),
+                    porte,
+                    bas,
+                    haut: bas + hauteur,
                 })
             })
             .collect();
@@ -1625,6 +1653,7 @@ mod tests {
                 genre: None,
                 cote,
                 position: position.into(),
+                allege: String::new(),
             };
         dessin.ouvertures = vec![
             // Une porte centrée sur le premier mur : (144 − 32) / 2 = 56 po.
@@ -1646,7 +1675,9 @@ mod tests {
                 cote: 0,
                 debut: 56.0,
                 fin: 88.0,
-                porte: true
+                porte: true,
+                bas: 0.0,
+                haut: 80.0
             })
         );
         assert_eq!(
@@ -1655,7 +1686,9 @@ mod tests {
                 cote: 1,
                 debut: 24.0,
                 fin: 60.0,
-                porte: false
+                porte: false,
+                bas: 36.0,
+                haut: 84.0
             })
         );
         assert_eq!(p[2].map(|p| (p.debut, p.fin)), Some((0.0, 36.0)));

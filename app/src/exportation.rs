@@ -1199,6 +1199,7 @@ mod tests {
                 genre: Some(noyau::dessin::GenreDOuverture::Porte),
                 cote: Some(0),
                 position: String::new(),
+                allege: String::new(),
             },
             noyau::dessin::Ouverture {
                 largeur: "3".into(),
@@ -1206,6 +1207,7 @@ mod tests {
                 genre: Some(noyau::dessin::GenreDOuverture::Fenetre),
                 cote: Some(1),
                 position: "2".into(),
+                allege: String::new(),
             },
         ];
         let plan = Plan::d_une_piece(chambre);

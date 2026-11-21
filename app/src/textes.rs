@@ -400,6 +400,23 @@ pub const DESSIN_PAS_PLACEE: Texte = t("pas placée", "not placed");
 pub const DESSIN_CENTREE: Texte = t("centrée", "centred");
 pub const DESSIN_POSITION: Texte = t("distance du coin", "distance from the corner");
 pub const DESSIN_POSITION_EXEMPLE: Texte = t("vide : centrée", "empty: centred");
+pub const DESSIN_ALLEGE: Texte = t("allège", "sill height");
+pub const DESSIN_ALLEGE_DEFAUT: Texte = t("3 pi 0 po", "3 ft 0 in");
+pub const DESSIN_ALLEGE_EXEMPLE: Texte = t("3 pi 0 po (vide : 3 pi)", "3 ft 0 in (empty: 3 ft)");
+pub const DESSIN_3D: Texte = tel("3D");
+pub const DESSIN_2D: Texte = tel("2D");
+pub const DESSIN_VOIR_EN_3D: Texte = t("Voir la pièce en 3D", "View the room in 3D");
+pub const DESSIN_REVENIR_AU_PLAN: Texte = t("Revenir au plan", "Back to the plan");
+pub const DESSIN_TOURNER: Texte = t("Glissez pour tourner", "Drag to turn");
+pub const DESSIN_MURS_PAR_DEFAUT: Texte = t("murs de 8 pi par défaut", "8 ft walls by default");
+
+/// « allège 3 pi 0 po » : le bas d'une fenêtre.
+pub fn dessin_allege(hauteur: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("allège {hauteur}"),
+        Langue::Anglais => format!("sill {hauteur}"),
+    }
+}
 
 /// « côté 3 » : le mur d'une ouverture.
 pub fn dessin_sur_le_cote(rang: usize) -> String {
