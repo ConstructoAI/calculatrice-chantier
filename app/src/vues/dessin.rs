@@ -4,7 +4,7 @@
 use eframe::egui::{self, Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use noyau::cloison::{
     Cloison, CloisonMesuree, EPAISSEUR_PAR_DEFAUT, LARGEUR_DE_PORTE_PAR_DEFAUT, PorteDeCloison,
-    Segment, redresser,
+    Segment, SegmentDeCloison, redresser_le_trace,
 };
 use noyau::dessin::{
     Dessin, Etat as EtatDeLaForme, GenreDOuverture, Mesure, Ouverture, Plan, Retrait, Sens,
@@ -142,8 +142,8 @@ pub struct Etat {
     note_ecrite: Option<usize>,
     /// Vrai quand le prochain glissement sur le plan trace une cloison.
     cloison_a_tracer: bool,
-    /// La cloison qu'on trace : son départ et le point atteint (pouces).
-    cloison_en_trace: Option<Segment>,
+    /// La cloison qu'on trace : les points du doigt (pouces), coins compris.
+    cloison_en_trace: Option<Vec<(f64, f64)>>,
     /// La cloison choisie.
     cloison_choisie: Option<usize>,
     /// La cloison que le doigt déplace : son rang, et l'écart (pouces) entre
@@ -167,7 +167,8 @@ pub struct Etat {
 /// Une mesure d'une cloison ou de sa porte.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ChampDeCloison {
-    Longueur,
+    /// La longueur d'un de ses segments.
+    Longueur(usize),
     Epaisseur,
     LargeurDePorte,
     PositionDePorte,
@@ -180,6 +181,8 @@ enum GesteSurUneCloison {
     AjouterUnePorte,
     Inverser,
     SansPorte,
+    /// La porte passe au segment suivant.
+    SegmentSuivant,
 }
 
 /// Une mesure autre que celle d'un côté.
@@ -220,10 +223,18 @@ impl AutreSaisie {
             AutreSaisie::Hauteur => true,
             AutreSaisie::Ouverture(rang, _) => rang < dessin.ouvertures.len(),
             AutreSaisie::Objet(rang, _) => rang < dessin.objets.len(),
-            AutreSaisie::Cloison(rang, champ) => dessin.cloisons.get(rang).is_some_and(|cloison| {
-                matches!(champ, ChampDeCloison::Longueur | ChampDeCloison::Epaisseur)
-                    || cloison.porte.is_some()
-            }),
+            AutreSaisie::Cloison(rang, champ) => {
+                dessin
+                    .cloisons
+                    .get(rang)
+                    .is_some_and(|cloison| match champ {
+                        ChampDeCloison::Longueur(segment) => segment < cloison.nombre_de_segments(),
+                        ChampDeCloison::Epaisseur => true,
+                        ChampDeCloison::LargeurDePorte | ChampDeCloison::PositionDePorte => {
+                            cloison.porte.is_some()
+                        }
+                    })
+            }
             AutreSaisie::EpaisseurDesMurs | AutreSaisie::EpaisseurDesCloisons => true,
         }
     }
@@ -361,7 +372,7 @@ fn cloison_sous(solution: &Solution, point: (f64, f64), marge: f64) -> Option<us
 /// cloisons.
 fn appuis_des_cloisons(sommets: &[(f64, f64)], solution: &Solution) -> Vec<Segment> {
     let mut appuis: Vec<_> = sommets.windows(2).map(|s| (s[0], s[1])).collect();
-    appuis.extend(solution.cloisons.iter().flatten().map(|c| (c.debut, c.fin)));
+    appuis.extend(solution.cloisons.iter().flatten().flat_map(|c| c.axes()));
     appuis
 }
 
@@ -380,57 +391,82 @@ fn aimant_des_cloisons(echelle: &Echelle) -> f64 {
     f64::from(18.0 / echelle.facteur).max(3.0)
 }
 
-/// Une cloison sur le plan : pleine, avec sa longueur à côté, sa porte (le
-/// battant et son arc) et, choisie, son bout A, d'où se mesure la porte.
+/// Une cloison sur le plan : pleine, aux coins d'onglet, avec la longueur de
+/// chaque segment à côté de lui, sa porte (le battant et son arc) et, choisie,
+/// le bout A du segment de sa porte, d'où se mesure la porte.
 fn dessiner_une_cloison(
     painter: &egui::Painter,
     p: &Palette,
     echelle: &Echelle,
     cloison: &CloisonMesuree,
     choisie: bool,
-    longueur: String,
+    ecrire: &dyn Fn(f64) -> String,
 ) {
     let encre = if choisie { p.barre_accent } else { p.primaire };
-    for morceau in cloison.morceaux() {
+    let morceaux = cloison.morceaux();
+    // Le plein d'abord, puis les faces et les bouts : les coins d'onglet ne
+    // se tracent pas.
+    for morceau in &morceaux {
         let coins: Vec<Pos2> = morceau
+            .coins
             .iter()
             .map(|coin| echelle.vers_l_ecran(*coin))
             .collect();
         painter.add(egui::Shape::convex_polygon(
             coins,
             encre.gamma_multiply(0.45),
-            Stroke::new(1.4, encre),
+            Stroke::NONE,
         ));
     }
+    let trait_ = Stroke::new(1.4, encre);
+    for morceau in &morceaux {
+        let [a, b, c, d] = morceau.coins.map(|coin| echelle.vers_l_ecran(coin));
+        painter.line_segment([a, b], trait_);
+        painter.line_segment([d, c], trait_);
+        if morceau.bout_au_debut {
+            painter.line_segment([a, d], trait_);
+        }
+        if morceau.bout_a_la_fin {
+            painter.line_segment([b, c], trait_);
+        }
+    }
     if let Some(porte) = cloison.porte {
-        let q0 = echelle.vers_l_ecran(cloison.point(porte.debut));
-        let q1 = echelle.vers_l_ecran(cloison.point(porte.fin));
+        let q0 = echelle.vers_l_ecran(cloison.point(porte.segment, porte.debut));
+        let q1 = echelle.vers_l_ecran(cloison.point(porte.segment, porte.fin));
         let (nx, ny) = cloison.cote_de_la_porte();
         let cote = Vec2::new(nx as f32, ny as f32);
         dessiner_ouverture(painter, (q0, q1), cote, true, encre, encre, 0.0);
     }
-    let (a, b) = (
-        echelle.vers_l_ecran(cloison.debut),
-        echelle.vers_l_ecran(cloison.fin),
-    );
-    let le_long = (b - a).normalized();
-    // La longueur s'écrit au-dessus d'une cloison horizontale, à droite d'une
-    // cloison verticale : deux cloisons qui se touchent ne mêlent pas leurs
-    // longueurs.
-    let normale = Vec2::new(-le_long.y, le_long.x);
-    let a_cote = if normale.x - normale.y >= 0.0 {
-        normale
-    } else {
-        -normale
-    };
-    let ecart = cloison.epaisseur as f32 * echelle.facteur / 2.0 + 10.0;
-    let galere = painter.layout_no_wrap(longueur, theme::police_grasse(11.0), encre);
-    let cadre = Rect::from_center_size(a + (b - a) * 0.5 + a_cote * ecart, galere.size())
-        .expand2(Vec2::new(2.0, 1.0));
-    painter.rect_filled(cadre, 3, p.carte.gamma_multiply(0.9));
-    painter.galley(cadre.min + Vec2::new(2.0, 1.0), galere, encre);
-    if choisie {
-        // Le bout A, d'où se mesure la porte.
+    // La longueur de chaque segment s'écrit au-dessus d'un segment horizontal,
+    // à droite d'un segment vertical : deux cloisons qui se touchent ne mêlent
+    // pas leurs longueurs.
+    for k in 0..cloison.nombre_de_segments() {
+        let a = echelle.vers_l_ecran(cloison.sommets[k]);
+        let b = echelle.vers_l_ecran(cloison.sommets[k + 1]);
+        let le_long = (b - a).normalized();
+        let normale = Vec2::new(-le_long.y, le_long.x);
+        let a_cote = if normale.x - normale.y >= 0.0 {
+            normale
+        } else {
+            -normale
+        };
+        let ecart = cloison.epaisseur as f32 * echelle.facteur / 2.0 + 10.0;
+        let texte = ecrire(cloison.longueur_du_segment(k));
+        let galere = painter.layout_no_wrap(texte, theme::police_grasse(11.0), encre);
+        let cadre = Rect::from_center_size(a + (b - a) * 0.5 + a_cote * ecart, galere.size())
+            .expand2(Vec2::new(2.0, 1.0));
+        painter.rect_filled(cadre, 3, p.carte.gamma_multiply(0.9));
+        painter.galley(cadre.min + Vec2::new(2.0, 1.0), galere, encre);
+    }
+    if choisie && cloison.nombre_de_segments() > 0 {
+        // Le bout A : le début du segment de la porte (ou de la cloison).
+        let segment = cloison
+            .porte
+            .map_or(0, |porte| porte.segment)
+            .min(cloison.nombre_de_segments() - 1);
+        let a = echelle.vers_l_ecran(cloison.sommets[segment]);
+        let b = echelle.vers_l_ecran(cloison.sommets[segment + 1]);
+        let le_long = (b - a).normalized();
         painter.circle_stroke(a, 6.5, Stroke::new(1.6, p.barre_accent));
         painter.text(
             a - le_long * 15.0,
@@ -1106,6 +1142,7 @@ fn planche_et_gestes(
     // à lui-même, et ses voisins s'allongent ou raccourcissent.
     if matches!(solution.etat, EtatDeLaForme::Complete { .. })
         && etat.mur_tire.is_none()
+        && !etat.cloison_a_tracer
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1130,8 +1167,10 @@ fn planche_et_gestes(
         });
         etat.choisir(None);
     }
+    // Pendant le tracé d'une cloison, rien d'autre ne se saisit.
     let saisie = if dessin.fermee
         && etat.mur_tire.is_none()
+        && !etat.cloison_a_tracer
         && reponse.drag_started_by(egui::PointerButton::Primary)
     {
         ui.input(|i| i.pointer.press_origin()).and_then(|origine| {
@@ -1170,7 +1209,7 @@ fn planche_et_gestes(
         && let Some(echelle) = etat.derniere_echelle
     {
         let depart = echelle.vers_le_plan(origine);
-        etat.cloison_en_trace = Some((depart, depart));
+        etat.cloison_en_trace = Some(vec![depart]);
     }
     // Une note saisie au doigt se déplace aussi; elle passe avant les objets,
     // qu'elle recouvre.
@@ -1376,31 +1415,62 @@ fn planche_et_gestes(
             etat.mur_tire = Some(tire);
         }
     }
-    // La cloison qu'on trace suit le doigt; elle naît quand il se lève.
-    if let Some((depart, atteint)) = etat.cloison_en_trace {
-        let atteint = reponse
-            .interact_pointer_pos()
-            .map_or(atteint, |pointeur| echelle.vers_le_plan(pointeur));
-        etat.cloison_en_trace = Some((depart, atteint));
-        if !reponse.dragged() {
-            etat.cloison_en_trace = None;
+    // La cloison qu'on trace suit le doigt, coins compris; elle naît quand il
+    // se lève.
+    if let Some(mut trace) = etat.cloison_en_trace.take() {
+        // Toutes les positions de cette image : un geste rapide en apporte
+        // plusieurs à la fois.
+        let positions: Vec<Pos2> = ui.input(|i| {
+            i.events
+                .iter()
+                .filter_map(|evenement| match evenement {
+                    egui::Event::PointerMoved(position) => Some(*position),
+                    egui::Event::PointerButton {
+                        pos,
+                        pressed: false,
+                        ..
+                    } => Some(*pos),
+                    _ => None,
+                })
+                .collect()
+        });
+        for position in positions.into_iter().chain(reponse.interact_pointer_pos()) {
+            let point = echelle.vers_le_plan(position);
+            if trace
+                .last()
+                .is_none_or(|d| (d.0 - point.0).hypot(d.1 - point.1) > 0.5)
+            {
+                trace.push(point);
+            }
+        }
+        if reponse.dragged() {
+            etat.cloison_en_trace = Some(trace);
+        } else {
             let appuis = appuis_des_cloisons(faces_interieures, solution);
-            if let Some((sens, debut, longueur)) = redresser(
-                depart,
-                atteint,
+            if let Some((debut, segments)) = redresser_le_trace(
+                &trace,
                 &appuis,
                 aimant_des_cloisons(&echelle),
                 pas_du_plan(solution),
-            ) {
+            ) && let Some((premier, suite)) = segments.split_first()
+            {
+                let ecrire = |pouces: f64| {
+                    sans_insecables(&Quantite::Longueur(pouces).en_clair(solution.modele, prefs))
+                };
                 etat.memoriser(dessin);
                 dessin.cloisons.push(Cloison {
                     debut,
-                    sens,
-                    longueur: sans_insecables(
-                        &Quantite::Longueur(longueur).en_clair(solution.modele, prefs),
-                    ),
+                    sens: premier.0,
+                    longueur: ecrire(premier.1),
                     epaisseur: String::new(),
                     porte: None,
+                    suite: suite
+                        .iter()
+                        .map(|&(sens, longueur)| SegmentDeCloison {
+                            sens,
+                            longueur: ecrire(longueur),
+                        })
+                        .collect(),
                 });
                 etat.cloison_choisie = Some(dessin.cloisons.len() - 1);
                 etat.cloison_a_tracer = false;
@@ -1709,6 +1779,7 @@ fn planche_et_gestes(
     }
     // Les cloisons, et celle qu'on trace.
     if complete {
+        let ecrire = |pouces: f64| longueur_en_clair(pouces, solution, prefs);
         for (rang, cloison) in solution.cloisons.iter().enumerate() {
             let Some(cloison) = cloison else {
                 continue;
@@ -1716,28 +1787,19 @@ fn planche_et_gestes(
             let choisie = etat.cloison_choisie == Some(rang)
                 || etat.cloison_tiree.is_some_and(|(r, _)| r == rang)
                 || matches!(etat.autre_choisi, Some(AutreSaisie::Cloison(r, _)) if r == rang);
-            let longueur = longueur_en_clair(cloison.longueur, solution, prefs);
-            dessiner_une_cloison(&painter, p, &echelle, cloison, choisie, longueur);
+            dessiner_une_cloison(&painter, p, &echelle, cloison, choisie, &ecrire);
         }
-        if let Some((depart, atteint)) = etat.cloison_en_trace
-            && let Some((sens, debut, longueur)) = redresser(
-                depart,
-                atteint,
+        if let Some(trace) = &etat.cloison_en_trace
+            && let Some((debut, segments)) = redresser_le_trace(
+                trace,
                 &appuis_des_cloisons(faces_interieures, solution),
                 aimant_des_cloisons(&echelle),
                 pas_du_plan(solution),
             )
         {
-            let (ux, uy) = sens.pas();
-            let apercu = CloisonMesuree {
-                debut,
-                fin: (debut.0 + ux * longueur, debut.1 + uy * longueur),
-                longueur,
-                epaisseur: solution.epaisseur_des_cloisons,
-                porte: None,
-            };
-            let texte = longueur_en_clair(longueur, solution, prefs);
-            dessiner_une_cloison(&painter, p, &echelle, &apercu, true, texte);
+            let apercu =
+                CloisonMesuree::depuis(debut, &segments, solution.epaisseur_des_cloisons, None);
+            dessiner_une_cloison(&painter, p, &echelle, &apercu, true, &ecrire);
         }
     }
     // Les murs extérieurs, à leur épaisseur, hors des mesures : pleins, avec
@@ -2555,15 +2617,30 @@ fn autre_mesure(
             let Some(cloison) = dessin.cloisons.get_mut(rang) else {
                 return false;
             };
+            let plusieurs = cloison.nombre_de_segments() > 1;
             let (saisie, dimension, indice) = match champ {
-                ChampDeCloison::Longueur => (
-                    &mut cloison.longueur,
-                    textes::DESSIN_LONGUEUR,
-                    textes::DESSIN_EXEMPLE.traduit().to_string(),
-                ),
+                ChampDeCloison::Longueur(segment) => {
+                    let Some(saisie) = cloison.longueur_du_segment_mut(segment) else {
+                        return false;
+                    };
+                    let dimension = if plusieurs {
+                        format!(
+                            "{}, {}",
+                            textes::dessin_segment(segment + 1),
+                            textes::DESSIN_LONGUEUR.traduit()
+                        )
+                    } else {
+                        textes::DESSIN_LONGUEUR.traduit().to_string()
+                    };
+                    (
+                        saisie,
+                        dimension,
+                        textes::DESSIN_EXEMPLE.traduit().to_string(),
+                    )
+                }
                 ChampDeCloison::Epaisseur => (
                     &mut cloison.epaisseur,
-                    textes::DESSIN_EPAISSEUR,
+                    textes::DESSIN_EPAISSEUR.traduit().to_string(),
                     sans_insecables(&Quantite::Longueur(defaut).en_clair(None, prefs)),
                 ),
                 ChampDeCloison::LargeurDePorte => {
@@ -2572,7 +2649,7 @@ fn autre_mesure(
                     };
                     (
                         &mut porte.largeur,
-                        textes::DESSIN_LARGEUR_DE_LA_PORTE,
+                        textes::DESSIN_LARGEUR_DE_LA_PORTE.traduit().to_string(),
                         sans_insecables(
                             &Quantite::Longueur(LARGEUR_DE_PORTE_PAR_DEFAUT).en_clair(None, prefs),
                         ),
@@ -2584,7 +2661,7 @@ fn autre_mesure(
                     };
                     (
                         &mut porte.position,
-                        textes::DESSIN_DISTANCE_DU_BOUT_A,
+                        textes::DESSIN_DISTANCE_DU_BOUT_A.traduit().to_string(),
                         textes::DESSIN_CENTREE.traduit().to_string(),
                     )
                 }
@@ -2595,7 +2672,7 @@ fn autre_mesure(
                     "{} {} : {}",
                     textes::DESSIN_CLOISON.traduit(),
                     rang + 1,
-                    dimension.traduit()
+                    dimension
                 ),
                 indice,
                 None,
@@ -3189,8 +3266,9 @@ fn objets(
     modifie
 }
 
-/// Les cloisons de la pièce : leur longueur, leur épaisseur et leur porte, et
-/// le bouton pour en tracer une. Retourne vrai si le dessin a changé.
+/// Les cloisons de la pièce : la longueur de chacun de leurs segments, leur
+/// épaisseur et leur porte, et le bouton pour en tracer une. Retourne vrai si
+/// le dessin a changé.
 fn cloisons(
     ui: &mut Ui,
     p: &Palette,
@@ -3218,7 +3296,7 @@ fn cloisons(
     let mut geste = None;
     for rang in 0..dessin.cloisons.len() {
         let cloison = &dessin.cloisons[rang];
-        let mesuree = solution.cloisons.get(rang).copied().flatten();
+        let mesuree = solution.cloisons.get(rang).and_then(Option::as_ref);
         let epaisseur = mesuree.map_or(solution.epaisseur_des_cloisons, |c| c.epaisseur);
         ui.horizontal_wrapped(|ui| {
             let choisie = etat.cloison_choisie == Some(rang);
@@ -3231,16 +3309,20 @@ fn cloisons(
             if ui.add(egui::Button::new(nom).selected(choisie)).clicked() {
                 etat.cloison_choisie = if choisie { None } else { Some(rang) };
             }
-            let boutons = [
-                (
-                    ChampDeCloison::Longueur,
-                    mesure_du_bouton(&cloison.longueur, "?", prefs),
-                ),
-                (
-                    ChampDeCloison::Epaisseur,
-                    longueur_en_clair(epaisseur, solution, prefs),
-                ),
-            ];
+            // Un bouton par segment : sa longueur; puis l'épaisseur.
+            let mut boutons: Vec<(ChampDeCloison, String)> = (0..cloison.nombre_de_segments())
+                .map(|segment| {
+                    let texte = cloison.longueur_du_segment(segment).unwrap_or("");
+                    (
+                        ChampDeCloison::Longueur(segment),
+                        mesure_du_bouton(texte, "?", prefs),
+                    )
+                })
+                .collect();
+            boutons.push((
+                ChampDeCloison::Epaisseur,
+                longueur_en_clair(epaisseur, solution, prefs),
+            ));
             for (champ, texte) in boutons {
                 if champ == ChampDeCloison::Epaisseur {
                     ui.label(textes::DESSIN_EP.traduit());
@@ -3268,14 +3350,27 @@ fn cloisons(
                 geste = Some((rang, GesteSurUneCloison::Enlever));
             }
         });
-        // Sa porte : sa largeur, sa place depuis le bout A, son côté.
+        // Sa porte : son segment, sa largeur, sa place depuis le bout A, son côté.
         if let Some(porte) = &cloison.porte {
-            let mesuree = mesuree.and_then(|c| c.porte);
+            let porte_mesuree = mesuree.and_then(|c| c.porte);
             ui.horizontal_wrapped(|ui| {
                 ui.add_space(16.0);
                 ui.label(RichText::new(textes::DESSIN_PORTE.traduit()).size(13.5));
-                let largeur = mesuree.map_or(LARGEUR_DE_PORTE_PAR_DEFAUT, |q| q.fin - q.debut);
-                let place = match mesuree {
+                if cloison.nombre_de_segments() > 1 {
+                    // Un toucher la fait passer au segment suivant.
+                    let segment = porte_mesuree.map_or(porte.segment, |q| q.segment);
+                    if ui
+                        .add(egui::Button::new(textes::dessin_sur_le_segment(
+                            segment + 1,
+                        )))
+                        .clicked()
+                    {
+                        geste = Some((rang, GesteSurUneCloison::SegmentSuivant));
+                    }
+                }
+                let largeur =
+                    porte_mesuree.map_or(LARGEUR_DE_PORTE_PAR_DEFAUT, |q| q.fin - q.debut);
+                let place = match porte_mesuree {
                     Some(q) if !porte.position.trim().is_empty() => {
                         textes::dessin_du_bout_a(&longueur_en_clair(q.debut, solution, prefs))
                     }
@@ -3334,6 +3429,15 @@ fn cloisons(
             GesteSurUneCloison::SansPorte => {
                 dessin.cloisons[rang].porte = None;
                 etat.choisir_autre(None);
+            }
+            GesteSurUneCloison::SegmentSuivant => {
+                let nombre = dessin.cloisons[rang].nombre_de_segments();
+                if let Some(porte) = dessin.cloisons[rang].porte.as_mut() {
+                    // Sur son nouveau segment, la porte se recentre.
+                    porte.segment = (porte.segment + 1) % nombre;
+                    porte.position.clear();
+                }
+                etat.cloison_choisie = Some(rang);
             }
         }
         modifie = true;

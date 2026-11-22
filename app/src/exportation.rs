@@ -40,7 +40,7 @@ struct PieceExportee {
     notes: Vec<(String, (f64, f64))>,
     /// Les cloisons d'une pièce complète : leurs morceaux pleins (quatre
     /// coins, en pouces), et leurs portes.
-    cloisons: Vec<[(f64, f64); 4]>,
+    cloisons: Vec<noyau::cloison::MorceauDeCloison>,
     portes_de_cloisons: Vec<PorteExportee>,
     /// Les murs extérieurs d'une pièce complète, à leur épaisseur, et le
     /// contour de leur extérieur; vides sans épaisseur.
@@ -156,14 +156,14 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         Vec::new()
     };
     let (cloisons, portes_de_cloisons) = if complete {
-        let mesurees: Vec<_> = solution.cloisons.iter().flatten().copied().collect();
+        let mesurees: Vec<_> = solution.cloisons.iter().flatten().cloned().collect();
         let portes = mesurees
             .iter()
             .filter_map(|cloison| {
                 let porte = cloison.porte?;
                 Some(PorteExportee {
-                    gonds: cloison.point(porte.debut),
-                    autre_bord: cloison.point(porte.fin),
+                    gonds: cloison.point(porte.segment, porte.debut),
+                    autre_bord: cloison.point(porte.segment, porte.fin),
                     cote: cloison.cote_de_la_porte(),
                 })
             })
@@ -619,7 +619,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         a_cadrer.extend(traits.iter().flat_map(etendue_d_un_trait));
     }
     a_cadrer.extend(piece.notes.iter().map(|(_, position)| *position));
-    a_cadrer.extend(piece.cloisons.iter().flatten().copied());
+    a_cadrer.extend(piece.cloisons.iter().flat_map(|morceau| morceau.coins));
     a_cadrer.extend(piece.contour_exterieur.iter().copied());
     let vers_la_page = ajuster(&a_cadrer, cadre);
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
@@ -679,14 +679,18 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         );
     }
     // Les cloisons, pleines.
-    for coins in &piece.cloisons {
-        let contour: Vec<(f64, f64)> = coins
-            .iter()
-            .chain(coins.first())
-            .map(|coin| vers_la_page(*coin))
-            .collect();
-        page.polygone_plein(&contour, BLEU_PALE);
-        page.trait_(&contour, 0.9, BLEU);
+    // Leurs faces et leurs bouts se tracent; leurs coins d'onglet, non.
+    for morceau in &piece.cloisons {
+        let [a, b, c, d] = morceau.coins.map(&vers_la_page);
+        page.polygone_plein(&[a, b, c, d], BLEU_PALE);
+        page.trait_(&[a, b], 0.9, BLEU);
+        page.trait_(&[d, c], 0.9, BLEU);
+        if morceau.bout_au_debut {
+            page.trait_(&[a, d], 0.9, BLEU);
+        }
+        if morceau.bout_a_la_fin {
+            page.trait_(&[b, c], 0.9, BLEU);
+        }
     }
     // Les portes des cloisons : le battant et son arc.
     for porte in &piece.portes_de_cloisons {
@@ -1234,7 +1238,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             .iter()
             .flat_map(|(_, _, traits)| traits.iter().flat_map(etendue_d_un_trait))
             .chain(piece.notes.iter().map(|(_, position)| *position))
-            .chain(piece.cloisons.iter().flatten().copied())
+            .chain(piece.cloisons.iter().flat_map(|morceau| morceau.coins))
             .chain(piece.contour_exterieur.iter().copied())
             .map(|(x, y)| (x * facteur, -y * facteur))
             .chain(points.iter().copied())
@@ -1315,14 +1319,15 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             }
         }
         // Les cloisons, sur le calque CLOISONS.
-        for coins in &piece.cloisons {
-            for k in 0..4 {
-                ligne_dxf(
-                    &mut entites,
-                    "CLOISONS",
-                    vers_le_dxf(coins[k]),
-                    vers_le_dxf(coins[(k + 1) % 4]),
-                );
+        for morceau in &piece.cloisons {
+            let [a, b, c, d] = morceau.coins.map(vers_le_dxf);
+            ligne_dxf(&mut entites, "CLOISONS", a, b);
+            ligne_dxf(&mut entites, "CLOISONS", d, c);
+            if morceau.bout_au_debut {
+                ligne_dxf(&mut entites, "CLOISONS", a, d);
+            }
+            if morceau.bout_a_la_fin {
+                ligne_dxf(&mut entites, "CLOISONS", b, c);
             }
         }
         for porte in &piece.portes_de_cloisons {
@@ -1688,6 +1693,7 @@ mod tests {
             longueur: "10".to_string(),
             epaisseur: String::new(),
             porte: None,
+            suite: Vec::new(),
         }];
         let plan = Plan::d_une_piece(chambre);
         let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
@@ -1763,6 +1769,29 @@ mod tests {
         // L'intérieur du premier mur commence à 9 po dans la pièce (le DXF a
         // les y vers le haut).
         assert!(dxf.contains("\r\n 10\r\n9.0000\r\n 20\r\n-9.0000\r\n"));
+    }
+
+    #[test]
+    fn une_cloison_en_l_dans_le_dxf() {
+        let mut chambre = rectangle("12", "10");
+        chambre.cloisons = vec![noyau::cloison::Cloison {
+            debut: (0.0, 50.0),
+            sens: noyau::dessin::Sens::Est,
+            longueur: "5".to_string(),
+            suite: vec![noyau::cloison::SegmentDeCloison {
+                sens: noyau::dessin::Sens::Sud,
+                longueur: "70 po".to_string(),
+            }],
+            ..Default::default()
+        }];
+        let plan = Plan::d_une_piece(chambre);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Deux morceaux : leurs deux faces et le bout libre de chacun; le coin
+        // d'onglet ne se trace pas.
+        assert_eq!(
+            dxf.matches("\r\nLINE\r\n  8\r\nCLOISONS\r\n").count(),
+            2 * 3
+        );
     }
 
     #[test]

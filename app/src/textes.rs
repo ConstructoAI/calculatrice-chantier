@@ -446,6 +446,19 @@ pub const DESSIN_DISTANCE_DU_BOUT_A: Texte = t("distance du bout A", "distance f
 pub const DESSIN_INVERSER: Texte = t("Inverser", "Flip");
 pub const DESSIN_SANS_PORTE: Texte = t("Sans porte", "No door");
 
+/// « segment 2 » : un segment d'une cloison en polyligne.
+pub fn dessin_segment(numero: usize) -> String {
+    format!("segment {numero}")
+}
+
+/// « sur le segment 2 » : le segment qui porte la porte d'une cloison.
+pub fn dessin_sur_le_segment(numero: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("sur le segment {numero}"),
+        Langue::Anglais => format!("on segment {numero}"),
+    }
+}
+
 /// « à 3 pi 0 po du bout A » : la place de la porte d'une cloison.
 pub fn dessin_du_bout_a(distance: &str) -> String {
     match langue::en_cours() {

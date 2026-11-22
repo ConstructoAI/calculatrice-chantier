@@ -1,6 +1,7 @@
 //! Les cloisons d'une pièce (section 25) : des murs intérieurs tracés sur le
-//! plan, d'équerre ou à 45°, d'une épaisseur donnée — la leur, sinon celle
-//! que la pièce donne à ses cloisons (5 po par défaut).
+//! plan, d'un seul trait ou en polyligne — des segments d'équerre ou à 45°,
+//! aux coins d'onglet —, d'une épaisseur donnée : la leur, sinon celle que la
+//! pièce donne à ses cloisons (5 po par défaut).
 
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +13,10 @@ pub const EPAISSEUR_PAR_DEFAUT: f64 = 5.0;
 /// cloison.
 pub type Segment = ((f64, f64), (f64, f64));
 
+/// Une cloison redressée : son départ (pouces) et ses segments (direction,
+/// longueur en pouces).
+pub type Polyligne = ((f64, f64), Vec<(Sens, f64)>);
+
 /// Longueur sous laquelle un trait ne fait pas une cloison, en pouces.
 pub const LONGUEUR_MINIMALE: f64 = 6.0;
 /// La largeur d'une porte de cloison sans largeur inscrite : 2 pi 8 po.
@@ -19,9 +24,9 @@ pub const LARGEUR_DE_PORTE_PAR_DEFAUT: f64 = 32.0;
 /// La hauteur d'une porte de cloison : 6 pi 8 po.
 pub const HAUTEUR_DE_PORTE: f64 = 80.0;
 
-/// La porte d'une cloison : sa largeur et sa distance au bout A (le départ de
-/// la cloison), telles qu'inscrites — vides : 2 pi 8 po, centrée —, et le
-/// côté où elle s'ouvre.
+/// La porte d'une cloison : son segment, sa largeur et sa distance au début
+/// de ce segment (le bout A), telles qu'inscrites — vides : 2 pi 8 po,
+/// centrée —, et le côté où elle s'ouvre.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PorteDeCloison {
@@ -29,19 +34,31 @@ pub struct PorteDeCloison {
     pub position: String,
     /// Vrai si elle s'ouvre de l'autre côté de la cloison.
     pub inversee: bool,
+    /// Le segment de la cloison qui la porte (le premier : 0).
+    pub segment: usize,
 }
 
-/// La porte d'une cloison à ses mesures : ses bords, en pouces depuis le
-/// bout A, et le côté où elle s'ouvre.
+/// La porte d'une cloison à ses mesures : son segment, ses bords en pouces
+/// depuis le début de ce segment, et le côté où elle s'ouvre.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PorteMesuree {
+    pub segment: usize,
     pub debut: f64,
     pub fin: f64,
     pub inversee: bool,
 }
 
-/// Une cloison : son départ (pouces, dans le repère du plan de sa pièce), sa
-/// direction, et sa longueur et son épaisseur telles qu'inscrites.
+/// Un segment de plus d'une cloison en polyligne : sa direction et sa
+/// longueur inscrite.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SegmentDeCloison {
+    pub sens: Sens,
+    pub longueur: String,
+}
+
+/// Une cloison : son départ (pouces, dans le repère du plan de sa pièce), son
+/// premier segment (sa direction et sa longueur inscrite), les segments qui
+/// le suivent, son épaisseur inscrite et sa porte.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Cloison {
@@ -52,6 +69,8 @@ pub struct Cloison {
     pub epaisseur: String,
     /// Sa porte, s'il y en a une.
     pub porte: Option<PorteDeCloison>,
+    /// Les segments qui suivent le premier, d'une cloison en polyligne.
+    pub suite: Vec<SegmentDeCloison>,
 }
 
 impl Default for Cloison {
@@ -62,42 +81,136 @@ impl Default for Cloison {
             longueur: String::new(),
             epaisseur: String::new(),
             porte: None,
+            suite: Vec::new(),
         }
     }
 }
 
-/// Une cloison mise à ses mesures, en pouces.
+impl Cloison {
+    /// Le nombre de ses segments.
+    pub fn nombre_de_segments(&self) -> usize {
+        1 + self.suite.len()
+    }
+
+    /// Ses segments : leur direction et leur longueur inscrite.
+    pub fn segments(&self) -> impl Iterator<Item = (Sens, &str)> {
+        std::iter::once((self.sens, self.longueur.as_str())).chain(
+            self.suite
+                .iter()
+                .map(|segment| (segment.sens, segment.longueur.as_str())),
+        )
+    }
+
+    /// La longueur inscrite d'un de ses segments.
+    pub fn longueur_du_segment(&self, segment: usize) -> Option<&str> {
+        if segment == 0 {
+            Some(&self.longueur)
+        } else {
+            self.suite.get(segment - 1).map(|s| s.longueur.as_str())
+        }
+    }
+
+    /// La longueur inscrite d'un de ses segments, à modifier.
+    pub fn longueur_du_segment_mut(&mut self, segment: usize) -> Option<&mut String> {
+        if segment == 0 {
+            Some(&mut self.longueur)
+        } else {
+            self.suite.get_mut(segment - 1).map(|s| &mut s.longueur)
+        }
+    }
+}
+
+/// Un morceau plein d'une cloison : ses quatre coins — un côté de son début
+/// à sa fin, puis l'autre de sa fin à son début — et ses bouts libres (le
+/// bout de la cloison, ou le bord de sa porte), qui se tracent; le coin
+/// d'onglet entre deux segments ne se trace pas.
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MorceauDeCloison {
+    pub coins: [(f64, f64); 4],
+    pub bout_au_debut: bool,
+    pub bout_a_la_fin: bool,
+}
+
+/// Une cloison mise à ses mesures, en pouces.
+#[derive(Clone, Debug, PartialEq)]
 pub struct CloisonMesuree {
-    /// Les deux bouts de son axe.
-    pub debut: (f64, f64),
-    pub fin: (f64, f64),
-    pub longueur: f64,
+    /// Les sommets de son axe : son départ, puis la fin de chaque segment.
+    pub sommets: Vec<(f64, f64)>,
     pub epaisseur: f64,
     pub porte: Option<PorteMesuree>,
 }
 
 impl CloisonMesuree {
-    /// La direction de son axe, de son départ à sa fin.
-    fn sens(&self) -> (f64, f64) {
-        let longueur = self.longueur.max(1e-12);
-        (
-            (self.fin.0 - self.debut.0) / longueur,
-            (self.fin.1 - self.debut.1) / longueur,
-        )
+    /// Une cloison à ses mesures, de son départ et de ses segments (direction,
+    /// longueur en pouces).
+    pub fn depuis(
+        debut: (f64, f64),
+        segments: &[(Sens, f64)],
+        epaisseur: f64,
+        porte: Option<PorteMesuree>,
+    ) -> CloisonMesuree {
+        let mut sommets = vec![debut];
+        let mut point = debut;
+        for &(sens, longueur) in segments {
+            let (ux, uy) = sens.pas();
+            point = (point.0 + ux * longueur, point.1 + uy * longueur);
+            sommets.push(point);
+        }
+        CloisonMesuree {
+            sommets,
+            epaisseur,
+            porte,
+        }
     }
 
-    /// Le point de son axe à `t` pouces de son départ (le bout A).
-    pub fn point(&self, t: f64) -> (f64, f64) {
-        let u = self.sens();
-        (self.debut.0 + u.0 * t, self.debut.1 + u.1 * t)
+    /// Son départ.
+    pub fn debut(&self) -> (f64, f64) {
+        self.sommets[0]
     }
 
-    /// Le rectangle de la cloison de `t0` à `t1` pouces de son départ.
-    pub fn rectangle(&self, t0: f64, t1: f64) -> [(f64, f64); 4] {
-        let (ux, uy) = self.sens();
+    /// Le nombre de ses segments.
+    pub fn nombre_de_segments(&self) -> usize {
+        self.sommets.len().saturating_sub(1)
+    }
+
+    /// La longueur d'un de ses segments.
+    pub fn longueur_du_segment(&self, segment: usize) -> f64 {
+        let (a, b) = (self.sommets[segment], self.sommets[segment + 1]);
+        (b.0 - a.0).hypot(b.1 - a.1)
+    }
+
+    /// Sa longueur, tous segments mis bout à bout.
+    pub fn longueur(&self) -> f64 {
+        (0..self.nombre_de_segments())
+            .map(|k| self.longueur_du_segment(k))
+            .sum()
+    }
+
+    /// La direction d'un de ses segments (unitaire).
+    fn sens_du_segment(&self, segment: usize) -> (f64, f64) {
+        let (a, b) = (self.sommets[segment], self.sommets[segment + 1]);
+        let longueur = (b.0 - a.0).hypot(b.1 - a.1).max(1e-12);
+        ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur)
+    }
+
+    /// Le point d'un segment à `t` pouces de son début.
+    pub fn point(&self, segment: usize, t: f64) -> (f64, f64) {
+        let (ux, uy) = self.sens_du_segment(segment);
+        let a = self.sommets[segment];
+        (a.0 + ux * t, a.1 + uy * t)
+    }
+
+    /// Les axes de ses segments.
+    pub fn axes(&self) -> Vec<Segment> {
+        self.sommets.windows(2).map(|s| (s[0], s[1])).collect()
+    }
+
+    /// Le rectangle d'un segment de `t0` à `t1` pouces de son début, aux bouts
+    /// carrés.
+    pub fn rectangle(&self, segment: usize, t0: f64, t1: f64) -> [(f64, f64); 4] {
+        let (ux, uy) = self.sens_du_segment(segment);
         let (nx, ny) = (-uy * self.epaisseur / 2.0, ux * self.epaisseur / 2.0);
-        let (a, b) = (self.point(t0), self.point(t1));
+        let (a, b) = (self.point(segment, t0), self.point(segment, t1));
         [
             (a.0 + nx, a.1 + ny),
             (b.0 + nx, b.1 + ny),
@@ -106,44 +219,111 @@ impl CloisonMesuree {
         ]
     }
 
-    /// Les quatre coins de la cloison, de part et d'autre de son axe.
-    pub fn coins(&self) -> [(f64, f64); 4] {
-        self.rectangle(0.0, self.longueur)
-    }
-
-    /// Ses parties pleines, sans le vide de sa porte.
-    pub fn morceaux(&self) -> Vec<[(f64, f64); 4]> {
-        match self.porte {
-            None => vec![self.coins()],
-            Some(porte) => [(0.0, porte.debut), (porte.fin, self.longueur)]
-                .into_iter()
-                .filter(|(t0, t1)| t1 - t0 > 1e-6)
-                .map(|(t0, t1)| self.rectangle(t0, t1))
-                .collect(),
+    /// Le coin d'onglet au sommet `sommet` (entre deux segments), d'un côté de
+    /// l'axe (`cote` : 1 ou −1) : la rencontre des faces des deux segments.
+    fn coin_d_onglet(&self, sommet: usize, cote: f64) -> (f64, f64) {
+        let (u1, u2) = (
+            self.sens_du_segment(sommet - 1),
+            self.sens_du_segment(sommet),
+        );
+        let h = cote * self.epaisseur / 2.0;
+        let s = self.sommets[sommet];
+        let p1 = (s.0 - u1.1 * h, s.1 + u1.0 * h);
+        let p2 = (s.0 - u2.1 * h, s.1 + u2.0 * h);
+        let croix = u1.0 * u2.1 - u1.1 * u2.0;
+        if croix.abs() < 1e-9 {
+            return p2;
         }
+        let t = ((p2.0 - p1.0) * u2.1 - (p2.1 - p1.1) * u2.0) / croix;
+        (p1.0 + u1.0 * t, p1.1 + u1.1 * t)
     }
 
-    /// Le côté où s'ouvre sa porte : à gauche de son axe, ou de l'autre côté
-    /// si elle est inversée (une direction unitaire).
+    /// Ses morceaux pleins : un par segment, aux coins d'onglet, et deux pour
+    /// le segment de sa porte, de part et d'autre d'elle.
+    pub fn morceaux(&self) -> Vec<MorceauDeCloison> {
+        let n = self.nombre_de_segments();
+        let h = self.epaisseur / 2.0;
+        let mut morceaux = Vec::new();
+        for k in 0..n {
+            let longueur = self.longueur_du_segment(k);
+            let (ux, uy) = self.sens_du_segment(k);
+            let carre = |t: f64, cote: f64| {
+                let p = self.point(k, t);
+                (p.0 - uy * h * cote, p.1 + ux * h * cote)
+            };
+            let au_debut = |cote: f64| {
+                if k == 0 {
+                    carre(0.0, cote)
+                } else {
+                    self.coin_d_onglet(k, cote)
+                }
+            };
+            let a_la_fin = |cote: f64| {
+                if k + 1 == n {
+                    carre(longueur, cote)
+                } else {
+                    self.coin_d_onglet(k + 1, cote)
+                }
+            };
+            // Les parties pleines du segment, de part et d'autre de la porte.
+            let pleines = match self.porte {
+                Some(porte) if porte.segment == k => {
+                    vec![(0.0, porte.debut), (porte.fin, longueur)]
+                }
+                _ => vec![(0.0, longueur)],
+            };
+            for (t0, t1) in pleines {
+                if t1 - t0 <= 1e-6 {
+                    continue;
+                }
+                let (g0, d0, bout_au_debut) = if t0 <= 1e-9 {
+                    (au_debut(1.0), au_debut(-1.0), k == 0)
+                } else {
+                    (carre(t0, 1.0), carre(t0, -1.0), true)
+                };
+                let (g1, d1, bout_a_la_fin) = if t1 >= longueur - 1e-9 {
+                    (a_la_fin(1.0), a_la_fin(-1.0), k + 1 == n)
+                } else {
+                    (carre(t1, 1.0), carre(t1, -1.0), true)
+                };
+                morceaux.push(MorceauDeCloison {
+                    coins: [g0, g1, d1, d0],
+                    bout_au_debut,
+                    bout_a_la_fin,
+                });
+            }
+        }
+        morceaux
+    }
+
+    /// La distance d'un point (pouces) à l'axe de la cloison.
+    pub fn distance(&self, (x, y): (f64, f64)) -> f64 {
+        self.axes()
+            .into_iter()
+            .map(|(a, b)| {
+                let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+                let carre = dx * dx + dy * dy;
+                let t = if carre <= 1e-12 {
+                    0.0
+                } else {
+                    (((x - a.0) * dx + (y - a.1) * dy) / carre).clamp(0.0, 1.0)
+                };
+                (x - a.0 - t * dx).hypot(y - a.1 - t * dy)
+            })
+            .fold(f64::MAX, f64::min)
+    }
+
+    /// Le côté où s'ouvre sa porte : à gauche de l'axe de son segment, ou de
+    /// l'autre côté si elle est inversée (une direction unitaire).
     pub fn cote_de_la_porte(&self) -> (f64, f64) {
-        let (ux, uy) = self.sens();
+        let segment = self.porte.map_or(0, |porte| porte.segment);
+        let (ux, uy) =
+            self.sens_du_segment(segment.min(self.nombre_de_segments().saturating_sub(1)));
         if self.porte.is_some_and(|porte| porte.inversee) {
             (uy, -ux)
         } else {
             (-uy, ux)
         }
-    }
-
-    /// La distance d'un point (pouces) à l'axe de la cloison.
-    pub fn distance(&self, (x, y): (f64, f64)) -> f64 {
-        let (dx, dy) = (self.fin.0 - self.debut.0, self.fin.1 - self.debut.1);
-        let carre = dx * dx + dy * dy;
-        let t = if carre <= 1e-12 {
-            0.0
-        } else {
-            (((x - self.debut.0) * dx + (y - self.debut.1) * dy) / carre).clamp(0.0, 1.0)
-        };
-        (x - self.debut.0 - t * dx).hypot(y - self.debut.1 - t * dy)
     }
 }
 
@@ -159,6 +339,23 @@ fn croisement(depart: (f64, f64), u: (f64, f64), (a, b): Segment) -> Option<f64>
     let t = (px * w.1 - py * w.0) / denominateur;
     let s = (px * u.1 - py * u.0) / denominateur;
     (-1e-9..=1.0 + 1e-9).contains(&s).then_some(t)
+}
+
+/// Le croisement avec un appui le plus proche de `cible` sur la droite
+/// `depart + t × u`, à moins de `aimant` pouces et permis par `permis`.
+fn appui_proche(
+    depart: (f64, f64),
+    u: (f64, f64),
+    appuis: &[Segment],
+    cible: f64,
+    aimant: f64,
+    permis: &dyn Fn(f64) -> bool,
+) -> Option<f64> {
+    appuis
+        .iter()
+        .filter_map(|appui| croisement(depart, u, *appui))
+        .filter(|t| permis(*t) && (t - cible).abs() <= aimant)
+        .min_by(|a, b| (a - cible).abs().total_cmp(&(b - cible).abs()))
 }
 
 /// Redresse un trait du doigt (pouces) en cloison : sa direction devient la
@@ -184,25 +381,67 @@ pub fn redresser(
     let debut = (arrondir(depart.0), arrondir(depart.1));
     let longueur = arrondir(signee.abs());
     // Les bouts vont aux appuis tout proches, sans se rejoindre.
-    let croisements: Vec<f64> = appuis
-        .iter()
-        .filter_map(|appui| croisement(debut, u, *appui))
-        .collect();
-    let le_plus_proche = |cible: f64, permis: &dyn Fn(f64) -> bool| {
-        croisements
-            .iter()
-            .copied()
-            .filter(|t| permis(*t) && (t - cible).abs() <= aimant)
-            .min_by(|a, b| (a - cible).abs().total_cmp(&(b - cible).abs()))
-    };
-    let t_debut = le_plus_proche(0.0, &|t| t <= longueur - LONGUEUR_MINIMALE).unwrap_or(0.0);
-    let t_fin = le_plus_proche(longueur, &|t| t >= t_debut + LONGUEUR_MINIMALE).unwrap_or(longueur);
+    let t_debut = appui_proche(debut, u, appuis, 0.0, aimant, &|t| {
+        t <= longueur - LONGUEUR_MINIMALE
+    })
+    .unwrap_or(0.0);
+    let t_fin = appui_proche(debut, u, appuis, longueur, aimant, &|t| {
+        t >= t_debut + LONGUEUR_MINIMALE
+    })
+    .unwrap_or(longueur);
     let longueur = t_fin - t_debut;
     (longueur >= LONGUEUR_MINIMALE).then_some((
         sens,
         (debut.0 + u.0 * t_debut, debut.1 + u.1 * t_debut),
         longueur,
     ))
+}
+
+/// Redresse un tracé du doigt (pouces), qui peut tourner des coins, en
+/// cloison en polyligne : des segments d'équerre ou à 45°, comme le contour
+/// d'une pièce, leurs longueurs arrondies au `pas`; son premier bout va au mur
+/// ou à la cloison tout proche le long de son premier segment, et son dernier
+/// bout de même le long du dernier. Donne son départ et ses segments
+/// (direction, longueur); `None` pour un tracé trop court.
+pub fn redresser_le_trace(
+    points: &[(f64, f64)],
+    appuis: &[Segment],
+    aimant: f64,
+    pas: f64,
+) -> Option<Polyligne> {
+    let premier = *points.first()?;
+    let arrondir = |x: f64| (x / pas).round() * pas;
+    let mut segments: Vec<(Sens, f64)> = crate::dessin::redresser(points)
+        .into_iter()
+        .map(|(axe, longueur)| (Sens::selon(axe, longueur), arrondir(longueur.abs())))
+        .filter(|(_, longueur)| *longueur >= pas.max(1.0))
+        .collect();
+    if segments.is_empty() {
+        return None;
+    }
+    let mut debut = (arrondir(premier.0), arrondir(premier.1));
+    // Le premier bout, le long du premier segment.
+    let u = segments[0].0.pas();
+    let longueur = segments[0].1;
+    if let Some(t) = appui_proche(debut, u, appuis, 0.0, aimant, &|t| t <= longueur - 1.0) {
+        debut = (debut.0 + u.0 * t, debut.1 + u.1 * t);
+        segments[0].1 -= t;
+    }
+    // Le dernier bout, le long du dernier segment.
+    let fin = CloisonMesuree::depuis(debut, &segments, 0.0, None)
+        .sommets
+        .last()
+        .copied()
+        .unwrap_or(debut);
+    let dernier = segments.len() - 1;
+    let v = segments[dernier].0.pas();
+    let longueur = segments[dernier].1;
+    if let Some(t) = appui_proche(fin, v, appuis, 0.0, aimant, &|t| t >= 1.0 - longueur) {
+        segments[dernier].1 += t;
+    }
+    let total: f64 = segments.iter().map(|(_, longueur)| longueur).sum();
+    (total >= LONGUEUR_MINIMALE && segments.iter().all(|(_, longueur)| *longueur >= 1.0))
+        .then_some((debut, segments))
 }
 
 #[cfg(test)]
@@ -248,27 +487,69 @@ mod tests {
     }
 
     #[test]
+    fn un_trace_qui_tourne_un_coin_devient_une_polyligne() {
+        // Un tracé en L : du mur de gauche vers la droite, puis vers le bas,
+        // jusqu'au mur du bas.
+        let mut points: Vec<(f64, f64)> =
+            (0..=19).map(|k| (3.0 + 3.0 * f64::from(k), 50.4)).collect();
+        points.extend((1..=22).map(|k| (60.2, 50.4 + 3.05 * f64::from(k))));
+        let (debut, segments) = redresser_le_trace(&points, &murs(), 8.0, 1.0).unwrap();
+        assert_eq!(debut, (0.0, 50.0));
+        assert_eq!(segments, vec![(Sens::Est, 60.0), (Sens::Sud, 70.0)]);
+        // Un trait droit donne un seul segment.
+        let droit = [(30.0, 80.0), (30.2, 90.0), (30.4, 100.6)];
+        let (debut, segments) = redresser_le_trace(&droit, &murs(), 8.0, 1.0).unwrap();
+        assert_eq!(debut, (30.0, 80.0));
+        assert_eq!(segments, vec![(Sens::Sud, 21.0)]);
+    }
+
+    #[test]
+    fn les_coins_d_onglet_d_une_cloison_en_l() {
+        let cloison = CloisonMesuree::depuis(
+            (0.0, 50.0),
+            &[(Sens::Est, 60.0), (Sens::Sud, 70.0)],
+            5.0,
+            None,
+        );
+        assert!((cloison.longueur() - 130.0).abs() < 1e-9);
+        let morceaux = cloison.morceaux();
+        assert_eq!(morceaux.len(), 2);
+        // Le coin : les faces des deux segments se rencontrent en onglet.
+        assert_eq!(morceaux[0].coins[1], (57.5, 52.5));
+        assert_eq!(morceaux[0].coins[2], (62.5, 47.5));
+        assert_eq!(morceaux[1].coins[0], (57.5, 52.5));
+        assert_eq!(morceaux[1].coins[3], (62.5, 47.5));
+        // Seuls les bouts de la cloison se tracent.
+        assert!(morceaux[0].bout_au_debut && !morceaux[0].bout_a_la_fin);
+        assert!(!morceaux[1].bout_au_debut && morceaux[1].bout_a_la_fin);
+        assert!((cloison.distance((60.0, 90.0)) - 0.0).abs() < 1e-9);
+        assert!((cloison.distance((70.0, 90.0)) - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn les_morceaux_et_la_porte_d_une_cloison() {
-        let mut cloison = CloisonMesuree {
-            debut: (48.0, 0.0),
-            fin: (48.0, 120.0),
-            longueur: 120.0,
-            epaisseur: 5.0,
-            porte: Some(PorteMesuree {
+        let mut cloison = CloisonMesuree::depuis(
+            (48.0, 0.0),
+            &[(Sens::Sud, 120.0)],
+            5.0,
+            Some(PorteMesuree {
+                segment: 0,
                 debut: 44.0,
                 fin: 76.0,
                 inversee: false,
             }),
-        };
+        );
         // Deux morceaux pleins, de part et d'autre de la porte.
         let morceaux = cloison.morceaux();
         assert_eq!(morceaux.len(), 2);
-        assert!(morceaux[0].iter().all(|c| c.1 <= 44.0 + 1e-9));
-        assert!(morceaux[1].iter().all(|c| c.1 >= 76.0 - 1e-9));
-        assert_eq!(cloison.point(44.0), (48.0, 44.0));
+        assert!(morceaux[0].coins.iter().all(|c| c.1 <= 44.0 + 1e-9));
+        assert!(morceaux[1].coins.iter().all(|c| c.1 >= 76.0 - 1e-9));
+        assert!(morceaux[0].bout_a_la_fin && morceaux[1].bout_au_debut);
+        assert_eq!(cloison.point(0, 44.0), (48.0, 44.0));
         // Elle s'ouvre à gauche de son axe, ou de l'autre côté une fois inversée.
         assert_eq!(cloison.cote_de_la_porte(), (-1.0, 0.0));
         cloison.porte = Some(PorteMesuree {
+            segment: 0,
             debut: 44.0,
             fin: 76.0,
             inversee: true,
@@ -276,6 +557,7 @@ mod tests {
         assert_eq!(cloison.cote_de_la_porte(), (1.0, 0.0));
         // Une porte contre le bout A ne laisse qu'un morceau.
         cloison.porte = Some(PorteMesuree {
+            segment: 0,
             debut: 0.0,
             fin: 32.0,
             inversee: false,
@@ -285,18 +567,12 @@ mod tests {
 
     #[test]
     fn les_coins_et_la_distance_d_une_cloison() {
-        let cloison = CloisonMesuree {
-            debut: (48.0, 0.0),
-            fin: (48.0, 120.0),
-            longueur: 120.0,
-            epaisseur: 4.5,
-            porte: None,
-        };
-        let coins = cloison.coins();
-        let xs: Vec<f64> = coins.iter().map(|c| c.0).collect();
+        let cloison = CloisonMesuree::depuis((48.0, 0.0), &[(Sens::Sud, 120.0)], 4.5, None);
+        let coins = cloison.morceaux()[0].coins;
         assert!(
-            xs.iter()
-                .all(|x| (x - 45.75).abs() < 1e-9 || (x - 50.25).abs() < 1e-9)
+            coins
+                .iter()
+                .all(|c| (c.0 - 45.75).abs() < 1e-9 || (c.0 - 50.25).abs() < 1e-9)
         );
         assert!((cloison.distance((50.0, 60.0)) - 2.0).abs() < 1e-9);
         assert!((cloison.distance((48.0, 130.0)) - 10.0).abs() < 1e-9);

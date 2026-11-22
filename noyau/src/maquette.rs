@@ -247,7 +247,7 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
     // surmonte un linteau.
     for cloison in solution.cloisons.iter().flatten() {
         let genre = GenreDeFace::Cloison;
-        for coins in cloison.morceaux() {
+        for coins in cloison.morceaux().into_iter().map(|morceau| morceau.coins) {
             bloc(
                 &mut faces,
                 &mut aretes,
@@ -261,7 +261,7 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         if let Some(porte) = cloison.porte
             && hauteur > crate::cloison::HAUTEUR_DE_PORTE
         {
-            let coins = cloison.rectangle(porte.debut, porte.fin);
+            let coins = cloison.rectangle(porte.segment, porte.debut, porte.fin);
             let hauteurs = (crate::cloison::HAUTEUR_DE_PORTE, hauteur);
             bloc(
                 &mut faces,
@@ -633,6 +633,7 @@ mod tests {
             longueur: "10".to_string(),
             epaisseur: String::new(),
             porte: None,
+            suite: Vec::new(),
         }];
         let solution = dessin.resoudre(Format::PiPo);
         let maquette = maquette(&dessin, &solution).unwrap();
@@ -690,6 +691,31 @@ mod tests {
         // Le plancher : la pièce utile; le dessus des murs : le reste.
         assert!((somme(GenreDeFace::Plancher) - 126.0 * 102.0).abs() < 1e-6);
         assert!((somme(GenreDeFace::DessusDeMur) - (144.0 * 120.0 - 126.0 * 102.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn une_cloison_en_l_en_deux_blocs() {
+        let mut dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        dessin.cloisons = vec![Cloison {
+            debut: (0.0, 50.0),
+            sens: Sens::Est,
+            longueur: "5".to_string(),
+            suite: vec![crate::cloison::SegmentDeCloison {
+                sens: Sens::Sud,
+                longueur: "70 po".to_string(),
+            }],
+            ..Default::default()
+        }];
+        let solution = dessin.resoudre(Format::PiPo);
+        let maquette = maquette(&dessin, &solution).unwrap();
+        // Un bloc par segment, qui se rejoignent en onglet.
+        assert_eq!(maquette.blocs.len(), 2);
+        assert_eq!(maquette.blocs[0].coins[1], maquette.blocs[1].coins[0]);
     }
 
     #[test]

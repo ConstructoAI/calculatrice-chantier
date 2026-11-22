@@ -2531,9 +2531,11 @@ fn transposer_le_dessin(
                 longueur,
                 epaisseur,
                 porte,
+                suite,
                 ..
             } = cloison;
             let mut saisies = vec![longueur, epaisseur];
+            saisies.extend(suite.iter_mut().map(|segment| &mut segment.longueur));
             if let Some(porte) = porte {
                 saisies.push(&mut porte.largeur);
                 saisies.push(&mut porte.position);

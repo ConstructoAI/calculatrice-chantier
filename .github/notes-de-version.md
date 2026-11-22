@@ -14,6 +14,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Bloc-notes** : un nouvel onglet **Notes** — vos notes de chantier, chacune avec son titre et
   la date de sa dernière modification, enregistrées sur l'appareil; **Copier** met une note dans
   le presse-papiers, **Exporter** en fait un fichier texte.
+- **0.11.1** : les **cloisons en polyligne** — en traçant une cloison, tournez les coins dans le
+  même geste (une cloison en L ou en U) : chaque segment se redresse d'équerre ou à 45°, avec
+  des coins d'onglet, et a sa longueur au pavé; la cloison se déplace d'un bloc, et sa porte
+  se place sur l'un de ses segments.
 
 ## Nouveautés de la version 0.10
 
