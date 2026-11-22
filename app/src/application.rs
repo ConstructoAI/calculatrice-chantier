@@ -16,11 +16,11 @@ use crate::aide;
 use crate::clavier::{self, ActionClavier, Contexte, EtatClavier};
 use crate::plateforme::{self, Depot, Export, Fichier, Installation};
 use crate::raccourcis::{self, Action};
-use crate::stockage::{self, MAX_RUBANS, RubanEnregistre};
+use crate::stockage::{self, MAX_NOTES, MAX_RUBANS, NoteDuBloc, RubanEnregistre};
 use crate::textes;
 use crate::theme::{self, Palette};
 use crate::vues::preferences::Memorisee;
-use crate::vues::{self, rubans};
+use crate::vues::{self, notes, rubans};
 
 /// Taille nominale de la calculatrice, en points logiques (section 16.1).
 const LARGEUR_NOMINALE: f32 = 420.0;
@@ -50,6 +50,8 @@ enum Vue {
     /// Dessin d'une pièce (section 25).
     Dessin,
     Rubans,
+    /// Le bloc-notes (section 26).
+    Notes,
     Aide,
     Preferences,
     Bienvenue,
@@ -75,6 +77,7 @@ enum Confirmation {
     Reinitialiser,
     ViderRuban,
     SupprimerRuban(u64),
+    SupprimerNote(u64),
     /// Limite de rubans atteinte : supprimer les plus anciens pour enregistrer celui-ci.
     TropDeRubans(String),
 }
@@ -145,6 +148,12 @@ pub struct Application {
     plan: noyau::dessin::Plan,
     etat_du_dessin: vues::dessin::Etat,
     dessin_a_sauvegarder: bool,
+    /// Le bloc-notes (section 26) : les notes, celle qui est ouverte, son
+    /// texte qui doit prendre le clavier, et ce qui reste à enregistrer.
+    notes: Vec<NoteDuBloc>,
+    note_ouverte: Option<u64>,
+    viser_la_note: bool,
+    notes_a_sauvegarder: bool,
 }
 
 impl Application {
@@ -165,6 +174,7 @@ impl Application {
         let langue = chargement.etat.preferences.langue;
         noyau::langue::choisir(langue);
         let rubans = stockage::charger_rubans(&depot);
+        let notes = stockage::charger_notes(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
         let (mut plan, langue_du_dessin) = stockage::charger_dessin(&depot);
         for piece in &mut plan.pieces {
@@ -227,6 +237,10 @@ impl Application {
             plan,
             etat_du_dessin: vues::dessin::Etat::default(),
             dessin_a_sauvegarder: langue_du_dessin != langue,
+            notes,
+            note_ouverte: None,
+            viser_la_note: false,
+            notes_a_sauvegarder: false,
         }
     }
 
@@ -508,12 +522,22 @@ impl Application {
                 self.signaler_l_echec_d_ecriture();
             }
         }
+        if self.notes_a_sauvegarder {
+            self.notes_a_sauvegarder = false;
+            if stockage::enregistrer_notes(&self.depot, &self.notes).is_err() {
+                self.signaler_l_echec_d_ecriture();
+            }
+        }
     }
 
     /// Sur le bureau, au plus une écriture par seconde (R-45); dans un
     /// navigateur, sans délai.
     fn sauvegarder_si_du(&mut self, ctx: &egui::Context) {
-        if !self.a_sauvegarder && !self.saisies_a_sauvegarder && !self.dessin_a_sauvegarder {
+        if !self.a_sauvegarder
+            && !self.saisies_a_sauvegarder
+            && !self.dessin_a_sauvegarder
+            && !self.notes_a_sauvegarder
+        {
             return;
         }
         let ecoule = ctx.input(|i| i.time) - self.derniere_sauvegarde;
@@ -676,6 +700,97 @@ impl Application {
                 self.dialogue = Dialogue::Confirmer(Confirmation::SupprimerRuban(id))
             }
             rubans::Action::FermerLecture => self.ruban_ouvert = None,
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Bloc-notes (section 26)
+    // ------------------------------------------------------------------
+
+    fn traiter_action_note(&mut self, ctx: &egui::Context, action: notes::Action) {
+        match action {
+            notes::Action::Nouvelle => {
+                if self.notes.len() >= MAX_NOTES {
+                    self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_NOTES);
+                    return;
+                }
+                let (date, _) = stockage::maintenant();
+                let id = self.notes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+                self.notes.insert(
+                    0,
+                    NoteDuBloc {
+                        id,
+                        creee: date.clone(),
+                        modifiee: date,
+                        ..NoteDuBloc::default()
+                    },
+                );
+                self.note_ouverte = Some(id);
+                self.viser_la_note = true;
+                self.notes_a_sauvegarder = true;
+            }
+            notes::Action::Ouvrir(id) => self.note_ouverte = Some(id),
+            notes::Action::Fermer => self.fermer_la_note(),
+            notes::Action::Modifiee => {
+                if let Some(note) = self
+                    .note_ouverte
+                    .and_then(|id| self.notes.iter_mut().find(|n| n.id == id))
+                {
+                    note.modifiee = stockage::maintenant().0;
+                }
+                self.notes_a_sauvegarder = true;
+            }
+            notes::Action::Copier(id) => {
+                let texte = self
+                    .notes
+                    .iter()
+                    .find(|n| n.id == id)
+                    .map(|note| note.en_texte(&notes::titre_de(note)));
+                if let Some(texte) = texte {
+                    ctx.copy_text(texte);
+                    self.annoncer(ctx, textes::AVIS_NOTE_COPIEE);
+                }
+            }
+            notes::Action::Exporter(id) => self.exporter_note(ctx, id),
+            notes::Action::Supprimer(id) => {
+                self.dialogue = Dialogue::Confirmer(Confirmation::SupprimerNote(id));
+            }
+        }
+    }
+
+    /// Revient à la liste des notes : une note laissée vide disparaît, et la
+    /// plus récemment modifiée passe en tête.
+    fn fermer_la_note(&mut self) {
+        self.note_ouverte = None;
+        self.notes.retain(|note| !note.est_vide());
+        self.notes.sort_by(|a, b| b.modifiee.cmp(&a.modifiee));
+        self.notes_a_sauvegarder = true;
+    }
+
+    /// Exporte une note en fichier texte. Bureau : boîte « Enregistrer sous »;
+    /// navigateur : téléchargement.
+    fn exporter_note(&mut self, ctx: &egui::Context, id: u64) {
+        let Some((titre, texte)) = self.notes.iter().find(|n| n.id == id).map(|note| {
+            let titre = notes::titre_de(note);
+            let texte = note.en_texte(&titre);
+            (titre, texte)
+        }) else {
+            return;
+        };
+        let nom = stockage::nom_de_fichier(&titre);
+        let contenu = stockage::contenu_exporte(&texte);
+        let fichier = Fichier {
+            titre: textes::TITRE_EXPORTER.traduit(),
+            filtre: textes::FILTRE_TEXTE.traduit(),
+            extension: "txt",
+            type_mime: "text/plain;charset=utf-8",
+            nom: &nom,
+            contenu: &contenu,
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
         }
     }
 
@@ -934,7 +1049,7 @@ impl Application {
         let filet = Rect::from_min_size(rect.min, Vec2::new(rect.width(), 1.0));
         ui.painter()
             .rect_filled(filet, 0, Color32::from_white_alpha(22));
-        let onglets: [(Vue, &str, Dessin); 5] = [
+        let onglets: [(Vue, &str, Dessin); 6] = [
             (
                 Vue::Accueil,
                 textes::ONGLET_ACCUEIL.traduit(),
@@ -954,6 +1069,11 @@ impl Application {
                 Vue::Rubans,
                 textes::ONGLET_RUBANS.traduit(),
                 dessiner_onglet_rubans,
+            ),
+            (
+                Vue::Notes,
+                textes::ONGLET_NOTES.traduit(),
+                dessiner_onglet_notes,
             ),
             (
                 Vue::Aide,
@@ -1117,6 +1237,18 @@ impl Application {
         theme::peindre_le_fond(ui, ui.max_rect(), p);
         match self.vue {
             Vue::Accueil => self.accueil(ui, p),
+            Vue::Notes => {
+                let action = notes::afficher(
+                    ui,
+                    p,
+                    &mut self.notes,
+                    self.note_ouverte,
+                    &mut self.viser_la_note,
+                );
+                if let Some(action) = action {
+                    self.traiter_action_note(ui.ctx(), action);
+                }
+            }
             Vue::Rubans => {
                 let ouvert = self
                     .ruban_ouvert
@@ -1308,6 +1440,7 @@ impl Application {
             ),
             (textes::MENU_DESSIN.traduit(), ChoixMenu::Aller(Vue::Dessin)),
             (textes::MENU_RUBANS.traduit(), ChoixMenu::Aller(Vue::Rubans)),
+            (textes::MENU_NOTES.traduit(), ChoixMenu::Aller(Vue::Notes)),
             (textes::MENU_AIDE.traduit(), ChoixMenu::Aller(Vue::Aide)),
             (textes::MENU_MANUEL.traduit(), ChoixMenu::Manuel),
             (
@@ -1876,6 +2009,11 @@ impl Application {
                 textes::CONFIRMER_SUPPRIMER_RUBAN.traduit(),
                 textes::SUPPRIMER.traduit(),
             ),
+            Confirmation::SupprimerNote(_) => (
+                textes::TITRE_SUPPRIMER_NOTE.traduit(),
+                textes::CONFIRMER_SUPPRIMER_NOTE.traduit(),
+                textes::SUPPRIMER.traduit(),
+            ),
             Confirmation::TropDeRubans(_) => (
                 textes::TITRE_ENREGISTRER_RUBAN.traduit(),
                 textes::TROP_DE_RUBANS.traduit(),
@@ -1905,6 +2043,13 @@ impl Application {
                             self.ruban_ouvert = None;
                         }
                         self.ecrire_rubans();
+                    }
+                    Confirmation::SupprimerNote(id) => {
+                        self.notes.retain(|n| n.id != id);
+                        if self.note_ouverte == Some(id) {
+                            self.note_ouverte = None;
+                        }
+                        self.notes_a_sauvegarder = true;
                     }
                     Confirmation::TropDeRubans(nom) => {
                         // Les plus anciens sont à la fin de la liste.
@@ -2008,6 +2153,9 @@ impl eframe::App for Application {
         if self.dessin_a_sauvegarder {
             let langue = self.moteur.preferences().langue;
             let _ = stockage::enregistrer_dessin(&self.depot, &self.plan, langue);
+        }
+        if self.notes_a_sauvegarder {
+            let _ = stockage::enregistrer_notes(&self.depot, &self.notes);
         }
     }
 
@@ -2302,6 +2450,31 @@ fn dessiner_onglet_rubans(painter: &Painter, r: Rect, couleur: Color32) {
                 Pos2::new(r.right(), y),
             ],
             trait_,
+        );
+    }
+}
+
+fn dessiner_onglet_notes(painter: &Painter, r: Rect, couleur: Color32) {
+    // Un bloc-notes : la feuille, sa reliure en haut, et trois lignes.
+    let feuille =
+        Rect::from_center_size(r.center(), Vec2::new(r.width() * 0.72, r.height() * 0.92));
+    let trait_ = Stroke::new(1.6, couleur);
+    painter.rect_stroke(feuille, 2, trait_, egui::StrokeKind::Middle);
+    painter.line_segment(
+        [
+            Pos2::new(feuille.left(), feuille.top() + 3.5),
+            Pos2::new(feuille.right(), feuille.top() + 3.5),
+        ],
+        trait_,
+    );
+    for k in 0..3 {
+        let y = feuille.top() + 7.5 + 3.6 * k as f32;
+        painter.line_segment(
+            [
+                Pos2::new(feuille.left() + 3.0, y),
+                Pos2::new(feuille.right() - 3.0, y),
+            ],
+            Stroke::new(1.2, couleur),
         );
     }
 }

@@ -6,6 +6,7 @@ pub mod bienvenue;
 pub mod dessin;
 pub mod maquette;
 pub mod metiers;
+pub mod notes;
 pub mod preferences;
 pub mod rubans;
 pub mod trucs;

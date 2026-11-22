@@ -1262,6 +1262,27 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Bloc-notes", "Notepad"),
+        acces: t("onglet Notes", "Notes tab"),
+        resume: t(
+            "Gardez vos notes de chantier dans la calculatrice :",
+            "Keep your job-site notes in the calculator:",
+        ),
+        mode_emploi: t(
+            "`+ Nouvelle note` en ouvre une : écrivez son titre et son texte, ils s'enregistrent d'eux-mêmes. Chaque note garde la date de sa dernière modification; `Copier` la met dans le presse-papiers, `Exporter` en fait un fichier texte, `Supprimer` la retire. Une note laissée vide disparaît en revenant à la liste.",
+            "`+ New note` opens one: type its title and text, they save on their own. Each note keeps the date it was last changed; `Copy` puts it on the clipboard, `Export` makes a text file of it, `Delete` removes it. A note left empty disappears when you go back to the list.",
+        ),
+        exemple: None,
+        note: Some(t(
+            "Le bloc-notes garde jusqu'à 500 notes, sur l'appareil.",
+            "The notepad keeps up to 500 notes, on the device.",
+        )),
+        mots_cles: "notes note bloc-notes texte chantier liste notepad text list",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Clavier adapté au métier", "Keypad adapted to your trade"),
         acces: t("barre des métiers", "trade bar"),
         resume: t(

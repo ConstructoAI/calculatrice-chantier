@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.28 — 2026-11-21 (1.28 : étirer un mur par son milieu, section 25.1; 1.27 : pivoter au 15 degrés, section 25.1; 1.26 : mesures à l'intérieur ou à l'extérieur des murs, section 25.1; 1.25 : porte dans une cloison, section 25.1; 1.24 : mobilier 3D détaillé, section 25.1; 1.23 : renommer une pièce depuis la rangée des pièces, section 25.1; 1.22 : épaisseur des murs et des cloisons, section 25.1; 1.21 : cloisons, section 25.1; 1.20 : notes sur le plan, section 25.1; 1.19 : escalier et mobilier, section 25.1; 1.18 : distance au coin des ouvertures réglée sur le plan, section 25.1; 1.17 : vue 3D et allège des fenêtres, section 25.1; 1.16 : portes et fenêtres dessinées sur leur mur, section 25.1; 1.15 : murs en biais à 45°, section 25; 1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
+> **Version du document :** 1.29 — 2026-11-21 (1.29 : bloc-notes, section 26; 1.28 : étirer un mur par son milieu, section 25.1; 1.27 : pivoter au 15 degrés, section 25.1; 1.26 : mesures à l'intérieur ou à l'extérieur des murs, section 25.1; 1.25 : porte dans une cloison, section 25.1; 1.24 : mobilier 3D détaillé, section 25.1; 1.23 : renommer une pièce depuis la rangée des pièces, section 25.1; 1.22 : épaisseur des murs et des cloisons, section 25.1; 1.21 : cloisons, section 25.1; 1.20 : notes sur le plan, section 25.1; 1.19 : escalier et mobilier, section 25.1; 1.18 : distance au coin des ouvertures réglée sur le plan, section 25.1; 1.17 : vue 3D et allège des fenêtres, section 25.1; 1.16 : portes et fenêtres dessinées sur leur mur, section 25.1; 1.15 : murs en biais à 45°, section 25; 1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -3123,6 +3123,20 @@ Autres valeurs : la diagonale d'équerre d'un rectangle de 12 pi × 10 pi 6 po e
 
 Les angles autres que l'équerre et 45°, les courbes.
 
+## 26. Bloc-notes
+
+Ajouté le 2026-11-21 (version 0.11.0), à la demande de l'utilisateur : « J'aimerai aussi ajouter un bloc note dans l'application », description acceptée (« oui »).
+
+1. **Un onglet « Notes »**, entre « Rubans » et « Aide » (et « Bloc-notes » dans le menu ☰) : la liste des notes, de la plus récemment modifiée à la plus ancienne, chacune avec son titre (« Note sans titre » s'il est vide), la date de sa dernière modification et le début de son texte, et ses boutons « Ouvrir », « Copier », « Exporter » et « Supprimer ».
+2. **« + Nouvelle note »** en ouvre une neuve, dont le texte prend le clavier. Une note ouverte montre sa date, son titre (80 caractères au plus) et son texte (20 000 caractères au plus), qui s'écrivent sur place et s'enregistrent d'eux-mêmes; « Retour » revient à la liste, où une note laissée vide disparaît.
+3. **« Copier »** met la note dans le presse-papiers et **« Exporter »** en fait un fichier texte (comme un ruban : UTF-8, fins de ligne Windows) : son titre, sa date, puis son texte. **« Supprimer »** demande confirmation.
+4. Les notes sont conservées sur l'appareil, dans `notes.json` (version 1), au plus 500.
+
+Règles :
+
+- **R-92** Les notes se lisent et s'écrivent comme les rubans (`app/src/stockage.rs`) : une liste illisible ou d'une version inconnue est mise de côté (`notes.corrompu.json`).
+- **R-93** Le bloc-notes ne calcule rien : son texte est libre, ni lu comme une mesure ni transposé d'une langue à l'autre.
+
 ## Annexe A — Constantes
 
 ### A.1 Facteurs de conversion (vers l'unité de base)
@@ -3539,7 +3553,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-91, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-93, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 

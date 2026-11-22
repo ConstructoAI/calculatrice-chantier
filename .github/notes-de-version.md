@@ -9,6 +9,12 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.11
+
+- **Bloc-notes** : un nouvel onglet **Notes** — vos notes de chantier, chacune avec son titre et
+  la date de sa dernière modification, enregistrées sur l'appareil; **Copier** met une note dans
+  le presse-papiers, **Exporter** en fait un fichier texte.
+
 ## Nouveautés de la version 0.10
 
 - **Escalier et mobilier** : dans le dessin, ajoutez un escalier, un lit, une table, un sofa,

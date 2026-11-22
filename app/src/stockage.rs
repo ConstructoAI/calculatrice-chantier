@@ -136,6 +136,81 @@ pub fn enregistrer_rubans(depot: &Depot, rubans: &[RubanEnregistre]) -> io::Resu
     depot.ecrire(FICHIER_RUBANS, &en_json(&fichier)?)
 }
 
+const FICHIER_NOTES: &str = "notes.json";
+const FICHIER_NOTES_CORROMPU: &str = "notes.corrompu.json";
+/// Version du format de `notes.json`.
+const VERSION_NOTES: u32 = 1;
+/// Nombre maximal de notes du bloc-notes (section 26).
+pub const MAX_NOTES: usize = 500;
+
+/// Une note du bloc-notes (section 26) : son titre, son texte, et ses dates
+/// de création et de dernière modification (ISO 8601).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NoteDuBloc {
+    pub id: u64,
+    pub titre: String,
+    pub texte: String,
+    pub creee: String,
+    pub modifiee: String,
+}
+
+impl NoteDuBloc {
+    /// Vrai si la note n'a ni titre ni texte.
+    pub fn est_vide(&self) -> bool {
+        self.titre.trim().is_empty() && self.texte.trim().is_empty()
+    }
+
+    /// La date de sa dernière modification, en clair; la date brute si elle
+    /// est illisible.
+    pub fn date_en_clair(&self) -> String {
+        match chrono::DateTime::parse_from_rfc3339(&self.modifiee) {
+            Ok(d) => textes::date_en_clair(d.year(), d.month(), d.day(), d.hour(), d.minute()),
+            Err(_) => self.modifiee.clone(),
+        }
+    }
+
+    /// La note à copier ou à exporter : son titre, sa date, puis son texte.
+    pub fn en_texte(&self, titre: &str) -> String {
+        format!("{titre}\n{}\n\n{}", self.date_en_clair(), self.texte)
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+struct FichierNotes {
+    version: u32,
+    notes: Vec<NoteDuBloc>,
+}
+
+/// Lit les notes du bloc-notes; liste vide s'il n'y en a pas. Une liste
+/// illisible ou d'une version inconnue est mise de côté.
+pub fn charger_notes(depot: &Depot) -> Vec<NoteDuBloc> {
+    let lues = match depot.lire(FICHIER_NOTES) {
+        Lecture::Absent => return Vec::new(),
+        Lecture::Illisible => None,
+        Lecture::Texte(texte) => serde_json::from_str::<FichierNotes>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_NOTES),
+    };
+    match lues {
+        Some(fichier) => fichier.notes,
+        None => {
+            depot.mettre_de_cote(FICHIER_NOTES, FICHIER_NOTES_CORROMPU);
+            Vec::new()
+        }
+    }
+}
+
+/// Enregistre les notes, de la plus récente à la plus ancienne.
+pub fn enregistrer_notes(depot: &Depot, notes: &[NoteDuBloc]) -> io::Result<()> {
+    let fichier = FichierNotes {
+        version: VERSION_NOTES,
+        notes: notes.to_vec(),
+    };
+    depot.ecrire(FICHIER_NOTES, &en_json(&fichier)?)
+}
+
 /// Saisies des calculateurs par métier (section 22), par identifiant de
 /// calculateur : ce que l'utilisateur a tapé la dernière fois.
 pub type Saisies = BTreeMap<String, Vec<String>>;
@@ -447,6 +522,36 @@ mod tests {
         assert!(charger_rubans(&d.depot()).is_empty());
         assert!(d.0.join("rubans.corrompu.json").exists());
         assert!(!d.0.join("rubans.json").exists());
+    }
+
+    #[test]
+    fn aller_retour_des_notes() {
+        let d = DossierTemporaire::nouveau("notes");
+        assert!(charger_notes(&d.depot()).is_empty());
+        let note = NoteDuBloc {
+            id: 1,
+            titre: "Chantier du sous-sol".to_string(),
+            texte: "Acheter 12 feuilles de gypse de 1/2 po.\nAppeler l'électricien.".to_string(),
+            creee: "2026-11-21T08:04:00-05:00".to_string(),
+            modifiee: "2026-11-21T09:15:00-05:00".to_string(),
+        };
+        enregistrer_notes(&d.depot(), std::slice::from_ref(&note)).unwrap();
+        assert_eq!(charger_notes(&d.depot()), vec![note.clone()]);
+        assert_eq!(note.date_en_clair(), "21 novembre 2026, 9 h 15");
+        assert!(
+            note.en_texte(&note.titre)
+                .starts_with("Chantier du sous-sol\n21 novembre 2026, 9 h 15\n\nAcheter")
+        );
+        assert!(!note.est_vide());
+        assert!(NoteDuBloc::default().est_vide());
+    }
+
+    #[test]
+    fn notes_illisibles_mises_de_cote() {
+        let d = DossierTemporaire::nouveau("notes-illisibles");
+        fs::write(d.0.join("notes.json"), "{ \"version\": 99, \"notes\": [] }").unwrap();
+        assert!(charger_notes(&d.depot()).is_empty());
+        assert!(d.0.join("notes.corrompu.json").exists());
     }
 
     #[test]

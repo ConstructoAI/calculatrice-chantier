@@ -286,6 +286,23 @@ pub const ONGLET_RUBANS: Texte = t("Rubans", "Tapes");
 pub const ONGLET_AIDE: Texte = t("Aide", "Help");
 
 pub const MENU_RUBANS: Texte = t("Rubans enregistrés", "Saved tapes");
+pub const ONGLET_NOTES: Texte = t("Notes", "Notes");
+pub const MENU_NOTES: Texte = t("Bloc-notes", "Notepad");
+pub const NOUVELLE_NOTE: Texte = t("+ Nouvelle note", "+ New note");
+pub const AUCUNE_NOTE: Texte = t("Aucune note pour l'instant.", "No notes yet.");
+pub const NOTE_SANS_TITRE: Texte = t("Note sans titre", "Untitled note");
+pub const NOTE_TITRE_INDICE: Texte = t("Titre", "Title");
+pub const NOTE_TEXTE_INDICE: Texte = t("Écrivez votre note…", "Write your note…");
+pub const AVIS_NOTE_COPIEE: Texte = t("Note copiée.", "Note copied.");
+pub const AVIS_TROP_DE_NOTES: Texte = t(
+    "Le bloc-notes est plein (500 notes) : supprimez-en quelques-unes.",
+    "The notepad is full (500 notes): delete a few.",
+);
+pub const TITRE_SUPPRIMER_NOTE: Texte = t("Supprimer la note", "Delete the note");
+pub const CONFIRMER_SUPPRIMER_NOTE: Texte = t(
+    "La note sera supprimée pour de bon.",
+    "The note will be deleted for good.",
+);
 pub const MENU_AIDE: Texte = t("Aide", "Help");
 pub const MENU_MANUEL: Texte = t("Manuel d'utilisation", "User manual");
 pub const MENU_BIENVENUE: Texte = t("Bienvenue", "Welcome");

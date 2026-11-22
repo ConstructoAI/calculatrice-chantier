@@ -143,6 +143,9 @@ outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons 
 zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
 dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle).
 
+L'onglet **Notes** est un bloc-notes : vos notes de chantier, chacune avec son titre et sa date,
+enregistrées sur l'appareil, à copier ou à exporter en fichier texte.
+
 ## Installer sur un téléphone ou une tablette
 
 La version Web s'installe comme une application : elle a alors son icône, s'ouvre en
