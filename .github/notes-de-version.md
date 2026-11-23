@@ -93,6 +93,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   la plus petite feuille Lettre ou 11 × 17 où tient la pièce; échelle graphique, et
   cartouche (projet, adresse, date, dessiné par).
 
+- **Revenir à la calculatrice** : le premier onglet s'appelle désormais « Calculatrice »
+  (plus « Accueil »), et le menu ☰ y mène aussi, en tête de ses outils.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

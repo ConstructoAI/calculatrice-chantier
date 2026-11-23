@@ -2215,11 +2215,22 @@ impl Application {
                 Vec2::splat(22.0),
             );
             dessin(painter, icone, couleur);
+            // Un libellé trop large pour son onglet (« Calculatrice » sur un
+            // téléphone étroit) se resserre.
+            let largeur_du_libelle = painter
+                .layout_no_wrap(libelle.to_owned(), theme::police_grasse(12.0), couleur)
+                .size()
+                .x;
+            let taille = if largeur_du_libelle > zone.width() - 6.0 {
+                (12.0 * (zone.width() - 6.0) / largeur_du_libelle).max(9.0)
+            } else {
+                12.0
+            };
             painter.text(
                 Pos2::new(zone.center().x, zone.bottom() - 13.0),
                 Align2::CENTER_CENTER,
                 libelle,
-                theme::police_grasse(12.0),
+                theme::police_grasse(taille),
                 couleur,
             );
             if reponse.clicked() {
@@ -2610,6 +2621,10 @@ impl Application {
             (
                 textes::MENU_SECTION_OUTILS.traduit(),
                 vec![
+                    (
+                        textes::MENU_CALCULATRICE.traduit(),
+                        ChoixMenu::Aller(Vue::Accueil),
+                    ),
                     (
                         textes::MENU_METIERS.traduit(),
                         ChoixMenu::Aller(Vue::Metiers),

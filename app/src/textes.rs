@@ -285,7 +285,8 @@ pub const INFOBULLE_VALEUR: Texte = t(
 // Navigation (section 15.1)
 // ----------------------------------------------------------------------
 
-pub const ONGLET_ACCUEIL: Texte = t("Accueil", "Home");
+// L'écran de la calculatrice : « Accueil » jusqu'à la version 0.13.18.
+pub const ONGLET_ACCUEIL: Texte = t("Calculatrice", "Calculator");
 pub const ONGLET_RUBANS: Texte = t("Rubans", "Tapes");
 pub const ONGLET_AIDE: Texte = t("Aide", "Help");
 
@@ -955,6 +956,7 @@ pub const MENU_TRUCS: Texte = t("Trucs de pro", "Pro tips");
 pub const MENU_PREFERENCES: Texte = t("Préférences", "Preferences");
 pub const MENU_A_PROPOS: Texte = t("À propos", "About");
 pub const MENU_QUITTER: Texte = t("Quitter", "Quit");
+pub const MENU_CALCULATRICE: Texte = t("Calculatrice", "Calculator");
 pub const MENU_METIERS: Texte = t("Calculateurs par métier", "Trade calculators");
 /// Version Web : installer l'application sur le téléphone, la tablette ou l'ordinateur.
 pub const MENU_INSTALLER: Texte = t("Installer l'application", "Install the app");
