@@ -169,15 +169,19 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     };
     let (cloisons, portes_de_cloisons) = if complete {
         let mesurees: Vec<_> = solution.cloisons.iter().flatten().cloned().collect();
+        // Le battant de chaque porte; un passage n'en a pas.
         let portes = mesurees
             .iter()
-            .filter_map(|cloison| {
-                let porte = cloison.porte?;
-                Some(PorteExportee {
-                    gonds: cloison.point(porte.segment, porte.debut),
-                    autre_bord: cloison.point(porte.segment, porte.fin),
-                    cote: cloison.cote_de_la_porte(),
-                })
+            .flat_map(|cloison| {
+                cloison
+                    .ouvertures
+                    .iter()
+                    .filter(|porte| !porte.passage)
+                    .map(move |porte| PorteExportee {
+                        gonds: cloison.point(porte.segment, porte.debut),
+                        autre_bord: cloison.point(porte.segment, porte.fin),
+                        cote: cloison.cote_de_l_ouverture(porte),
+                    })
             })
             .collect();
         (
@@ -2669,6 +2673,7 @@ mod tests {
             epaisseur: "5 po".to_string(),
             porte: None,
             suite: Vec::new(),
+            ouvertures: Vec::new(),
         }];
         let lignes_de_cote = |dxf: &str| dxf.matches("\r\nLINE\r\n  8\r\nCOTES\r\n").count();
         // Sans le bouton « Cotes », aucune ligne de cote.
@@ -2793,6 +2798,7 @@ mod tests {
             epaisseur: String::new(),
             porte: None,
             suite: Vec::new(),
+            ouvertures: Vec::new(),
         }];
         let plan = Plan::d_une_piece(chambre);
         let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();

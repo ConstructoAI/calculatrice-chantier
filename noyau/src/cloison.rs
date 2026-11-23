@@ -24,9 +24,10 @@ pub const LARGEUR_DE_PORTE_PAR_DEFAUT: f64 = 32.0;
 /// La hauteur d'une porte de cloison : 6 pi 8 po.
 pub const HAUTEUR_DE_PORTE: f64 = 80.0;
 
-/// La porte d'une cloison : son segment, sa largeur et sa distance au début
-/// de ce segment (le bout A), telles qu'inscrites — vides : 2 pi 8 po,
-/// centrée —, et le côté où elle s'ouvre.
+/// Une ouverture d'une cloison (section 25.1, point 39) : une porte, ou un
+/// passage sans porte; son segment, sa largeur et sa distance au début de ce
+/// segment (le bout A), telles qu'inscrites — vides : 2 pi 8 po, centrée —,
+/// et le côté où s'ouvre une porte.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PorteDeCloison {
@@ -36,6 +37,9 @@ pub struct PorteDeCloison {
     pub inversee: bool,
     /// Le segment de la cloison qui la porte (le premier : 0).
     pub segment: usize,
+    /// Vrai pour un passage sans porte (une arche, une baie), qui n'a ni
+    /// battant ni côté.
+    pub passage: bool,
 }
 
 /// La porte d'une cloison à ses mesures : son segment, ses bords en pouces
@@ -46,6 +50,8 @@ pub struct PorteMesuree {
     pub debut: f64,
     pub fin: f64,
     pub inversee: bool,
+    /// Un passage sans porte.
+    pub passage: bool,
 }
 
 /// Un segment de plus d'une cloison en polyligne : sa direction et sa
@@ -67,10 +73,14 @@ pub struct Cloison {
     pub longueur: String,
     /// Vide : celle des cloisons de la pièce.
     pub epaisseur: String,
-    /// Sa porte, s'il y en a une.
+    /// Sa porte, dans un dessin d'avant la version 0.13.22 : `Plan::normaliser`
+    /// la verse dans `ouvertures`, et elle ne s'écrit plus.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub porte: Option<PorteDeCloison>,
     /// Les segments qui suivent le premier, d'une cloison en polyligne.
     pub suite: Vec<SegmentDeCloison>,
+    /// Ses portes et ses passages (point 39).
+    pub ouvertures: Vec<PorteDeCloison>,
 }
 
 impl Default for Cloison {
@@ -82,11 +92,29 @@ impl Default for Cloison {
             epaisseur: String::new(),
             porte: None,
             suite: Vec::new(),
+            ouvertures: Vec::new(),
         }
     }
 }
 
 impl Cloison {
+    /// Verse la porte d'un dessin d'avant dans ses ouvertures, en tête.
+    pub fn normaliser(&mut self) {
+        if let Some(porte) = self.porte.take() {
+            self.ouvertures.insert(0, porte);
+        }
+    }
+
+    /// Toutes ses ouvertures : la porte d'un dessin d'avant d'abord.
+    pub fn toutes_les_ouvertures(&self) -> impl Iterator<Item = &PorteDeCloison> {
+        self.porte.iter().chain(self.ouvertures.iter())
+    }
+
+    /// Toutes ses ouvertures, à modifier.
+    pub fn toutes_les_ouvertures_mut(&mut self) -> impl Iterator<Item = &mut PorteDeCloison> {
+        self.porte.iter_mut().chain(self.ouvertures.iter_mut())
+    }
+
     /// Le nombre de ses segments.
     pub fn nombre_de_segments(&self) -> usize {
         1 + self.suite.len()
@@ -258,7 +286,8 @@ pub struct CloisonMesuree {
     /// Les sommets de son axe : son départ, puis la fin de chaque segment.
     pub sommets: Vec<(f64, f64)>,
     pub epaisseur: f64,
-    pub porte: Option<PorteMesuree>,
+    /// Ses portes et ses passages (point 39).
+    pub ouvertures: Vec<PorteMesuree>,
 }
 
 impl CloisonMesuree {
@@ -280,8 +309,14 @@ impl CloisonMesuree {
         CloisonMesuree {
             sommets,
             epaisseur,
-            porte,
+            ouvertures: porte.into_iter().collect(),
         }
+    }
+
+    /// La même cloison, avec ces ouvertures.
+    pub fn avec_ouvertures(mut self, ouvertures: Vec<PorteMesuree>) -> CloisonMesuree {
+        self.ouvertures = ouvertures;
+        self
     }
 
     /// Son départ.
@@ -359,8 +394,8 @@ impl CloisonMesuree {
         (p1.0 + u1.0 * t, p1.1 + u1.1 * t)
     }
 
-    /// Ses morceaux pleins : un par segment, aux coins d'onglet, et deux pour
-    /// le segment de sa porte, de part et d'autre d'elle.
+    /// Ses morceaux pleins : un par segment, aux coins d'onglet, coupé de part
+    /// et d'autre de chaque ouverture.
     pub fn morceaux(&self) -> Vec<MorceauDeCloison> {
         let n = self.nombre_de_segments();
         let h = self.epaisseur / 2.0;
@@ -386,13 +421,26 @@ impl CloisonMesuree {
                     self.coin_d_onglet(k + 1, cote)
                 }
             };
-            // Les parties pleines du segment, de part et d'autre de la porte.
-            let pleines = match self.porte {
-                Some(porte) if porte.segment == k => {
-                    vec![(0.0, porte.debut), (porte.fin, longueur)]
+            // Les parties pleines du segment, entre ses ouvertures.
+            let mut vides: Vec<(f64, f64)> = self
+                .ouvertures
+                .iter()
+                .filter(|ouverture| ouverture.segment == k)
+                .map(|ouverture| (ouverture.debut.max(0.0), ouverture.fin.min(longueur)))
+                .filter(|(debut, fin)| fin > debut)
+                .collect();
+            vides.sort_by(|x, y| x.0.total_cmp(&y.0));
+            let mut pleines = Vec::new();
+            let mut depuis = 0.0_f64;
+            for (debut, fin) in vides {
+                if debut > depuis {
+                    pleines.push((depuis, debut));
                 }
-                _ => vec![(0.0, longueur)],
-            };
+                depuis = depuis.max(fin);
+            }
+            if depuis < longueur {
+                pleines.push((depuis, longueur));
+            }
             for (t0, t1) in pleines {
                 if t1 - t0 <= 1e-6 {
                     continue;
@@ -434,13 +482,49 @@ impl CloisonMesuree {
             .fold(f64::MAX, f64::min)
     }
 
-    /// Le côté où s'ouvre sa porte : à gauche de l'axe de son segment, ou de
-    /// l'autre côté si elle est inversée (une direction unitaire).
-    pub fn cote_de_la_porte(&self) -> (f64, f64) {
-        let segment = self.porte.map_or(0, |porte| porte.segment);
-        let (ux, uy) =
-            self.sens_du_segment(segment.min(self.nombre_de_segments().saturating_sub(1)));
-        if self.porte.is_some_and(|porte| porte.inversee) {
+    /// Où poser une ouverture de cette largeur sur ce segment, en pouces
+    /// depuis son début, sans chevaucher les autres : au milieu s'il est
+    /// libre, sinon à 4 po après l'une d'elles, ou au début; `None` s'il n'y a
+    /// pas la place (point 39).
+    pub fn place_libre(&self, segment: usize, largeur: f64) -> Option<f64> {
+        if segment >= self.nombre_de_segments() {
+            return None;
+        }
+        let longueur = self.longueur_du_segment(segment);
+        let mut occupees: Vec<(f64, f64)> = self
+            .ouvertures
+            .iter()
+            .filter(|ouverture| ouverture.segment == segment)
+            .map(|ouverture| (ouverture.debut, ouverture.fin))
+            .collect();
+        occupees.sort_by(|x, y| x.0.total_cmp(&y.0));
+        let libre = |debut: f64| {
+            debut >= -1e-9
+                && debut + largeur <= longueur + 1e-9
+                && occupees
+                    .iter()
+                    .all(|&(a, b)| debut + largeur <= a + 1e-9 || debut >= b - 1e-9)
+        };
+        let milieu = (longueur - largeur) / 2.0;
+        if libre(milieu) {
+            return Some(milieu);
+        }
+        occupees
+            .iter()
+            .map(|&(_, fin)| fin + 4.0)
+            .chain([0.0])
+            .find(|&debut| libre(debut))
+    }
+
+    /// Le côté où s'ouvre une de ses portes : à gauche de l'axe de son
+    /// segment, ou de l'autre côté si elle est inversée (une direction
+    /// unitaire).
+    pub fn cote_de_l_ouverture(&self, ouverture: &PorteMesuree) -> (f64, f64) {
+        let segment = ouverture
+            .segment
+            .min(self.nombre_de_segments().saturating_sub(1));
+        let (ux, uy) = self.sens_du_segment(segment);
+        if ouverture.inversee {
             (uy, -ux)
         } else {
             (-uy, ux)
@@ -658,6 +742,7 @@ mod tests {
                 debut: 44.0,
                 fin: 76.0,
                 inversee: false,
+                passage: false,
             }),
         );
         // Deux morceaux pleins, de part et d'autre de la porte.
@@ -668,22 +753,74 @@ mod tests {
         assert!(morceaux[0].bout_a_la_fin && morceaux[1].bout_au_debut);
         assert_eq!(cloison.point(0, 44.0), (48.0, 44.0));
         // Elle s'ouvre à gauche de son axe, ou de l'autre côté une fois inversée.
-        assert_eq!(cloison.cote_de_la_porte(), (-1.0, 0.0));
-        cloison.porte = Some(PorteMesuree {
-            segment: 0,
-            debut: 44.0,
-            fin: 76.0,
+        let porte = cloison.ouvertures[0];
+        assert_eq!(cloison.cote_de_l_ouverture(&porte), (-1.0, 0.0));
+        let inversee = PorteMesuree {
             inversee: true,
-        });
-        assert_eq!(cloison.cote_de_la_porte(), (1.0, 0.0));
+            ..porte
+        };
+        assert_eq!(cloison.cote_de_l_ouverture(&inversee), (1.0, 0.0));
         // Une porte contre le bout A ne laisse qu'un morceau.
-        cloison.porte = Some(PorteMesuree {
+        cloison.ouvertures = vec![PorteMesuree {
             segment: 0,
             debut: 0.0,
             fin: 32.0,
             inversee: false,
-        });
+            passage: false,
+        }];
         assert_eq!(cloison.morceaux().len(), 1);
+        // Une porte et un passage sur le même segment : trois morceaux.
+        cloison.ouvertures = vec![
+            PorteMesuree {
+                segment: 0,
+                debut: 80.0,
+                fin: 112.0,
+                inversee: false,
+                passage: true,
+            },
+            PorteMesuree {
+                segment: 0,
+                debut: 10.0,
+                fin: 42.0,
+                inversee: false,
+                passage: false,
+            },
+        ];
+        let morceaux = cloison.morceaux();
+        assert_eq!(morceaux.len(), 3);
+        assert!(
+            morceaux[1]
+                .coins
+                .iter()
+                .all(|c| c.1 >= 42.0 - 1e-9 && c.1 <= 80.0 + 1e-9)
+        );
+    }
+
+    #[test]
+    fn la_place_libre_d_une_nouvelle_ouverture() {
+        // Une cloison de 12 pi : sans ouverture, au milieu.
+        let mut cloison = CloisonMesuree::depuis((0.0, 60.0), &[(Sens::Est, 144.0)], 5.0, None);
+        assert_eq!(cloison.place_libre(0, 32.0), Some(56.0));
+        // Une porte au milieu : la suivante va à 4 po après elle.
+        cloison.ouvertures.push(PorteMesuree {
+            segment: 0,
+            debut: 56.0,
+            fin: 88.0,
+            inversee: false,
+            passage: false,
+        });
+        assert_eq!(cloison.place_libre(0, 32.0), Some(92.0));
+        // Plus de place après : au début.
+        cloison.ouvertures.push(PorteMesuree {
+            segment: 0,
+            debut: 92.0,
+            fin: 144.0,
+            inversee: false,
+            passage: true,
+        });
+        assert_eq!(cloison.place_libre(0, 32.0), Some(0.0));
+        assert_eq!(cloison.place_libre(0, 60.0), None);
+        assert_eq!(cloison.place_libre(3, 32.0), None);
     }
 
     #[test]

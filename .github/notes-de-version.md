@@ -101,6 +101,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
 - **Étirer une cloison** : comme un mur, par la poignée du milieu de chacun de ses segments.
 
+- **Portes et ouvertures dans les cloisons** : autant qu'il en faut par cloison, chacune une
+  porte (avec son battant) ou une ouverture sans porte.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

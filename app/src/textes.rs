@@ -1032,6 +1032,10 @@ pub const DESSIN_HAUTEUR_DES_MURS: Texte = t("Hauteur des murs", "Wall height");
 pub const DESSIN_HAUTEUR: Texte = t("hauteur", "height");
 pub const DESSIN_HAUTEUR_EXEMPLE: Texte = t("8 pi 0 po", "8 ft 0 in");
 pub const DESSIN_AJOUTER_PORTE: Texte = t("+ Porte", "+ Door");
+// Un passage sans porte dans une cloison (section 25.1, point 39)
+pub const DESSIN_AJOUTER_PASSAGE: Texte = t("+ Ouverture", "+ Opening");
+pub const DESSIN_PASSAGE: Texte = t("Ouverture", "Opening");
+pub const DESSIN_LARGEUR_DU_PASSAGE: Texte = t("Largeur de l'ouverture", "Width of the opening");
 pub const DESSIN_AJOUTER_FENETRE: Texte = t("+ Fenêtre", "+ Window");
 pub const DESSIN_SURFACE_DES_MURS: Texte = t("Surface des murs", "Wall area");
 pub const DESSIN_PORTES_ET_FENETRES: Texte = t("Portes et fenêtres", "Doors and windows");
@@ -1091,7 +1095,6 @@ pub const DESSIN_SURFACE_EXTERIEURE: Texte =
 pub const DESSIN_LARGEUR_DE_LA_PORTE: Texte = t("largeur de la porte", "door width");
 pub const DESSIN_DISTANCE_DU_BOUT_A: Texte = t("distance du bout A", "distance from end A");
 pub const DESSIN_INVERSER: Texte = t("Inverser", "Flip");
-pub const DESSIN_SANS_PORTE: Texte = t("Sans porte", "No door");
 
 /// « segment 2 » : un segment d'une cloison en polyligne.
 pub fn dessin_segment(numero: usize) -> String {

@@ -695,6 +695,12 @@ impl Plan {
             self.pieces.push(Piece::default());
         }
         self.courante = self.courante.min(self.pieces.len() - 1);
+        // La porte unique d'une cloison d'avant devient sa première ouverture.
+        for piece in &mut self.pieces {
+            for cloison in &mut piece.dessin.cloisons {
+                cloison.normaliser();
+            }
+        }
     }
 
     /// La pièce à l'écran.
@@ -870,7 +876,7 @@ impl Solution {
     /// connue (pouces carrés).
     pub fn surface_des_cloisons(&self) -> Option<f64> {
         let hauteur = self.hauteur?;
-        // Une porte s'enlève des deux faces, sur sa hauteur.
+        // Une porte ou un passage s'enlève des deux faces, sur sa hauteur.
         let hauteur_de_porte = hauteur.min(crate::cloison::HAUTEUR_DE_PORTE);
         let une_face: f64 = self
             .cloisons
@@ -878,8 +884,10 @@ impl Solution {
             .flatten()
             .map(|c| {
                 c.longueur() * hauteur
-                    - c.porte
-                        .map_or(0.0, |porte| (porte.fin - porte.debut) * hauteur_de_porte)
+                    - c.ouvertures
+                        .iter()
+                        .map(|porte| (porte.fin - porte.debut) * hauteur_de_porte)
+                        .sum::<f64>()
             })
             .sum();
         Some(2.0 * une_face)
@@ -1437,9 +1445,9 @@ impl Dessin {
             for segment in &mut cloison.suite {
                 segment.sens = segment.sens.en_miroir();
             }
-            // Sa porte s'ouvre du même côté de la pièce, donc de l'autre côté
-            // de son segment, dont le sens est retourné.
-            if let Some(porte) = &mut cloison.porte {
+            // Ses portes s'ouvrent du même côté de la pièce, donc de l'autre
+            // côté de leur segment, dont le sens est retourné.
+            for porte in cloison.toutes_les_ouvertures_mut() {
                 porte.inversee = !porte.inversee;
             }
         }
@@ -2038,10 +2046,11 @@ impl Dessin {
                     .collect::<Option<_>>()?;
                 let epaisseur =
                     lire_une_epaisseur(&cloison.epaisseur, false).unwrap_or(epaisseur_des_cloisons);
-                // Sa porte, sur l'un de ses segments : centrée sans distance
-                // inscrite; jamais plus large que son segment, ni hors de lui.
-                // Une largeur sans unité se lit en pouces.
-                let porte = cloison.porte.as_ref().map(|porte| {
+                // Ses portes et ses passages, chacun sur l'un de ses segments :
+                // centrés sans distance inscrite; jamais plus larges que leur
+                // segment, ni hors de lui. Une largeur sans unité se lit en
+                // pouces.
+                let ouvertures = cloison.toutes_les_ouvertures().map(|porte| {
                     let segment = porte.segment.min(segments.len() - 1);
                     let longueur = segments[segment].1;
                     let largeur = lire_une_epaisseur(&porte.largeur, false)
@@ -2060,14 +2069,19 @@ impl Dessin {
                         debut,
                         fin: debut + largeur,
                         inversee: porte.inversee,
+                        passage: porte.passage,
                     }
                 });
-                Some(crate::cloison::CloisonMesuree::depuis(
-                    cloison.debut,
-                    &segments,
-                    epaisseur,
-                    porte,
-                ))
+                let ouvertures = ouvertures.collect();
+                Some(
+                    crate::cloison::CloisonMesuree::depuis(
+                        cloison.debut,
+                        &segments,
+                        epaisseur,
+                        None,
+                    )
+                    .avec_ouvertures(ouvertures),
+                )
             })
             .collect();
         // Des mesures prises à l'extérieur des murs : la surface et le
@@ -2498,7 +2512,12 @@ mod tests {
             dessin.resoudre(Format::PiPo).cloisons[0]
                 .as_ref()
                 .expect("cloison mesurée")
-                .cote_de_la_porte()
+                .cote_de_l_ouverture(
+                    &dessin.resoudre(Format::PiPo).cloisons[0]
+                        .as_ref()
+                        .expect("cloison mesurée")
+                        .ouvertures[0],
+                )
         };
         let (traits_avant, porte_avant) = (traits(&dessin), porte(&dessin));
         dessin.miroir();
@@ -3094,7 +3113,7 @@ mod tests {
         }];
         let solution = dessin.resoudre(Format::PiPo);
         // 2 pi 8 po, centrée.
-        let porte = solution.cloisons[0].as_ref().unwrap().porte.unwrap();
+        let porte = solution.cloisons[0].as_ref().unwrap().ouvertures[0];
         assert_eq!((porte.debut, porte.fin), (44.0, 76.0));
         // Les deux faces de la cloison, moins la porte (6 pi 8 po de haut).
         assert_eq!(
@@ -3109,16 +3128,14 @@ mod tests {
         let porte = dessin.resoudre(Format::PiPo).cloisons[0]
             .as_ref()
             .unwrap()
-            .porte
-            .unwrap();
+            .ouvertures[0];
         assert_eq!((porte.debut, porte.fin), (12.0, 48.0));
         // Trop loin, elle s'arrête au bout de la cloison.
         dessin.cloisons[0].porte.as_mut().unwrap().position = "20".into();
         let porte = dessin.resoudre(Format::PiPo).cloisons[0]
             .as_ref()
             .unwrap()
-            .porte
-            .unwrap();
+            .ouvertures[0];
         assert_eq!((porte.debut, porte.fin), (84.0, 120.0));
     }
 
@@ -3231,7 +3248,7 @@ mod tests {
             vec![(0.0, 50.0), (60.0, 50.0), (60.0, 120.0)]
         );
         assert!((solution.longueur_des_cloisons() - 130.0).abs() < 1e-9);
-        let porte = cloison.porte.unwrap();
+        let porte = cloison.ouvertures[0];
         assert_eq!((porte.segment, porte.debut, porte.fin), (1, 19.0, 51.0));
         // Les deux faces, moins la porte.
         assert_eq!(

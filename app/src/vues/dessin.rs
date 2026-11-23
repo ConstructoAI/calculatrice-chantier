@@ -262,19 +262,22 @@ enum ChampDeCloison {
     /// La longueur d'un de ses segments.
     Longueur(usize),
     Epaisseur,
-    LargeurDePorte,
-    PositionDePorte,
+    /// La largeur et la place d'une de ses ouvertures (point 39).
+    LargeurDOuverture(usize),
+    PositionDOuverture(usize),
 }
 
 /// Ce que demande un bouton de la ligne d'une cloison.
 #[derive(Clone, Copy)]
 enum GesteSurUneCloison {
     Enlever,
-    AjouterUnePorte,
-    Inverser,
-    SansPorte,
-    /// La porte passe au segment suivant.
-    SegmentSuivant,
+    /// Une porte, ou un passage sans porte (vrai).
+    AjouterUneOuverture(bool),
+    /// La porte s'ouvre de l'autre côté.
+    Inverser(usize),
+    EnleverLOuverture(usize),
+    /// L'ouverture passe au segment suivant.
+    SegmentSuivant(usize),
     Copier,
 }
 
@@ -349,9 +352,8 @@ impl AutreSaisie {
                     .is_some_and(|cloison| match champ {
                         ChampDeCloison::Longueur(segment) => segment < cloison.nombre_de_segments(),
                         ChampDeCloison::Epaisseur => true,
-                        ChampDeCloison::LargeurDePorte | ChampDeCloison::PositionDePorte => {
-                            cloison.porte.is_some()
-                        }
+                        ChampDeCloison::LargeurDOuverture(k)
+                        | ChampDeCloison::PositionDOuverture(k) => k < cloison.ouvertures.len(),
                     })
             }
             AutreSaisie::EpaisseurDesMurs | AutreSaisie::EpaisseurDesCloisons => true,
@@ -585,12 +587,23 @@ fn dessiner_une_cloison(
             painter.line_segment([b, c], trait_);
         }
     }
-    if let Some(porte) = cloison.porte {
+    // Ses portes, avec leur battant; ses passages, un trait de tirets sur
+    // l'axe, comme le linteau qui les surmonte (point 39).
+    for porte in &cloison.ouvertures {
         let q0 = echelle.vers_l_ecran(cloison.point(porte.segment, porte.debut));
         let q1 = echelle.vers_l_ecran(cloison.point(porte.segment, porte.fin));
-        let (nx, ny) = cloison.cote_de_la_porte();
-        let cote = Vec2::new(nx as f32, ny as f32);
-        dessiner_ouverture(painter, (q0, q1), cote, true, encre, encre, 0.0);
+        if porte.passage {
+            painter.extend(egui::Shape::dashed_line(
+                &[q0, q1],
+                Stroke::new(1.2, encre),
+                4.0,
+                3.0,
+            ));
+        } else {
+            let (nx, ny) = cloison.cote_de_l_ouverture(porte);
+            let cote = Vec2::new(nx as f32, ny as f32);
+            dessiner_ouverture(painter, (q0, q1), cote, true, encre, encre, 0.0);
+        }
     }
     // La longueur de chaque segment s'écrit au-dessus d'un segment horizontal,
     // à droite d'un segment vertical : deux cloisons qui se touchent ne mêlent
@@ -614,9 +627,11 @@ fn dessiner_une_cloison(
         painter.galley(cadre.min + Vec2::new(2.0, 1.0), galere, encre);
     }
     if choisie && cloison.nombre_de_segments() > 0 {
-        // Le bout A : le début du segment de la porte (ou de la cloison).
+        // Le bout A : le début du segment de sa première ouverture (ou de la
+        // cloison).
         let segment = cloison
-            .porte
+            .ouvertures
+            .first()
             .map_or(0, |porte| porte.segment)
             .min(cloison.nombre_de_segments() - 1);
         let a = echelle.vers_l_ecran(cloison.sommets[segment]);
@@ -1897,6 +1912,7 @@ fn planche_et_gestes(
                     longueur: ecrire(premier.1),
                     epaisseur: String::new(),
                     porte: None,
+                    ouvertures: Vec::new(),
                     suite: suite
                         .iter()
                         .map(|&(sens, longueur)| SegmentDeCloison {
@@ -3450,20 +3466,25 @@ fn autre_mesure(
                     textes::DESSIN_EPAISSEUR.traduit().to_string(),
                     sans_insecables(&Quantite::Longueur(defaut).en_clair(None, prefs)),
                 ),
-                ChampDeCloison::LargeurDePorte => {
-                    let Some(porte) = cloison.porte.as_mut() else {
+                ChampDeCloison::LargeurDOuverture(k) => {
+                    let Some(porte) = cloison.ouvertures.get_mut(k) else {
                         return false;
+                    };
+                    let titre = if porte.passage {
+                        textes::DESSIN_LARGEUR_DU_PASSAGE
+                    } else {
+                        textes::DESSIN_LARGEUR_DE_LA_PORTE
                     };
                     (
                         &mut porte.largeur,
-                        textes::DESSIN_LARGEUR_DE_LA_PORTE.traduit().to_string(),
+                        titre.traduit().to_string(),
                         sans_insecables(
                             &Quantite::Longueur(LARGEUR_DE_PORTE_PAR_DEFAUT).en_clair(None, prefs),
                         ),
                     )
                 }
-                ChampDeCloison::PositionDePorte => {
-                    let Some(porte) = cloison.porte.as_mut() else {
+                ChampDeCloison::PositionDOuverture(k) => {
+                    let Some(porte) = cloison.ouvertures.get_mut(k) else {
                         return false;
                     };
                     (
@@ -4571,12 +4592,13 @@ fn cloisons(
                     etat.cloison_choisie = Some(rang);
                 }
             }
-            if cloison.porte.is_none()
-                && ui
-                    .add(egui::Button::new(textes::DESSIN_AJOUTER_PORTE.traduit()))
-                    .clicked()
-            {
-                geste = Some((rang, GesteSurUneCloison::AjouterUnePorte));
+            for (passage, texte) in [
+                (false, textes::DESSIN_AJOUTER_PORTE),
+                (true, textes::DESSIN_AJOUTER_PASSAGE),
+            ] {
+                if ui.add(egui::Button::new(texte.traduit())).clicked() {
+                    geste = Some((rang, GesteSurUneCloison::AjouterUneOuverture(passage)));
+                }
             }
             if ui
                 .add(egui::Button::new(textes::COPIER.traduit()))
@@ -4591,12 +4613,18 @@ fn cloisons(
                 geste = Some((rang, GesteSurUneCloison::Enlever));
             }
         });
-        // Sa porte : son segment, sa largeur, sa place depuis le bout A, son côté.
-        if let Some(porte) = &cloison.porte {
-            let porte_mesuree = mesuree.and_then(|c| c.porte);
+        // Ses ouvertures : leur segment, leur largeur, leur place depuis le
+        // bout A, et le côté d'une porte.
+        for (k, porte) in cloison.ouvertures.iter().enumerate() {
+            let porte_mesuree = mesuree.and_then(|c| c.ouvertures.get(k)).copied();
             ui.horizontal_wrapped(|ui| {
                 ui.add_space(16.0);
-                ui.label(RichText::new(textes::DESSIN_PORTE.traduit()).size(13.5));
+                let nom = if porte.passage {
+                    textes::DESSIN_PASSAGE
+                } else {
+                    textes::DESSIN_PORTE
+                };
+                ui.label(RichText::new(format!("{} {}", nom.traduit(), k + 1)).size(13.5));
                 if cloison.nombre_de_segments() > 1 {
                     // Un toucher la fait passer au segment suivant.
                     let segment = porte_mesuree.map_or(porte.segment, |q| q.segment);
@@ -4606,7 +4634,7 @@ fn cloisons(
                         )))
                         .clicked()
                     {
-                        geste = Some((rang, GesteSurUneCloison::SegmentSuivant));
+                        geste = Some((rang, GesteSurUneCloison::SegmentSuivant(k)));
                     }
                 }
                 let largeur =
@@ -4619,10 +4647,10 @@ fn cloisons(
                 };
                 for (champ, texte) in [
                     (
-                        ChampDeCloison::LargeurDePorte,
+                        ChampDeCloison::LargeurDOuverture(k),
                         longueur_en_clair(largeur, solution, prefs),
                     ),
-                    (ChampDeCloison::PositionDePorte, place),
+                    (ChampDeCloison::PositionDOuverture(k), place),
                 ] {
                     let cible = AutreSaisie::Cloison(rang, champ);
                     if ui
@@ -4633,17 +4661,18 @@ fn cloisons(
                         etat.cloison_choisie = Some(rang);
                     }
                 }
-                if ui
-                    .add(egui::Button::new(textes::DESSIN_INVERSER.traduit()))
-                    .clicked()
+                if !porte.passage
+                    && ui
+                        .add(egui::Button::new(textes::DESSIN_INVERSER.traduit()))
+                        .clicked()
                 {
-                    geste = Some((rang, GesteSurUneCloison::Inverser));
+                    geste = Some((rang, GesteSurUneCloison::Inverser(k)));
                 }
                 if ui
-                    .add(egui::Button::new(textes::DESSIN_SANS_PORTE.traduit()))
+                    .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
                     .clicked()
                 {
-                    geste = Some((rang, GesteSurUneCloison::SansPorte));
+                    geste = Some((rang, GesteSurUneCloison::EnleverLOuverture(k)));
                 }
             });
         }
@@ -4664,24 +4693,50 @@ fn cloisons(
                 etat.cloison_tiree = None;
                 etat.choisir_autre(None);
             }
-            GesteSurUneCloison::AjouterUnePorte => {
-                dessin.cloisons[rang].porte = Some(PorteDeCloison::default());
+            GesteSurUneCloison::AjouterUneOuverture(passage) => {
+                // Centrée sur le premier segment; sa largeur et sa place se
+                // règlent ensuite au pavé, qui s'ouvre sur sa largeur.
+                // Au milieu du premier segment, ou à la première place libre à
+                // côté des autres ouvertures.
+                let position = solution
+                    .cloisons
+                    .get(rang)
+                    .and_then(Option::as_ref)
+                    .filter(|mesuree| mesuree.ouvertures.iter().any(|o| o.segment == 0))
+                    .and_then(|mesuree| mesuree.place_libre(0, LARGEUR_DE_PORTE_PAR_DEFAUT))
+                    .map(|debut| {
+                        sans_insecables(&Quantite::Longueur(debut).en_clair(solution.modele, prefs))
+                    })
+                    .unwrap_or_default();
+                let cloison = &mut dessin.cloisons[rang];
+                cloison.ouvertures.push(PorteDeCloison {
+                    passage,
+                    position,
+                    ..PorteDeCloison::default()
+                });
+                let k = cloison.ouvertures.len() - 1;
                 etat.cloison_choisie = Some(rang);
+                etat.choisir_autre(Some(AutreSaisie::Cloison(
+                    rang,
+                    ChampDeCloison::LargeurDOuverture(k),
+                )));
             }
-            GesteSurUneCloison::Inverser => {
-                if let Some(porte) = dessin.cloisons[rang].porte.as_mut() {
+            GesteSurUneCloison::Inverser(k) => {
+                if let Some(porte) = dessin.cloisons[rang].ouvertures.get_mut(k) {
                     porte.inversee = !porte.inversee;
                 }
                 etat.cloison_choisie = Some(rang);
             }
-            GesteSurUneCloison::SansPorte => {
-                dessin.cloisons[rang].porte = None;
+            GesteSurUneCloison::EnleverLOuverture(k) => {
+                if k < dessin.cloisons[rang].ouvertures.len() {
+                    dessin.cloisons[rang].ouvertures.remove(k);
+                }
                 etat.choisir_autre(None);
             }
-            GesteSurUneCloison::SegmentSuivant => {
+            GesteSurUneCloison::SegmentSuivant(k) => {
                 let nombre = dessin.cloisons[rang].nombre_de_segments();
-                if let Some(porte) = dessin.cloisons[rang].porte.as_mut() {
-                    // Sur son nouveau segment, la porte se recentre.
+                if let Some(porte) = dessin.cloisons[rang].ouvertures.get_mut(k) {
+                    // Sur son nouveau segment, l'ouverture se recentre.
                     porte.segment = (porte.segment + 1) % nombre;
                     porte.position.clear();
                 }
@@ -5491,6 +5546,30 @@ mod tests {
             ..Preferences::default()
         };
         assert_eq!(degres_en_clair(22.5, &anglaises), "22.5°");
+    }
+
+    #[test]
+    fn une_porte_d_avant_devient_une_ouverture() {
+        // Un dessin d'avant la version 0.13.22 : sa porte unique se lit, et
+        // passe en tête des ouvertures.
+        let ancienne: noyau::cloison::Cloison = serde_json::from_str(
+            r#"{"debut":[0.0,0.0],"sens":"Est","longueur":"10","porte":{"largeur":"30","position":"","inversee":true,"segment":0}}"#,
+        )
+        .unwrap();
+        assert_eq!(ancienne.toutes_les_ouvertures().count(), 1);
+        let mut cloison = ancienne.clone();
+        cloison.ouvertures.push(noyau::cloison::PorteDeCloison {
+            passage: true,
+            ..noyau::cloison::PorteDeCloison::default()
+        });
+        cloison.normaliser();
+        assert!(cloison.porte.is_none());
+        assert_eq!(cloison.ouvertures.len(), 2);
+        assert!(cloison.ouvertures[0].inversee && !cloison.ouvertures[0].passage);
+        assert!(cloison.ouvertures[1].passage);
+        // Normalisée, elle ne s'écrit plus avec « porte ».
+        let texte = serde_json::to_string(&cloison).unwrap();
+        assert!(!texte.contains("\"porte\""), "{texte}");
     }
 
     #[test]

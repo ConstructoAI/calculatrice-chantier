@@ -311,7 +311,8 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 false,
             );
         }
-        if let Some(porte) = cloison.porte {
+        // Au-dessus de chaque porte et de chaque passage, un linteau.
+        for porte in &cloison.ouvertures {
             let coins = cloison.rectangle(porte.segment, porte.debut, porte.fin);
             let haut = sous_le_plafond(&coins);
             if haut <= crate::cloison::HAUTEUR_DE_PORTE {
@@ -694,6 +695,7 @@ mod tests {
             epaisseur: String::new(),
             porte: None,
             suite: Vec::new(),
+            ouvertures: Vec::new(),
         }];
         let solution = dessin.resoudre(Format::PiPo);
         let maquette = maquette(&dessin, &solution).unwrap();
