@@ -4,7 +4,9 @@
 //! (R-77), en texte ASCII : le PDF code ses accents en WinAnsi, le DXF en
 //! `\U+XXXX`.
 
-use noyau::dessin::{Dessin, Etat as EtatDeLaForme, Mesure, MorceauDeMur, Plan};
+use noyau::dessin::{
+    Dessin, EchelleDuPlan, Etat as EtatDeLaForme, Mesure, MiseEnPage, MorceauDeMur, Plan,
+};
 use noyau::metiers::Quantite;
 use noyau::prefs::Preferences;
 use noyau::unites::{Format, Systeme};
@@ -603,6 +605,15 @@ fn chaine_pdf(texte: &str) -> String {
 #[derive(Default)]
 struct Page {
     operateurs: String,
+    /// Sa largeur et sa hauteur (points); `None` : Lettre en portrait.
+    taille: Option<(f64, f64)>,
+}
+
+impl Page {
+    /// Sa largeur et sa hauteur (points).
+    fn dimensions(&self) -> (f64, f64) {
+        self.taille.unwrap_or((LARGEUR_PAGE, HAUTEUR_PAGE))
+    }
 }
 
 impl Page {
@@ -741,13 +752,33 @@ fn ajuster(
 }
 
 fn en_tete_de_page(page: &mut Page, titre: &str, entete: &str) {
-    page.texte((MARGE, 742.0), 18.0, true, Alignement::Gauche, NOIR, titre);
-    page.texte((MARGE, 724.0), 9.5, false, Alignement::Gauche, GRIS, entete);
-    page.trait_(&[(MARGE, 714.0), (LARGEUR_PAGE - MARGE, 714.0)], 0.8, FILET);
+    let (largeur, hauteur) = page.dimensions();
+    page.texte(
+        (MARGE, hauteur - 50.0),
+        18.0,
+        true,
+        Alignement::Gauche,
+        NOIR,
+        titre,
+    );
+    page.texte(
+        (MARGE, hauteur - 68.0),
+        9.5,
+        false,
+        Alignement::Gauche,
+        GRIS,
+        entete,
+    );
+    page.trait_(
+        &[(MARGE, hauteur - 78.0), (largeur - MARGE, hauteur - 78.0)],
+        0.8,
+        FILET,
+    );
 }
 
 fn pied_de_page(page: &mut Page, numero: usize, total: usize) {
-    page.trait_(&[(MARGE, 50.0), (LARGEUR_PAGE - MARGE, 50.0)], 0.6, FILET);
+    let (largeur, _) = page.dimensions();
+    page.trait_(&[(MARGE, 50.0), (largeur - MARGE, 50.0)], 0.6, FILET);
     page.texte(
         (MARGE, 36.0),
         8.0,
@@ -757,7 +788,7 @@ fn pied_de_page(page: &mut Page, numero: usize, total: usize) {
         textes::DESSIN_EXPORT_PIED.traduit(),
     );
     page.texte(
-        (LARGEUR_PAGE - MARGE, 36.0),
+        (largeur - MARGE, 36.0),
         8.0,
         false,
         Alignement::Droite,
@@ -767,20 +798,129 @@ fn pied_de_page(page: &mut Page, numero: usize, total: usize) {
 }
 
 /// La page d'une pièce : sa forme et ses mesures, ses résultats, ses côtés.
-fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usize) -> Page {
+fn page_de_piece(
+    piece: &PieceExportee,
+    entete: &str,
+    numero: usize,
+    total: usize,
+    avis: Option<&str>,
+) -> Page {
     let mut page = Page::default();
     en_tete_de_page(&mut page, &piece.nom, entete);
 
     // La forme, ajustée à son cadre; la place des mesures autour.
     let cadre = (MARGE + 84.0, 372.0, LARGEUR_PAGE - MARGE - 84.0, 684.0);
-    let mut a_cadrer = piece.sommets.clone();
-    for (_, _, traits) in &piece.objets {
-        a_cadrer.extend(traits.iter().flat_map(etendue_d_un_trait));
+    let points_a_cadrer = a_cadrer(piece);
+    let vers_la_page = ajuster(&points_a_cadrer, cadre);
+    dessiner_le_plan(&mut page, piece, &vers_la_page);
+    if !piece.a_l_echelle {
+        page.texte(
+            (MARGE, 350.0),
+            9.5,
+            false,
+            Alignement::Gauche,
+            ORANGE,
+            textes::DESSIN_EXPORT_CROQUIS.traduit(),
+        );
+    } else if let Some(avis) = avis {
+        page.texte((MARGE, 350.0), 9.5, false, Alignement::Gauche, ORANGE, avis);
     }
-    a_cadrer.extend(piece.notes.iter().map(|(_, position)| *position));
-    a_cadrer.extend(piece.cloisons.iter().flat_map(|morceau| morceau.coins));
-    a_cadrer.extend(piece.contour_exterieur.iter().copied());
-    let vers_la_page = ajuster(&a_cadrer, cadre);
+
+    // Les résultats.
+    let mut y = 318.0;
+    let largeur_des_libelles = piece
+        .resultats
+        .iter()
+        .map(|(libelle, _)| largeur_du_texte(libelle, true) * 11.0 / 1000.0)
+        .fold(0.0, f64::max);
+    for (libelle, valeur) in &piece.resultats {
+        page.texte((MARGE, y), 11.0, true, Alignement::Gauche, NOIR, libelle);
+        page.texte(
+            (MARGE + largeur_des_libelles + 12.0, y),
+            11.0,
+            false,
+            Alignement::Gauche,
+            NOIR,
+            valeur,
+        );
+        y -= 17.0;
+    }
+
+    // Les côtés, sur deux colonnes s'il y en a beaucoup.
+    y -= 8.0;
+    page.texte(
+        (MARGE, y),
+        11.0,
+        true,
+        Alignement::Gauche,
+        NOIR,
+        textes::DESSIN_EXPORT_COTES.traduit(),
+    );
+    y -= 15.0;
+    let par_colonne = if piece.cotes.len() > 8 {
+        piece.cotes.len().div_ceil(2)
+    } else {
+        piece.cotes.len().max(1)
+    };
+    for (i, (texte, deduite)) in piece.cotes.iter().enumerate() {
+        let x = MARGE + (i / par_colonne) as f64 * 250.0;
+        let y_ligne = y - (i % par_colonne) as f64 * 13.5;
+        if y_ligne < 60.0 {
+            continue;
+        }
+        let ligne = if *deduite {
+            format!(
+                "{}. {}   ({})",
+                i + 1,
+                texte,
+                textes::DESSIN_EXPORT_DEDUITE.traduit()
+            )
+        } else {
+            format!("{}. {}", i + 1, texte)
+        };
+        let couleur = if *deduite { GRIS } else { NOIR };
+        page.texte(
+            (x, y_ligne),
+            10.0,
+            false,
+            Alignement::Gauche,
+            couleur,
+            &ligne,
+        );
+    }
+    pied_de_page(&mut page, numero, total);
+    page
+}
+
+/// Ce qu'il faut faire tenir d'une pièce sur une page (pouces) : sa forme,
+/// ses murs, ses objets, ses notes et ses cloisons.
+fn a_cadrer(piece: &PieceExportee) -> Vec<(f64, f64)> {
+    let mut points = piece.sommets.clone();
+    for (_, _, traits) in &piece.objets {
+        points.extend(traits.iter().flat_map(etendue_d_un_trait));
+    }
+    points.extend(piece.notes.iter().map(|(_, position)| *position));
+    points.extend(piece.cloisons.iter().flat_map(|morceau| morceau.coins));
+    points.extend(piece.contour_exterieur.iter().copied());
+    points
+}
+
+/// L'étendue de ces points : (x0, y0, x1, y1).
+fn etendue(points: &[(f64, f64)]) -> (f64, f64, f64, f64) {
+    points.iter().fold(
+        (f64::MAX, f64::MAX, f64::MIN, f64::MIN),
+        |(x0, y0, x1, y1), p| (x0.min(p.0), y0.min(p.1), x1.max(p.0), y1.max(p.1)),
+    )
+}
+
+/// Le plan d'une pièce sur une page : ses murs, ses ouvertures, ses objets,
+/// ses cloisons et leurs portes, ses notes, les mesures de ses côtés et ses
+/// lignes de cote; `vers_la_page` passe du plan (pouces) à la page.
+fn dessiner_le_plan(
+    page: &mut Page,
+    piece: &PieceExportee,
+    vers_la_page: &dyn Fn((f64, f64)) -> (f64, f64),
+) {
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
     // L'échelle de la page, en points par pouce.
     let origine = vers_la_page((0.0, 0.0));
@@ -805,7 +945,7 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
             }
         }
     }
-    ouvertures_sur_la_page(&mut page, &points, &piece.ouvertures, epaisseur_des_murs);
+    ouvertures_sur_la_page(page, &points, &piece.ouvertures, epaisseur_des_murs);
     // Les objets, à la même échelle que la forme.
     for (nom, centre, traits) in &piece.objets {
         for trait_ in traits {
@@ -968,81 +1108,309 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
             page.texte(position, 7.0, false, alignement, NOIR, texte);
         }
     }
-    if !piece.a_l_echelle {
-        page.texte(
-            (MARGE, 350.0),
-            9.5,
-            false,
-            Alignement::Gauche,
-            ORANGE,
-            textes::DESSIN_EXPORT_CROQUIS.traduit(),
-        );
-    }
+}
 
-    // Les résultats.
-    let mut y = 318.0;
-    let largeur_des_libelles = piece
-        .resultats
-        .iter()
-        .map(|(libelle, _)| largeur_du_texte(libelle, true) * 11.0 / 1000.0)
-        .fold(0.0, f64::max);
-    for (libelle, valeur) in &piece.resultats {
-        page.texte((MARGE, y), 11.0, true, Alignement::Gauche, NOIR, libelle);
-        page.texte(
-            (MARGE + largeur_des_libelles + 12.0, y),
-            11.0,
-            false,
-            Alignement::Gauche,
-            NOIR,
-            valeur,
-        );
-        y -= 17.0;
-    }
+/// Une feuille de papier : son papier, son sens, sa largeur et sa hauteur
+/// (points).
+#[derive(Clone, Copy)]
+struct Feuille {
+    papier: noyau::langue::Texte,
+    paysage: bool,
+    largeur: f64,
+    hauteur: f64,
+}
 
-    // Les côtés, sur deux colonnes s'il y en a beaucoup.
-    y -= 8.0;
-    page.texte(
-        (MARGE, y),
-        11.0,
-        true,
-        Alignement::Gauche,
-        NOIR,
-        textes::DESSIN_EXPORT_COTES.traduit(),
+/// Les feuilles, de la plus petite à la plus grande : Lettre, puis 11 × 17.
+const FEUILLES: [Feuille; 4] = [
+    Feuille {
+        papier: textes::PAPIER_LETTRE,
+        paysage: false,
+        largeur: 612.0,
+        hauteur: 792.0,
+    },
+    Feuille {
+        papier: textes::PAPIER_LETTRE,
+        paysage: true,
+        largeur: 792.0,
+        hauteur: 612.0,
+    },
+    Feuille {
+        papier: textes::PAPIER_11_17,
+        paysage: false,
+        largeur: 792.0,
+        hauteur: 1224.0,
+    },
+    Feuille {
+        papier: textes::PAPIER_11_17,
+        paysage: true,
+        largeur: 1224.0,
+        hauteur: 792.0,
+    },
+];
+/// La colonne de droite d'une page à l'échelle : les résultats, l'échelle
+/// graphique et le cartouche (points).
+const COLONNE: f64 = 216.0;
+/// La place laissée autour d'un plan à l'échelle, pour ses mesures et ses
+/// cotes (points).
+const MARGE_DU_PLAN: f64 = 40.0;
+/// La hauteur du cartouche (points).
+const HAUTEUR_DU_CARTOUCHE: f64 = 104.0;
+
+/// La zone du plan sur une feuille (x0, y0, x1, y1), y vers le haut : à gauche
+/// de la colonne, entre l'en-tête et le pied.
+fn zone_du_plan(feuille: &Feuille) -> (f64, f64, f64, f64) {
+    (
+        MARGE,
+        66.0,
+        feuille.largeur - MARGE - COLONNE - 18.0,
+        feuille.hauteur - 92.0,
+    )
+}
+
+/// La plus petite feuille où tient un plan de cette étendue (pouces) à cette
+/// échelle (points par pouce) : Lettre avant 11 × 17, et pour chacune le sens
+/// du plan d'abord.
+fn feuille_pour(etendue: (f64, f64), points_par_pouce: f64) -> Option<Feuille> {
+    let (l, h) = (
+        etendue.0 * points_par_pouce + 2.0 * MARGE_DU_PLAN,
+        etendue.1 * points_par_pouce + 2.0 * MARGE_DU_PLAN,
     );
-    y -= 15.0;
-    let par_colonne = if piece.cotes.len() > 8 {
-        piece.cotes.len().div_ceil(2)
-    } else {
-        piece.cotes.len().max(1)
+    let tient = |feuille: &Feuille| {
+        let (x0, y0, x1, y1) = zone_du_plan(feuille);
+        l <= x1 - x0 && h <= y1 - y0
     };
-    for (i, (texte, deduite)) in piece.cotes.iter().enumerate() {
-        let x = MARGE + (i / par_colonne) as f64 * 250.0;
-        let y_ligne = y - (i % par_colonne) as f64 * 13.5;
-        if y_ligne < 60.0 {
-            continue;
-        }
-        let ligne = if *deduite {
-            format!(
-                "{}. {}   ({})",
-                i + 1,
-                texte,
-                textes::DESSIN_EXPORT_DEDUITE.traduit()
-            )
+    FEUILLES.chunks(2).find_map(|paire| {
+        let (premiere, seconde) = if l > h {
+            (paire[1], paire[0])
         } else {
-            format!("{}. {}", i + 1, texte)
+            (paire[0], paire[1])
         };
-        let couleur = if *deduite { GRIS } else { NOIR };
+        [premiere, seconde].into_iter().find(tient)
+    })
+}
+
+/// Pour l'écran : sur quelle feuille tiendrait la pièce à cette échelle;
+/// `None` pour une échelle ajustée ou une pièce incomplète.
+pub fn avis_de_l_echelle(
+    dessin: &Dessin,
+    echelle: EchelleDuPlan,
+    prefs: &Preferences,
+) -> Option<String> {
+    let points_par_pouce = echelle.points_par_pouce()?;
+    let piece = preparer_la_piece(dessin, "", prefs);
+    if !piece.a_l_echelle {
+        return None;
+    }
+    let (x0, y0, x1, y1) = etendue(&a_cadrer(&piece));
+    Some(match feuille_pour((x1 - x0, y1 - y0), points_par_pouce) {
+        Some(feuille) => textes::dessin_tient_sur(feuille.papier.traduit(), feuille.paysage),
+        None => textes::DESSIN_NE_TIENT_PAS.traduit().to_string(),
+    })
+}
+
+/// Ce que la page d'une pièce à l'échelle reçoit du plan : sa mise en page,
+/// la date de l'export et le séparateur décimal.
+struct MiseEnPageDuPdf {
+    mise_en_page: MiseEnPage,
+    date: String,
+    decimal: char,
+}
+
+/// La page d'une pièce complète à l'échelle choisie (section 25.1, point 36) :
+/// sur la plus petite feuille où elle tient, le plan à gauche, et à droite
+/// ses résultats, l'échelle graphique et le cartouche. `None` si elle ne
+/// tient sur aucune feuille.
+fn page_de_piece_a_l_echelle(
+    piece: &PieceExportee,
+    entete: &str,
+    numero: usize,
+    total: usize,
+    mise: &MiseEnPageDuPdf,
+) -> Option<Page> {
+    let echelle = mise.mise_en_page.echelle;
+    let points_par_pouce = echelle.points_par_pouce()?;
+    let (x0, y0, x1, y1) = etendue(&a_cadrer(piece));
+    let feuille = feuille_pour((x1 - x0, y1 - y0), points_par_pouce)?;
+    let mut page = Page {
+        taille: Some((feuille.largeur, feuille.hauteur)),
+        ..Page::default()
+    };
+    en_tete_de_page(&mut page, &piece.nom, entete);
+    let (zx0, zy0, zx1, zy1) = zone_du_plan(&feuille);
+    let (cx, cy) = ((zx0 + zx1) / 2.0, (zy0 + zy1) / 2.0);
+    let (mx, my) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+    let vers_la_page = |(x, y): (f64, f64)| {
+        (
+            cx + (x - mx) * points_par_pouce,
+            cy - (y - my) * points_par_pouce,
+        )
+    };
+    dessiner_le_plan(&mut page, piece, &vers_la_page);
+    // La colonne de droite : les résultats, puis, au bas, l'échelle graphique
+    // et le cartouche.
+    let x = feuille.largeur - MARGE - COLONNE;
+    let bas_des_resultats = 66.0 + HAUTEUR_DU_CARTOUCHE + 56.0;
+    let mut y = feuille.hauteur - 104.0;
+    for (libelle, valeur) in &piece.resultats {
+        if y - 11.0 < bas_des_resultats {
+            break;
+        }
+        page.texte((x, y), 8.0, true, Alignement::Gauche, GRIS, libelle);
         page.texte(
-            (x, y_ligne),
+            (x, y - 11.0),
             10.0,
             false,
             Alignement::Gauche,
-            couleur,
-            &ligne,
+            NOIR,
+            &tronquer(valeur, 10.0, COLONNE),
+        );
+        y -= 25.0;
+    }
+    echelle_graphique(
+        &mut page,
+        (x, 66.0 + HAUTEUR_DU_CARTOUCHE + 26.0),
+        echelle,
+        points_par_pouce,
+        mise.decimal,
+    );
+    cartouche(&mut page, (x, 66.0), mise, &feuille);
+    pied_de_page(&mut page, numero, total);
+    Some(page)
+}
+
+/// L'échelle graphique : des blocs noirs et blancs entre ses repères, leurs
+/// nombres dessous et son unité, sous le nom de l'échelle.
+fn echelle_graphique(
+    page: &mut Page,
+    (x, y): (f64, f64),
+    echelle: EchelleDuPlan,
+    points_par_pouce: f64,
+    decimal: char,
+) {
+    let (reperes, pouces_par_unite, metrique) = echelle.reperes();
+    page.texte(
+        (x, y + 12.0),
+        8.0,
+        true,
+        Alignement::Gauche,
+        NOIR,
+        &format!(
+            "{} : {}",
+            textes::DESSIN_ECHELLE.traduit(),
+            textes::nom_de_l_echelle(echelle).traduit()
+        ),
+    );
+    let a_la_page = |repere: f64| x + repere * pouces_par_unite * points_par_pouce;
+    for (k, paire) in reperes.windows(2).enumerate() {
+        let (a, b) = (a_la_page(paire[0]), a_la_page(paire[1]));
+        let bloc = [(a, y), (b, y), (b, y + 5.0), (a, y + 5.0)];
+        if k % 2 == 0 {
+            page.polygone_plein(&bloc, NOIR);
+        }
+        page.trait_(&[bloc[0], bloc[1], bloc[2], bloc[3], bloc[0]], 0.5, NOIR);
+    }
+    for &repere in reperes {
+        let texte = if repere.fract() == 0.0 {
+            format!("{repere:.0}")
+        } else {
+            format!("{repere}").replace('.', &decimal.to_string())
+        };
+        page.texte(
+            (a_la_page(repere), y - 9.0),
+            7.0,
+            false,
+            Alignement::Centre,
+            NOIR,
+            &texte,
         );
     }
-    pied_de_page(&mut page, numero, total);
-    page
+    let unite = if metrique {
+        "m"
+    } else {
+        noyau::etiquettes::symbole(Format::PiDec)
+    };
+    if let Some(&dernier) = reperes.last() {
+        page.texte(
+            (a_la_page(dernier) + 8.0, y - 1.0),
+            7.5,
+            false,
+            Alignement::Gauche,
+            NOIR,
+            unite,
+        );
+    }
+}
+
+/// Le cartouche : le projet, l'adresse, la date, le dessinateur, l'échelle et
+/// le papier, chacun sur sa ligne.
+fn cartouche(page: &mut Page, (x, y): (f64, f64), mise: &MiseEnPageDuPdf, feuille: &Feuille) {
+    let lignes = [
+        (
+            textes::DESSIN_PROJET,
+            mise.mise_en_page.projet.trim().to_string(),
+        ),
+        (
+            textes::DESSIN_ADRESSE,
+            mise.mise_en_page.adresse.trim().to_string(),
+        ),
+        (textes::DESSIN_DATE, mise.date.clone()),
+        (
+            textes::DESSIN_DESSINE_PAR,
+            mise.mise_en_page.dessine_par.trim().to_string(),
+        ),
+        (
+            textes::DESSIN_ECHELLE,
+            textes::nom_de_l_echelle(mise.mise_en_page.echelle)
+                .traduit()
+                .to_string(),
+        ),
+        (
+            textes::DESSIN_PAPIER,
+            textes::dessin_papier(feuille.papier.traduit(), feuille.paysage),
+        ),
+    ];
+    let hauteur_de_ligne = HAUTEUR_DU_CARTOUCHE / lignes.len() as f64;
+    let (x1, y1) = (x + COLONNE, y + HAUTEUR_DU_CARTOUCHE);
+    page.trait_(&[(x, y), (x1, y), (x1, y1), (x, y1), (x, y)], 0.8, NOIR);
+    for (k, (libelle, valeur)) in lignes.iter().enumerate() {
+        let haut = y1 - k as f64 * hauteur_de_ligne;
+        if k > 0 {
+            page.trait_(&[(x, haut), (x1, haut)], 0.3, GRIS);
+        }
+        let base = haut - hauteur_de_ligne + 5.5;
+        page.texte(
+            (x + 5.0, base),
+            7.0,
+            false,
+            Alignement::Gauche,
+            GRIS,
+            libelle.traduit(),
+        );
+        page.texte(
+            (x + 66.0, base),
+            9.0,
+            false,
+            Alignement::Gauche,
+            NOIR,
+            &tronquer(&sans_insecables(valeur), 9.0, COLONNE - 71.0),
+        );
+    }
+}
+
+/// Un texte raccourci pour tenir dans cette largeur (points), avec « … ».
+fn tronquer(texte: &str, taille: f64, largeur: f64) -> String {
+    let largeur_de = |t: &str| largeur_du_texte(t, false) * taille / 1000.0;
+    if largeur_de(texte) <= largeur {
+        return texte.to_string();
+    }
+    let mut court = String::new();
+    for c in texte.chars() {
+        if largeur_de(&format!("{court}{c}…")) > largeur {
+            break;
+        }
+        court.push(c);
+    }
+    format!("{}…", court.trim_end())
 }
 
 /// La page du plan, quand il a plusieurs pièces : chacune, puis le total.
@@ -1194,12 +1562,13 @@ fn assembler_pdf(pages: &[Page], titre: &str) -> String {
         ),
     );
     for page in pages {
+        let (largeur, hauteur) = page.dimensions();
         let contenu = decalages.len() + 2;
         ajouter_objet(
             &mut sortie,
             &mut decalages,
             &format!(
-                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {LARGEUR_PAGE} {HAUTEUR_PAGE}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {contenu} 0 R >>"
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {largeur} {hauteur}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {contenu} 0 R >>"
             ),
         );
         ajouter_objet(
@@ -1238,9 +1607,28 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     if resume {
         pages.push(page_du_plan(&pieces, prefs, &entete, 1, total));
     }
+    let mise = MiseEnPageDuPdf {
+        mise_en_page: plan.mise_en_page.clone(),
+        date: date.to_string(),
+        decimal: noyau::format::separateur_decimal(prefs),
+    };
     for piece in &pieces {
         let numero = pages.len() + 1;
-        pages.push(page_de_piece(piece, &entete, numero, total));
+        // À l'échelle choisie, si la pièce est complète; ajustée sinon, ou si
+        // elle ne tient sur aucune feuille (et la page le dit).
+        let page = match plan.mise_en_page.echelle.points_par_pouce() {
+            Some(_) if piece.a_l_echelle => page_de_piece_a_l_echelle(
+                piece, &entete, numero, total, &mise,
+            )
+            .unwrap_or_else(|| {
+                let avis = textes::dessin_export_ne_tient_pas(
+                    textes::nom_de_l_echelle(plan.mise_en_page.echelle).traduit(),
+                );
+                page_de_piece(piece, &entete, numero, total, Some(&avis))
+            }),
+            _ => page_de_piece(piece, &entete, numero, total, None),
+        };
+        pages.push(page);
     }
     assembler_pdf(&pages, &textes::dessin_export_plan(pieces.len()))
 }
@@ -1363,9 +1751,7 @@ pub fn pdf_d_une_photo(
     (largeur, hauteur): (u32, u32),
     cotes: &[CoteExportee],
 ) -> Vec<u8> {
-    let mut page = Page {
-        operateurs: String::new(),
-    };
+    let mut page = Page::default();
     en_tete_de_page(&mut page, titre, entete);
     // La place de la photo, entre l'en-tête et le pied de page.
     let (x0, y0, x1, y1) = (MARGE, 66.0, LARGEUR_PAGE - MARGE, 700.0);
@@ -2083,6 +2469,7 @@ mod tests {
                 })
                 .collect(),
             courante: 0,
+            ..Plan::default()
         }
     }
 
@@ -2298,6 +2685,80 @@ mod tests {
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(5 pi 9 1/2 po)"));
         assert!(pdf.contains("(3 pi 9 1/2 po)"));
+    }
+
+    #[test]
+    fn la_feuille_d_un_plan_a_l_echelle() {
+        let nom =
+            |feuille: Option<Feuille>| feuille.map(|f| (f.papier.traduit().to_string(), f.paysage));
+        // 12 × 10 pi et ses murs de 9 po, à 1/4 po = 1 pi : Lettre en paysage.
+        assert_eq!(
+            nom(feuille_pour((162.0, 138.0), 1.5)),
+            Some(("Lettre".to_string(), true))
+        );
+        // Une pièce en longueur : en portrait d'abord, sur 11 × 17.
+        assert_eq!(
+            nom(feuille_pour((138.0, 378.0), 1.5)),
+            Some(("11 × 17".to_string(), false))
+        );
+        // Trop grande pour 11 × 17 à 1/4 po; elle tient à 1/8 po.
+        assert_eq!(nom(feuille_pour((738.0, 498.0), 1.5)), None);
+        assert!(feuille_pour((738.0, 498.0), 0.75).is_some());
+    }
+
+    #[test]
+    fn le_pdf_a_l_echelle_et_son_cartouche() {
+        let mut chambre = rectangle("12", "10");
+        chambre.epaisseur_des_murs = "9 po".to_string();
+        let mut plan = Plan::d_une_piece(chambre);
+        plan.mise_en_page = MiseEnPage {
+            echelle: EchelleDuPlan::QuartDePouce,
+            projet: "Agrandissement".to_string(),
+            adresse: "12 rue des Pins".to_string(),
+            dessine_par: "S. L.".to_string(),
+        };
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "2026-11-23");
+        // Lettre en paysage, le cartouche et l'échelle graphique.
+        assert!(pdf.contains("/MediaBox [0 0 792 612]"), "{pdf}");
+        for texte in [
+            "(Agrandissement)",
+            "(12 rue des Pins)",
+            "(S. L.)",
+            "(2026-11-23)",
+            "(1/4 po = 1 pi)",
+            "(Lettre, paysage)",
+        ] {
+            assert!(pdf.contains(texte), "{texte}");
+        }
+        // Ajusté : Lettre en portrait, comme avant.
+        plan.mise_en_page.echelle = EchelleDuPlan::Ajustee;
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "2026-11-23");
+        assert!(pdf.contains("/MediaBox [0 0 612 792]"));
+        assert!(!pdf.contains("(Agrandissement)"));
+        // Une pièce trop grande pour 11 × 17 à 1/4 po : ajustée, et la page le dit.
+        let mut grande = Plan::d_une_piece(rectangle("60", "40"));
+        grande.mise_en_page.echelle = EchelleDuPlan::QuartDePouce;
+        let pdf = pdf_du_plan(&grande, &Preferences::default(), "");
+        assert!(pdf.contains("/MediaBox [0 0 612 792]"));
+        assert!(pdf.contains("(Le plan ne tient pas "), "{pdf}");
+        // L'avis de l'écran, pour la pièce de 12 × 10 pi.
+        assert_eq!(
+            avis_de_l_echelle(
+                &plan.pieces[0].dessin,
+                EchelleDuPlan::QuartDePouce,
+                &Preferences::default()
+            )
+            .as_deref(),
+            Some("À cette échelle, la pièce tient sur une feuille Lettre, paysage.")
+        );
+        assert_eq!(
+            avis_de_l_echelle(
+                &plan.pieces[0].dessin,
+                EchelleDuPlan::Ajustee,
+                &Preferences::default()
+            ),
+            None
+        );
     }
 
     #[test]

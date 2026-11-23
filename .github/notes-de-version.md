@@ -89,6 +89,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   d'architecte — les distances entre les coins, les portes, les fenêtres et les cloisons le
   long de chaque mur, et l'écart entre deux cloisons parallèles —, aussi au PDF et au DXF.
 
+- **PDF à l'échelle, avec cartouche** : 1/4 po = 1 pi, 1/8 po = 1 pi, 1:50 ou 1:100, sur
+  la plus petite feuille Lettre ou 11 × 17 où tient la pièce; échelle graphique, et
+  cartouche (projet, adresse, date, dessiné par).
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

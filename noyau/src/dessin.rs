@@ -598,6 +598,68 @@ pub struct Plan {
     pub pieces: Vec<Piece>,
     /// Rang de la pièce à l'écran.
     pub courante: usize,
+    /// L'échelle du plan au PDF, et son cartouche (section 25.1, point 36).
+    pub mise_en_page: MiseEnPage,
+}
+
+/// L'échelle d'un plan au PDF (section 25.1, point 36).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EchelleDuPlan {
+    /// Ajusté à la page, comme avant.
+    #[default]
+    Ajustee,
+    /// 1/4 po = 1 pi (1:48).
+    QuartDePouce,
+    /// 1/8 po = 1 pi (1:96).
+    HuitiemeDePouce,
+    UnCinquante,
+    UnCent,
+}
+
+impl EchelleDuPlan {
+    pub const TOUTES: [EchelleDuPlan; 5] = [
+        EchelleDuPlan::Ajustee,
+        EchelleDuPlan::QuartDePouce,
+        EchelleDuPlan::HuitiemeDePouce,
+        EchelleDuPlan::UnCinquante,
+        EchelleDuPlan::UnCent,
+    ];
+
+    /// Les points du PDF (1/72 po) pour un pouce réel; `None` : ajusté à la
+    /// page.
+    pub fn points_par_pouce(self) -> Option<f64> {
+        match self {
+            EchelleDuPlan::Ajustee => None,
+            EchelleDuPlan::QuartDePouce => Some(72.0 / 48.0),
+            EchelleDuPlan::HuitiemeDePouce => Some(72.0 / 96.0),
+            EchelleDuPlan::UnCinquante => Some(72.0 / 50.0),
+            EchelleDuPlan::UnCent => Some(72.0 / 100.0),
+        }
+    }
+
+    /// Les repères de l'échelle graphique, dans son unité, le nombre de
+    /// pouces de cette unité, et vrai si elle est métrique.
+    pub fn reperes(self) -> (&'static [f64], f64, bool) {
+        match self {
+            EchelleDuPlan::Ajustee | EchelleDuPlan::QuartDePouce => {
+                (&[0.0, 1.0, 2.0, 4.0, 8.0], 12.0, false)
+            }
+            EchelleDuPlan::HuitiemeDePouce => (&[0.0, 2.0, 4.0, 8.0, 16.0], 12.0, false),
+            EchelleDuPlan::UnCinquante => (&[0.0, 0.5, 1.0, 2.0, 3.0], PO_PAR_M, true),
+            EchelleDuPlan::UnCent => (&[0.0, 1.0, 2.0, 4.0, 6.0], PO_PAR_M, true),
+        }
+    }
+}
+
+/// La mise en page d'un plan au PDF : son échelle, et les champs de son
+/// cartouche (la date est celle de l'export).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MiseEnPage {
+    pub echelle: EchelleDuPlan,
+    pub projet: String,
+    pub adresse: String,
+    pub dessine_par: String,
 }
 
 impl Default for Plan {
@@ -605,6 +667,7 @@ impl Default for Plan {
         Plan {
             pieces: vec![Piece::default()],
             courante: 0,
+            mise_en_page: MiseEnPage::default(),
         }
     }
 }
@@ -621,6 +684,7 @@ impl Plan {
                 dessin,
             }],
             courante: 0,
+            mise_en_page: MiseEnPage::default(),
         }
     }
 
@@ -2792,6 +2856,7 @@ mod tests {
         let mut abime = Plan {
             pieces: Vec::new(),
             courante: 7,
+            ..Plan::default()
         };
         abime.normaliser();
         assert_eq!(abime, Plan::default());

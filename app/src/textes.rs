@@ -1518,6 +1518,65 @@ pub const DESSIN_MONTRER_LES_COTES: Texte = t(
     "Montrer ou cacher les lignes de cote",
     "Show or hide the dimension lines",
 );
+// Le PDF à l'échelle et son cartouche (section 25.1, point 36)
+pub const DESSIN_MISE_EN_PAGE: Texte = t("Mise en page du PDF", "PDF layout");
+pub const DESSIN_ECHELLE: Texte = t("Échelle", "Scale");
+pub const DESSIN_PROJET: Texte = t("Projet", "Project");
+pub const DESSIN_ADRESSE: Texte = t("Adresse", "Address");
+pub const DESSIN_DATE: Texte = t("Date", "Date");
+pub const DESSIN_DESSINE_PAR: Texte = t("Dessiné par", "Drawn by");
+pub const DESSIN_PAPIER: Texte = t("Papier", "Paper");
+pub const PAPIER_LETTRE: Texte = t("Lettre", "Letter");
+pub const PAPIER_11_17: Texte = tel("11 × 17");
+pub const DESSIN_NE_TIENT_PAS: Texte = t(
+    "À cette échelle, la pièce ne tient pas sur une feuille 11 × 17 : le PDF l'ajustera à la page.",
+    "At this scale, the room does not fit on an 11 × 17 sheet: the PDF will fit it to the page.",
+);
+
+/// Le nom d'une échelle du plan.
+pub fn nom_de_l_echelle(echelle: noyau::dessin::EchelleDuPlan) -> Texte {
+    use noyau::dessin::EchelleDuPlan;
+    match echelle {
+        EchelleDuPlan::Ajustee => t("Ajustée à la page", "Fit to page"),
+        EchelleDuPlan::QuartDePouce => t("1/4 po = 1 pi", "1/4 in = 1 ft"),
+        EchelleDuPlan::HuitiemeDePouce => t("1/8 po = 1 pi", "1/8 in = 1 ft"),
+        EchelleDuPlan::UnCinquante => tel("1:50"),
+        EchelleDuPlan::UnCent => tel("1:100"),
+    }
+}
+
+/// Un papier et son sens : « Lettre, portrait ».
+pub fn dessin_papier(papier: &str, paysage: bool) -> String {
+    let sens = match (langue::en_cours(), paysage) {
+        (Langue::Francais, false) => "portrait",
+        (Langue::Francais, true) => "paysage",
+        (Langue::Anglais, false) => "portrait",
+        (Langue::Anglais, true) => "landscape",
+    };
+    format!("{papier}, {sens}")
+}
+
+/// Où tient la pièce à l'échelle choisie.
+pub fn dessin_tient_sur(papier: &str, paysage: bool) -> String {
+    let feuille = dessin_papier(papier, paysage);
+    match langue::en_cours() {
+        Langue::Francais => format!("À cette échelle, la pièce tient sur une feuille {feuille}."),
+        Langue::Anglais => format!("At this scale, the room fits on a {feuille} sheet."),
+    }
+}
+
+/// Au PDF : le plan ne tient pas à l'échelle choisie.
+pub fn dessin_export_ne_tient_pas(echelle: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!(
+            "Le plan ne tient pas à l'échelle {echelle} sur une feuille 11 × 17 : il est ajusté à la page."
+        ),
+        Langue::Anglais => format!(
+            "The plan does not fit at {echelle} on an 11 × 17 sheet: it is fitted to the page."
+        ),
+    }
+}
+
 pub const DESSIN_ETAPE_TRACER: Texte = t(
     "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre, ou à 45° pour un mur en biais (le bouton 45° fait passer les flèches en biais).",
     "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up, or set at 45° for an angled wall (the 45° button switches the arrows to angled).",

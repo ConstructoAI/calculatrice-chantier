@@ -10,7 +10,7 @@ use noyau::dessin::{
     Dessin, Etat as EtatDeLaForme, GenreDOuverture, Mesure, Ouverture, Plan, Retrait, Sens,
     Solution,
 };
-use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, MorceauDeMur};
+use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, EchelleDuPlan, MorceauDeMur};
 use noyau::metiers::Quantite;
 use noyau::mobilier::{self, Encombrement, FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan};
 use noyau::plafond::{FormeDePlafond, Retombee};
@@ -1084,6 +1084,47 @@ fn la_piece_et_le_total(
             .font(theme::police_grasse(13.0))
             .color(p.titre),
     );
+    // La mise en page du PDF (point 36) : l'échelle, et le cartouche.
+    ui.label(RichText::new(textes::DESSIN_MISE_EN_PAGE.traduit()).size(13.5));
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(textes::DESSIN_ECHELLE.traduit()).size(13.5));
+        for echelle in EchelleDuPlan::TOUTES {
+            let choisie = plan.mise_en_page.echelle == echelle;
+            let bouton =
+                egui::Button::new(textes::nom_de_l_echelle(echelle).traduit()).selected(choisie);
+            if ui.add(bouton).clicked() && !choisie {
+                plan.mise_en_page.echelle = echelle;
+                modifie = true;
+            }
+        }
+    });
+    // Où tiendrait la pièce à l'écran, à cette échelle.
+    if let Some(avis) = plan.pieces.get(plan.courante).and_then(|piece| {
+        crate::exportation::avis_de_l_echelle(&piece.dessin, plan.mise_en_page.echelle, prefs)
+    }) {
+        ui.label(RichText::new(avis).size(12.5).color(p.texte_attenue));
+    }
+    let mise_en_page = &mut plan.mise_en_page;
+    for (libelle, champ) in [
+        (textes::DESSIN_PROJET, &mut mise_en_page.projet),
+        (textes::DESSIN_ADRESSE, &mut mise_en_page.adresse),
+        (textes::DESSIN_DESSINE_PAR, &mut mise_en_page.dessine_par),
+    ] {
+        ui.horizontal(|ui| {
+            let etiquette = ui.label(RichText::new(libelle.traduit()).size(13.5));
+            let reponse = ui
+                .add(
+                    egui::TextEdit::singleline(champ)
+                        .desired_width((ui.available_width() - 8.0).clamp(120.0, 300.0))
+                        .char_limit(80),
+                )
+                .labelled_by(etiquette.id);
+            cadre_de_saisie(ui, p, &reponse);
+            if reponse.changed() {
+                modifie = true;
+            }
+        });
+    }
     ui.horizontal_wrapped(|ui| {
         if ui
             .add_enabled(
