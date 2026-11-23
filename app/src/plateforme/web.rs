@@ -12,7 +12,7 @@ use wasm_bindgen::JsCast as _;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::closure::Closure;
 
-use super::{Arrivee, Export, Fichier, FichierChoisi, Installation, Lecture};
+use super::{Arrivee, ChoixDeFichiers, Export, Fichier, FichierChoisi, Installation, Lecture};
 use crate::{pieces, textes};
 
 /// L'application tourne-t-elle dans un navigateur?
@@ -274,10 +274,10 @@ async fn lire_dans(base: &web_sys::IdbDatabase, cle: &str) -> Option<Vec<u8>> {
         .map(|tableau| tableau.to_vec())
 }
 
-/// Ouvre le choix de fichiers du navigateur (des photos seulement, si
-/// `photos` : sur un téléphone, l'appareil photo ou la galerie). Le résultat
-/// arrive par `arrivees`.
-pub fn choisir_des_fichiers(photos: bool) {
+/// Ouvre le choix de fichiers du navigateur : des photos (sur un téléphone,
+/// l'appareil photo ou la galerie), tout fichier, ou des dessins (JSON). Le
+/// résultat arrive par `arrivees`.
+pub fn choisir_des_fichiers(genre: ChoixDeFichiers) {
     let Some(document) = document() else {
         return;
     };
@@ -294,8 +294,10 @@ pub fn choisir_des_fichiers(photos: bool) {
     };
     champ.set_type("file");
     champ.set_multiple(true);
-    if photos {
-        champ.set_accept("image/*");
+    match genre {
+        ChoixDeFichiers::Photos => champ.set_accept("image/*"),
+        ChoixDeFichiers::Dessins => champ.set_accept(".json,application/json"),
+        ChoixDeFichiers::Tous => {}
     }
     champ.set_id(ID_CHOIX_DE_FICHIERS);
     champ.set_hidden(true);

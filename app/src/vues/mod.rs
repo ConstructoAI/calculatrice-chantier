@@ -4,6 +4,7 @@ pub mod a_propos;
 pub mod aide;
 pub mod bienvenue;
 pub mod dessin;
+pub mod dessins;
 pub mod maquette;
 pub mod metiers;
 pub mod notes;

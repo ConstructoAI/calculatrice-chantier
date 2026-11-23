@@ -16,9 +16,14 @@ use crate::afficheur::{self, ActionAfficheur};
 use crate::aide;
 use crate::clavier::{self, ActionClavier, Contexte, EtatClavier};
 use crate::pieces;
-use crate::plateforme::{self, Arrivee, Depot, Export, Fichier, FichierChoisi, Installation};
+use crate::plateforme::{
+    self, Arrivee, ChoixDeFichiers, Depot, Export, Fichier, FichierChoisi, Installation,
+};
 use crate::raccourcis::{self, Action};
-use crate::stockage::{self, MAX_NOTES, MAX_RUBANS, NoteDuBloc, PieceJointe, RubanEnregistre};
+use crate::stockage::{
+    self, DessinEnregistre, MAX_DESSINS, MAX_NOTES, MAX_RUBANS, NoteDuBloc, PieceJointe,
+    RubanEnregistre,
+};
 use crate::textes;
 use crate::theme::{self, Palette};
 use crate::vues::preferences::Memorisee;
@@ -82,6 +87,8 @@ enum Confirmation {
     SupprimerNote(u64),
     /// Retirer une pièce jointe de la note ouverte : son numéro.
     RetirerPiece(u64),
+    /// Supprimer un dessin de la bibliothèque.
+    SupprimerDessin(u64),
     /// Limite de rubans atteinte : supprimer les plus anciens pour enregistrer celui-ci.
     TropDeRubans(String),
 }
@@ -97,6 +104,15 @@ enum Demande {
     Enregistrer(u64),
 }
 
+/// À quoi servent les fichiers que l'utilisateur est en train de choisir.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Destination {
+    /// Les joindre à cette note.
+    Note(u64),
+    /// Les rouvrir comme des dessins.
+    Dessins,
+}
+
 /// Dialogue ouvert par-dessus l'écran.
 enum Dialogue {
     Aucun,
@@ -106,6 +122,12 @@ enum Dialogue {
         texte: String,
         renommer: Option<u64>,
         /// Premier affichage : le champ prend le focus.
+        nouveau: bool,
+    },
+    /// Renommer un dessin de la bibliothèque.
+    NommerDessin {
+        texte: String,
+        id: u64,
         nouveau: bool,
     },
     ModifierMemorisee {
@@ -175,8 +197,16 @@ pub struct Application {
     photo_vue: Option<(u64, Option<egui::TextureHandle>)>,
     /// Pièces jointes demandées à la plateforme, par clé, et pourquoi.
     demandes: HashMap<String, Vec<Demande>>,
-    /// La note qui recevra les fichiers que l'utilisateur est en train de choisir.
-    note_qui_recoit: Option<u64>,
+    /// Ce que deviendront les fichiers que l'utilisateur est en train de choisir.
+    fichiers_pour: Option<Destination>,
+    /// La bibliothèque des dessins (section 25) : le plan à l'écran est la
+    /// copie de travail de celui de numéro `dessin_courant`, recopiée dans la
+    /// bibliothèque quand on change de dessin ou qu'on l'enregistre.
+    dessins: Vec<DessinEnregistre>,
+    dessin_courant: u64,
+    dessins_a_sauvegarder: bool,
+    /// La liste des dessins est à l'écran, au lieu du dessin.
+    liste_des_dessins: bool,
 }
 
 impl Application {
@@ -201,7 +231,31 @@ impl Application {
         let rubans = stockage::charger_rubans(&depot);
         let notes = stockage::charger_notes(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
-        let (mut plan, langue_du_dessin) = stockage::charger_dessin(&depot);
+        let stockage::DessinCharge {
+            mut plan,
+            langue: langue_du_dessin,
+            courant,
+        } = stockage::charger_dessin(&depot);
+        // La bibliothèque des dessins; le plan de travail lui appartient. Un
+        // plan d'avant la bibliothèque y entre comme un premier dessin.
+        let mut dessins = stockage::charger_dessins(&depot);
+        let dessins_a_sauvegarder = !courant.is_some_and(|id| dessins.iter().any(|d| d.id == id));
+        let dessin_courant = match courant.filter(|id| dessins.iter().any(|d| d.id == *id)) {
+            Some(id) => id,
+            None => {
+                let (date, _) = stockage::maintenant();
+                let id = nouveau_numero(dessins.iter().map(|d| d.id));
+                dessins.push(DessinEnregistre {
+                    id,
+                    nom: textes::dessin_par_defaut(dessins.len() + 1),
+                    cree: date.clone(),
+                    modifie: date,
+                    langue: langue_du_dessin,
+                    plan: plan.clone(),
+                });
+                id
+            }
+        };
         for piece in &mut plan.pieces {
             transposer_le_dessin(
                 &mut piece.dessin,
@@ -261,7 +315,8 @@ impl Application {
             marque: theme::creer_la_marque(&cc.egui_ctx),
             plan,
             etat_du_dessin: vues::dessin::Etat::default(),
-            dessin_a_sauvegarder: langue_du_dessin != langue,
+            // Le plan récrit dans la langue en cours, ou rattaché à son dessin.
+            dessin_a_sauvegarder: langue_du_dessin != langue || dessins_a_sauvegarder,
             notes,
             note_ouverte: None,
             viser_la_note: false,
@@ -269,7 +324,11 @@ impl Application {
             vignettes: HashMap::new(),
             photo_vue: None,
             demandes: HashMap::new(),
-            note_qui_recoit: None,
+            fichiers_pour: None,
+            dessins,
+            dessin_courant,
+            dessins_a_sauvegarder,
+            liste_des_dessins: false,
         }
     }
 
@@ -547,7 +606,15 @@ impl Application {
         if self.dessin_a_sauvegarder {
             self.dessin_a_sauvegarder = false;
             let langue = self.moteur.preferences().langue;
-            if stockage::enregistrer_dessin(&self.depot, &self.plan, langue).is_err() {
+            let courant = Some(self.dessin_courant);
+            if stockage::enregistrer_dessin(&self.depot, &self.plan, langue, courant).is_err() {
+                self.signaler_l_echec_d_ecriture();
+            }
+        }
+        if self.dessins_a_sauvegarder {
+            self.dessins_a_sauvegarder = false;
+            self.synchroniser_le_dessin_courant();
+            if stockage::enregistrer_dessins(&self.depot, &self.dessins).is_err() {
                 self.signaler_l_echec_d_ecriture();
             }
         }
@@ -565,6 +632,7 @@ impl Application {
         if !self.a_sauvegarder
             && !self.saisies_a_sauvegarder
             && !self.dessin_a_sauvegarder
+            && !self.dessins_a_sauvegarder
             && !self.notes_a_sauvegarder
         {
             return;
@@ -773,9 +841,13 @@ impl Application {
                     .is_some_and(|note| note.pieces.len() >= pieces::MAX_PIECES_PAR_NOTE);
                 if pleine {
                     self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_PIECES);
-                } else if self.note_ouverte.is_some() {
-                    self.note_qui_recoit = self.note_ouverte;
-                    plateforme::choisir_des_fichiers(photos);
+                } else if let Some(id) = self.note_ouverte {
+                    self.fichiers_pour = Some(Destination::Note(id));
+                    plateforme::choisir_des_fichiers(if photos {
+                        ChoixDeFichiers::Photos
+                    } else {
+                        ChoixDeFichiers::Tous
+                    });
                 }
             }
             notes::Action::VoirPhoto(id) => {
@@ -913,18 +985,221 @@ impl Application {
             .and_then(|note| note.pieces.iter().find(|piece| piece.id == id))
     }
 
-    /// Un numéro de pièce jointe neuf : l'heure en millisecondes, ou le
-    /// suivant du plus grand numéro déjà donné.
+    /// Un numéro de pièce jointe neuf.
     fn nouveau_numero_de_piece(&self) -> u64 {
-        let plus_grand = self
-            .notes
+        nouveau_numero(
+            self.notes
+                .iter()
+                .flat_map(|note| &note.pieces)
+                .map(|piece| piece.id),
+        )
+    }
+
+    // ------------------------------------------------------------------
+    // Mes dessins (section 25)
+    // ------------------------------------------------------------------
+
+    /// Le nom du dessin ouvert, raccourci pour tenir dans l'en-tête.
+    fn nom_du_dessin_courant(&self) -> String {
+        let nom = self
+            .dessins
             .iter()
-            .flat_map(|note| &note.pieces)
-            .map(|piece| piece.id)
-            .max()
-            .unwrap_or(0);
-        let maintenant = u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or(0);
-        maintenant.max(plus_grand + 1)
+            .find(|d| d.id == self.dessin_courant)
+            .map_or("", |d| d.nom.trim());
+        let nom = if nom.is_empty() {
+            textes::DESSIN_TITRE.traduit()
+        } else {
+            nom
+        };
+        if nom.chars().count() > 22 {
+            nom.chars().take(21).chain(['…']).collect()
+        } else {
+            nom.to_string()
+        }
+    }
+
+    /// Un nom pour un dessin neuf : « Dessin 3 », le premier numéro libre.
+    fn nom_libre(&self) -> String {
+        (1..)
+            .map(textes::dessin_par_defaut)
+            .find(|nom| !self.dessins.iter().any(|d| &d.nom == nom))
+            .unwrap_or_default()
+    }
+
+    /// Recopie le plan de travail à sa place dans la bibliothèque; sa date de
+    /// modification change s'il a changé.
+    fn synchroniser_le_dessin_courant(&mut self) {
+        let langue = self.moteur.preferences().langue;
+        if let Some(dessin) = self
+            .dessins
+            .iter_mut()
+            .find(|d| d.id == self.dessin_courant)
+            && (dessin.plan != self.plan || dessin.langue != langue)
+        {
+            dessin.plan = self.plan.clone();
+            dessin.langue = langue;
+            dessin.modifie = stockage::maintenant().0;
+        }
+    }
+
+    /// Vrai si le dessin ouvert est vide et porte encore un nom par défaut
+    /// (« Dessin 2 ») : rien n'y a été fait.
+    fn dessin_courant_inutilise(&self) -> bool {
+        self.dessins
+            .iter()
+            .find(|d| d.id == self.dessin_courant)
+            .is_some_and(|d| {
+                stockage::plan_est_vide(&self.plan)
+                    && (1..=self.dessins.len() + 1).any(|n| textes::dessin_par_defaut(n) == d.nom)
+            })
+    }
+
+    /// Met ce dessin à l'écran : son plan devient le plan de travail, récrit
+    /// dans la langue en cours. Le dessin quitté est d'abord recopié; resté
+    /// vide sous son nom par défaut, il disparaît, comme une note vide.
+    fn ouvrir_le_dessin(&mut self, id: u64) {
+        if id != self.dessin_courant && self.dessin_courant_inutilise() {
+            let quitte = self.dessin_courant;
+            self.dessins.retain(|d| d.id != quitte);
+        } else {
+            self.synchroniser_le_dessin_courant();
+        }
+        let Some(dessin) = self.dessins.iter().find(|d| d.id == id) else {
+            return;
+        };
+        let mut plan = dessin.plan.clone();
+        let prefs = self.moteur.preferences();
+        for piece in &mut plan.pieces {
+            transposer_le_dessin(&mut piece.dessin, dessin.langue, prefs.langue, prefs);
+        }
+        plan.normaliser();
+        self.plan = plan;
+        self.dessin_courant = id;
+        self.etat_du_dessin = vues::dessin::Etat::default();
+        self.liste_des_dessins = false;
+        self.dessin_a_sauvegarder = true;
+        self.dessins_a_sauvegarder = true;
+    }
+
+    /// Ajoute un dessin vide à la bibliothèque; son numéro.
+    fn ajouter_un_dessin_vide(&mut self) -> u64 {
+        let (date, _) = stockage::maintenant();
+        let id = nouveau_numero(self.dessins.iter().map(|d| d.id));
+        let nom = self.nom_libre();
+        self.dessins.push(DessinEnregistre {
+            id,
+            nom,
+            cree: date.clone(),
+            modifie: date,
+            langue: self.moteur.preferences().langue,
+            plan: noyau::dessin::Plan::default(),
+        });
+        id
+    }
+
+    fn traiter_action_dessins(&mut self, ctx: &egui::Context, action: vues::dessins::Action) {
+        use vues::dessins::Action as A;
+        match action {
+            A::Retour => self.liste_des_dessins = false,
+            A::Nouveau | A::OuvrirUnFichier if self.dessins.len() >= MAX_DESSINS => {
+                self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_DESSINS);
+            }
+            // Le dessin ouvert est déjà vide et sans nom : c'est lui, le nouveau.
+            A::Nouveau if self.dessin_courant_inutilise() => self.liste_des_dessins = false,
+            A::Nouveau => {
+                let id = self.ajouter_un_dessin_vide();
+                self.ouvrir_le_dessin(id);
+            }
+            A::OuvrirUnFichier => {
+                self.fichiers_pour = Some(Destination::Dessins);
+                plateforme::choisir_des_fichiers(ChoixDeFichiers::Dessins);
+            }
+            A::Ouvrir(id) => self.ouvrir_le_dessin(id),
+            A::Renommer(id) => {
+                if let Some(dessin) = self.dessins.iter().find(|d| d.id == id) {
+                    self.dialogue = Dialogue::NommerDessin {
+                        texte: dessin.nom.clone(),
+                        id,
+                        nouveau: true,
+                    };
+                }
+            }
+            A::Enregistrer(id) => self.enregistrer_le_dessin_en_fichier(ctx, id),
+            A::Supprimer(id) => {
+                self.dialogue = Dialogue::Confirmer(Confirmation::SupprimerDessin(id));
+            }
+        }
+    }
+
+    /// Enregistre un dessin en fichier, pour le rouvrir sur un autre
+    /// appareil. Bureau : boîte « Enregistrer sous »; navigateur : téléchargement.
+    fn enregistrer_le_dessin_en_fichier(&mut self, ctx: &egui::Context, id: u64) {
+        self.synchroniser_le_dessin_courant();
+        let Some((nom, contenu)) = self.dessins.iter().find(|d| d.id == id).map(|dessin| {
+            (
+                stockage::nom_de_fichier_avec(&dessin.nom, "json"),
+                stockage::fichier_d_un_dessin(dessin),
+            )
+        }) else {
+            return;
+        };
+        let fichier = Fichier {
+            titre: textes::TITRE_ENREGISTRER_DESSIN.traduit(),
+            filtre: textes::FILTRE_DESSIN.traduit(),
+            extension: "json",
+            type_mime: "application/json",
+            nom: &nom,
+            contenu: contenu.as_bytes(),
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_DESSIN_ENREGISTRE),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_DESSIN_ENREGISTRE_ECHEC),
+        }
+    }
+
+    /// Rouvre les dessins choisis : chacun entre dans la bibliothèque, et le
+    /// dernier s'ouvre. Un fichier qui n'est pas un dessin est signalé.
+    fn importer_des_dessins(&mut self, ctx: &egui::Context, fichiers: Vec<FichierChoisi>) {
+        let mut dernier = None;
+        let mut illisible = false;
+        for fichier in fichiers {
+            if self.dessins.len() >= MAX_DESSINS {
+                self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_DESSINS);
+                break;
+            }
+            let Some((nom, langue, plan)) = fichier
+                .octets
+                .as_deref()
+                .and_then(stockage::lire_un_fichier_de_dessin)
+            else {
+                illisible = true;
+                continue;
+            };
+            let nom = if nom.trim().is_empty() {
+                fichier.nom.trim_end_matches(".json").to_string()
+            } else {
+                nom
+            };
+            let (date, _) = stockage::maintenant();
+            let id = nouveau_numero(self.dessins.iter().map(|d| d.id));
+            self.dessins.push(DessinEnregistre {
+                id,
+                nom,
+                cree: date.clone(),
+                modifie: date,
+                langue,
+                plan,
+            });
+            dernier = Some(id);
+        }
+        if let Some(id) = dernier {
+            self.ouvrir_le_dessin(id);
+            self.annoncer(ctx, textes::AVIS_DESSIN_IMPORTE);
+        }
+        if illisible {
+            self.dialogue = Dialogue::Avis(textes::AVIS_DESSIN_ILLISIBLE);
+        }
     }
 
     /// Traite ce qui est arrivé de la plateforme depuis la dernière image.
@@ -932,7 +1207,11 @@ impl Application {
         for arrivee in plateforme::arrivees() {
             match arrivee {
                 Arrivee::EchecEcriture => self.dialogue = Dialogue::Avis(textes::AVIS_ECHEC_PIECE),
-                Arrivee::Choisis(fichiers) => self.joindre(ctx, fichiers),
+                Arrivee::Choisis(fichiers) => match self.fichiers_pour.take() {
+                    Some(Destination::Note(id)) => self.joindre(ctx, id, fichiers),
+                    Some(Destination::Dessins) => self.importer_des_dessins(ctx, fichiers),
+                    None => {}
+                },
                 Arrivee::Lue { cle, octets } => {
                     let Some(attente) = self.demandes.remove(&cle) else {
                         continue;
@@ -982,10 +1261,7 @@ impl Application {
 
     /// Joint les fichiers choisis à la note qui les attendait : une photo est
     /// préparée (réduite, avec sa vignette), un autre fichier est gardé tel quel.
-    fn joindre(&mut self, ctx: &egui::Context, fichiers: Vec<FichierChoisi>) {
-        let Some(id_note) = self.note_qui_recoit.take().or(self.note_ouverte) else {
-            return;
-        };
+    fn joindre(&mut self, ctx: &egui::Context, id_note: u64, fichiers: Vec<FichierChoisi>) {
         if !self.notes.iter().any(|n| n.id == id_note) {
             return;
         }
@@ -1622,17 +1898,29 @@ impl Application {
                     None => {}
                 }
             }
+            Vue::Dessin if self.liste_des_dessins => {
+                let action = vues::dessins::afficher(ui, p, &self.dessins, self.dessin_courant);
+                if let Some(action) = action {
+                    self.traiter_action_dessins(ui.ctx(), action);
+                }
+            }
             Vue::Dessin => {
+                let nom = self.nom_du_dessin_courant();
                 let action = vues::dessin::afficher(
                     ui,
                     p,
                     &mut self.plan,
                     &mut self.etat_du_dessin,
                     self.moteur.preferences(),
+                    &nom,
                 );
                 match action {
                     Some(vues::dessin::Action::Modifie) => self.dessin_a_sauvegarder = true,
-                    Some(vues::dessin::Action::Fermer) => self.aller(Vue::Accueil),
+                    Some(vues::dessin::Action::MesDessins) => {
+                        // La liste montre le dessin ouvert tel qu'il est.
+                        self.synchroniser_le_dessin_courant();
+                        self.liste_des_dessins = true;
+                    }
                     Some(vues::dessin::Action::Exporter(format)) => {
                         self.exporter_le_dessin(ui.ctx(), format);
                     }
@@ -2051,6 +2339,49 @@ impl Application {
                     },
                 }
             }
+            Dialogue::NommerDessin {
+                mut texte,
+                id,
+                nouveau,
+            } => {
+                let (choix, fermee) = modale(ctx, 320.0, |ui| {
+                    ui.label(
+                        RichText::new(textes::TITRE_NOMMER_DESSIN.traduit())
+                            .font(theme::police_grasse(17.0)),
+                    );
+                    ui.add_space(6.0);
+                    ui.label(textes::NOM_DU_DESSIN.traduit());
+                    let champ = ui.add(
+                        egui::TextEdit::singleline(&mut texte)
+                            .char_limit(60)
+                            .desired_width(f32::INFINITY),
+                    );
+                    vues::cadre_de_saisie(ui, p, &champ);
+                    if nouveau {
+                        champ.request_focus();
+                    }
+                    let entree = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    ui.add_space(10.0);
+                    boutons(ui, p, textes::ENREGISTRER.traduit(), false).or(entree.then_some(true))
+                });
+                let nom = texte.trim().to_string();
+                match choix {
+                    Some(true) if !nom.is_empty() => {
+                        if let Some(dessin) = self.dessins.iter_mut().find(|d| d.id == id) {
+                            dessin.nom = nom;
+                        }
+                        self.dessins_a_sauvegarder = true;
+                        Dialogue::Aucun
+                    }
+                    Some(false) => Dialogue::Aucun,
+                    _ if fermee => Dialogue::Aucun,
+                    _ => Dialogue::NommerDessin {
+                        texte,
+                        id,
+                        nouveau: false,
+                    },
+                }
+            }
             Dialogue::ModifierMemorisee {
                 quoi,
                 mut texte,
@@ -2352,6 +2683,11 @@ impl Application {
                 textes::CONFIRMER_RETIRER_PIECE.traduit(),
                 textes::RETIRER.traduit(),
             ),
+            Confirmation::SupprimerDessin(_) => (
+                textes::TITRE_SUPPRIMER_DESSIN.traduit(),
+                textes::CONFIRMER_SUPPRIMER_DESSIN.traduit(),
+                textes::SUPPRIMER.traduit(),
+            ),
             Confirmation::TropDeRubans(_) => (
                 textes::TITRE_ENREGISTRER_RUBAN.traduit(),
                 textes::TROP_DE_RUBANS.traduit(),
@@ -2410,6 +2746,24 @@ impl Application {
                             self.effacer_la_piece(&piece);
                         }
                         self.notes_a_sauvegarder = true;
+                    }
+                    Confirmation::SupprimerDessin(id) => {
+                        self.dessins.retain(|d| d.id != id);
+                        if self.dessin_courant == id {
+                            // Le plus récent des autres s'ouvre, ou un dessin neuf.
+                            let suivant = self
+                                .dessins
+                                .iter()
+                                .max_by(|a, b| a.modifie.cmp(&b.modifie))
+                                .map(|d| d.id);
+                            let suivant = match suivant {
+                                Some(id) => id,
+                                None => self.ajouter_un_dessin_vide(),
+                            };
+                            self.ouvrir_le_dessin(suivant);
+                            self.liste_des_dessins = true;
+                        }
+                        self.dessins_a_sauvegarder = true;
                     }
                     Confirmation::TropDeRubans(nom) => {
                         // Les plus anciens sont à la fin de la liste.
@@ -2514,8 +2868,12 @@ impl eframe::App for Application {
         }
         if self.dessin_a_sauvegarder {
             let langue = self.moteur.preferences().langue;
-            let _ = stockage::enregistrer_dessin(&self.depot, &self.plan, langue);
+            let courant = Some(self.dessin_courant);
+            let _ = stockage::enregistrer_dessin(&self.depot, &self.plan, langue, courant);
         }
+        // La bibliothèque reçoit le dessin ouvert, tel qu'on le quitte.
+        self.synchroniser_le_dessin_courant();
+        let _ = stockage::enregistrer_dessins(&self.depot, &self.dessins);
         if self.notes_a_sauvegarder {
             let _ = stockage::enregistrer_notes(&self.depot, &self.notes);
         }
@@ -2720,6 +3078,14 @@ fn dessiner_roue(painter: &Painter, r: Rect, couleur: Color32) {
             Stroke::new(3.0, couleur),
         );
     }
+}
+
+/// Un numéro neuf : l'heure en millisecondes, ou le suivant du plus grand
+/// numéro déjà donné. Il ne resservira pas (R-97).
+fn nouveau_numero(existants: impl Iterator<Item = u64>) -> u64 {
+    let plus_grand = existants.max().unwrap_or(0);
+    let maintenant = u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or(0);
+    maintenant.max(plus_grand + 1)
 }
 
 /// Une texture d'egui faite d'une photo ou d'une vignette jointe à une note;

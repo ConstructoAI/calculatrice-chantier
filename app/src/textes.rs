@@ -355,6 +355,63 @@ pub const CONFIRMER_RETIRER_PIECE: Texte = t(
     "The attachment will be erased from the device for good.",
 );
 
+// Mes dessins : la bibliothèque des dessins (section 25)
+pub const MES_DESSINS: Texte = t("Mes dessins", "My drawings");
+pub const NOUVEAU_DESSIN: Texte = t("+ Nouveau dessin", "+ New drawing");
+pub const OUVRIR_UN_FICHIER: Texte = t("Ouvrir un fichier…", "Open a file…");
+pub const ENREGISTRER_LE_FICHIER: Texte = t("Enregistrer le fichier", "Save as a file");
+pub const DESSIN_OUVERT: Texte = t("ouvert", "open");
+pub const DESSINS_EXPLICATION: Texte = t(
+    "Chaque dessin garde ses pièces. Pour le rouvrir sur un autre appareil, enregistrez-le en fichier, envoyez ce fichier (courriel, nuage, câble), puis touchez « Ouvrir un fichier… » sur l'autre appareil.",
+    "Each drawing keeps its rooms. To reopen it on another device, save it as a file, send that file (email, cloud, cable), then tap Open a file… on the other device.",
+);
+pub const TITRE_NOMMER_DESSIN: Texte = t("Renommer le dessin", "Rename the drawing");
+pub const NOM_DU_DESSIN: Texte = t("Nom du dessin", "Drawing name");
+pub const TITRE_SUPPRIMER_DESSIN: Texte = t("Supprimer le dessin", "Delete the drawing");
+pub const CONFIRMER_SUPPRIMER_DESSIN: Texte = t(
+    "Le dessin sera supprimé pour de bon, avec toutes ses pièces.",
+    "The drawing will be deleted for good, with all its rooms.",
+);
+pub const TITRE_ENREGISTRER_DESSIN: Texte = t("Enregistrer le dessin", "Save the drawing");
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub const TITRE_OUVRIR_DESSIN: Texte = t("Ouvrir un dessin", "Open a drawing");
+pub const FILTRE_DESSIN: Texte = t(
+    "Dessin de Constructo AI (JSON)",
+    "Constructo AI drawing (JSON)",
+);
+pub const AVIS_DESSIN_ENREGISTRE: Texte = t("Dessin enregistré.", "Drawing saved.");
+pub const AVIS_DESSIN_ENREGISTRE_ECHEC: Texte = t(
+    "Le dessin n'a pas pu être enregistré à cet endroit.",
+    "The drawing could not be saved there.",
+);
+pub const AVIS_DESSIN_ILLISIBLE: Texte = t(
+    "Ce fichier n'est pas un dessin de Constructo AI, ou il est abîmé.",
+    "This file is not a Constructo AI drawing, or it is damaged.",
+);
+pub const AVIS_TROP_DE_DESSINS: Texte = t(
+    "La calculatrice garde 100 dessins au plus : supprimez-en quelques-uns.",
+    "The calculator keeps at most 100 drawings: delete a few.",
+);
+pub const AVIS_DESSIN_IMPORTE: Texte = t("Dessin ouvert.", "Drawing opened.");
+
+/// « Dessin 3 », le nom d'un dessin neuf.
+pub fn dessin_par_defaut(numero: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Dessin {numero}"),
+        Langue::Anglais => format!("Drawing {numero}"),
+    }
+}
+
+/// « 3 pièces », sous le nom d'un dessin de la liste.
+pub fn nombre_de_pieces_du_dessin(nombre: usize) -> String {
+    match (langue::en_cours(), nombre) {
+        (Langue::Francais, 1) => "1 pièce".to_string(),
+        (Langue::Francais, n) => format!("{n} pièces"),
+        (Langue::Anglais, 1) => "1 room".to_string(),
+        (Langue::Anglais, n) => format!("{n} rooms"),
+    }
+}
+
 /// « 3 pièces jointes », sous le titre d'une note de la liste.
 pub fn nombre_de_pieces(nombre: usize) -> String {
     match (langue::en_cours(), nombre) {

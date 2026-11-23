@@ -314,7 +314,8 @@ pub enum FormatDExport {
 pub enum Action {
     /// Le dessin ou une mesure ont changé : à conserver.
     Modifie,
-    Fermer,
+    /// Ouvrir la liste des dessins.
+    MesDessins,
     /// Inscrire la pièce au ruban : ses mesures, puis ses résultats.
     Consigner {
         titre: String,
@@ -701,15 +702,12 @@ pub fn afficher(
     plan: &mut Plan,
     etat: &mut Etat,
     prefs: &Preferences,
+    nom_du_dessin: &str,
 ) -> Option<Action> {
     let mut action = None;
-    if en_tete(
-        ui,
-        p,
-        textes::DESSIN_TITRE.traduit(),
-        textes::FERMER.traduit(),
-    ) {
-        action = Some(Action::Fermer);
+    // Le nom du dessin ouvert, et la liste de tous les dessins.
+    if en_tete(ui, p, nom_du_dessin, textes::MES_DESSINS.traduit()) {
+        action = Some(Action::MesDessins);
     }
     plan.normaliser();
     if barre_des_pieces(ui, p, plan, etat) {

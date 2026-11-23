@@ -141,7 +141,10 @@ sur le plan, tracez des cloisons, réglez l'épaisseur des murs (9 po) et des cl
 pièce **en 3D** (bouton **3D**; glissez pour tourner), puis inscrivez le tout au ruban ou envoyez la pièce vers un
 outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons `+` et `−`
 zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
-dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle).
+dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle). Les meubles ne se superposent pas.
+**Mes dessins** garde plusieurs dessins, chacun avec ses pièces; **Enregistrer le fichier** en
+fait un fichier que **Ouvrir un fichier…** rouvre sur un autre appareil, du téléphone à
+l'ordinateur ou l'inverse.
 
 L'onglet **Notes** est un bloc-notes : vos notes de chantier, chacune avec son titre et sa date,
 enregistrées sur l'appareil, à copier ou à exporter en fichier texte. Joignez-y des **photos**

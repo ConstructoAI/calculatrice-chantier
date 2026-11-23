@@ -306,47 +306,203 @@ struct FichierDessin {
     plan: Option<Plan>,
     /// Langue dans laquelle les mesures sont écrites (section 24).
     langue: Langue,
+    /// Le dessin de la bibliothèque (`dessins.json`) dont ce plan est la copie
+    /// de travail (depuis la version 0.12.3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    courant: Option<u64>,
 }
 
-/// Lit les pièces dessinées (section 25) et la langue de leurs mesures; un
-/// plan vide si la donnée est absente, illisible ou incohérente.
-pub fn charger_dessin(depot: &Depot) -> (Plan, Langue) {
+/// Le plan de travail lu dans `dessin.json`.
+pub struct DessinCharge {
+    pub plan: Plan,
+    /// Langue dans laquelle ses mesures sont écrites.
+    pub langue: Langue,
+    /// Le dessin de la bibliothèque auquel il appartient, s'il est connu.
+    pub courant: Option<u64>,
+}
+
+/// Vrai si le croquis de chaque côté est utilisable.
+fn plan_coherent(plan: &Plan) -> bool {
+    plan.pieces.iter().all(|piece| {
+        piece
+            .dessin
+            .cotes
+            .iter()
+            .all(|cote| cote.croquis.is_finite() && cote.croquis > 0.0)
+    })
+}
+
+/// Vrai si rien n'est dessiné : aucune pièce n'a de côté.
+pub fn plan_est_vide(plan: &Plan) -> bool {
+    plan.pieces
+        .iter()
+        .all(|piece| piece.dessin.cotes.is_empty())
+}
+
+/// Lit les pièces dessinées (section 25), la langue de leurs mesures et le
+/// dessin de la bibliothèque auquel elles appartiennent; un plan vide si la
+/// donnée est absente, illisible ou incohérente.
+pub fn charger_dessin(depot: &Depot) -> DessinCharge {
     let lu = match depot.lire(FICHIER_DESSIN) {
         Lecture::Texte(texte) => serde_json::from_str::<FichierDessin>(&texte)
             .ok()
             .filter(|fichier| fichier.version == VERSION_DESSIN),
         Lecture::Absent | Lecture::Illisible => None,
     };
+    let vide = DessinCharge {
+        plan: Plan::default(),
+        langue: Langue::default(),
+        courant: None,
+    };
     let Some(fichier) = lu else {
-        return (Plan::default(), Langue::default());
+        return vide;
     };
     let mut plan = fichier
         .plan
         .unwrap_or_else(|| Plan::d_une_piece(fichier.dessin));
     plan.normaliser();
-    let coherent = plan.pieces.iter().all(|piece| {
-        piece
-            .dessin
-            .cotes
-            .iter()
-            .all(|cote| cote.croquis.is_finite() && cote.croquis > 0.0)
-    });
-    if coherent {
-        (plan, fichier.langue)
+    if plan_coherent(&plan) {
+        DessinCharge {
+            plan,
+            langue: fichier.langue,
+            courant: fichier.courant,
+        }
     } else {
-        (Plan::default(), Langue::default())
+        vide
     }
 }
 
-/// Enregistre les pièces dessinées et la langue de leurs mesures.
-pub fn enregistrer_dessin(depot: &Depot, plan: &Plan, langue: Langue) -> io::Result<()> {
+/// Enregistre les pièces dessinées, la langue de leurs mesures et le dessin
+/// de la bibliothèque auquel elles appartiennent.
+pub fn enregistrer_dessin(
+    depot: &Depot,
+    plan: &Plan,
+    langue: Langue,
+    courant: Option<u64>,
+) -> io::Result<()> {
     let fichier = FichierDessin {
         version: VERSION_DESSIN,
         dessin: Dessin::default(),
         plan: Some(plan.clone()),
         langue,
+        courant,
     };
     depot.ecrire(FICHIER_DESSIN, &en_json(&fichier)?)
+}
+
+const FICHIER_DESSINS: &str = "dessins.json";
+const FICHIER_DESSINS_CORROMPU: &str = "dessins.corrompu.json";
+/// Version du format de `dessins.json`.
+const VERSION_DESSINS: u32 = 1;
+/// Nombre maximal de dessins gardés dans la calculatrice (section 25).
+pub const MAX_DESSINS: usize = 100;
+/// Marque d'un dessin enregistré en fichier, pour le rouvrir ailleurs.
+const FORMAT_D_UN_DESSIN: &str = "constructo-ai-dessin";
+const VERSION_D_UN_DESSIN: u32 = 1;
+
+/// Un dessin de la bibliothèque : son nom, ses dates (ISO 8601), la langue de
+/// ses mesures et ses pièces.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DessinEnregistre {
+    pub id: u64,
+    pub nom: String,
+    pub cree: String,
+    pub modifie: String,
+    pub langue: Langue,
+    pub plan: Plan,
+}
+
+impl DessinEnregistre {
+    /// La date de sa dernière modification, en clair; la date brute si elle
+    /// est illisible.
+    pub fn date_en_clair(&self) -> String {
+        match chrono::DateTime::parse_from_rfc3339(&self.modifie) {
+            Ok(d) => textes::date_en_clair(d.year(), d.month(), d.day(), d.hour(), d.minute()),
+            Err(_) => self.modifie.clone(),
+        }
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+struct FichierDessins {
+    version: u32,
+    dessins: Vec<DessinEnregistre>,
+}
+
+/// Lit la bibliothèque des dessins; vide s'il n'y en a pas. Une bibliothèque
+/// illisible ou d'une version inconnue est mise de côté; un dessin incohérent
+/// est écarté.
+pub fn charger_dessins(depot: &Depot) -> Vec<DessinEnregistre> {
+    let lus = match depot.lire(FICHIER_DESSINS) {
+        Lecture::Absent => return Vec::new(),
+        Lecture::Illisible => None,
+        Lecture::Texte(texte) => serde_json::from_str::<FichierDessins>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_DESSINS),
+    };
+    match lus {
+        Some(fichier) => fichier
+            .dessins
+            .into_iter()
+            .filter_map(|mut dessin| {
+                dessin.plan.normaliser();
+                plan_coherent(&dessin.plan).then_some(dessin)
+            })
+            .collect(),
+        None => {
+            depot.mettre_de_cote(FICHIER_DESSINS, FICHIER_DESSINS_CORROMPU);
+            Vec::new()
+        }
+    }
+}
+
+/// Enregistre la bibliothèque des dessins.
+pub fn enregistrer_dessins(depot: &Depot, dessins: &[DessinEnregistre]) -> io::Result<()> {
+    let fichier = FichierDessins {
+        version: VERSION_DESSINS,
+        dessins: dessins.to_vec(),
+    };
+    depot.ecrire(FICHIER_DESSINS, &en_json(&fichier)?)
+}
+
+/// Un dessin enregistré en fichier, pour le rouvrir sur un autre appareil.
+#[derive(Serialize, Deserialize)]
+struct FichierDUnDessin {
+    format: String,
+    version: u32,
+    nom: String,
+    date: String,
+    langue: Langue,
+    plan: Plan,
+}
+
+/// Le contenu du fichier d'un dessin : du JSON lisible, marqué comme tel.
+pub fn fichier_d_un_dessin(dessin: &DessinEnregistre) -> String {
+    let fichier = FichierDUnDessin {
+        format: FORMAT_D_UN_DESSIN.to_string(),
+        version: VERSION_D_UN_DESSIN,
+        nom: dessin.nom.clone(),
+        date: dessin.modifie.clone(),
+        langue: dessin.langue,
+        plan: dessin.plan.clone(),
+    };
+    serde_json::to_string_pretty(&fichier).unwrap_or_default()
+}
+
+/// Lit le fichier d'un dessin : son nom, la langue de ses mesures et ses
+/// pièces; rien si ce n'est pas un dessin de la calculatrice, ou s'il est abîmé.
+pub fn lire_un_fichier_de_dessin(octets: &[u8]) -> Option<(String, Langue, Plan)> {
+    let texte = std::str::from_utf8(octets).ok()?;
+    let fichier: FichierDUnDessin =
+        serde_json::from_str(texte.trim_start_matches('\u{FEFF}')).ok()?;
+    if fichier.format != FORMAT_D_UN_DESSIN || fichier.version != VERSION_D_UN_DESSIN {
+        return None;
+    }
+    let mut plan = fichier.plan;
+    plan.normaliser();
+    plan_coherent(&plan).then_some((fichier.nom, fichier.langue, plan))
 }
 
 /// Contenu d'un fichier texte exporté : UTF-8 avec indicateur d'ordre des
@@ -673,13 +829,94 @@ mod tests {
         assert_eq!(charger_saisies(&d.depot()), rien);
     }
 
+    /// Ce que `charger_dessin` a lu, pour comparer.
+    fn lu(d: &DossierTemporaire) -> (Plan, Langue, Option<u64>) {
+        let charge = charger_dessin(&d.depot());
+        (charge.plan, charge.langue, charge.courant)
+    }
+
+    fn un_rectangle() -> Dessin {
+        let mut dessin = Dessin::default();
+        dessin.ajouter_trace(&[
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 60.0),
+            (0.0, 60.0),
+            (0.0, 4.0),
+        ]);
+        dessin.cotes[0].saisie = "12".to_string();
+        dessin.cotes[1].saisie = "10".to_string();
+        dessin
+    }
+
+    #[test]
+    fn la_bibliotheque_des_dessins() {
+        let d = DossierTemporaire::nouveau("dessins");
+        assert!(charger_dessins(&d.depot()).is_empty());
+        let maison = DessinEnregistre {
+            id: 1_763_900_000_000,
+            nom: "Maison Tremblay".to_string(),
+            cree: "2026-11-23T09:00:00-05:00".to_string(),
+            modifie: "2026-11-23T10:30:00-05:00".to_string(),
+            langue: Langue::Francais,
+            plan: Plan::d_une_piece(un_rectangle()),
+        };
+        let vide = DessinEnregistre {
+            id: 1_763_900_000_001,
+            nom: "Dessin 2".to_string(),
+            ..DessinEnregistre::default()
+        };
+        assert!(!plan_est_vide(&maison.plan));
+        assert!(plan_est_vide(&vide.plan));
+        enregistrer_dessins(&d.depot(), &[maison.clone(), vide.clone()]).unwrap();
+        assert_eq!(charger_dessins(&d.depot()), vec![maison.clone(), vide]);
+        assert_eq!(maison.date_en_clair(), "23 novembre 2026, 10 h 30");
+        // Le plan de travail retient le dessin auquel il appartient.
+        enregistrer_dessin(&d.depot(), &maison.plan, Langue::Francais, Some(maison.id)).unwrap();
+        assert_eq!(
+            lu(&d),
+            (maison.plan.clone(), Langue::Francais, Some(maison.id))
+        );
+        // Une bibliothèque illisible est mise de côté.
+        fs::write(d.0.join("dessins.json"), "{ \"version\": 7 }").unwrap();
+        assert!(charger_dessins(&d.depot()).is_empty());
+        assert!(d.0.join("dessins.corrompu.json").exists());
+    }
+
+    #[test]
+    fn un_dessin_se_rouvre_d_un_fichier() {
+        let maison = DessinEnregistre {
+            id: 5,
+            nom: "Chalet".to_string(),
+            modifie: "2026-11-23T10:30:00-05:00".to_string(),
+            langue: Langue::Anglais,
+            plan: Plan::d_une_piece(un_rectangle()),
+            ..DessinEnregistre::default()
+        };
+        let contenu = fichier_d_un_dessin(&maison);
+        assert!(
+            contenu.contains("\"format\": \"constructo-ai-dessin\""),
+            "{contenu}"
+        );
+        let (nom, langue, plan) = lire_un_fichier_de_dessin(contenu.as_bytes()).unwrap();
+        assert_eq!((nom.as_str(), langue), ("Chalet", Langue::Anglais));
+        assert_eq!(plan, maison.plan);
+        // Avec l'indicateur d'ordre des octets d'un éditeur de texte, aussi.
+        let avec_bom = format!("\u{FEFF}{contenu}");
+        assert!(lire_un_fichier_de_dessin(avec_bom.as_bytes()).is_some());
+        // Ce qui n'est pas un dessin de la calculatrice est refusé.
+        assert!(lire_un_fichier_de_dessin(b"pas du json").is_none());
+        assert!(lire_un_fichier_de_dessin(b"{ \"version\": 1, \"notes\": [] }").is_none());
+        let autre_format = contenu.replace("constructo-ai-dessin", "autre-chose");
+        assert!(lire_un_fichier_de_dessin(autre_format.as_bytes()).is_none());
+        let abime = contenu.replacen("\"croquis\": ", "\"croquis\": -", 1);
+        assert!(lire_un_fichier_de_dessin(abime.as_bytes()).is_none());
+    }
+
     #[test]
     fn le_dessin_est_conserve() {
         let d = DossierTemporaire::nouveau("dessin");
-        assert_eq!(
-            charger_dessin(&d.depot()),
-            (Plan::default(), Langue::Francais)
-        );
+        assert_eq!(lu(&d), (Plan::default(), Langue::Francais, None));
         let mut dessin = Dessin::default();
         dessin.ajouter_trace(&[
             (0.0, 0.0),
@@ -693,33 +930,33 @@ mod tests {
         let mut plan = Plan::d_une_piece(dessin.clone());
         plan.pieces[0].nom = "Kitchen".to_string();
         plan.ajouter();
-        enregistrer_dessin(&d.depot(), &plan, Langue::Anglais).unwrap();
-        assert_eq!(charger_dessin(&d.depot()), (plan, Langue::Anglais));
+        enregistrer_dessin(&d.depot(), &plan, Langue::Anglais, None).unwrap();
+        assert_eq!(lu(&d), (plan, Langue::Anglais, None));
+        // Un plan d'avant la bibliothèque ne porte pas de « courant ».
+        let texte = fs::read_to_string(d.0.join("dessin.json")).unwrap();
+        assert!(!texte.contains("\"courant\""), "{texte}");
         // Un dessin de la version 0.7 (une seule pièce) devient un plan d'une pièce.
         let ancien = format!(
             "{{ \"version\": 1, \"langue\": \"Anglais\", \"dessin\": {} }}",
             serde_json::to_string(&dessin).unwrap()
         );
         fs::write(d.0.join("dessin.json"), ancien).unwrap();
-        assert_eq!(
-            charger_dessin(&d.depot()),
-            (Plan::d_une_piece(dessin), Langue::Anglais)
-        );
+        assert_eq!(lu(&d), (Plan::d_une_piece(dessin), Langue::Anglais, None));
         // Un fichier abîmé ou incohérent donne un plan vide, sans erreur.
         fs::write(
             d.0.join("dessin.json"),
             "{ \"version\": 1, \"dessin\": { \"cotes\": [{ \"sens\": \"Est\", \"croquis\": -4.0 }] } }",
         )
         .unwrap();
-        assert_eq!(charger_dessin(&d.depot()).0, Plan::default());
+        assert_eq!(lu(&d).0, Plan::default());
         fs::write(
             d.0.join("dessin.json"),
             "{ \"version\": 1, \"plan\": { \"pieces\": [], \"courante\": 9 } }",
         )
         .unwrap();
-        assert_eq!(charger_dessin(&d.depot()).0, Plan::default());
+        assert_eq!(lu(&d).0, Plan::default());
         fs::write(d.0.join("dessin.json"), "pas du json").unwrap();
-        assert_eq!(charger_dessin(&d.depot()).0, Plan::default());
+        assert_eq!(lu(&d).0, Plan::default());
     }
 
     #[test]

@@ -61,7 +61,18 @@ pub struct Fichier<'a> {
     pub contenu: &'a [u8],
 }
 
-/// Un fichier que l'utilisateur a choisi pour le joindre à une note.
+/// Ce que l'utilisateur va choisir.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChoixDeFichiers {
+    /// Des photos à joindre (sur un téléphone : l'appareil photo ou la galerie).
+    Photos,
+    /// Des fichiers de tout type à joindre.
+    Tous,
+    /// Des dessins enregistrés en fichier (JSON), à rouvrir.
+    Dessins,
+}
+
+/// Un fichier que l'utilisateur a choisi : à joindre à une note, ou un dessin à rouvrir.
 pub struct FichierChoisi {
     /// Son nom, extension comprise.
     pub nom: String,

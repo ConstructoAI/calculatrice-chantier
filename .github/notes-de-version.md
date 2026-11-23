@@ -22,6 +22,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.12.2** : dans le dessin, **les meubles ne se superposent plus** — déplacé, un meuble
   s'arrête contre les autres, contre les cloisons et contre les murs, et glisse le long; posé ou
   pivoté sur une place prise, il va à la place libre la plus proche.
+- **0.12.3** : **Mes dessins** — gardez plusieurs dessins, chacun avec ses pièces (nouveau,
+  ouvrir, renommer, supprimer); **Enregistrer le fichier** en fait un fichier que **Ouvrir un
+  fichier…** rouvre sur un autre appareil, du téléphone à l'ordinateur ou l'inverse.
 
 ## Nouveautés de la version 0.11
 

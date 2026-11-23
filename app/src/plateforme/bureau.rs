@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use noyau::langue::Langue;
 
-use super::{Arrivee, Export, Fichier, FichierChoisi, Installation, Lecture};
+use super::{Arrivee, ChoixDeFichiers, Export, Fichier, FichierChoisi, Installation, Lecture};
 use crate::{pieces, textes};
 
 /// L'application tourne-t-elle dans un navigateur?
@@ -81,17 +81,18 @@ pub fn arrivees() -> Vec<Arrivee> {
 pub fn retenir_le_contexte(_ctx: &eframe::egui::Context) {}
 
 /// Ouvre la boîte « Ouvrir » du système pour choisir un ou plusieurs fichiers
-/// (des photos seulement, si `photos`). Le résultat arrive par `arrivees`.
-pub fn choisir_des_fichiers(photos: bool) {
-    let titre = if photos {
-        textes::TITRE_CHOISIR_PHOTOS.traduit()
-    } else {
-        textes::TITRE_CHOISIR_FICHIERS.traduit()
+/// (des photos, ou des dessins, selon le cas). Le résultat arrive par `arrivees`.
+pub fn choisir_des_fichiers(genre: ChoixDeFichiers) {
+    let boite = rfd::FileDialog::new();
+    let boite = match genre {
+        ChoixDeFichiers::Photos => boite
+            .set_title(textes::TITRE_CHOISIR_PHOTOS.traduit())
+            .add_filter(textes::FILTRE_PHOTOS.traduit(), &["jpg", "jpeg", "png"]),
+        ChoixDeFichiers::Tous => boite.set_title(textes::TITRE_CHOISIR_FICHIERS.traduit()),
+        ChoixDeFichiers::Dessins => boite
+            .set_title(textes::TITRE_OUVRIR_DESSIN.traduit())
+            .add_filter(textes::FILTRE_DESSIN.traduit(), &["json"]),
     };
-    let mut boite = rfd::FileDialog::new().set_title(titre);
-    if photos {
-        boite = boite.add_filter(textes::FILTRE_PHOTOS.traduit(), &["jpg", "jpeg", "png"]);
-    }
     let Some(chemins) = boite.pick_files() else {
         return;
     };
