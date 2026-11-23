@@ -108,6 +108,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   bain, 39 objets à poser sur le plan, rangés comme la barre des métiers de la calculatrice; les
   prises et les armoires se collent au mur, et le PDF ajoute une page de légende.
 
+- **Conversions d'unités** : un nouveau métier de 19 convertisseurs — longueurs, aires,
+  volumes, liquides, masses, pressions et charges, forces, couples, températures, puissances,
+  énergies, débits, vitesses, pentes, valeur R et RSI, éclairement, bois d'œuvre.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

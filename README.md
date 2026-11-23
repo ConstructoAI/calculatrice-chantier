@@ -1,8 +1,8 @@
 # Constructo AI — calculatrice de chantier
 
 > **English** — *Constructo AI* is a free construction calculator for every trade:
-> feet-inches-fractions and metric, a framer's keypad, and 76 tools for eleven other
-> trades. The whole app is available in English: tap **EN** in the top bar.
+> feet-inches-fractions and metric, a framer's keypad, and 95 tools for eleven other
+> trades, plus unit conversions. The whole app is available in English: tap **EN** in the top bar.
 > [Open the calculator](https://constructoai.github.io/calculatrice-chantier/) ·
 > [User manual](https://constructoai.github.io/calculatrice-chantier/manual.html)
 
@@ -16,7 +16,7 @@ courants de chantier :
   bois en pmp), conversions et coûts;
 - **au clavier de votre métier** : touchez « Plomberie », « Électricité » ou « Béton »
   au-dessus du clavier, et les touches du haut deviennent celles de vos outils —
-  76 calculateurs pour onze corps de métier;
+  95 calculateurs pour onze corps de métier et les conversions d'unités;
 - **par formulaires**, dans l'onglet *Métiers* : les mêmes calculateurs, à remplir d'un
   coup d'œil.
 
@@ -61,7 +61,7 @@ comportement complet du programme est décrit dans `CAHIER_DES_CHARGES.md`.
 ## En français ou en anglais
 
 Le bouton **FR | EN**, dans la barre du haut, fait passer toute la calculatrice d'une
-langue à l'autre : les touches, l'afficheur, les 76 outils, l'aide et le manuel. Le choix
+langue à l'autre : les touches, l'afficheur, les 95 outils, l'aide et le manuel. Le choix
 se fait aussi dans les Préférences, et il est conservé.
 
 | | Français | English |
@@ -131,6 +131,7 @@ soumission.
 | Électricité | loi d'Ohm et puissance, chute de tension, calibre selon la chute de tension, puissance d'un circuit, courants d'un transformateur, courant d'un moteur, résistances en série et en parallèle, remplissage d'un conduit, cintrage d'un conduit, éclairage (nombre de luminaires), coût d'utilisation |
 | Ventilation et chauffage | débit d'un conduit rond ou rectangulaire, conduit rond pour un débit, changements d'air à l'heure, chaleur transportée par l'air, conversion BTU/h, kW et tonnes, tuyau de plancher chauffant |
 | Acier et soudure | masse d'une plaque, d'une barre ou d'un tube rond, d'une barre plate ou d'un tube rectangulaire, cordon de soudure d'angle |
+| Conversions d'unités | longueurs, aires, volumes, liquides, masses, masse volumique, pressions et charges (kPa, lb/po², lb/pi², colonne d'eau), forces, charges linéaires, couples de serrage, températures, puissances (BTU/h, tonnes, kW, HP), énergies, débits (gal/min, pi³/min, L/s), vitesses, pentes (%, degrés, x/12, 1:x), isolation (R, RSI, U), éclairement, bois d'œuvre (dimensions réelles et pmp) |
 
 Ces outils font de la géométrie, de la physique et de l'arithmétique. Ils ne reproduisent
 aucune table de code (intensités admissibles, calibres minimaux, pentes minimales,
@@ -282,7 +283,7 @@ cargo fmt --all --check
 Les tests du noyau rejouent, touche par touche, tous les exemples chiffrés de la
 section 19 du cahier des charges, et vérifient chaque calculateur par métier contre des
 valeurs calculées à part (section 22.14). Ils rejouent aussi les outils de métier au
-clavier (section 23.9) et soumettent chacun des 76 outils à des milliers de touches au
+clavier (section 23.9) et soumettent chacun des 95 outils à des milliers de touches au
 hasard.
 
 Les deux langues ont leurs propres tests (`noyau/tests/langue.rs`) : chaque texte existe

@@ -1,6 +1,6 @@
 # Cahier des charges — Calculatrice de chantier (Rust, français du Québec)
 
-> **Version du document :** 1.63 — 2026-11-23 (1.63 : symboles par corps de métier, section 25.1, point 40; 1.62 : ouvertures et portes dans les cloisons, section 25.1, point 39; 1.61 : étirer une cloison par le centre, section 25.1, point 38; 1.60 : plus de place pour dessiner, section 25.1, point 37; 1.59 : l'onglet et le menu « Calculatrice », section 15; 1.58 : PDF à l'échelle, avec cartouche, section 25.1, point 36; 1.57 : cotes sur le plan, section 25.1, point 35; 1.56 : plafonds et hauteurs différentes, section 25.1, point 34; 1.55 : le pavé vient à l'écran, R-75; 1.54 : pièce hors d'équerre d'après ses diagonales, section 25.1, point 33; 1.53 : angles libres dans le dessin, section 25.1, point 32; 1.52 : le menu latéral rangé en sections, section 15; 1.51 : l'application installée s'appelle « Calculs », section 3.1; 1.50 : niveau et inclinomètre, section 22.22; 1.49 : carnet de nivellement, section 22.21; 1.48 : calcul d'heures et feuille de temps, section 22.20; 1.47 : liste de coupe optimisée, section 22.19; 1.46 : rapport de calcul en PDF, section 22.18; 1.45 : liste d'achat, section 22.17; 1.44 : listes à cocher et recherche dans le bloc-notes, section 26, point 9; 1.43 : épinglés, récents et raccourcis, section 22.16; 1.42 : mode chantier, section 16.7; 1.41 : copier, dupliquer, miroir et rétablir, section 25.1, point 31; 1.40 : sauvegarde complète, section 17.4; 1.39 : formes d'escalier et escalier calculé, section 25.1; 1.38 : mesures des cloisons au toucher, section 25.1; 1.37 : mesures sur une photo, section 26; 1.36 : Mes dessins, sections 17.1 et 25.1; 1.35 : les objets du dessin ne se superposent plus, section 25.1; 1.34 : manuel d'utilisation revu, dix-sept chapitres dont le dessin et le bloc-notes, section 15.4; 1.33 : pièces jointes et photos du bloc-notes, sections 3, 17.1 et 26; feuille de route : évolutions 32 à 36, section 27; 1.32 : feuille de route portée à trente et une évolutions, section 27; 1.31 : feuille de route des dix évolutions acceptées, section 27; annexe E accordée aux sections 24 et 26; annexe G, points 22 à 24 confirmés; 1.30 : cloisons en polyligne, section 25.1; 1.29 : bloc-notes, section 26; 1.28 : étirer un mur par son milieu, section 25.1; 1.27 : pivoter au 15 degrés, section 25.1; 1.26 : mesures à l'intérieur ou à l'extérieur des murs, section 25.1; 1.25 : porte dans une cloison, section 25.1; 1.24 : mobilier 3D détaillé, section 25.1; 1.23 : renommer une pièce depuis la rangée des pièces, section 25.1; 1.22 : épaisseur des murs et des cloisons, section 25.1; 1.21 : cloisons, section 25.1; 1.20 : notes sur le plan, section 25.1; 1.19 : escalier et mobilier, section 25.1; 1.18 : distance au coin des ouvertures réglée sur le plan, section 25.1; 1.17 : vue 3D et allège des fenêtres, section 25.1; 1.16 : portes et fenêtres dessinées sur leur mur, section 25.1; 1.15 : murs en biais à 45°, section 25; 1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
+> **Version du document :** 1.64 — 2026-11-23 (1.64 : conversions d'unités, section 22.23; 1.63 : symboles par corps de métier, section 25.1, point 40; 1.62 : ouvertures et portes dans les cloisons, section 25.1, point 39; 1.61 : étirer une cloison par le centre, section 25.1, point 38; 1.60 : plus de place pour dessiner, section 25.1, point 37; 1.59 : l'onglet et le menu « Calculatrice », section 15; 1.58 : PDF à l'échelle, avec cartouche, section 25.1, point 36; 1.57 : cotes sur le plan, section 25.1, point 35; 1.56 : plafonds et hauteurs différentes, section 25.1, point 34; 1.55 : le pavé vient à l'écran, R-75; 1.54 : pièce hors d'équerre d'après ses diagonales, section 25.1, point 33; 1.53 : angles libres dans le dessin, section 25.1, point 32; 1.52 : le menu latéral rangé en sections, section 15; 1.51 : l'application installée s'appelle « Calculs », section 3.1; 1.50 : niveau et inclinomètre, section 22.22; 1.49 : carnet de nivellement, section 22.21; 1.48 : calcul d'heures et feuille de temps, section 22.20; 1.47 : liste de coupe optimisée, section 22.19; 1.46 : rapport de calcul en PDF, section 22.18; 1.45 : liste d'achat, section 22.17; 1.44 : listes à cocher et recherche dans le bloc-notes, section 26, point 9; 1.43 : épinglés, récents et raccourcis, section 22.16; 1.42 : mode chantier, section 16.7; 1.41 : copier, dupliquer, miroir et rétablir, section 25.1, point 31; 1.40 : sauvegarde complète, section 17.4; 1.39 : formes d'escalier et escalier calculé, section 25.1; 1.38 : mesures des cloisons au toucher, section 25.1; 1.37 : mesures sur une photo, section 26; 1.36 : Mes dessins, sections 17.1 et 25.1; 1.35 : les objets du dessin ne se superposent plus, section 25.1; 1.34 : manuel d'utilisation revu, dix-sept chapitres dont le dessin et le bloc-notes, section 15.4; 1.33 : pièces jointes et photos du bloc-notes, sections 3, 17.1 et 26; feuille de route : évolutions 32 à 36, section 27; 1.32 : feuille de route portée à trente et une évolutions, section 27; 1.31 : feuille de route des dix évolutions acceptées, section 27; annexe E accordée aux sections 24 et 26; annexe G, points 22 à 24 confirmés; 1.30 : cloisons en polyligne, section 25.1; 1.29 : bloc-notes, section 26; 1.28 : étirer un mur par son milieu, section 25.1; 1.27 : pivoter au 15 degrés, section 25.1; 1.26 : mesures à l'intérieur ou à l'extérieur des murs, section 25.1; 1.25 : porte dans une cloison, section 25.1; 1.24 : mobilier 3D détaillé, section 25.1; 1.23 : renommer une pièce depuis la rangée des pièces, section 25.1; 1.22 : épaisseur des murs et des cloisons, section 25.1; 1.21 : cloisons, section 25.1; 1.20 : notes sur le plan, section 25.1; 1.19 : escalier et mobilier, section 25.1; 1.18 : distance au coin des ouvertures réglée sur le plan, section 25.1; 1.17 : vue 3D et allège des fenêtres, section 25.1; 1.16 : portes et fenêtres dessinées sur leur mur, section 25.1; 1.15 : murs en biais à 45°, section 25; 1.14 : surface des murs, portes et fenêtres, section 25.1; 1.13 : flèches pour dessiner, section 25.1; 1.12 : export du plan en PDF et en DXF, section 25.1; 1.11 : zoom du dessin, section 25.1; 1.10 : dessin complété — pavé en pieds, pouces et fractions, retraits, plusieurs pièces, ruban, envoi vers un outil, section 25; 1.9 : nom « Constructo AI » et logo, sections 1.3 et 16.1; dessin d'une pièce, section 25; 1.1 : identité visuelle aux couleurs de l'ERP Constructo AI, section 16.3; 1.2 : version Web et publication automatique, section 3.1; 1.3 : application Web installable et utilisable hors ligne, section 3.1; 1.4 : calculateurs par métier, section 22; 1.5 : estimation et soumission, section 22.3; 1.6 : clavier adapté au métier, section 23, et catalogue porté à 76 calculateurs pour onze métiers, section 22; 1.7 : licence Apache 2.0, section 3; manuel d'utilisation, section 15.4; coordonnées, version et révision au pied du menu, section 15.1; 1.8 : interface en français et en anglais, bouton de langue, manuel anglais, section 24)
 > **Destinataire :** la prochaine session Claude Code qui réalisera le programme.
 > **Dossier de travail :** `C:\Users\ThinkPad\Downloads\Calculatrice\`
 > **Photos de référence :** `01.png` à `06.png` (même dossier).
@@ -989,6 +989,8 @@ Une erreur s'affiche avec le texte de [4.5](#45-messages). **R-38** En état d'e
 | toute combinaison non listée | | `ERREUR – unités incompatibles` |
 
 Exception documentée : sur une longueur en `PiPo` ou `PoFrac`, `Conv` `1`, `2`, `3`, `4`, `6`, `8` règlent la **résolution temporaire** (R-24) au lieu de produire une erreur.
+
+Les autres grandeurs du chantier — pressions, températures, puissances, énergies, débits, vitesses, pentes, isolation, bois d'œuvre… — se convertissent avec les outils du métier « Conversions d'unités » (section 22.23).
 
 ---
 
@@ -2453,7 +2455,7 @@ Conseils d'exécution :
 - [ ] Ruban courant, enregistrement, renommage, copie, export `.txt`, suppression.
 - [ ] Aide : une fiche par fonction, recherche sans accents, appui long et clic droit.
 - [ ] Écrans Bienvenue, Trucs de pro, À propos (avec l'avertissement de 1.5).
-- [ ] Les 76 calculateurs par métier donnent les valeurs de 22.14; leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
+- [ ] Les 95 calculateurs par métier donnent les valeurs de 22.14 (et de 22.23); leurs résultats s'ajoutent au ruban; leurs saisies sont reprises à la réouverture.
 - [ ] Le manuel d'utilisation est à jour (test `le_manuel_est_a_jour`) et s'ouvre depuis le menu (15.4); le pied du menu montre la mention, le courriel, le site, la version et la révision (15.1).
 - [ ] Le clavier s'adapte au métier (section 23) : chaque calculateur se branche sur le clavier, se remplit avec les touches et donne les mêmes résultats que son formulaire; l'outil branché est repris à la réouverture.
 - [ ] Les deux langues (section 24) : le bouton `FR | EN` change toute l'interface; les nombres et les unités suivent; les valeurs saisies restent les mêmes; les deux manuels sont à jour; la langue choisie est reprise à la réouverture.
@@ -2482,7 +2484,7 @@ Conseils d'exécution :
 
 ## 22. Calculateurs par métier
 
-Ajoutés le 2026-11-19, à la demande de l'utilisateur, pour d'autres corps de métier que la charpente. Le catalogue a été porté le même jour à **76 calculateurs pour onze métiers** (version 0.4), quand l'utilisateur a demandé des outils « vraiment complets », à utiliser tous les jours. Chaque calculateur s'utilise de deux façons : en **formulaire** (onglet Métiers : des champs à remplir, des résultats qui se recalculent à chaque frappe) ou **au clavier** (ses champs deviennent les touches du haut de la calculatrice, [section 23](#23-clavier-adapté-au-métier)).
+Ajoutés le 2026-11-19, à la demande de l'utilisateur, pour d'autres corps de métier que la charpente. Le catalogue a été porté le même jour à **76 calculateurs pour onze métiers** (version 0.4) — **95 pour douze** depuis la version 0.13.24, avec les conversions d'unités (22.23) —, quand l'utilisateur a demandé des outils « vraiment complets », à utiliser tous les jours. Chaque calculateur s'utilise de deux façons : en **formulaire** (onglet Métiers : des champs à remplir, des résultats qui se recalculent à chaque frappe) ou **au clavier** (ses champs deviennent les touches du haut de la calculatrice, [section 23](#23-clavier-adapté-au-métier)).
 
 ### 22.1 Principes
 
@@ -2853,6 +2855,36 @@ Ajouté le 2026-11-23 (version 0.13.10, évolution 13 de la section 27). Sur un 
 
 - **R-112** L'inclinaison se calcule dans le noyau (`noyau/src/niveau.rs`) : l'angle de l'écran avec l'horizontale, acos(|cos β · cos γ|), d'après les angles avant-arrière (β) et gauche-droite (γ) du capteur moins ceux de l'étalonnage (préférence `etalon_niveau`); il est le même quelle que soit l'orientation du téléphone sur la surface. Le capteur se lit dans `plateforme` (`deviceorientation`, lissé); un événement aux angles nuls — un navigateur sans capteur — cache le niveau, sauf s'il arrive ensuite une vraie lecture. L'essai Web simule le capteur par `DeviceOrientation.setDeviceOrientationOverride`.
 
+### 22.23 Conversions d'unités
+
+Ajouté le 2026-11-23 (version 0.13.24, demande de l'utilisateur : « À la toute fin, peux-tu ajouter toutes les conversions possibles et utiles pour le domaine de la construction »). Un douzième métier, **Conversions d'unités** (« Conversions » dans la barre des métiers), réunit dix-neuf convertisseurs. Chacun prend une **valeur** et son **unité de départ** (une liste), et donne la même grandeur dans toutes les unités de sa famille, à quatre chiffres significatifs, sans zéro inutile. Les longueurs, les aires, les volumes et les masses se convertissent aussi au clavier, par les touches d'unités (section 10); les autres grandeurs, ici seulement.
+
+| Convertisseur | Unités |
+|---|---|
+| Longueurs `conversion-longueurs` | po, pi, vg, mi, mm, cm, m, km |
+| Aires `conversion-aires` | po², pi², vg², carrés de toiture (100 pi²), acres, cm², m², ha |
+| Volumes `conversion-volumes` | po³, pi³, vg³, pmp, L, m³ |
+| Liquides `conversion-liquides` | mL, L, m³, oz liq. US, gal US, gal imp., pi³, po³ |
+| Masses `conversion-masses` | oz, lb, tc, g, kg, t |
+| Masse volumique `conversion-masse-volumique` | kg/m³, t/m³, lb/pi³, lb/vg³, lb/gal US |
+| Pressions et charges `conversion-pressions` | kPa, MPa, Pa, bar, lb/po², lb/pi², atm, po Hg, po CE, pi CE (colonne d'eau à 4 °C, mercure à 0 °C) |
+| Forces `conversion-forces` | N, kN, lbf, kip, kgf |
+| Charges linéaires `conversion-charges-lineaires` | kN/m, N/m, lb/pi, kip/pi, kgf/m |
+| Couples de serrage `conversion-couples` | N·m, kN·m, lb·pi, lb·po, kip·pi, kgf·m |
+| Températures `conversion-temperatures` | °C, °F, K (une valeur négative est permise; rien sous le zéro absolu) |
+| Puissances `conversion-puissances` | W, kW, BTU/h, MBH, tonnes de réfrigération, HP |
+| Énergies `conversion-energies` | J, kJ, MJ, Wh, kWh, BTU, therms, kcal |
+| Débits `conversion-debits` | L/s, L/min, m³/h, gal US/min, gal imp./min, pi³/min |
+| Vitesses `conversion-vitesses` | m/s, km/h, pi/min, pi/s, mi/h |
+| Pentes `conversion-pentes` | %, degrés, pente au pied (x/12), rapport 1:x, mm/m |
+| Isolation thermique `conversion-isolation` | valeur R, valeur RSI, coefficients U impérial et métrique |
+| Éclairement `conversion-eclairement` | lux, pieds-bougies |
+| Bois d'œuvre `bois-d-oeuvre` | de la dimension nominale (1 × 2 à 6 × 6) aux dimensions réelles, en pouces et en millimètres (bois sec et raboté, norme CSA O141); pieds-mesure de planche au pied, et, avec une longueur et un nombre de pièces facultatifs, d'une pièce et en tout |
+
+Au clavier (section 23), la touche « Unité » fait défiler les unités de départ. Valeurs d'essai, rejouées par les essais de `noyau/src/metiers/convertisseurs.rs` : 12 pi = 3,658 m; 1 000 pi² = 10 carrés de toiture = 92,90 m²; 40 gal US = 151,4 L; 2 400 kg/m³ = 149,8 lb/pi³; 60 lb/po² = 413,7 kPa; 2,4 kPa = 50,13 lb/pi²; 500 lb/pi = 7,297 kN/m; 100 lb·pi = 135,6 N·m; −20 °C = −4 °F; 3 tonnes de réfrigération = 36 000 BTU/h = 10,55 kW; 100 kWh = 341 214 BTU; 1 000 pi³/min = 471,9 L/s; 800 pi/min = 4,064 m/s; 4/12 = 33,33 % = 18,43° = 1:3; R-20 = RSI 3,522; un 2 × 4 = 1 1/2 po × 3 1/2 po = 38 mm × 89 mm, 5,333 pmp pour 8 pi.
+
+- **R-122** Les convertisseurs sont des calculateurs comme les autres (`noyau/src/metiers/convertisseurs.rs`, métier `Metier::Conversions`) : chaque grandeur est une liste d'unités (la macro `unites!` : nom, symbole, valeur dans l'unité de base, décalage des températures), d'où viennent à la fois la liste du choix et les libellés des résultats; leurs résultats sont des `Quantite::Chiffres` (`nombre_a_quatre_chiffres`); un champ peut accepter une valeur négative (`Champ::negatif_permis`).
+
 ---
 
 ## 23. Clavier adapté au métier
@@ -2969,7 +3001,7 @@ Rejouées par `noyau/tests/outils.rs`. Entre crochets : une touche de l'outil. P
 | calibre-pour-chute | `20` `[Courant]` `100` `Pieds` `[Longueur]` `[Résultat]` | `CALIBRE SUFFISANT · 1 de 4 │ 8 AWG` |
 | tranchee, puis voyages-de-camion | `100` `Pieds` `[Longueur]` `2` `Pieds` `[Largeur au fond]` `6` `Pieds` `[Largeur en haut]` `4` `Pieds` `[Profondeur]` `[Résultat]` `[Résultat]`, changement d'outil, `[Volume]` `12` `[Camion]` `[Résultat]` | `VOLUME À TRANSPORTER, FOISONNÉ │ 74,1 vg³ (56,6 m³)`, puis `74,07407 vg³`, `VOLUME À TRANSPORTER │ 74,07407 vg³` et `VOYAGES │ 7 voyages` |
 
-Un test de robustesse joue des milliers de touches au hasard sur chacun des 76 outils : aucune suite de touches ne fait planter le moteur, et l'afficheur reste toujours présentable. Un autre vérifie que chaque calculateur a dix champs au plus et que chaque libellé court tient sur une touche, dans les deux langues (24.8).
+Un test de robustesse joue des milliers de touches au hasard sur chacun des 95 outils : aucune suite de touches ne fait planter le moteur, et l'afficheur reste toujours présentable. Un autre vérifie que chaque calculateur a dix champs au plus et que chaque libellé court tient sur une touche, dans les deux langues (24.8).
 
 ---
 
@@ -3036,7 +3068,7 @@ Une virgule n'a pas le même sens dans les deux langues : `3,500 m` vaut trois m
 | Texte | Où |
 |---|---|
 | Étiquettes de l'afficheur, symboles d'unités, messages et erreurs | `noyau/src/etiquettes.rs`, `noyau/src/erreurs.rs` |
-| Métiers, calculateurs, champs, libellés courts, options, unités, résultats, avis et notes des 76 outils | `noyau/src/metiers/` |
+| Métiers, calculateurs, champs, libellés courts, options, unités, résultats, avis et notes des 95 outils | `noyau/src/metiers/` |
 | Touches, menus, dialogues, préférences, écrans | `app/src/textes.rs` |
 | Fiches d'aide | `app/src/aide.rs` |
 | Chapitres du manuel | `app/outils/manuel-gabarit-en.html` |
@@ -3086,7 +3118,7 @@ Essais (`noyau/tests/langue.rs`, et dans `app` : `textes.rs`, `aide.rs`, `manuel
 | Essai | Ce qu'il garantit |
 |---|---|
 | chaque texte du catalogue existe dans les deux langues | aucun libellé, option ou note sans version anglaise |
-| aucun texte anglais n'est resté en français | ni lettre accentuée, ni symbole `pi`, `po`, `vg`, `tc` dans ce que les 76 outils écrivent en anglais |
+| aucun texte anglais n'est resté en français | ni lettre accentuée, ni symbole `pi`, `po`, `vg`, `tc` dans ce que les 95 outils écrivent en anglais |
 | les libellés tiennent sur les touches | dans les deux langues |
 | les valeurs de départ se lisent dans les deux langues | et donnent les mêmes grandeurs |
 | changer de langue garde les valeurs | `3,500 m`, `1 250 pi 6 po`, `4,5 po`, `7,5` ↔ `3.500 m`, `1250 ft 6 in`, `4.5 in`, `7.5`; le même résultat, récrit |
@@ -3709,7 +3741,7 @@ regarde les six photos 01.png à 06.png (référence fonctionnelle seulement).
 
 Réalise ensuite le programme décrit, en Rust, en suivant le plan par phases de la
 section 20, dans l'ordre. Écris et fais passer les tests du noyau (section 19) avant
-de commencer l'interface. Respecte les règles R-01 à R-121, la terminologie de la
+de commencer l'interface. Respecte les règles R-01 à R-122, la terminologie de la
 section 4 et les textes de l'annexe B. Avant d'écrire du code egui, relis l'annexe C
 et vérifie les signatures dans la documentation de la version installée.
 
@@ -3776,3 +3808,4 @@ Ces choix ont été faits faute d'indication contraire. Pour en changer un, modi
 | 47 | Plus de place pour dessiner (choix de Claude, à la demande de l'utilisateur) : les deux moyens — une planche agrandie, la « meilleure idée » qu'il appelait, et des sections pliables — plutôt que l'un ou l'autre; la planche agrandie garde la rangée d'« Annuler » et le pavé, sans quoi on ne pourrait ni défaire ni inscrire une mesure; le pliage ne se garde pas d'une séance à l'autre. | 25.1 |
 | 48 | Ouvertures des cloisons (choix de Claude) : un passage a la hauteur d'une porte (6 pi 8 po), avec un linteau au-dessus, comme une baie; une nouvelle ouverture se met à la première place libre plutôt que par-dessus une autre; les ouvertures se numérotent dans l'ordre où elles sont ajoutées, portes et passages ensemble. | 25.1 |
 | 49 | Symboles des métiers (choix de Claude) : les trente-neuf objets ajoutés et leurs familles; leurs tailles de départ (un symbole a celle qu'il prend sur un plan au 1/4 po = 1 pi, 1 pi pour une prise; un appareil, sa taille courante); les sigles des plans d'Amérique du Nord (S pour l'interrupteur, J pour la boîte de jonction, DF pour le détecteur de fumée, CE pour le chauffe-eau, CC pour la colonne de chute, VRC pour l'échangeur d'air, TP pour la thermopompe murale, LV pour le lave-vaisselle); les hauteurs en 3D (prise à 16 po, prise DDFT au-dessus du comptoir, interrupteur à 46 po, thermostat à 5 pi, panneau jusqu'à 6 pi, armoires du haut à 18 po au-dessus du comptoir); ce qui fait obstacle (ce qui occupe le plancher) et ce qui se colle au mur; les armoires, l'évier et la hotte sans nom sur le plan; le choix de la famille dure le temps de la séance; le compte des symboles au bilan de l'écran et au ruban, et dans une page de légende au PDF plutôt que dans la colonne des résultats; les calques PLOMBERIE (cyan), ELECTRICITE (orange) et VENTILATION (vert), les meubles, les armoires et les appareils sanitaires restant au calque MOBILIER. | 25.1 |
+| 50 | Conversions d'unités (choix de Claude) : un métier « Conversions d'unités » plutôt qu'un écran à part, pour profiter du formulaire, du clavier, du ruban et des épinglés; les dix-neuf grandeurs et leurs unités; quatre chiffres significatifs; l'unité de départ par défaut, la première de la liste (le 2 × 4 pour le bois); le gallon US des fiches techniques à côté du gallon impérial; « po CE » et « pi CE » pour la colonne d'eau; le therm américain (100 000 BTU) sous son nom anglais, la thermie française étant une autre unité; la colonne d'eau à 4 °C et le mercure à 0 °C. | 22.23 |

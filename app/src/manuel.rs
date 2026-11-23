@@ -42,6 +42,25 @@ fn page_publiee(langue: Langue) -> &'static str {
 /// charges (section 22.14), vérifiée par les tests du noyau. Elles sont
 /// écrites à la française; le manuel anglais les récrit à l'anglaise.
 const EXEMPLES: &[(&str, &[&str])] = &[
+    ("conversion-longueurs", &["12", "1"]),
+    ("conversion-aires", &["1000", "1"]),
+    ("conversion-volumes", &["1", "2"]),
+    ("conversion-liquides", &["40", "4"]),
+    ("conversion-masses", &["50", "1"]),
+    ("conversion-masse-volumique", &["2400", "0"]),
+    ("conversion-pressions", &["60", "4"]),
+    ("conversion-forces", &["10", "1"]),
+    ("conversion-charges-lineaires", &["500", "2"]),
+    ("conversion-couples", &["100", "2"]),
+    ("conversion-temperatures", &["-20", "0"]),
+    ("conversion-puissances", &["3", "4"]),
+    ("conversion-energies", &["100", "4"]),
+    ("conversion-debits", &["10", "3"]),
+    ("conversion-vitesses", &["800", "2"]),
+    ("conversion-pentes", &["4", "2"]),
+    ("conversion-isolation", &["20", "0"]),
+    ("conversion-eclairement", &["50", "1"]),
+    ("bois-d-oeuvre", &["9", "8", "10"]),
     ("soumission", &["100000", "3", "12", "15", "5", "9,975"]),
     (
         "budget-au-pied-carre",

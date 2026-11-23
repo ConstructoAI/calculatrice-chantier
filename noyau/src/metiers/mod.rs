@@ -17,6 +17,7 @@
 
 pub mod acier;
 pub mod beton;
+pub mod convertisseurs;
 pub mod electricite;
 pub mod estimation;
 pub mod finition;
@@ -78,11 +79,13 @@ pub enum Metier {
     Electricite,
     Ventilation,
     Acier,
+    /// Les conversions d'unités utiles sur un chantier (section 22.23).
+    Conversions,
 }
 
 impl Metier {
     /// Les métiers, dans l'ordre où l'interface les présente.
-    pub const TOUS: [Metier; 11] = [
+    pub const TOUS: [Metier; 12] = [
         Metier::Estimation,
         Metier::Terrassement,
         Metier::Beton,
@@ -94,6 +97,7 @@ impl Metier {
         Metier::Electricite,
         Metier::Ventilation,
         Metier::Acier,
+        Metier::Conversions,
     ];
 
     /// Nom du métier, dans la langue en cours.
@@ -112,6 +116,7 @@ impl Metier {
             Metier::Electricite => selon("Électricité", "Electrical"),
             Metier::Ventilation => selon("Ventilation et chauffage", "Ventilation and heating"),
             Metier::Acier => selon("Acier et soudure", "Steel and welding"),
+            Metier::Conversions => selon("Conversions d'unités", "Unit conversions"),
         }
     }
 
@@ -129,6 +134,7 @@ impl Metier {
             Metier::Electricite => selon("Électricité", "Electrical"),
             Metier::Ventilation => selon("Ventilation", "HVAC"),
             Metier::Acier => selon("Acier", "Steel"),
+            Metier::Conversions => selon("Conversions", "Conversions"),
         }
     }
 
@@ -179,6 +185,10 @@ impl Metier {
                 "Masse des plaques, des barres et des tubes, cordons de soudure",
                 "Weight of plates, bars and tubes, fillet welds",
             ),
+            Metier::Conversions => selon(
+                "Longueurs, pressions, températures, puissances, débits, pentes, valeur R, bois d'œuvre",
+                "Lengths, pressure, temperature, power, flow, slopes, R-value, lumber",
+            ),
         }
     }
 
@@ -195,6 +205,7 @@ impl Metier {
             Metier::Electricite => electricite::CALCULATEURS,
             Metier::Ventilation => ventilation::CALCULATEURS,
             Metier::Acier => acier::CALCULATEURS,
+            Metier::Conversions => convertisseurs::CALCULATEURS,
         }
     }
 }
@@ -234,6 +245,8 @@ pub struct Champ {
     pub facultatif: bool,
     /// Faux : la valeur doit être plus grande que zéro; vrai : zéro est accepté.
     pub nul_permis: bool,
+    /// Vrai : une valeur négative est acceptée (une température).
+    pub negatif_permis: bool,
 }
 
 impl Champ {
@@ -245,6 +258,7 @@ impl Champ {
             defaut: "",
             facultatif: false,
             nul_permis: false,
+            negatif_permis: false,
         }
     }
 
@@ -278,6 +292,13 @@ impl Champ {
 
     pub const fn nul_permis(mut self) -> Champ {
         self.nul_permis = true;
+        self
+    }
+
+    /// Accepte une valeur négative, et zéro (une température).
+    pub const fn negatif_permis(mut self) -> Champ {
+        self.nul_permis = true;
+        self.negatif_permis = true;
         self
     }
 
@@ -339,7 +360,9 @@ impl Champ {
     }
 
     fn verifier_le_signe(&self, x: f64) -> Result<(), Texte> {
-        if x < -EPS {
+        if self.negatif_permis {
+            Ok(())
+        } else if x < -EPS {
             Err(MSG_NON_NEGATIF)
         } else if x <= EPS && !self.nul_permis {
             Err(MSG_POSITIF)
@@ -477,6 +500,9 @@ pub enum Quantite {
     Compte(f64, Texte),
     /// Un mot plutôt qu'un nombre : le calibre d'un conducteur, par exemple.
     Mot(Texte),
+    /// Nombre avec son unité, à quatre chiffres significatifs et sans zéro
+    /// inutile : une conversion (section 22.23).
+    Chiffres(f64, Texte),
 }
 
 impl Quantite {
@@ -529,6 +555,9 @@ impl Quantite {
                 nombre_et_unite(&nombre_fixe(n, 0, prefs), unite.traduit())
             }
             Quantite::Mot(mot) => mot.traduit().to_string(),
+            Quantite::Chiffres(x, unite) => {
+                nombre_et_unite(&nombre_a_quatre_chiffres(x, prefs), unite.traduit())
+            }
         }
     }
 }
@@ -733,7 +762,8 @@ impl Quantite {
             Quantite::Mesure(x, _)
             | Quantite::Fixe(x, _, _)
             | Quantite::Compte(x, _)
-            | Quantite::Double(x, _, _, _) => Valeur::nombre(x),
+            | Quantite::Double(x, _, _, _)
+            | Quantite::Chiffres(x, _) => Valeur::nombre(x),
             // Un mot n'a pas de valeur : rien à reprendre dans un calcul.
             Quantite::Mot(_) => Valeur::nombre(0.0),
         }
@@ -765,7 +795,8 @@ impl Quantite {
             | Quantite::Tonnes(x)
             | Quantite::Mesure(x, _)
             | Quantite::Fixe(x, _, _)
-            | Quantite::Compte(x, _) => x.is_finite(),
+            | Quantite::Compte(x, _)
+            | Quantite::Chiffres(x, _) => x.is_finite(),
             Quantite::Double(x, _, y, _) => x.is_finite() && y.is_finite(),
             Quantite::Mot(_) => true,
         }
@@ -786,6 +817,27 @@ pub fn nombre_utile(x: f64, prefs: &Preferences) -> String {
         3
     };
     nombre_fixe(x, decimales, prefs)
+}
+
+/// Écrit un nombre à quatre chiffres significatifs, sans zéro inutile après
+/// la virgule : 0,06895; 6,895; 68,95; 6 895 (aucune décimale à partir de
+/// 1 000).
+pub fn nombre_a_quatre_chiffres(x: f64, prefs: &Preferences) -> String {
+    let a = x.abs();
+    let decimales = if a < 1e-12 {
+        0
+    } else {
+        (3.0 - a.log10().floor()).clamp(0.0, 9.0) as usize
+    };
+    let texte = nombre_fixe(x, decimales, prefs);
+    let virgule = crate::format::separateur_decimal(prefs);
+    if decimales == 0 || !texte.contains(virgule) {
+        return texte;
+    }
+    texte
+        .trim_end_matches('0')
+        .trim_end_matches(virgule)
+        .to_string()
 }
 
 /// Écrit une longueur : dans l'unité métrique de la saisie, au millimètre
@@ -847,7 +899,7 @@ mod tests {
                 assert_eq!(c.note.fr.is_empty(), c.note.en.is_empty(), "{}", c.id);
             }
         }
-        assert_eq!(total, 76);
+        assert_eq!(total, 95);
         assert!(calculateur("inconnu").is_none());
     }
 

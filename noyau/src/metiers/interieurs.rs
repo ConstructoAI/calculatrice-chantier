@@ -33,7 +33,7 @@ const UNITES_D_ISOLATION: &[Texte] = &[
     t("RSI (métrique)", "RSI (metric)"),
 ];
 /// Valeur R d'une résistance thermique de 1 RSI (1 m²·K/W en h·pi²·°F/BTU).
-const R_PAR_RSI: f64 = 5.678_263;
+pub(crate) const R_PAR_RSI: f64 = 5.678_263;
 
 const PERTES: Champ = Champ::nombre(t("Pertes", "Waste"), tel("%"))
     .defaut("10")

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>User manual — Constructo AI</title>
-<meta name="description" content="User manual for the Constructo AI calculator: feet-inches-fractions, framing, and the tools of eleven trades.">
+<meta name="description" content="User manual for the Constructo AI calculator: feet-inches-fractions, framing, the tools of eleven trades and unit conversions.">
 <meta name="theme-color" content="#002050">
 <style>
 :root {
@@ -157,6 +157,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
                 <li><a href="#metier-electricite">Electrical</a></li>
                 <li><a href="#metier-ventilation">Ventilation and heating</a></li>
                 <li><a href="#metier-acier">Steel and welding</a></li>
+                <li><a href="#metier-conversions">Unit conversions</a></li>
             </ul>
         </li>
         <li><a href="#licence">Disclaimer, licence and contact</a></li>
@@ -169,7 +170,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <p>The Constructo AI calculator works the way people talk on a jobsite: in feet, inches and fractions, as well as in metres and millimetres. It brings five things together.</p>
 <ul>
     <li><strong>The framer's keypad</strong>: pitches and rafters, hips, valleys and jack rafters, stairs, rake walls and arched walls, arcs and circles, compound mitres, material quantities, conversions and costs.</li>
-    <li><strong>The keypad of your trade</strong>: 76 tools for 11 other trades. Tap your trade above the keypad, and the top keys become those of its tools.</li>
+    <li><strong>The keypad of your trade</strong>: 95 tools for 12 other trades. Tap your trade above the keypad, and the top keys become those of its tools.</li>
     <li><strong>The calculation tape</strong>, which keeps a record of everything that was entered and calculated, so you can review it, save it or share it.</li>
     <li><strong>The room sketch</strong>: a room's plan drawn with your finger, its measurements in feet, inches and fractions, its area and that of its walls, its doors, windows, partitions and furniture, in 3D, as a PDF and as a DXF.</li>
     <li><strong>The notepad</strong>, for your jobsite notes, with their photos and attached files.</li>
@@ -838,6 +839,12 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <p><strong>The phone becomes a level and an inclinometer:</strong> In the Trades tab, the Level card — on a phone or tablet with a tilt sensor; elsewhere, it is hidden. Lay the device flat on a rafter, a pipe or a ramp, screen up: the bubble shows the high side, and the screen gives the slope in degrees, in 12 and in percent. <kbd>Send</kbd> puts a value on the calculator's display. <kbd>Hold</kbd> keeps the reading so you can read it at ease; <kbd>Calibrate</kbd>, on a level reference surface, makes it zero. On an iPhone, <kbd>Allow the sensor</kbd> first asks for permission.</p>
     <p class="exemple"><span class="mot">Example</span> The phone on a 6/12 rafter, then <kbd>Send</kbd> → <strong>26.57° · 6.00 in 12 · 50.0%</strong></p>
     <p class="note">An uneven case skews the reading: calibrate with the case on. The level makes no sound or vibration.</p>
+</article>
+<article>
+    <h4>Unit conversions <span class="acces">Trades tab, or trade bar: Conversions</span></h4>
+    <p><strong>Every unit on the job site, at once:</strong> In the Trades tab, the Unit conversions card: pick the quantity — lengths, areas, volumes, liquids, weights, density, pressure and loads, forces, line loads, torque, temperatures, power, energy, flow rates, speeds, slopes, thermal insulation, illuminance or dimension lumber —, type the value and pick its unit: the calculator gives it in every other unit of its kind, to four significant digits. On the keypad, tap Conversions in the trade list, then the quantity: the Unit key cycles through the units. Dimension lumber gives the actual size of a 2 × 4 or a 2 × 6 (1 1/2 in × 3 1/2 in, 38 mm × 89 mm) and its board feet.</p>
+    <p class="exemple"><span class="mot">Example</span> <kbd>Conversions</kbd> · <kbd>Pressure and loads</kbd> · 60 · psi → <strong>413.7 kPa · 4.137 bar · 8,640 psf</strong></p>
+    <p class="note">Lengths, areas, volumes and weights also convert on the keypad, with the unit keys.</p>
 </article>
 <article>
     <h4>Levelling book <span class="acces">Trades tab</span></h4>
@@ -2045,6 +2052,244 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     </table></div>
     <p class="exemple"><span class="mot">Example</span> Weld leg size: 1/4 in · Weld length: 100 ft 0 in · Deposition efficiency: 65% → Deposited metal: <strong>10.6 lb (4.82 kg)</strong> · Electrodes or wire needed: <strong>16.4 lb (7.42 kg)</strong></p>
     <p class="note">Flat-faced, equal-leg fillet weld in steel. Deposition efficiency depends on the process: about 60 to 65% for stick electrodes, over 90% for solid wire. Allow extra for the weld reinforcement.</p>
+</article>
+<h3 id="metier-conversions">Unit conversions</h3>
+<p class="note">Lengths, pressure, temperature, power, flow, slopes, R-value, lumber.</p>
+<article id="outil-conversion-longueurs">
+    <h4>Lengths</h4>
+    <p>Inches, feet, yards, miles, millimetres, centimetres, metres, kilometres.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Inches (in)</strong> · Feet (ft) · Yards (yd) · Miles (mi) · Millimetres (mm) · Centimetres (cm) · Metres (m) · Kilometres (km)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 12 · From unit: Feet (ft) → Inches (in): <strong>144 in</strong> · Feet (ft): <strong>12 ft</strong> · Yards (yd): <strong>4 yd</strong> · Miles (mi): <strong>0.002273 mi</strong> · Millimetres (mm): <strong>3,658 mm</strong> · Centimetres (cm): <strong>365.8 cm</strong> · Metres (m): <strong>3.658 m</strong> · Kilometres (km): <strong>0.003658 km</strong></p>
+</article>
+<article id="outil-conversion-aires">
+    <h4>Areas</h4>
+    <p>Square feet and yards, roofing squares, acres, square metres, hectares.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Square inches (in²)</strong> · Square feet (ft²) · Square yards (yd²) · Roofing squares (100 ft²) · Acres · Square centimetres (cm²) · Square metres (m²) · Hectares (ha)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 1,000 · From unit: Square feet (ft²) → Square inches (in²): <strong>144,000 in²</strong> · Square feet (ft²): <strong>1,000 ft²</strong> · Square yards (yd²): <strong>111.1 yd²</strong> · Roofing squares (100 ft²): <strong>10 squares</strong> · Acres: <strong>0.02296 acres</strong> · Square centimetres (cm²): <strong>929,030 cm²</strong> · Square metres (m²): <strong>92.9 m²</strong> · Hectares (ha): <strong>0.00929 ha</strong></p>
+</article>
+<article id="outil-conversion-volumes">
+    <h4>Volumes</h4>
+    <p>Cubic feet and yards, board feet, litres, cubic metres.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Cubic inches (in³)</strong> · Cubic feet (ft³) · Cubic yards (yd³) · Board feet (fbm) · Litres (L) · Cubic metres (m³)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 1 · From unit: Cubic yards (yd³) → Cubic inches (in³): <strong>46,656 in³</strong> · Cubic feet (ft³): <strong>27 ft³</strong> · Cubic yards (yd³): <strong>1 yd³</strong> · Board feet (fbm): <strong>324 fbm</strong> · Litres (L): <strong>764.6 L</strong> · Cubic metres (m³): <strong>0.7646 m³</strong></p>
+</article>
+<article id="outil-conversion-liquides">
+    <h4>Liquids</h4>
+    <p>Litres, US and imperial gallons, fluid ounces, cubic feet.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Millilitres (mL)</strong> · Litres (L) · Cubic metres (m³) · US fluid ounces · US gallons · Imperial gallons · Cubic feet (ft³) · Cubic inches (in³)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 40 · From unit: US gallons → Millilitres (mL): <strong>151,416 mL</strong> · Litres (L): <strong>151.4 L</strong> · Cubic metres (m³): <strong>0.1514 m³</strong> · US fluid ounces: <strong>5,120 US fl oz</strong> · US gallons: <strong>40 US gal</strong> · Imperial gallons: <strong>33.31 imp. gal</strong> · Cubic feet (ft³): <strong>5.347 ft³</strong> · Cubic inches (in³): <strong>9,240 in³</strong></p>
+    <p class="note">The US gallon (3.785 L) is the one on spec sheets; the imperial gallon (4.546 L), Canada's former one.</p>
+</article>
+<article id="outil-conversion-masses">
+    <h4>Weights</h4>
+    <p>Ounces, pounds, short tons, grams, kilograms, metric tonnes.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Ounces (oz)</strong> · Pounds (lb) · Short tons (2,000 lb) · Grams (g) · Kilograms (kg) · Metric tonnes (t)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 50 · From unit: Pounds (lb) → Ounces (oz): <strong>800 oz</strong> · Pounds (lb): <strong>50 lb</strong> · Short tons (2,000 lb): <strong>0.025 tn</strong> · Grams (g): <strong>22,680 g</strong> · Kilograms (kg): <strong>22.68 kg</strong> · Metric tonnes (t): <strong>0.02268 t</strong></p>
+</article>
+<article id="outil-conversion-masse-volumique">
+    <h4>Density</h4>
+    <p>Kilograms per cubic metre, pounds per cubic foot or per cubic yard.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Kilograms per cubic metre (kg/m³)</strong> · Tonnes per cubic metre (t/m³) · Pounds per cubic foot (lb/ft³) · Pounds per cubic yard (lb/yd³) · Pounds per US gallon</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 2,400 · From unit: Kilograms per cubic metre (kg/m³) → Kilograms per cubic metre (kg/m³): <strong>2,400 kg/m³</strong> · Tonnes per cubic metre (t/m³): <strong>2.4 t/m³</strong> · Pounds per cubic foot (lb/ft³): <strong>149.8 lb/ft³</strong> · Pounds per cubic yard (lb/yd³): <strong>4,045 lb/yd³</strong> · Pounds per US gallon: <strong>20.03 lb/US gal</strong></p>
+</article>
+<article id="outil-conversion-pressions">
+    <h4>Pressure and loads</h4>
+    <p>Kilopascals, psi, bars, psf for loads, water column, mercury.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Kilopascals (kPa)</strong> · Megapascals (MPa) · Pascals (Pa) · Bars · Pounds per square inch (psi) · Pounds per square foot (psf) · Atmospheres (atm) · Inches of mercury (inHg) · Inches of water column (in. w.c.) · Feet of water column (ft w.c.)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 60 · From unit: Pounds per square inch (psi) → Kilopascals (kPa): <strong>413.7 kPa</strong> · Megapascals (MPa): <strong>0.4137 MPa</strong> · Pascals (Pa): <strong>413,685 Pa</strong> · Bars: <strong>4.137 bar</strong> · Pounds per square inch (psi): <strong>60 psi</strong> · Pounds per square foot (psf): <strong>8,640 psf</strong> · Atmospheres (atm): <strong>4.083 atm</strong> · Inches of mercury (inHg): <strong>122.2 inHg</strong> · Inches of water column (in. w.c.): <strong>1,661 in. w.c.</strong> · Feet of water column (ft w.c.): <strong>138.4 ft w.c.</strong></p>
+    <p class="note">Water column at 4 °C, mercury at 0 °C. Snow and floor loads are given in kPa or in psf.</p>
+</article>
+<article id="outil-conversion-forces">
+    <h4>Forces</h4>
+    <p>Newtons, kilonewtons, pounds-force, kips, kilograms-force.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Newtons (N)</strong> · Kilonewtons (kN) · Pounds-force (lbf) · Kips (1,000 lbf) · Kilograms-force (kgf)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 10 · From unit: Kilonewtons (kN) → Newtons (N): <strong>10,000 N</strong> · Kilonewtons (kN): <strong>10 kN</strong> · Pounds-force (lbf): <strong>2,248 lbf</strong> · Kips (1,000 lbf): <strong>2.248 kip</strong> · Kilograms-force (kgf): <strong>1,020 kgf</strong></p>
+</article>
+<article id="outil-conversion-charges-lineaires">
+    <h4>Line loads</h4>
+    <p>The load on a beam or a wall: kN/m, plf, klf.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Kilonewtons per metre (kN/m)</strong> · Newtons per metre (N/m) · Pounds per foot (plf) · Kips per foot (klf) · Kilograms-force per metre (kgf/m)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 500 · From unit: Pounds per foot (plf) → Kilonewtons per metre (kN/m): <strong>7.297 kN/m</strong> · Newtons per metre (N/m): <strong>7,297 N/m</strong> · Pounds per foot (plf): <strong>500 plf</strong> · Kips per foot (klf): <strong>0.5 klf</strong> · Kilograms-force per metre (kgf/m): <strong>744.1 kgf/m</strong></p>
+</article>
+<article id="outil-conversion-couples">
+    <h4>Torque</h4>
+    <p>Bolt torque or beam moment: N·m, lb·ft, lb·in.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Newton-metres (N·m)</strong> · Kilonewton-metres (kN·m) · Pound-feet (lb·ft) · Pound-inches (lb·in) · Kip-feet (kip·ft) · Kilogram-force metres (kgf·m)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 100 · From unit: Pound-feet (lb·ft) → Newton-metres (N·m): <strong>135.6 N·m</strong> · Kilonewton-metres (kN·m): <strong>0.1356 kN·m</strong> · Pound-feet (lb·ft): <strong>100 lb·ft</strong> · Pound-inches (lb·in): <strong>1,200 lb·in</strong> · Kip-feet (kip·ft): <strong>0.1 kip·ft</strong> · Kilogram-force metres (kgf·m): <strong>13.83 kgf·m</strong></p>
+</article>
+<article id="outil-conversion-temperatures">
+    <h4>Temperatures</h4>
+    <p>Degrees Celsius, degrees Fahrenheit, kelvins.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Degrees Celsius (°C)</strong> · Degrees Fahrenheit (°F) · Kelvins (K)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: −20 · From unit: Degrees Celsius (°C) → Degrees Celsius (°C): <strong>−20 °C</strong> · Degrees Fahrenheit (°F): <strong>−4 °F</strong> · Kelvins (K): <strong>253.2 K</strong></p>
+    <p class="note">For a temperature difference, a 1 °C difference equals a 1.8 °F difference.</p>
+</article>
+<article id="outil-conversion-puissances">
+    <h4>Power</h4>
+    <p>Watts, kilowatts, BTU/h, MBH, tons of refrigeration, horsepower.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Watts (W)</strong> · Kilowatts (kW) · BTU per hour (BTU/h) · Thousands of BTU per hour (MBH) · Tons of refrigeration (12,000 BTU/h) · Horsepower (hp)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 3 · From unit: Tons of refrigeration (12,000 BTU/h) → Watts (W): <strong>10,551 W</strong> · Kilowatts (kW): <strong>10.55 kW</strong> · BTU per hour (BTU/h): <strong>36,000 BTU/h</strong> · Thousands of BTU per hour (MBH): <strong>36 MBH</strong> · Tons of refrigeration (12,000 BTU/h): <strong>3 tons</strong> · Horsepower (hp): <strong>14.15 hp</strong></p>
+    <p class="note">International BTU; mechanical horsepower (745.7 W).</p>
+</article>
+<article id="outil-conversion-energies">
+    <h4>Energy</h4>
+    <p>Joules, kilowatt-hours, BTU, therms, kilocalories.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Joules (J)</strong> · Kilojoules (kJ) · Megajoules (MJ) · Watt-hours (Wh) · Kilowatt-hours (kWh) · BTU · Therms (100,000 BTU) · Kilocalories (kcal)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 100 · From unit: Kilowatt-hours (kWh) → Joules (J): <strong>360,000,000 J</strong> · Kilojoules (kJ): <strong>360,000 kJ</strong> · Megajoules (MJ): <strong>360 MJ</strong> · Watt-hours (Wh): <strong>100,000 Wh</strong> · Kilowatt-hours (kWh): <strong>100 kWh</strong> · BTU: <strong>341,214 BTU</strong> · Therms (100,000 BTU): <strong>3.412 therms</strong> · Kilocalories (kcal): <strong>86,042 kcal</strong></p>
+</article>
+<article id="outil-conversion-debits">
+    <h4>Flow rates</h4>
+    <p>Water and air: L/s, L/min, m³/h, gallons per minute, CFM.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Litres per second (L/s)</strong> · Litres per minute (L/min) · Cubic metres per hour (m³/h) · US gallons per minute (US gpm) · Imperial gallons per minute · Cubic feet per minute (CFM)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 10 · From unit: US gallons per minute (US gpm) → Litres per second (L/s): <strong>0.6309 L/s</strong> · Litres per minute (L/min): <strong>37.85 L/min</strong> · Cubic metres per hour (m³/h): <strong>2.271 m³/h</strong> · US gallons per minute (US gpm): <strong>10 US gpm</strong> · Imperial gallons per minute: <strong>8.327 imp. gpm</strong> · Cubic feet per minute (CFM): <strong>1.337 CFM</strong></p>
+</article>
+<article id="outil-conversion-vitesses">
+    <h4>Speeds</h4>
+    <p>Metres per second, km/h, feet per minute (duct air), mph.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Metres per second (m/s)</strong> · Kilometres per hour (km/h) · Feet per minute (fpm) · Feet per second (ft/s) · Miles per hour (mph)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 800 · From unit: Feet per minute (fpm) → Metres per second (m/s): <strong>4.064 m/s</strong> · Kilometres per hour (km/h): <strong>14.63 km/h</strong> · Feet per minute (fpm): <strong>800 fpm</strong> · Feet per second (ft/s): <strong>13.33 ft/s</strong> · Miles per hour (mph): <strong>9.091 mph</strong></p>
+</article>
+<article id="outil-conversion-pentes">
+    <h4>Slopes</h4>
+    <p>Percent, degrees, rise per foot (x/12), 1:x ratio, mm/m.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Percent (%)</strong> · Degrees (°) · Rise per foot (x/12) · Ratio (1:x) · Millimetres per metre (mm/m)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 4 · From unit: Rise per foot (x/12) → Percent: <strong>33.33%</strong> · Angle: <strong>18.43°</strong> · Rise per foot (x/12): <strong>4 in/ft</strong> · Ratio (1:x): <strong>3</strong> · Millimetres per metre: <strong>333.3 mm/m</strong></p>
+    <p class="note">x/12: inches of rise per foot of run, like a roof pitch (4/12). 1:x: x of run for 1 of rise, like a ramp (1:12).</p>
+</article>
+<article id="outil-conversion-isolation">
+    <h4>Thermal insulation</h4>
+    <p>R-value, RSI value, imperial and metric U-factors.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>R-value (imperial)</strong> · RSI value (metric) · Imperial U-factor · Metric U-factor</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 20 · From unit: R-value (imperial) → R-value (imperial): <strong>20</strong> · RSI value (metric): <strong>3.522</strong> · Imperial U-factor: <strong>0.05 BTU/h·ft²·°F</strong> · Metric U-factor: <strong>0.2839 W/m²·K</strong></p>
+    <p class="note">The R-value is 5.678 times the RSI value; each U-factor is the inverse of its R or RSI value.</p>
+</article>
+<article id="outil-conversion-eclairement">
+    <h4>Illuminance</h4>
+    <p>Lux and foot-candles.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Value</td><td></td><td></td></tr>
+            <tr><td>From unit <span class="acces">(key: Unit)</span></td><td>list</td><td><strong>Lux (lx)</strong> · Foot-candles (fc)</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Value: 50 · From unit: Foot-candles (fc) → Lux (lx): <strong>538.2 lx</strong> · Foot-candles (fc): <strong>50 fc</strong></p>
+</article>
+<article id="outil-bois-d-oeuvre">
+    <h4>Dimension lumber</h4>
+    <p>The actual size of a 2 × 4, a 2 × 6…, in inches and millimetres, and its board feet.</p>
+    <div class="table"><table>
+        <thead><tr><th>Field</th><th>Unit</th><th>Default</th></tr></thead>
+        <tbody>
+            <tr><td>Nominal size <span class="acces">(key: Size)</span></td><td>list</td><td>1 × 2 · 1 × 3 · 1 × 4 · 1 × 6 · 1 × 8 · 1 × 10 · 1 × 12 · 2 × 2 · 2 × 3 · <strong>2 × 4</strong> · 2 × 6 · 2 × 8 · 2 × 10 · 2 × 12 · 4 × 4 · 4 × 6 · 6 × 6</td></tr>
+            <tr><td>Length <span class="acces">— optional</span></td><td>ft</td><td></td></tr>
+            <tr><td>Number of pieces <span class="acces">(key: Pieces)</span> <span class="acces">— optional</span></td><td>whole number</td><td>1</td></tr>
+        </tbody>
+    </table></div>
+    <p class="exemple"><span class="mot">Example</span> Nominal size: 2 × 4 · Length: 8 ft 0 in · Number of pieces: 10 → Actual thickness: <strong>1 1/2 in</strong> · Actual width: <strong>3 1/2 in</strong> · Thickness in millimetres: <strong>38 mm</strong> · Width in millimetres: <strong>89 mm</strong> · Board feet per foot: <strong>0.6667 fbm/ft</strong> · Board feet per piece: <strong>5.333 fbm</strong> · Total board feet: <strong>53.33 fbm</strong></p>
+    <p class="note">Dry, dressed lumber (CSA O141). Board feet are counted on the nominal size.</p>
 </article>
 
 <h2 id="licence">17. Disclaimer, licence and contact <a class="haut" href="#sommaire">Contents</a></h2>

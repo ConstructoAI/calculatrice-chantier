@@ -1313,6 +1313,39 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Conversions d'unités", "Unit conversions"),
+        acces: t(
+            "onglet Métiers, ou barre des métiers : Conversions",
+            "Trades tab, or trade bar: Conversions",
+        ),
+        resume: t(
+            "Toutes les unités du chantier, d'un coup :",
+            "Every unit on the job site, at once:",
+        ),
+        mode_emploi: t(
+            "Dans l'onglet Métiers, la carte Conversions d'unités : choisissez la grandeur — longueurs, aires, volumes, liquides, masses, masse volumique, pressions et charges, forces, charges linéaires, couples de serrage, températures, puissances, énergies, débits, vitesses, pentes, isolation thermique, éclairement ou bois d'œuvre —, tapez la valeur et choisissez son unité de départ : la calculatrice la donne dans toutes les autres unités de sa grandeur, à quatre chiffres significatifs. Au clavier, touchez Conversions dans la liste des métiers, puis la grandeur : la touche Unité fait défiler les unités de départ. Le bois d'œuvre donne les dimensions réelles d'un 2 × 4 ou d'un 2 × 6 (1 1/2 po × 3 1/2 po, 38 mm × 89 mm) et ses pieds-mesure de planche.",
+            "In the Trades tab, the Unit conversions card: pick the quantity — lengths, areas, volumes, liquids, weights, density, pressure and loads, forces, line loads, torque, temperatures, power, energy, flow rates, speeds, slopes, thermal insulation, illuminance or dimension lumber —, type the value and pick its unit: the calculator gives it in every other unit of its kind, to four significant digits. On the keypad, tap Conversions in the trade list, then the quantity: the Unit key cycles through the units. Dimension lumber gives the actual size of a 2 × 4 or a 2 × 6 (1 1/2 in × 3 1/2 in, 38 mm × 89 mm) and its board feet.",
+        ),
+        exemple: Some((
+            t(
+                "`Conversions` · `Pressions et charges` · 60 · lb/po²",
+                "`Conversions` · `Pressure and loads` · 60 · psi",
+            ),
+            t(
+                "413,7 kPa · 4,137 bar · 8 640 lb/pi²",
+                "413.7 kPa · 4.137 bar · 8,640 psf",
+            ),
+        )),
+        note: Some(t(
+            "Les longueurs, les aires, les volumes et les masses se convertissent aussi au clavier, par les touches d'unités.",
+            "Lengths, areas, volumes and weights also convert on the keypad, with the unit keys.",
+        )),
+        mots_cles: "conversion conversions convertir unité unités pression psi kPa bar charge neige température celsius fahrenheit kelvin puissance BTU tonne réfrigération kW HP cheval-vapeur énergie kWh therm débit gpm cfm gallon litre vitesse pente pourcentage degrés valeur R RSI U isolation éclairement lux pied-bougie bois œuvre 2x4 nominal réel pmp convert unit pressure load snow temperature power ton energy flow speed slope insulation illuminance lumber board feet",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Carnet de nivellement", "Levelling book"),
         acces: t("onglet Métiers", "Trades tab"),
         resume: t(
