@@ -150,7 +150,8 @@ est connu, la calculatrice donne la surface, le périmètre et, pour un rectangl
 d'équerre. Ajoutez des retraits (îlot, trémie, colonne) pour la surface nette, la hauteur des murs et
 leurs portes et fenêtres — placées sur leur mur et dessinées sur le plan — pour la surface
 nette des murs, d'autres pièces avec **+ Pièce**
-pour le total, posez l'escalier et le mobilier (lit, table, sofa, comptoir, toilette, bain…), écrivez des notes
+pour le total, posez l'escalier, le mobilier (lit, table, sofa, comptoir, toilette, bain…) et les symboles
+des métiers (plomberie, électricité, ventilation, armoires), avec une page de légende au PDF, écrivez des notes
 sur le plan, tracez des cloisons, réglez l'épaisseur des murs (9 po) et des cloisons (5 po), et voyez la
 pièce **en 3D** (bouton **3D**; glissez pour tourner), puis inscrivez le tout au ruban ou envoyez la pièce vers un
 outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons `+` et `−`

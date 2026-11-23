@@ -17,6 +17,42 @@ use crate::vues::dessin::{
 };
 
 /// Ce qu'on exporte d'une pièce.
+/// Un sigle à écrire : son texte, son point d'attache et, s'il va à côté du
+/// symbole, la direction du devant de celui-ci.
+type SigleAPoser = (String, (f64, f64), Option<(f64, f64)>);
+
+/// Un symbole de la légende d'une pièce (point 40) : son dessin, son nom et
+/// combien la pièce en compte.
+struct SymboleDeLaLegende {
+    famille: noyau::mobilier::Famille,
+    nom: String,
+    nombre: usize,
+    /// Son dessin autour de (0, 0), à ses dimensions de départ (pouces), et
+    /// la plus grande.
+    traits: Vec<noyau::mobilier::TraitSurLePlan>,
+    taille: f64,
+    /// Son sigle, son point d'attache et, s'il va à côté, la direction de
+    /// son devant.
+    sigle: Option<SigleAPoser>,
+}
+
+/// Un objet de la pièce, prêt à tracer (point 40) : ses traits, son calque
+/// au DXF, et ce qui s'écrit sur lui.
+struct ObjetExporte {
+    traits: Vec<noyau::mobilier::TraitSurLePlan>,
+    calque: &'static str,
+    /// Son nom ou son sigle, et où l'écrire; rien pour un petit symbole qui
+    /// se suffit.
+    texte: Option<(String, (f64, f64))>,
+    /// Vrai si ce texte est un sigle : il se proportionne au symbole.
+    sigle: bool,
+    /// La direction de son devant (sur le plan), si son sigle s'écrit à côté
+    /// du symbole.
+    devant: Option<(f64, f64)>,
+    /// Le plus petit côté de son rectangle (pouces).
+    plus_petit: f64,
+}
+
 struct PieceExportee {
     nom: String,
     /// Sommets en pouces, y vers le bas. Une forme fermée répète son départ.
@@ -35,9 +71,10 @@ struct PieceExportee {
     /// Les portes et les fenêtres : leur mur, leurs bords en part de la
     /// longueur du mur (de 0 à 1), et vrai pour une porte.
     ouvertures: Vec<(usize, f64, f64, bool)>,
-    /// Les objets d'une pièce complète : leur nom, leur centre et leurs traits,
-    /// sur le plan (pouces).
-    objets: Vec<(String, (f64, f64), Vec<noyau::mobilier::TraitSurLePlan>)>,
+    /// Les objets d'une pièce complète, sur le plan (pouces).
+    objets: Vec<ObjetExporte>,
+    /// Les symboles des métiers de la pièce, pour sa page de légende.
+    legende: Vec<SymboleDeLaLegende>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
     /// Les cloisons d'une pièce complète : leurs morceaux pleins (quatre
@@ -83,6 +120,29 @@ fn preparer(plan: &Plan, prefs: &Preferences) -> Vec<PieceExportee> {
         .enumerate()
         .filter(|(_, piece)| !piece.dessin.est_vide())
         .map(|(rang, piece)| preparer_la_piece(&piece.dessin, &nom_de_la_piece(plan, rang), prefs))
+        .collect()
+}
+
+/// Les symboles des métiers d'une pièce, pour sa légende (point 40).
+fn legende_des_symboles(dessin: &Dessin) -> Vec<SymboleDeLaLegende> {
+    crate::vues::dessin::comptes_des_symboles(dessin)
+        .into_iter()
+        .map(|(genre, nombre)| {
+            let objet = noyau::mobilier::Objet::nouveau(genre, (0.0, 0.0));
+            let dimensions = objet.dimensions_de_depart();
+            SymboleDeLaLegende {
+                famille: genre.famille(),
+                nom: textes::objet(genre).traduit().to_string(),
+                nombre,
+                traits: objet.traits_sur_le_plan(dimensions, None),
+                taille: dimensions.0.max(dimensions.1),
+                sigle: textes::sigle_d_objet(genre).map(|sigle| {
+                    let (attache, devant) =
+                        crate::vues::dessin::attache_du_sigle(&objet, dimensions);
+                    (sigle.traduit().to_string(), attache, devant)
+                }),
+            }
+        })
         .collect()
 }
 
@@ -147,11 +207,21 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
                     .copied()
                     .flatten()
                     .map(|calcul| calcul.contremarches);
-                (
-                    textes::objet(objet.genre).traduit().to_string(),
-                    objet.centre,
-                    objet.traits_sur_le_plan(dimensions, contremarches),
-                )
+                let texte = textes::texte_d_objet_sur_le_plan(objet.genre);
+                let sigle = matches!(texte, Some((_, true)));
+                let (place, devant) = if sigle {
+                    crate::vues::dessin::attache_du_sigle(objet, dimensions)
+                } else {
+                    (objet.centre, None)
+                };
+                ObjetExporte {
+                    traits: objet.traits_sur_le_plan(dimensions, contremarches),
+                    calque: objet.genre.famille().calque(),
+                    texte: texte.map(|(texte, _)| (texte.traduit().to_string(), place)),
+                    sigle,
+                    devant,
+                    plus_petit: dimensions.0.min(dimensions.1),
+                }
             })
             .collect()
     } else {
@@ -221,6 +291,11 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         modele: solution.modele,
         ouvertures,
         objets,
+        legende: if complete {
+            legende_des_symboles(dessin)
+        } else {
+            Vec::new()
+        },
         notes,
         cloisons,
         portes_de_cloisons,
@@ -896,12 +971,134 @@ fn page_de_piece(
     page
 }
 
+/// Où écrire un sigle au PDF (sa ligne de base, le texte centré) : sur son
+/// point d'attache `attache` (sur le plan), ou à côté du symbole, dans la
+/// direction de son devant, sans le chevaucher (point 40).
+fn ligne_de_base_du_sigle(
+    texte: &str,
+    taille: f64,
+    attache: (f64, f64),
+    devant: Option<(f64, f64)>,
+    vers_la_page: &dyn Fn((f64, f64)) -> (f64, f64),
+    ecart: f64,
+) -> (f64, f64) {
+    let mut ou = vers_la_page(attache);
+    if let Some(devant) = devant {
+        let bout = vers_la_page((attache.0 + devant.0, attache.1 + devant.1));
+        let (dx, dy) = (bout.0 - ou.0, bout.1 - ou.1);
+        let norme = dx.hypot(dy).max(1e-9);
+        let largeur = largeur_du_texte(texte, false) * taille / 1000.0;
+        ou = crate::vues::dessin::texte_a_cote(
+            ou,
+            (dx / norme, dy / norme),
+            (largeur, taille * 0.7),
+            ecart,
+        );
+    }
+    // Centré sur sa place : la ligne de base un peu plus bas.
+    (ou.0, ou.1 - taille * 0.35)
+}
+
+/// La page de légende d'une pièce (point 40) : par famille, chaque symbole
+/// dessiné, son nom et combien la pièce en compte, sur deux colonnes.
+fn page_de_legende(piece: &PieceExportee, entete: &str, numero: usize, total: usize) -> Page {
+    const LIGNE: f64 = 24.0;
+    const COLONNE: f64 = 252.0;
+    let mut page = Page::default();
+    en_tete_de_page(
+        &mut page,
+        &textes::dessin_export_legende(&piece.nom),
+        entete,
+    );
+    let mut y = HAUTEUR_PAGE - 112.0;
+    for famille in noyau::mobilier::Famille::TOUTES {
+        let symboles: Vec<&SymboleDeLaLegende> = piece
+            .legende
+            .iter()
+            .filter(|symbole| symbole.famille == famille)
+            .collect();
+        if symboles.is_empty() || y < 80.0 {
+            continue;
+        }
+        page.texte(
+            (MARGE, y),
+            11.0,
+            true,
+            Alignement::Gauche,
+            NOIR,
+            textes::famille_d_objets(famille).traduit(),
+        );
+        y -= 22.0;
+        let par_colonne = symboles.len().div_ceil(2);
+        for (i, symbole) in symboles.iter().enumerate() {
+            let x = MARGE + (i / par_colonne) as f64 * COLONNE;
+            let y_ligne = y - (i % par_colonne) as f64 * LIGNE;
+            if y_ligne < 60.0 {
+                continue;
+            }
+            icone_d_un_symbole(&mut page, symbole, (x + 10.0, y_ligne + 3.5), 18.0);
+            page.texte(
+                (x + 30.0, y_ligne),
+                10.0,
+                false,
+                Alignement::Gauche,
+                NOIR,
+                &symbole.nom,
+            );
+            page.texte(
+                (x + COLONNE - 24.0, y_ligne),
+                10.0,
+                true,
+                Alignement::Droite,
+                NOIR,
+                &symbole.nombre.to_string(),
+            );
+        }
+        y -= par_colonne as f64 * LIGNE + 12.0;
+    }
+    pied_de_page(&mut page, numero, total);
+    page
+}
+
+/// Le dessin d'un symbole de la légende, centré en `centre`, dans un carré de
+/// `cote` points.
+fn icone_d_un_symbole(
+    page: &mut Page,
+    symbole: &SymboleDeLaLegende,
+    centre: (f64, f64),
+    cote: f64,
+) {
+    let echelle = cote / symbole.taille.max(1.0);
+    let vers = |(x, y): (f64, f64)| (centre.0 + x * echelle, centre.1 - y * echelle);
+    for trait_ in &symbole.traits {
+        match *trait_ {
+            noyau::mobilier::TraitSurLePlan::Ligne(a, b) => {
+                page.trait_(&[vers(a), vers(b)], 0.6, NOIR);
+            }
+            noyau::mobilier::TraitSurLePlan::Cercle(c, rayon) => {
+                let cercle: Vec<(f64, f64)> = (0..=24)
+                    .map(|k| {
+                        let angle = std::f64::consts::TAU * f64::from(k) / 24.0;
+                        vers((c.0 + rayon * angle.cos(), c.1 + rayon * angle.sin()))
+                    })
+                    .collect();
+                page.trait_(&cercle, 0.6, NOIR);
+            }
+        }
+    }
+    if let Some((sigle, attache, devant)) = &symbole.sigle {
+        const TAILLE: f64 = 5.5;
+        let ou = ligne_de_base_du_sigle(sigle, TAILLE, *attache, *devant, &vers, 0.8);
+        page.texte(ou, TAILLE, false, Alignement::Centre, NOIR, sigle);
+    }
+}
+
 /// Ce qu'il faut faire tenir d'une pièce sur une page (pouces) : sa forme,
 /// ses murs, ses objets, ses notes et ses cloisons.
 fn a_cadrer(piece: &PieceExportee) -> Vec<(f64, f64)> {
     let mut points = piece.sommets.clone();
-    for (_, _, traits) in &piece.objets {
-        points.extend(traits.iter().flat_map(etendue_d_un_trait));
+    for objet in &piece.objets {
+        points.extend(objet.traits.iter().flat_map(etendue_d_un_trait));
     }
     points.extend(piece.notes.iter().map(|(_, position)| *position));
     points.extend(piece.cloisons.iter().flat_map(|morceau| morceau.coins));
@@ -951,8 +1148,8 @@ fn dessiner_le_plan(
     }
     ouvertures_sur_la_page(page, &points, &piece.ouvertures, epaisseur_des_murs);
     // Les objets, à la même échelle que la forme.
-    for (nom, centre, traits) in &piece.objets {
-        for trait_ in traits {
+    for objet in &piece.objets {
+        for trait_ in &objet.traits {
             match *trait_ {
                 noyau::mobilier::TraitSurLePlan::Ligne(a, b) => {
                     page.trait_(&[vers_la_page(a), vers_la_page(b)], 0.7, GRIS);
@@ -972,14 +1169,20 @@ fn dessiner_le_plan(
                 }
             }
         }
-        page.texte(
-            vers_la_page(*centre),
-            7.0,
-            false,
-            Alignement::Centre,
-            GRIS,
-            nom,
-        );
+        // Un sigle se proportionne au symbole; un nom garde sa taille.
+        if let Some((texte, place)) = &objet.texte {
+            let taille = if objet.sigle {
+                (objet.plus_petit * echelle * 0.42).clamp(3.0, 7.0)
+            } else {
+                7.0
+            };
+            let ou = if objet.sigle {
+                ligne_de_base_du_sigle(texte, taille, *place, objet.devant, vers_la_page, 1.0)
+            } else {
+                vers_la_page(*place)
+            };
+            page.texte(ou, taille, false, Alignement::Centre, GRIS, texte);
+        }
     }
     // Les cloisons, pleines.
     // Leurs faces et leurs bouts se tracent; leurs coins d'onglet, non.
@@ -1606,7 +1809,12 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     let pieces = preparer(plan, prefs);
     let entete = textes::dessin_export_entete(date);
     let resume = pieces.len() != 1;
-    let total = pieces.len() + usize::from(resume);
+    // Une page de légende suit chaque pièce qui a des symboles (point 40).
+    let legendes = pieces
+        .iter()
+        .filter(|piece| !piece.legende.is_empty())
+        .count();
+    let total = pieces.len() + usize::from(resume) + legendes;
     let mut pages = Vec::with_capacity(total);
     if resume {
         pages.push(page_du_plan(&pieces, prefs, &entete, 1, total));
@@ -1633,6 +1841,10 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
             _ => page_de_piece(piece, &entete, numero, total, None),
         };
         pages.push(page);
+        if !piece.legende.is_empty() {
+            let numero = pages.len() + 1;
+            pages.push(page_de_legende(piece, &entete, numero, total));
+        }
     }
     assembler_pdf(&pages, &textes::dessin_export_plan(pieces.len()))
 }
@@ -2083,7 +2295,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         let etendue: Vec<(f64, f64)> = piece
             .objets
             .iter()
-            .flat_map(|(_, _, traits)| traits.iter().flat_map(etendue_d_un_trait))
+            .flat_map(|objet| objet.traits.iter().flat_map(etendue_d_un_trait))
             .chain(piece.notes.iter().map(|(_, position)| *position))
             .chain(piece.cloisons.iter().flat_map(|morceau| morceau.coins))
             .chain(piece.contour_exterieur.iter().copied())
@@ -2131,27 +2343,44 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             facteur,
             piece.epaisseur_des_murs * facteur,
         );
-        // Les objets, sur le calque MOBILIER.
+        // Les objets, sur le calque de leur famille (point 40).
         let vers_le_dxf = |(x, y): (f64, f64)| (x * facteur + decalage, -y * facteur);
-        for (nom, centre, traits) in &piece.objets {
-            for trait_ in traits {
+        for objet in &piece.objets {
+            for trait_ in &objet.traits {
                 match *trait_ {
                     noyau::mobilier::TraitSurLePlan::Ligne(a, b) => {
-                        ligne_dxf(&mut entites, "MOBILIER", vers_le_dxf(a), vers_le_dxf(b));
+                        ligne_dxf(&mut entites, objet.calque, vers_le_dxf(a), vers_le_dxf(b));
                     }
                     noyau::mobilier::TraitSurLePlan::Cercle(c, rayon) => {
-                        cercle_dxf(&mut entites, "MOBILIER", vers_le_dxf(c), rayon * facteur);
+                        cercle_dxf(&mut entites, objet.calque, vers_le_dxf(c), rayon * facteur);
                     }
                 }
             }
-            texte_dans_le_dxf(
-                &mut entites,
-                "MOBILIER",
-                vers_le_dxf(*centre),
-                taille * 0.8,
-                Alignement::Centre,
-                nom,
-            );
+            if let Some((texte, place)) = &objet.texte {
+                let hauteur = if objet.sigle {
+                    (objet.plus_petit * facteur * 0.35).min(taille * 0.8)
+                } else {
+                    taille * 0.8
+                };
+                let mut ou = vers_le_dxf(*place);
+                if let Some(devant) = objet.devant {
+                    let largeur = hauteur * 0.6 * texte.chars().count() as f64;
+                    ou = crate::vues::dessin::texte_a_cote(
+                        ou,
+                        (devant.0, -devant.1),
+                        (largeur, hauteur),
+                        hauteur * 0.2,
+                    );
+                }
+                texte_dans_le_dxf(
+                    &mut entites,
+                    objet.calque,
+                    ou,
+                    hauteur,
+                    Alignement::Centre,
+                    texte,
+                );
+            }
         }
         // Les murs à leur épaisseur : l'intérieur, l'extérieur et les jambages.
         for morceau in &piece.murs_exterieurs {
@@ -2363,6 +2592,9 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("PIECES", "3"),
         ("OUVERTURES", "1"),
         ("MOBILIER", "6"),
+        ("PLOMBERIE", "4"),
+        ("ELECTRICITE", "30"),
+        ("VENTILATION", "94"),
         ("NOTES", "2"),
         ("CLOISONS", "5"),
     ];
@@ -2660,6 +2892,54 @@ mod tests {
         assert!(dxf.contains("\r\nLit\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Lit)") && pdf.contains("(Laveuse)"));
+    }
+
+    #[test]
+    fn les_symboles_des_metiers_sur_leurs_calques() {
+        use noyau::mobilier::{GenreDObjet, Objet};
+        let mut cuisine = rectangle("12", "10");
+        cuisine.objets = vec![
+            Objet::nouveau(GenreDObjet::Prise, (30.0, 6.0)),
+            Objet::nouveau(GenreDObjet::PriseDdft, (60.0, 6.0)),
+            Objet::nouveau(GenreDObjet::Coude90, (100.0, 60.0)),
+            Objet::nouveau(GenreDObjet::Fournaise, (100.0, 90.0)),
+        ];
+        let plan = Plan::d_une_piece(cuisine);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Chaque métier sur son calque : les deux prises (deux traits et un
+        // rond chacune), le coude (six traits), la fournaise (son contour,
+        // son plénum et sa porte).
+        let lignes = |calque: &str| {
+            dxf.matches(&format!("\r\nLINE\r\n  8\r\n{calque}\r\n"))
+                .count()
+        };
+        assert_eq!(lignes("ELECTRICITE"), 2 * 2);
+        assert_eq!(lignes("PLOMBERIE"), 6);
+        assert_eq!(lignes("VENTILATION"), 4 + 4 + 1);
+        assert_eq!(lignes("MOBILIER"), 0);
+        assert_eq!(
+            dxf.matches("\r\nCIRCLE\r\n  8\r\nELECTRICITE\r\n").count(),
+            2
+        );
+        // Le sigle de la prise DDFT s'écrit; la prise ordinaire se suffit.
+        assert!(dxf.contains("\r\nDDFT\r\n") && !dxf.contains("\r\nPrise\r\n"));
+        assert!(dxf.contains("\r\nFournaise\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(DDFT)") && pdf.contains("(Fournaise)"));
+        // Le bilan compte chaque appareil et chaque symbole des métiers.
+        let solution = plan.pieces[0].dessin.resoudre(FORMAT_PAR_DEFAUT);
+        let resultats = crate::vues::dessin::resultats_de_la_piece(
+            &plan.pieces[0].dessin,
+            &solution,
+            &Preferences::default(),
+            false,
+        );
+        for nom in ["Prise", "Prise DDFT", "Fournaise"] {
+            assert!(
+                resultats.contains(&(nom.to_string(), "1".to_string())),
+                "{nom} : {resultats:?}"
+            );
+        }
     }
 
     #[test]

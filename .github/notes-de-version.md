@@ -104,6 +104,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Portes et ouvertures dans les cloisons** : autant qu'il en faut par cloison, chacune une
   porte (avec son battant) ou une ouverture sans porte.
 
+- **Symboles par corps de métier** : plomberie, électricité, ventilation, cuisine et salle de
+  bain, 39 objets à poser sur le plan, rangés comme la barre des métiers de la calculatrice; les
+  prises et les armoires se collent au mur, et le PDF ajoute une page de légende.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

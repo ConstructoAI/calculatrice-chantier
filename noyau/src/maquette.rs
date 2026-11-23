@@ -271,10 +271,23 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 );
             }
         } else {
+            // Un objet du plafond monte avec lui; une partie qui va jusqu'au
+            // plafond s'y allonge (point 40).
+            let plafond_ici = haut_au(objet.centre);
+            let decalage = if objet.genre.au_plafond() {
+                plafond_ici - crate::mobilier::PLAFOND_DE_REFERENCE
+            } else {
+                0.0
+            };
             for partie in objet.genre.volumes() {
                 let genre = GenreDeFace::Meuble(partie.matiere);
                 let coins = coins(partie.u, partie.v);
-                let hauteurs = (partie.bas, partie.haut);
+                let bas = partie.bas + decalage;
+                let hauteurs = if partie.jusqu_au_plafond {
+                    (bas, plafond_ici.max(bas + 1.0))
+                } else {
+                    (bas, partie.haut + decalage)
+                };
                 bloc(
                     &mut faces,
                     &mut aretes,
@@ -678,6 +691,32 @@ mod tests {
             .flat_map(|f| f.sommets.iter().map(|s| s[1]))
             .fold(0.0, f64::max);
         assert!((plus_haut - 96.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn un_luminaire_au_plafond_et_une_colonne_jusqu_a_lui() {
+        let mut dessin = piece(&[
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ]);
+        dessin.hauteur_des_murs = "9".to_string();
+        dessin.objets = vec![
+            Objet::nouveau(GenreDObjet::Luminaire, (72.0, 60.0)),
+            Objet::nouveau(GenreDObjet::ColonneDeChute, (10.0, 10.0)),
+        ];
+        let solution = dessin.resoudre(Format::PiPo);
+        let maquette = maquette(&dessin, &solution).unwrap();
+        // Le luminaire, sa base et son globe, contre le plafond de 9 pi; la
+        // colonne, du plancher au plafond.
+        assert_eq!(maquette.blocs.len(), 2 + 1);
+        assert!((maquette.blocs[0].haut - 108.0).abs() < 1e-9);
+        assert!((maquette.blocs[1].bas - 100.0).abs() < 1e-9);
+        assert_eq!(
+            (maquette.blocs[2].bas, maquette.blocs[2].haut),
+            (0.0, 108.0)
+        );
     }
 
     #[test]

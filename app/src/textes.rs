@@ -1078,7 +1078,7 @@ pub const DESSIN_REVENIR_AU_PLAN: Texte = t("Revenir au plan", "Back to the plan
 pub const DESSIN_TOURNER: Texte = t("Glissez pour tourner", "Drag to turn");
 pub const DESSIN_MURS_PAR_DEFAUT: Texte = t("murs de 8 pi par défaut", "8 ft walls by default");
 
-pub const DESSIN_OBJETS: Texte = t("Objets (escalier, mobilier)", "Objects (stairs, furniture)");
+pub const DESSIN_OBJETS: Texte = t("Objets et symboles", "Objects and symbols");
 pub const DESSIN_CLOISONS: Texte = t("Cloisons (murs intérieurs)", "Partitions (interior walls)");
 pub const DESSIN_CLOISON: Texte = t("Cloison", "Partition");
 pub const DESSIN_AJOUTER_UNE_CLOISON: Texte = t("+ Cloison", "+ Partition");
@@ -1185,6 +1185,92 @@ pub fn objet(genre: noyau::mobilier::GenreDObjet) -> Texte {
         GenreDObjet::Laveuse => t("Laveuse", "Washer"),
         GenreDObjet::Refrigerateur => t("Réfrigérateur", "Fridge"),
         GenreDObjet::Cuisiniere => t("Cuisinière", "Range"),
+        GenreDObjet::Secheuse => t("Sécheuse", "Dryer"),
+        GenreDObjet::ChauffeEau => t("Chauffe-eau", "Water heater"),
+        GenreDObjet::FiltreAEau => t("Filtre à eau", "Water filter"),
+        GenreDObjet::Adoucisseur => t("Adoucisseur", "Water softener"),
+        GenreDObjet::Coude90 => t("Coude 90°", "90° elbow"),
+        GenreDObjet::Coude45 => t("Coude 45°", "45° elbow"),
+        GenreDObjet::Te => t("Té", "Tee"),
+        GenreDObjet::RobinetDArret => t("Robinet d'arrêt", "Shut-off valve"),
+        GenreDObjet::Clapet => t("Clapet antiretour", "Check valve"),
+        GenreDObjet::CompteurDEau => t("Compteur d'eau", "Water meter"),
+        GenreDObjet::DrainDePlancher => t("Drain de plancher", "Floor drain"),
+        GenreDObjet::ColonneDeChute => t("Colonne de chute", "Soil stack"),
+        GenreDObjet::Lavabo => t("Lavabo", "Bathroom sink"),
+        GenreDObjet::Evier => t("Évier", "Kitchen sink"),
+        GenreDObjet::Panneau => t("Panneau électrique", "Electrical panel"),
+        GenreDObjet::CompteurElectrique => t("Compteur électrique", "Electric meter"),
+        GenreDObjet::Prise => t("Prise", "Receptacle"),
+        GenreDObjet::PriseDdft => t("Prise DDFT", "GFCI receptacle"),
+        GenreDObjet::Prise240 => t("Prise 240 V", "240 V receptacle"),
+        GenreDObjet::Interrupteur => t("Interrupteur", "Switch"),
+        GenreDObjet::Luminaire => t("Luminaire", "Light fixture"),
+        GenreDObjet::Encastre => t("Luminaire encastré", "Recessed light"),
+        GenreDObjet::Detecteur => t("Détecteur de fumée", "Smoke detector"),
+        GenreDObjet::BoiteDeJonction => t("Boîte de jonction", "Junction box"),
+        GenreDObjet::Plinthe => t("Plinthe électrique", "Baseboard heater"),
+        GenreDObjet::Thermostat => tel("Thermostat"),
+        GenreDObjet::Fournaise => t("Fournaise", "Furnace"),
+        GenreDObjet::ThermopompeMurale => t("Thermopompe murale", "Wall heat pump"),
+        GenreDObjet::ThermopompeExterieure => t("Thermopompe extérieure", "Outdoor heat pump"),
+        GenreDObjet::Echangeur => t("Échangeur d'air", "Air exchanger"),
+        GenreDObjet::BoucheDeSoufflage => t("Bouche de soufflage", "Supply register"),
+        GenreDObjet::RetourDAir => t("Retour d'air", "Return air grille"),
+        GenreDObjet::Ventilateur => t("Ventilateur de SdB", "Exhaust fan"),
+        GenreDObjet::Hotte => t("Hotte", "Range hood"),
+        GenreDObjet::ArmoireDuBas => t("Armoire du bas", "Base cabinet"),
+        GenreDObjet::ArmoireDuHaut => t("Armoire du haut", "Wall cabinet"),
+        GenreDObjet::Ilot => t("Îlot", "Island"),
+        GenreDObjet::LaveVaisselle => t("Lave-vaisselle", "Dishwasher"),
+        GenreDObjet::Vanite => t("Vanité", "Vanity"),
+    }
+}
+
+/// Le sigle d'un symbole sur le plan (section 25.1, point 40) : DDFT, 240 V…
+/// Sans sigle, un meuble s'y nomme et un petit symbole se suffit.
+pub fn sigle_d_objet(genre: noyau::mobilier::GenreDObjet) -> Option<Texte> {
+    use noyau::mobilier::GenreDObjet;
+    Some(match genre {
+        GenreDObjet::ChauffeEau => t("CE", "WH"),
+        GenreDObjet::FiltreAEau => tel("F"),
+        GenreDObjet::CompteurDEau => tel("m³"),
+        GenreDObjet::ColonneDeChute => t("CC", "SS"),
+        GenreDObjet::Panneau => t("Panneau", "Panel"),
+        GenreDObjet::CompteurElectrique => tel("kWh"),
+        GenreDObjet::PriseDdft => t("DDFT", "GFCI"),
+        GenreDObjet::Prise240 => tel("240 V"),
+        GenreDObjet::Interrupteur => tel("S"),
+        GenreDObjet::Detecteur => t("DF", "SD"),
+        GenreDObjet::BoiteDeJonction => tel("J"),
+        GenreDObjet::Thermostat => tel("T"),
+        GenreDObjet::ThermopompeMurale => t("TP", "HP"),
+        GenreDObjet::Echangeur => t("VRC", "HRV"),
+        GenreDObjet::LaveVaisselle => t("LV", "DW"),
+        _ => return None,
+    })
+}
+
+/// Ce qui s'écrit sur le plan pour un objet, à l'écran, au PDF et au DXF :
+/// son sigle (vrai), son nom (faux), ou rien pour un petit symbole.
+pub fn texte_d_objet_sur_le_plan(genre: noyau::mobilier::GenreDObjet) -> Option<(Texte, bool)> {
+    match sigle_d_objet(genre) {
+        Some(sigle) => Some((sigle, true)),
+        None if genre.nomme_sur_le_plan() => Some((objet(genre), false)),
+        None => None,
+    }
+}
+
+/// Le nom d'une famille d'objets, dans la rangée de la section des objets
+/// (point 40).
+pub fn famille_d_objets(famille: noyau::mobilier::Famille) -> Texte {
+    use noyau::mobilier::Famille;
+    match famille {
+        Famille::Mobilier => t("Mobilier", "Furniture"),
+        Famille::Plomberie => t("Plomberie", "Plumbing"),
+        Famille::Electricite => t("Électricité", "Electrical"),
+        Famille::Ventilation => t("Ventilation", "HVAC"),
+        Famille::CuisineEtBain => t("Cuisine et SdB", "Kitchen & bath"),
     }
 }
 
@@ -1349,6 +1435,14 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// Le titre de la page de légende d'une pièce, au PDF (point 40).
+pub fn dessin_export_legende(piece: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{piece} : légende des symboles"),
+        Langue::Anglais => format!("{piece}: symbol legend"),
+    }
+}
+
 pub fn dessin_export_plan(pieces: usize) -> String {
     match (langue::en_cours(), pieces) {
         (Langue::Francais, 0 | 1) => format!("Plan : {pieces} pièce"),

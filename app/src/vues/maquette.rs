@@ -92,6 +92,7 @@ fn couleur_d_une_matiere(matiere: Matiere) -> Color32 {
         Matiere::Verre => Color32::from_rgb(170, 212, 236),
         Matiere::Comptoir => Color32::from_rgb(186, 186, 192),
         Matiere::Armoire => Color32::from_rgb(214, 198, 174),
+        Matiere::Cuivre => Color32::from_rgb(190, 118, 70),
     }
 }
 

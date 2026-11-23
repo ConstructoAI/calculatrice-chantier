@@ -1,11 +1,13 @@
-//! Les objets d'une pièce (section 25) : l'escalier et le mobilier, placés sur
-//! le plan à l'échelle de ses mesures. Chacun a ses dimensions de départ, sa
+//! Les objets d'une pièce (section 25) : l'escalier, le mobilier et les
+//! symboles des corps de métier (point 40), placés sur le plan à l'échelle de
+//! ses mesures. Chacun a ses dimensions de départ, sa
 //! hauteur pour la 3D et un symbole, décrit dans son rectangle (u le long de
 //! sa largeur, v le long de sa profondeur, de 0 à 1).
 
 use serde::{Deserialize, Serialize};
 
-/// Ce qu'est un objet.
+/// Ce qu'est un objet : un meuble, un appareil, ou le symbole d'un corps de
+/// métier (section 25.1, point 40), posé sur le plan comme un meuble.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GenreDObjet {
     Escalier,
@@ -20,11 +22,54 @@ pub enum GenreDObjet {
     Laveuse,
     Refrigerateur,
     Cuisiniere,
+    Secheuse,
+    // La plomberie.
+    ChauffeEau,
+    FiltreAEau,
+    Adoucisseur,
+    Coude90,
+    Coude45,
+    Te,
+    RobinetDArret,
+    Clapet,
+    CompteurDEau,
+    DrainDePlancher,
+    ColonneDeChute,
+    Lavabo,
+    Evier,
+    // L'électricité.
+    Panneau,
+    CompteurElectrique,
+    Prise,
+    PriseDdft,
+    Prise240,
+    Interrupteur,
+    Luminaire,
+    Encastre,
+    Detecteur,
+    BoiteDeJonction,
+    Plinthe,
+    Thermostat,
+    // La ventilation et le chauffage.
+    Fournaise,
+    ThermopompeMurale,
+    ThermopompeExterieure,
+    Echangeur,
+    BoucheDeSoufflage,
+    RetourDAir,
+    Ventilateur,
+    Hotte,
+    // La cuisine et la salle de bain.
+    ArmoireDuBas,
+    ArmoireDuHaut,
+    Ilot,
+    LaveVaisselle,
+    Vanite,
 }
 
 impl GenreDObjet {
-    /// Tous les genres, dans l'ordre des boutons.
-    pub const TOUS: [GenreDObjet; 11] = [
+    /// Tous les genres; les boutons les rangent par famille (`Famille::genres`).
+    pub const TOUS: [GenreDObjet; 50] = [
         GenreDObjet::Escalier,
         GenreDObjet::Lit,
         GenreDObjet::Table,
@@ -36,10 +81,51 @@ impl GenreDObjet {
         GenreDObjet::Laveuse,
         GenreDObjet::Refrigerateur,
         GenreDObjet::Cuisiniere,
+        GenreDObjet::Secheuse,
+        GenreDObjet::ChauffeEau,
+        GenreDObjet::FiltreAEau,
+        GenreDObjet::Adoucisseur,
+        GenreDObjet::Coude90,
+        GenreDObjet::Coude45,
+        GenreDObjet::Te,
+        GenreDObjet::RobinetDArret,
+        GenreDObjet::Clapet,
+        GenreDObjet::CompteurDEau,
+        GenreDObjet::DrainDePlancher,
+        GenreDObjet::ColonneDeChute,
+        GenreDObjet::Lavabo,
+        GenreDObjet::Evier,
+        GenreDObjet::Panneau,
+        GenreDObjet::CompteurElectrique,
+        GenreDObjet::Prise,
+        GenreDObjet::PriseDdft,
+        GenreDObjet::Prise240,
+        GenreDObjet::Interrupteur,
+        GenreDObjet::Luminaire,
+        GenreDObjet::Encastre,
+        GenreDObjet::Detecteur,
+        GenreDObjet::BoiteDeJonction,
+        GenreDObjet::Plinthe,
+        GenreDObjet::Thermostat,
+        GenreDObjet::Fournaise,
+        GenreDObjet::ThermopompeMurale,
+        GenreDObjet::ThermopompeExterieure,
+        GenreDObjet::Echangeur,
+        GenreDObjet::BoucheDeSoufflage,
+        GenreDObjet::RetourDAir,
+        GenreDObjet::Ventilateur,
+        GenreDObjet::Hotte,
+        GenreDObjet::ArmoireDuBas,
+        GenreDObjet::ArmoireDuHaut,
+        GenreDObjet::Ilot,
+        GenreDObjet::LaveVaisselle,
+        GenreDObjet::Vanite,
     ];
 
     /// Largeur, profondeur et hauteur de départ, en pouces : des tailles
     /// courantes, à ajuster ensuite. L'escalier monte jusqu'au haut des murs.
+    /// Un symbole (une prise, un coude) prend la taille qu'il a sur un plan au
+    /// 1/4 po = 1 pi.
     pub fn dimensions(self) -> (f64, f64, f64) {
         match self {
             GenreDObjet::Escalier => (36.0, 120.0, 0.0),
@@ -53,6 +139,43 @@ impl GenreDObjet {
             GenreDObjet::Laveuse => (27.0, 30.0, 38.0),
             GenreDObjet::Refrigerateur => (30.0, 32.0, 68.0),
             GenreDObjet::Cuisiniere => (30.0, 26.0, 36.0),
+            GenreDObjet::Secheuse => (27.0, 30.0, 42.0),
+            GenreDObjet::ChauffeEau => (22.0, 22.0, 68.0),
+            GenreDObjet::FiltreAEau => (10.0, 10.0, 46.0),
+            GenreDObjet::Adoucisseur => (30.0, 18.0, 54.0),
+            GenreDObjet::Coude90 | GenreDObjet::Coude45 | GenreDObjet::Te => (8.0, 8.0, 14.0),
+            GenreDObjet::RobinetDArret => (8.0, 8.0, 20.0),
+            GenreDObjet::Clapet => (8.0, 8.0, 8.0),
+            GenreDObjet::CompteurDEau => (8.0, 8.0, 18.6),
+            GenreDObjet::DrainDePlancher => (8.0, 8.0, 0.3),
+            GenreDObjet::ColonneDeChute => (6.0, 6.0, PLAFOND_DE_REFERENCE),
+            GenreDObjet::Lavabo => (20.0, 18.0, 40.0),
+            GenreDObjet::Evier => (33.0, 22.0, 48.0),
+            GenreDObjet::Panneau => (16.0, 6.0, 72.0),
+            GenreDObjet::CompteurElectrique => (12.0, 12.0, 66.0),
+            GenreDObjet::Prise => (12.0, 12.0, 18.0),
+            GenreDObjet::PriseDdft => (12.0, 12.0, 47.0),
+            GenreDObjet::Prise240 => (12.0, 12.0, 20.0),
+            GenreDObjet::Interrupteur => (12.0, 12.0, 49.0),
+            GenreDObjet::Luminaire => (12.0, 12.0, PLAFOND_DE_REFERENCE),
+            GenreDObjet::Encastre
+            | GenreDObjet::Detecteur
+            | GenreDObjet::BoiteDeJonction
+            | GenreDObjet::Ventilateur => (10.0, 10.0, PLAFOND_DE_REFERENCE),
+            GenreDObjet::Plinthe => (48.0, 5.0, 10.0),
+            GenreDObjet::Thermostat => (8.0, 8.0, 62.0),
+            GenreDObjet::Fournaise => (22.0, 28.0, PLAFOND_DE_REFERENCE),
+            GenreDObjet::ThermopompeMurale => (32.0, 9.0, 92.0),
+            GenreDObjet::ThermopompeExterieure => (32.0, 14.0, 28.0),
+            GenreDObjet::Echangeur => (30.0, 18.0, 88.0),
+            GenreDObjet::BoucheDeSoufflage => (12.0, 5.0, 0.4),
+            GenreDObjet::RetourDAir => (24.0, 4.0, 16.0),
+            GenreDObjet::Hotte => (30.0, 20.0, PLAFOND_DE_REFERENCE),
+            GenreDObjet::ArmoireDuBas => (30.0, 24.0, 36.0),
+            GenreDObjet::ArmoireDuHaut => (30.0, 12.0, 84.0),
+            GenreDObjet::Ilot => (72.0, 36.0, 36.0),
+            GenreDObjet::LaveVaisselle => (24.0, 24.0, 36.0),
+            GenreDObjet::Vanite => (30.0, 21.0, 40.0),
         }
     }
 
@@ -167,13 +290,259 @@ impl GenreDObjet {
                 }
                 parties
             }
+            // La caisse, la console et son afficheur, et le hublot.
+            GenreDObjet::Secheuse => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 36.0, Electromenager),
+                volume((0.0, 1.0), (0.0, 0.15), 36.0, 42.0, Electromenager),
+                volume((0.4, 0.6), (0.15, 0.16), 38.0, 40.0, Noir),
+                volume((0.25, 0.75), (1.0, 1.02), 10.0, 30.0, Noir),
+            ],
+            // Le réservoir et son dessus, l'eau froide et l'eau chaude, et le
+            // robinet de vidange.
+            GenreDObjet::ChauffeEau => {
+                let mut parties =
+                    cylindre((0.0, 1.0), (0.0, 1.0), 0.0, 58.0, Electromenager).to_vec();
+                parties.extend(cylindre((0.06, 0.94), (0.06, 0.94), 58.0, 60.0, Metal));
+                parties.push(volume((0.25, 0.33), (0.46, 0.54), 60.0, 68.0, Cuivre));
+                parties.push(volume((0.67, 0.75), (0.46, 0.54), 60.0, 68.0, Cuivre));
+                parties.push(volume((0.46, 0.54), (1.0, 1.05), 6.0, 9.0, Cuivre));
+                parties
+            }
+            // La tête, le bol transparent, et le tuyau de part et d'autre.
+            GenreDObjet::FiltreAEau => vec![
+                volume((0.25, 0.75), (0.3, 0.7), 42.0, 46.0, Noir),
+                volume((0.3, 0.7), (0.3, 0.7), 26.0, 42.0, Verre),
+                volume((0.0, 0.25), (0.44, 0.56), 43.0, 45.0, Cuivre),
+                volume((0.75, 1.0), (0.44, 0.56), 43.0, 45.0, Cuivre),
+            ],
+            // Le réservoir de résine et sa tête, le bac à sel et son couvercle.
+            GenreDObjet::Adoucisseur => {
+                let mut parties = cylindre((0.0, 0.36), (0.2, 0.8), 0.0, 46.0, Noir).to_vec();
+                parties.push(volume(
+                    (0.04, 0.32),
+                    (0.24, 0.76),
+                    46.0,
+                    54.0,
+                    Electromenager,
+                ));
+                parties.push(volume(
+                    (0.42, 0.98),
+                    (0.06, 0.94),
+                    0.0,
+                    36.0,
+                    Electromenager,
+                ));
+                parties.push(volume((0.43, 0.97), (0.07, 0.93), 36.0, 37.0, Noir));
+                parties
+            }
+            // Le tuyau, à 1 pi du plancher, qui tourne d'un quart de tour…
+            GenreDObjet::Coude90 => vec![
+                volume((0.38, 0.62), (0.38, 1.0), 10.0, 14.0, Cuivre),
+                volume((0.62, 1.0), (0.38, 0.62), 10.0, 14.0, Cuivre),
+            ],
+            // … d'un huitième de tour, en trois pas…
+            GenreDObjet::Coude45 => vec![
+                volume((0.38, 0.62), (0.5, 1.0), 10.0, 14.0, Cuivre),
+                volume((0.5, 0.74), (0.26, 0.5), 10.0, 14.0, Cuivre),
+                volume((0.74, 0.98), (0.02, 0.26), 10.0, 14.0, Cuivre),
+            ],
+            // … ou qui se divise en deux.
+            GenreDObjet::Te => vec![
+                volume((0.0, 1.0), (0.38, 0.62), 10.0, 14.0, Cuivre),
+                volume((0.38, 0.62), (0.62, 1.0), 10.0, 14.0, Cuivre),
+            ],
+            // Le tuyau, le corps, la tige et la poignée.
+            GenreDObjet::RobinetDArret => vec![
+                volume((0.0, 0.2), (0.42, 0.58), 10.0, 14.0, Cuivre),
+                volume((0.8, 1.0), (0.42, 0.58), 10.0, 14.0, Cuivre),
+                volume((0.2, 0.8), (0.3, 0.7), 9.0, 15.0, Cuivre),
+                volume((0.45, 0.55), (0.45, 0.55), 15.0, 19.0, Metal),
+                volume((0.3, 0.7), (0.44, 0.56), 19.0, 20.0, Noir),
+            ],
+            // Le clapet antiretour du renvoi, au plancher, et son couvercle.
+            GenreDObjet::Clapet => vec![
+                volume((0.2, 0.8), (0.28, 0.72), 0.0, 7.0, Noir),
+                volume((0.0, 0.2), (0.38, 0.62), 1.0, 6.0, Noir),
+                volume((0.8, 1.0), (0.38, 0.62), 1.0, 6.0, Noir),
+                volume((0.3, 0.7), (0.36, 0.64), 7.0, 8.0, Metal),
+            ],
+            // Le tuyau, le corps et son cadran.
+            GenreDObjet::CompteurDEau => vec![
+                volume((0.0, 0.2), (0.42, 0.58), 12.0, 16.0, Cuivre),
+                volume((0.8, 1.0), (0.42, 0.58), 12.0, 16.0, Cuivre),
+                volume((0.2, 0.8), (0.2, 0.8), 10.0, 18.0, Cuivre),
+                volume((0.3, 0.7), (0.3, 0.7), 18.0, 18.6, Verre),
+            ],
+            // La grille, au ras du plancher.
+            GenreDObjet::DrainDePlancher => {
+                vec![volume((0.1, 0.9), (0.1, 0.9), 0.0, 0.3, Metal)]
+            }
+            // Le tuyau, du plancher au plafond.
+            GenreDObjet::ColonneDeChute => {
+                vec![jusqu_au_plafond((0.2, 0.8), (0.2, 0.8), 0.0, Noir)]
+            }
+            // La vasque, son pied, le robinet et son bec.
+            GenreDObjet::Lavabo => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 30.0, 34.0, Porcelaine),
+                volume((0.35, 0.65), (0.25, 0.6), 0.0, 30.0, Porcelaine),
+                volume((0.45, 0.55), (0.05, 0.15), 34.0, 40.0, Metal),
+                volume((0.47, 0.53), (0.15, 0.3), 38.0, 39.5, Metal),
+            ],
+            // Le rebord sur le comptoir, les deux cuves, le robinet et son bec.
+            GenreDObjet::Evier => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 36.5, 36.8, Metal),
+                volume((0.06, 0.48), (0.2, 0.9), 36.8, 36.85, Noir),
+                volume((0.52, 0.94), (0.2, 0.9), 36.8, 36.85, Noir),
+                volume((0.46, 0.54), (0.04, 0.12), 36.8, 48.0, Metal),
+                volume((0.47, 0.53), (0.12, 0.4), 45.0, 47.0, Metal),
+            ],
+            // La boîte et sa porte, le haut à 6 pi.
+            GenreDObjet::Panneau => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 42.0, 72.0, Metal),
+                volume((0.06, 0.94), (1.0, 1.04), 44.0, 70.0, Electromenager),
+            ],
+            // Le socle et le dôme de verre.
+            GenreDObjet::CompteurElectrique => vec![
+                volume((0.3, 0.7), (0.0, 0.12), 54.0, 66.0, Electromenager),
+                volume((0.33, 0.67), (0.12, 0.36), 56.0, 64.0, Verre),
+            ],
+            // La plaque au mur et ses deux prises, à 16 po du plancher…
+            GenreDObjet::Prise => vec![
+                volume((0.38, 0.62), (0.0, 0.04), 13.0, 18.0, Electromenager),
+                volume((0.44, 0.56), (0.04, 0.05), 14.0, 15.2, Noir),
+                volume((0.44, 0.56), (0.04, 0.05), 15.8, 17.0, Noir),
+            ],
+            // … au-dessus du comptoir…
+            GenreDObjet::PriseDdft => vec![
+                volume((0.38, 0.62), (0.0, 0.04), 42.0, 47.0, Electromenager),
+                volume((0.44, 0.56), (0.04, 0.05), 43.0, 44.2, Noir),
+                volume((0.44, 0.56), (0.04, 0.05), 44.8, 46.0, Noir),
+            ],
+            // … ou derrière la cuisinière et la sécheuse.
+            GenreDObjet::Prise240 => vec![
+                volume((0.36, 0.64), (0.0, 0.04), 14.0, 20.0, Electromenager),
+                volume((0.43, 0.57), (0.04, 0.05), 15.0, 19.0, Noir),
+            ],
+            // La plaque et le levier, à 46 po.
+            GenreDObjet::Interrupteur => vec![
+                volume((0.38, 0.62), (0.0, 0.04), 44.0, 49.0, Electromenager),
+                volume((0.47, 0.53), (0.04, 0.08), 46.0, 47.0, Noir),
+            ],
+            // La base au plafond et le globe.
+            GenreDObjet::Luminaire => vec![
+                volume((0.4, 0.6), (0.4, 0.6), 94.0, 96.0, Metal),
+                volume((0.2, 0.8), (0.2, 0.8), 88.0, 94.0, Literie),
+            ],
+            // Au ras du plafond.
+            GenreDObjet::Encastre => vec![volume((0.1, 0.9), (0.1, 0.9), 95.6, 96.0, Literie)],
+            GenreDObjet::Detecteur => {
+                vec![volume((0.12, 0.88), (0.12, 0.88), 94.5, 96.0, Literie)]
+            }
+            GenreDObjet::BoiteDeJonction => {
+                vec![volume((0.25, 0.75), (0.25, 0.75), 94.0, 96.0, Metal)]
+            }
+            // Le corps, au bas du mur, et sa grille.
+            GenreDObjet::Plinthe => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 3.0, 10.0, Electromenager),
+                volume((0.04, 0.96), (1.0, 1.02), 7.0, 9.0, Noir),
+            ],
+            GenreDObjet::Thermostat => {
+                vec![volume((0.3, 0.7), (0.0, 0.12), 58.0, 62.0, Electromenager)]
+            }
+            // La caisse, son plénum jusqu'au plafond, et sa porte.
+            GenreDObjet::Fournaise => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 48.0, Electromenager),
+                jusqu_au_plafond((0.1, 0.9), (0.08, 0.45), 48.0, Metal),
+                volume((0.08, 0.92), (1.0, 1.01), 4.0, 44.0, Metal),
+            ],
+            // L'appareil, haut sur le mur, et son volet.
+            GenreDObjet::ThermopompeMurale => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 80.0, 92.0, Electromenager),
+                volume((0.04, 0.96), (1.0, 1.03), 81.0, 84.0, Metal),
+            ],
+            // Les pieds, l'appareil et la grille de son ventilateur.
+            GenreDObjet::ThermopompeExterieure => vec![
+                volume((0.04, 0.96), (0.1, 0.9), 0.0, 4.0, Noir),
+                volume((0.0, 1.0), (0.0, 1.0), 4.0, 28.0, Electromenager),
+                volume((0.12, 0.6), (1.0, 1.01), 8.0, 26.0, Noir),
+            ],
+            // L'appareil, accroché sous les solives, et ses quatre conduits.
+            GenreDObjet::Echangeur => {
+                let mut parties = vec![volume((0.0, 1.0), (0.0, 1.0), 66.0, 84.0, Electromenager)];
+                for centre in [0.15, 0.38, 0.62, 0.85] {
+                    parties.push(volume(
+                        (centre - 0.07, centre + 0.07),
+                        (0.22, 0.38),
+                        84.0,
+                        88.0,
+                        Metal,
+                    ));
+                }
+                parties
+            }
+            // La grille, au plancher…
+            GenreDObjet::BoucheDeSoufflage => {
+                vec![volume((0.0, 1.0), (0.0, 1.0), 0.0, 0.4, Metal)]
+            }
+            // … ou au bas du mur.
+            GenreDObjet::RetourDAir => vec![volume((0.0, 1.0), (0.0, 0.25), 4.0, 16.0, Metal)],
+            GenreDObjet::Ventilateur => vec![volume((0.1, 0.9), (0.1, 0.9), 95.0, 96.0, Literie)],
+            // La hotte, à 2 pi au-dessus de la cuisinière, et sa cheminée.
+            GenreDObjet::Hotte => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 60.0, 66.0, Metal),
+                jusqu_au_plafond((0.3, 0.7), (0.0, 0.4), 66.0, Metal),
+            ],
+            // Le socle, la caisse, ses deux portes et leurs poignées, et le
+            // comptoir.
+            GenreDObjet::ArmoireDuBas => vec![
+                volume((0.0, 1.0), (0.0, 0.86), 0.0, 4.0, Noir),
+                volume((0.0, 1.0), (0.0, 0.95), 4.0, 34.5, Armoire),
+                volume((0.02, 0.49), (0.95, 0.97), 5.0, 33.0, Armoire),
+                volume((0.51, 0.98), (0.95, 0.97), 5.0, 33.0, Armoire),
+                volume((0.42, 0.46), (0.97, 0.99), 29.0, 32.0, Metal),
+                volume((0.54, 0.58), (0.97, 0.99), 29.0, 32.0, Metal),
+                volume((0.0, 1.0), (0.0, 1.0), 34.5, 36.0, Comptoir),
+            ],
+            // La caisse, à 18 po au-dessus du comptoir, ses portes et leurs
+            // poignées.
+            GenreDObjet::ArmoireDuHaut => vec![
+                volume((0.0, 1.0), (0.0, 0.92), 54.0, 84.0, Armoire),
+                volume((0.02, 0.49), (0.92, 0.97), 55.0, 83.0, Armoire),
+                volume((0.51, 0.98), (0.92, 0.97), 55.0, 83.0, Armoire),
+                volume((0.42, 0.46), (0.97, 1.0), 56.0, 59.0, Metal),
+                volume((0.54, 0.58), (0.97, 1.0), 56.0, 59.0, Metal),
+            ],
+            // Le socle, la caisse et le comptoir, qui déborde du côté des
+            // tabourets.
+            GenreDObjet::Ilot => vec![
+                volume((0.03, 0.97), (0.03, 0.66), 0.0, 4.0, Noir),
+                volume((0.02, 0.98), (0.02, 0.7), 4.0, 34.5, Armoire),
+                volume((0.0, 1.0), (0.0, 1.0), 34.5, 36.0, Comptoir),
+            ],
+            // La caisse, la porte et sa poignée, sous le comptoir.
+            GenreDObjet::LaveVaisselle => vec![
+                volume((0.0, 1.0), (0.0, 0.96), 0.0, 34.5, Metal),
+                volume((0.0, 1.0), (0.96, 1.0), 4.0, 34.0, Metal),
+                volume((0.2, 0.8), (1.0, 1.03), 31.0, 32.0, Noir),
+                volume((0.0, 1.0), (0.0, 1.0), 34.5, 36.0, Comptoir),
+            ],
+            // Le socle, la caisse et ses portes, le dessus, le robinet et son bec.
+            GenreDObjet::Vanite => vec![
+                volume((0.0, 1.0), (0.0, 0.86), 0.0, 4.0, Noir),
+                volume((0.0, 1.0), (0.0, 0.95), 4.0, 32.5, Armoire),
+                volume((0.02, 0.49), (0.95, 0.97), 5.0, 31.0, Armoire),
+                volume((0.51, 0.98), (0.95, 0.97), 5.0, 31.0, Armoire),
+                volume((0.0, 1.0), (0.0, 1.0), 32.5, 34.0, Porcelaine),
+                volume((0.45, 0.55), (0.05, 0.15), 34.0, 40.0, Metal),
+                volume((0.47, 0.53), (0.15, 0.3), 38.0, 39.5, Metal),
+            ],
         }
     }
 
     /// Le symbole de l'objet dans son rectangle, en plus de son contour.
     /// `profondeur` (pouces) donne le nombre de marches d'un escalier.
     pub fn symbole(self, profondeur: f64) -> Vec<Trait> {
-        use Trait::{Cercle, Ligne, Rectangle};
+        use Trait::{Cercle, Ligne, Rectangle, Tirets};
         match self {
             GenreDObjet::Escalier => {
                 // Une marche par 10 po de giron, et la flèche qui monte.
@@ -232,7 +601,529 @@ impl GenreDObjet {
                 Cercle((0.28, 0.72), 0.14),
                 Cercle((0.72, 0.72), 0.14),
             ],
+            GenreDObjet::Secheuse => vec![
+                Ligne((0.0, 0.15), (1.0, 0.15)),
+                Rectangle((0.15, 0.3), (0.85, 0.9)),
+            ],
+            // Le symbole des plans : un réservoir rond.
+            GenreDObjet::ChauffeEau => vec![Cercle((0.5, 0.5), 0.5), Cercle((0.5, 0.5), 0.4)],
+            GenreDObjet::FiltreAEau => vec![
+                Ligne((0.0, 0.5), (0.2, 0.5)),
+                Ligne((0.8, 0.5), (1.0, 0.5)),
+                Cercle((0.5, 0.5), 0.3),
+            ],
+            GenreDObjet::Adoucisseur => vec![
+                Cercle((0.18, 0.5), 0.3),
+                Rectangle((0.42, 0.06), (0.98, 0.94)),
+            ],
+            // Le tuyau en double trait, et un trait à chaque joint.
+            GenreDObjet::Coude90 => vec![
+                Ligne((0.38, 1.0), (0.38, 0.38)),
+                Ligne((0.38, 0.38), (1.0, 0.38)),
+                Ligne((0.62, 1.0), (0.62, 0.62)),
+                Ligne((0.62, 0.62), (1.0, 0.62)),
+                Ligne((0.28, 0.9), (0.72, 0.9)),
+                Ligne((0.9, 0.28), (0.9, 0.72)),
+            ],
+            GenreDObjet::Coude45 => vec![
+                Ligne((0.38, 1.0), (0.38, 0.45)),
+                Ligne((0.38, 0.45), (0.815, 0.015)),
+                Ligne((0.62, 1.0), (0.62, 0.55)),
+                Ligne((0.62, 0.55), (0.985, 0.185)),
+                Ligne((0.28, 0.9), (0.72, 0.9)),
+                Ligne((0.674, 0.015), (0.985, 0.326)),
+            ],
+            GenreDObjet::Te => vec![
+                Ligne((0.0, 0.38), (1.0, 0.38)),
+                Ligne((0.0, 0.62), (0.38, 0.62)),
+                Ligne((0.62, 0.62), (1.0, 0.62)),
+                Ligne((0.38, 0.62), (0.38, 1.0)),
+                Ligne((0.62, 0.62), (0.62, 1.0)),
+                Ligne((0.1, 0.28), (0.1, 0.72)),
+                Ligne((0.9, 0.28), (0.9, 0.72)),
+                Ligne((0.28, 0.9), (0.72, 0.9)),
+            ],
+            // Deux triangles pointe à pointe sur le tuyau, et la poignée.
+            GenreDObjet::RobinetDArret => vec![
+                Ligne((0.0, 0.5), (0.2, 0.5)),
+                Ligne((0.8, 0.5), (1.0, 0.5)),
+                Ligne((0.2, 0.25), (0.2, 0.75)),
+                Ligne((0.8, 0.25), (0.8, 0.75)),
+                Ligne((0.2, 0.25), (0.8, 0.75)),
+                Ligne((0.2, 0.75), (0.8, 0.25)),
+                Ligne((0.5, 0.5), (0.5, 0.1)),
+                Ligne((0.36, 0.1), (0.64, 0.1)),
+            ],
+            // Le clapet, et le sens de l'écoulement.
+            GenreDObjet::Clapet => vec![
+                Ligne((0.0, 0.5), (0.2, 0.5)),
+                Ligne((0.8, 0.5), (1.0, 0.5)),
+                Ligne((0.2, 0.3), (0.2, 0.7)),
+                Ligne((0.8, 0.3), (0.8, 0.7)),
+                Ligne((0.2, 0.7), (0.8, 0.3)),
+                Ligne((0.32, 0.86), (0.68, 0.86)),
+                Ligne((0.68, 0.86), (0.6, 0.8)),
+                Ligne((0.68, 0.86), (0.6, 0.92)),
+            ],
+            GenreDObjet::CompteurDEau => vec![
+                Cercle((0.5, 0.5), 0.36),
+                Ligne((0.0, 0.5), (0.14, 0.5)),
+                Ligne((0.86, 0.5), (1.0, 0.5)),
+            ],
+            // Une grille ronde.
+            GenreDObjet::DrainDePlancher => vec![
+                Cercle((0.5, 0.5), 0.45),
+                Cercle((0.5, 0.5), 0.18),
+                Ligne((0.5, 0.1), (0.5, 0.32)),
+                Ligne((0.5, 0.68), (0.5, 0.9)),
+                Ligne((0.1, 0.5), (0.32, 0.5)),
+                Ligne((0.68, 0.5), (0.9, 0.5)),
+            ],
+            GenreDObjet::ColonneDeChute => vec![Cercle((0.5, 0.5), 0.45), Cercle((0.5, 0.5), 0.3)],
+            // La vasque, son drain et le robinet.
+            GenreDObjet::Lavabo => {
+                let mut traits = ovale((0.5, 0.56), 0.36, 0.32);
+                traits.push(Cercle((0.5, 0.56), 0.05));
+                traits.push(Ligne((0.5, 0.06), (0.5, 0.2)));
+                traits
+            }
+            // Les deux cuves, leurs drains et le robinet.
+            GenreDObjet::Evier => vec![
+                Rectangle((0.06, 0.2), (0.48, 0.9)),
+                Rectangle((0.52, 0.2), (0.94, 0.9)),
+                Cercle((0.27, 0.62), 0.05),
+                Cercle((0.73, 0.62), 0.05),
+                Ligne((0.5, 0.04), (0.5, 0.17)),
+            ],
+            // La porte; son sigle le nomme.
+            GenreDObjet::Panneau => vec![Ligne((0.04, 0.82), (0.96, 0.82))],
+            GenreDObjet::CompteurElectrique => {
+                vec![Cercle((0.5, 0.55), 0.36), Ligne((0.5, 0.0), (0.5, 0.19))]
+            }
+            // Le symbole des plans : un rond traversé de deux traits…
+            GenreDObjet::Prise | GenreDObjet::PriseDdft => vec![
+                Cercle((0.5, 0.3), 0.22),
+                Ligne((0.42, 0.02), (0.42, 0.58)),
+                Ligne((0.58, 0.02), (0.58, 0.58)),
+            ],
+            // … ou de trois.
+            GenreDObjet::Prise240 => vec![
+                Cercle((0.5, 0.3), 0.24),
+                Ligne((0.38, 0.02), (0.38, 0.58)),
+                Ligne((0.5, 0.02), (0.5, 0.58)),
+                Ligne((0.62, 0.02), (0.62, 0.58)),
+            ],
+            // Un trait jusqu'au mur; le S est son sigle.
+            GenreDObjet::Interrupteur => vec![Ligne((0.5, 0.0), (0.5, 0.3))],
+            // Un rond qui rayonne.
+            GenreDObjet::Luminaire => vec![
+                Cercle((0.5, 0.5), 0.28),
+                Ligne((0.5, 0.04), (0.5, 0.2)),
+                Ligne((0.5, 0.8), (0.5, 0.96)),
+                Ligne((0.04, 0.5), (0.2, 0.5)),
+                Ligne((0.8, 0.5), (0.96, 0.5)),
+            ],
+            GenreDObjet::Encastre => vec![Cercle((0.5, 0.5), 0.4), Cercle((0.5, 0.5), 0.22)],
+            GenreDObjet::Detecteur => vec![Cercle((0.5, 0.5), 0.44)],
+            GenreDObjet::BoiteDeJonction | GenreDObjet::Thermostat => {
+                vec![Cercle((0.5, 0.5), 0.4)]
+            }
+            // La résistance, en zigzag.
+            GenreDObjet::Plinthe => {
+                let point = |k: usize| {
+                    (
+                        0.04 + 0.115 * k as f64,
+                        if k.is_multiple_of(2) { 0.25 } else { 0.75 },
+                    )
+                };
+                (0..8).map(|k| Ligne(point(k), point(k + 1))).collect()
+            }
+            // Le plénum dessus, et la porte devant.
+            GenreDObjet::Fournaise => vec![
+                Rectangle((0.1, 0.08), (0.9, 0.45)),
+                Ligne((0.0, 0.88), (1.0, 0.88)),
+            ],
+            // Au-dessus de la coupe : en tirets, comme son contour.
+            GenreDObjet::ThermopompeMurale => vec![Tirets((0.04, 0.7), (0.96, 0.7))],
+            // Le ventilateur et le panneau de service.
+            GenreDObjet::ThermopompeExterieure => vec![
+                Cercle((0.36, 0.5), 0.4),
+                Cercle((0.36, 0.5), 0.08),
+                Rectangle((0.74, 0.2), (0.94, 0.8)),
+            ],
+            // Les quatre conduits, sur le dessus.
+            GenreDObjet::Echangeur => [0.15, 0.38, 0.62, 0.85]
+                .map(|u| Cercle((u, 0.3), 0.18))
+                .to_vec(),
+            // Les ailettes.
+            GenreDObjet::BoucheDeSoufflage => [0.2, 0.35, 0.5, 0.65, 0.8]
+                .map(|u| Ligne((u, 0.2), (u, 0.8)))
+                .to_vec(),
+            GenreDObjet::RetourDAir => {
+                vec![Ligne((0.0, 0.0), (1.0, 1.0)), Ligne((0.0, 1.0), (1.0, 0.0))]
+            }
+            // Un carré et son ventilateur.
+            GenreDObjet::Ventilateur => {
+                vec![Rectangle((0.1, 0.1), (0.9, 0.9)), Cercle((0.5, 0.5), 0.28)]
+            }
+            // La cheminée, en tirets comme la hotte.
+            GenreDObjet::Hotte => vec![
+                Tirets((0.3, 0.0), (0.3, 0.4)),
+                Tirets((0.3, 0.4), (0.7, 0.4)),
+                Tirets((0.7, 0.4), (0.7, 0.0)),
+            ],
+            // La face des portes et leur joint.
+            GenreDObjet::ArmoireDuBas => {
+                vec![Ligne((0.0, 0.9), (1.0, 0.9)), Ligne((0.5, 0.9), (0.5, 1.0))]
+            }
+            // Au-dessus de la coupe : en tirets, en croix.
+            GenreDObjet::ArmoireDuHaut => vec![
+                Tirets((0.0, 0.0), (1.0, 1.0)),
+                Tirets((0.0, 1.0), (1.0, 0.0)),
+            ],
+            // La face des armoires; le comptoir déborde au-delà.
+            GenreDObjet::Ilot => vec![Ligne((0.0, 0.7), (1.0, 0.7))],
+            GenreDObjet::LaveVaisselle => vec![Ligne((0.0, 0.88), (1.0, 0.88))],
+            // La vasque dans le comptoir, son drain et le robinet.
+            GenreDObjet::Vanite => {
+                let mut traits = ovale((0.5, 0.55), 0.3, 0.3);
+                traits.push(Cercle((0.5, 0.58), 0.05));
+                traits.push(Ligne((0.5, 0.06), (0.5, 0.2)));
+                traits
+            }
         }
+    }
+
+    /// Sa famille première, celle de son calque au DXF; il peut paraître
+    /// dans d'autres rangées (`Famille::genres`).
+    pub fn famille(self) -> Famille {
+        use GenreDObjet::*;
+        match self {
+            Escalier | Lit | Table | Sofa | Comptoir | Toilette | Bain | Douche | Laveuse
+            | Refrigerateur | Cuisiniere | Secheuse => Famille::Mobilier,
+            ChauffeEau | FiltreAEau | Adoucisseur | Coude90 | Coude45 | Te | RobinetDArret
+            | Clapet | CompteurDEau | DrainDePlancher | ColonneDeChute => Famille::Plomberie,
+            Panneau | CompteurElectrique | Prise | PriseDdft | Prise240 | Interrupteur
+            | Luminaire | Encastre | Detecteur | BoiteDeJonction | Plinthe | Thermostat => {
+                Famille::Electricite
+            }
+            Fournaise
+            | ThermopompeMurale
+            | ThermopompeExterieure
+            | Echangeur
+            | BoucheDeSoufflage
+            | RetourDAir
+            | Ventilateur
+            | Hotte => Famille::Ventilation,
+            Lavabo | Evier | ArmoireDuBas | ArmoireDuHaut | Ilot | LaveVaisselle | Vanite => {
+                Famille::CuisineEtBain
+            }
+        }
+    }
+
+    /// Vrai s'il occupe le plancher : il ne chevauche alors ni les murs, ni
+    /// les cloisons, ni un autre objet qui l'occupe aussi (R-98). Un symbole
+    /// au mur, au plafond ou sur un tuyau, une armoire du haut, un évier dans
+    /// son comptoir se posent n'importe où, même hors de la pièce.
+    pub fn encombre(self) -> bool {
+        use GenreDObjet::*;
+        matches!(
+            self,
+            Escalier
+                | Lit
+                | Table
+                | Sofa
+                | Comptoir
+                | Toilette
+                | Bain
+                | Douche
+                | Laveuse
+                | Refrigerateur
+                | Cuisiniere
+                | Secheuse
+                | ChauffeEau
+                | Adoucisseur
+                | Lavabo
+                | Fournaise
+                | ArmoireDuBas
+                | Ilot
+                | LaveVaisselle
+                | Vanite
+        )
+    }
+
+    /// Vrai s'il se pose contre un mur, le dos (v = 0) contre lui, quand on
+    /// touche la pièce près d'un mur ou d'une cloison (`contre_le_mur`).
+    pub fn contre_un_mur(self) -> bool {
+        use GenreDObjet::*;
+        matches!(
+            self,
+            Comptoir
+                | Toilette
+                | Laveuse
+                | Refrigerateur
+                | Cuisiniere
+                | Secheuse
+                | Lavabo
+                | Evier
+                | Panneau
+                | Prise
+                | PriseDdft
+                | Prise240
+                | Interrupteur
+                | Plinthe
+                | Thermostat
+                | ThermopompeMurale
+                | RetourDAir
+                | Hotte
+                | ArmoireDuBas
+                | ArmoireDuHaut
+                | LaveVaisselle
+                | Vanite
+        )
+    }
+
+    /// Vrai s'il est fixé au plafond : en 3D, ses parties, décrites sous un
+    /// plafond de 8 pi (`PLAFOND_DE_REFERENCE`), montent avec le plafond.
+    pub fn au_plafond(self) -> bool {
+        use GenreDObjet::*;
+        matches!(
+            self,
+            Luminaire | Encastre | Detecteur | BoiteDeJonction | Ventilateur
+        )
+    }
+
+    /// Le contour de son rectangle sur le plan.
+    pub fn contour(self) -> Contour {
+        use GenreDObjet::*;
+        match self {
+            ThermopompeMurale | Hotte | ArmoireDuHaut => Contour::Tirets,
+            ChauffeEau | FiltreAEau | Coude90 | Coude45 | Te | RobinetDArret | Clapet
+            | CompteurDEau | DrainDePlancher | ColonneDeChute | CompteurElectrique | Prise
+            | PriseDdft | Prise240 | Interrupteur | Luminaire | Encastre | Detecteur
+            | BoiteDeJonction | Thermostat | Ventilateur => Contour::Aucun,
+            _ => Contour::Plein,
+        }
+    }
+
+    /// Vrai si son nom s'écrit sur le plan, faute de sigle : un meuble, un
+    /// appareil. Un petit symbole (une prise, un coude) se suffit; les
+    /// armoires, l'évier et la hotte, en rangée le long d'un mur, aussi : la
+    /// légende du PDF les nomme.
+    pub fn nomme_sur_le_plan(self) -> bool {
+        use GenreDObjet::*;
+        let (largeur, profondeur, _) = self.dimensions();
+        !matches!(self, ArmoireDuBas | ArmoireDuHaut | Evier | Hotte)
+            && self.contour() != Contour::Aucun
+            && largeur.min(profondeur) >= 8.0
+    }
+
+    /// Vrai si son sigle s'écrit à côté de son symbole, du côté de son devant,
+    /// plutôt que dessus : une prise DDFT, une prise 240 V, un interrupteur.
+    pub fn sigle_a_cote(self) -> bool {
+        matches!(
+            self,
+            GenreDObjet::PriseDdft | GenreDObjet::Prise240 | GenreDObjet::Interrupteur
+        )
+    }
+
+    /// Où s'écrit son sigle (DDFT, 240 V…), dans son rectangle (u, v) : au
+    /// milieu d'un rond, ou, s'il va à côté du symbole (`sigle_a_cote`), au
+    /// bord de celui-ci.
+    pub fn place_du_sigle(self) -> (f64, f64) {
+        match self {
+            GenreDObjet::PriseDdft | GenreDObjet::Prise240 => (0.5, 0.6),
+            GenreDObjet::Interrupteur => (0.5, 0.3),
+            GenreDObjet::CompteurElectrique => (0.5, 0.55),
+            GenreDObjet::Echangeur => (0.5, 0.76),
+            _ => (0.5, 0.5),
+        }
+    }
+}
+
+/// Une famille d'objets, comme un corps de métier de la calculatrice : la
+/// rangée de pastilles de la section des objets (section 25.1, point 40).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Famille {
+    #[default]
+    Mobilier,
+    Plomberie,
+    Electricite,
+    Ventilation,
+    CuisineEtBain,
+}
+
+impl Famille {
+    /// Les familles, dans l'ordre de la rangée.
+    pub const TOUTES: [Famille; 5] = [
+        Famille::Mobilier,
+        Famille::Plomberie,
+        Famille::Electricite,
+        Famille::Ventilation,
+        Famille::CuisineEtBain,
+    ];
+
+    /// Ses objets, dans l'ordre de leurs boutons. Un objet peut être de
+    /// plusieurs familles : une toilette est un meuble de la salle de bain et
+    /// un appareil du plombier; un thermostat sert à l'électricien comme au
+    /// chauffagiste.
+    pub fn genres(self) -> &'static [GenreDObjet] {
+        use GenreDObjet::*;
+        match self {
+            Famille::Mobilier => &[
+                Escalier,
+                Lit,
+                Table,
+                Sofa,
+                Comptoir,
+                Toilette,
+                Bain,
+                Douche,
+                Laveuse,
+                Secheuse,
+                Refrigerateur,
+                Cuisiniere,
+            ],
+            Famille::Plomberie => &[
+                ChauffeEau,
+                FiltreAEau,
+                Adoucisseur,
+                Coude90,
+                Coude45,
+                Te,
+                RobinetDArret,
+                Clapet,
+                CompteurDEau,
+                DrainDePlancher,
+                ColonneDeChute,
+                Toilette,
+                Bain,
+                Douche,
+                Lavabo,
+                Evier,
+                Laveuse,
+            ],
+            Famille::Electricite => &[
+                Panneau,
+                CompteurElectrique,
+                Prise,
+                PriseDdft,
+                Prise240,
+                Interrupteur,
+                Luminaire,
+                Encastre,
+                Detecteur,
+                BoiteDeJonction,
+                Plinthe,
+                Thermostat,
+            ],
+            Famille::Ventilation => &[
+                Fournaise,
+                ThermopompeMurale,
+                ThermopompeExterieure,
+                Echangeur,
+                BoucheDeSoufflage,
+                RetourDAir,
+                Ventilateur,
+                Hotte,
+                Plinthe,
+                Thermostat,
+            ],
+            Famille::CuisineEtBain => &[
+                ArmoireDuBas,
+                ArmoireDuHaut,
+                Ilot,
+                Comptoir,
+                Evier,
+                LaveVaisselle,
+                Refrigerateur,
+                Cuisiniere,
+                Hotte,
+                Vanite,
+                Lavabo,
+                Toilette,
+                Bain,
+                Douche,
+            ],
+        }
+    }
+
+    /// Le calque de ses objets au DXF : les meubles, les armoires et les
+    /// appareils sanitaires ensemble, chaque métier à part.
+    pub fn calque(self) -> &'static str {
+        match self {
+            Famille::Mobilier | Famille::CuisineEtBain => "MOBILIER",
+            Famille::Plomberie => "PLOMBERIE",
+            Famille::Electricite => "ELECTRICITE",
+            Famille::Ventilation => "VENTILATION",
+        }
+    }
+}
+
+/// Le contour du rectangle d'un objet sur le plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Contour {
+    /// En trait plein : un meuble, un appareil.
+    Plein,
+    /// En tirets : ce qui est au-dessus de la coupe du plan (une armoire du
+    /// haut, une hotte, une thermopompe murale).
+    Tirets,
+    /// Aucun : le symbole se suffit (une prise, un coude, un chauffe-eau rond).
+    Aucun,
+}
+
+/// La hauteur du plafond sous lequel se décrivent les objets du plafond et
+/// les parties qui y montent : 8 pi (pouces).
+pub const PLAFOND_DE_REFERENCE: f64 = 96.0;
+
+/// Un cylindre debout dans le rectangle (u, v), de `bas` à `haut` : trois
+/// blocs qui en abattent les coins.
+fn cylindre(u: (f64, f64), v: (f64, f64), bas: f64, haut: f64, matiere: Matiere) -> [Volume; 3] {
+    let (du, dv) = ((u.1 - u.0) * 0.15, (v.1 - v.0) * 0.15);
+    [
+        volume((u.0 + du, u.1 - du), v, bas, haut, matiere),
+        volume((u.0, u.0 + du), (v.0 + dv, v.1 - dv), bas, haut, matiere),
+        volume((u.1 - du, u.1), (v.0 + dv, v.1 - dv), bas, haut, matiere),
+    ]
+}
+
+/// Un ovale de centre `centre` et de demi-axes `ru` et `rv` (en part de la
+/// largeur et de la profondeur), en vingt traits : il s'étire avec l'objet.
+fn ovale(centre: (f64, f64), ru: f64, rv: f64) -> Vec<Trait> {
+    let point = |k: usize| {
+        let angle = std::f64::consts::TAU * k as f64 / 20.0;
+        (centre.0 + ru * angle.cos(), centre.1 + rv * angle.sin())
+    };
+    (0..20)
+        .map(|k| Trait::Ligne(point(k), point(k + 1)))
+        .collect()
+}
+
+/// La longueur d'un tiret et l'écart entre deux, sur le plan (pouces).
+const TIRET: f64 = 3.0;
+const ECART_DES_TIRETS: f64 = 2.0;
+
+/// Un trait en tirets de `a` à `b` (sur le plan), qui commence et finit par
+/// un tiret.
+fn en_tirets(a: (f64, f64), b: (f64, f64), traits: &mut Vec<TraitSurLePlan>) {
+    let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+    let tirets = ((longueur + ECART_DES_TIRETS) / (TIRET + ECART_DES_TIRETS))
+        .round()
+        .max(1.0);
+    let tiret = (longueur - (tirets - 1.0) * ECART_DES_TIRETS) / tirets;
+    if tirets < 2.0 || tiret <= 0.0 {
+        traits.push(TraitSurLePlan::Ligne(a, b));
+        return;
+    }
+    let point = |t: f64| {
+        (
+            a.0 + (b.0 - a.0) * t / longueur,
+            a.1 + (b.1 - a.1) * t / longueur,
+        )
+    };
+    for k in 0..tirets as usize {
+        let debut = k as f64 * (tiret + ECART_DES_TIRETS);
+        traits.push(TraitSurLePlan::Ligne(point(debut), point(debut + tiret)));
     }
 }
 
@@ -251,6 +1142,8 @@ pub enum Matiere {
     Verre,
     Comptoir,
     Armoire,
+    /// Le cuivre des tuyaux, des robinets et des raccords.
+    Cuivre,
 }
 
 /// Une partie d'un meuble en 3D : un bloc, de `u` et `v` (en part de la
@@ -263,6 +1156,9 @@ pub struct Volume {
     pub bas: f64,
     pub haut: f64,
     pub matiere: Matiere,
+    /// Vrai s'il monte jusqu'au plafond de la pièce (une colonne de chute, le
+    /// plénum d'une fournaise) : `haut` est alors celui d'un plafond de 8 pi.
+    pub jusqu_au_plafond: bool,
 }
 
 const fn volume(u: (f64, f64), v: (f64, f64), bas: f64, haut: f64, matiere: Matiere) -> Volume {
@@ -272,6 +1168,19 @@ const fn volume(u: (f64, f64), v: (f64, f64), bas: f64, haut: f64, matiere: Mati
         bas,
         haut,
         matiere,
+        jusqu_au_plafond: false,
+    }
+}
+
+/// Une partie qui monte de `bas` jusqu'au plafond.
+const fn jusqu_au_plafond(u: (f64, f64), v: (f64, f64), bas: f64, matiere: Matiere) -> Volume {
+    Volume {
+        u,
+        v,
+        bas,
+        haut: PLAFOND_DE_REFERENCE,
+        matiere,
+        jusqu_au_plafond: true,
     }
 }
 
@@ -301,6 +1210,8 @@ fn chaise(u: (f64, f64), v: (f64, f64), dossier: (f64, f64)) -> [Volume; 2] {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Trait {
     Ligne((f64, f64), (f64, f64)),
+    /// Une ligne en tirets : ce qui est au-dessus de la coupe du plan.
+    Tirets((f64, f64), (f64, f64)),
     Rectangle((f64, f64), (f64, f64)),
     /// Un cercle : son centre, et son rayon en part du plus petit côté.
     Cercle((f64, f64), f64),
@@ -428,15 +1339,22 @@ impl Objet {
     ) -> Vec<TraitSurLePlan> {
         let coins = self.coins(dimensions);
         let escalier = self.genre == GenreDObjet::Escalier;
-        // Un colimaçon n'a pas de contour carré : son cercle en tient lieu.
-        let mut traits: Vec<TraitSurLePlan> = if escalier && self.forme == FormeDEscalier::Colimacon
-        {
-            Vec::new()
+        // Un colimaçon n'a pas de contour carré : son cercle en tient lieu; un
+        // symbole se suffit; ce qui est au-dessus de la coupe est en tirets.
+        let contour = if escalier && self.forme == FormeDEscalier::Colimacon {
+            Contour::Aucun
         } else {
-            (0..4)
-                .map(|k| TraitSurLePlan::Ligne(coins[k], coins[(k + 1) % 4]))
-                .collect()
+            self.genre.contour()
         };
+        let mut traits: Vec<TraitSurLePlan> = Vec::new();
+        for k in 0..4 {
+            let (a, b) = (coins[k], coins[(k + 1) % 4]);
+            match contour {
+                Contour::Plein => traits.push(TraitSurLePlan::Ligne(a, b)),
+                Contour::Tirets => en_tirets(a, b, &mut traits),
+                Contour::Aucun => {}
+            }
+        }
         let plus_petit = dimensions.0.min(dimensions.1);
         let symbole = if escalier {
             let marches =
@@ -451,6 +1369,11 @@ impl Objet {
                     self.vers_le_plan(a, dimensions),
                     self.vers_le_plan(b, dimensions),
                 )),
+                Trait::Tirets(a, b) => en_tirets(
+                    self.vers_le_plan(a, dimensions),
+                    self.vers_le_plan(b, dimensions),
+                    &mut traits,
+                ),
                 Trait::Rectangle((u0, v0), (u1, v1)) => {
                     let r = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
                         .map(|c| self.vers_le_plan(c, dimensions));
@@ -1035,6 +1958,102 @@ pub fn position_libre_proche(
     None
 }
 
+/// Une face de mur ou de cloison : de `a` vers `b`, son côté libre à sa droite.
+pub type Face = ((f64, f64), (f64, f64));
+
+/// Les faces des murs et des cloisons contre lesquelles un objet s'appuie :
+/// chacune de `a` vers `b`, son côté libre à sa droite à l'écran (la normale
+/// (−y, x), y vers le bas). Le côté libre d'une pièce est son dedans; celui
+/// d'un morceau de cloison, son dehors.
+pub fn faces_d_appui(piece: Option<&[(f64, f64)]>, cloisons: &[[(f64, f64); 4]]) -> Vec<Face> {
+    let mut faces = Vec::new();
+    let mut ajouter = |sommets: &[(f64, f64)], dedans_libre: bool| {
+        let aire = aire_signee(sommets);
+        if aire.abs() < 1e-9 {
+            return;
+        }
+        // Une aire positive (le sens des aiguilles d'une montre à l'écran)
+        // met le dedans à droite de chaque côté.
+        let dans_l_ordre = (aire > 0.0) == dedans_libre;
+        for k in 0..sommets.len() {
+            let (a, b) = (sommets[k], sommets[(k + 1) % sommets.len()]);
+            faces.push(if dans_l_ordre { (a, b) } else { (b, a) });
+        }
+    };
+    if let Some(piece) = piece {
+        ajouter(piece, true);
+    }
+    for morceau in cloisons {
+        ajouter(morceau, false);
+    }
+    faces
+}
+
+/// L'aire signée d'un polygone (la formule du lacet) : positive quand il
+/// tourne dans le sens des aiguilles d'une montre à l'écran (y vers le bas).
+fn aire_signee(sommets: &[(f64, f64)]) -> f64 {
+    let n = sommets.len();
+    (0..n)
+        .map(|k| {
+            let (a, b) = (sommets[k], sommets[(k + 1) % n]);
+            a.0 * b.1 - b.0 * a.1
+        })
+        .sum::<f64>()
+        / 2.0
+}
+
+/// Pose `objet` contre la face la plus proche de son centre, à `portee`
+/// pouces au plus (`faces_d_appui`) : il pivote pour lui tourner le dos
+/// (v = 0) et s'y appuie, le long de la face au pas `pas`, sans en dépasser
+/// les bouts s'il y tient. Retourne vrai s'il s'est posé contre un mur.
+pub fn contre_le_mur(
+    objet: &mut Objet,
+    dimensions: (f64, f64),
+    faces: &[Face],
+    portee: f64,
+    pas: f64,
+) -> bool {
+    let p = objet.centre;
+    let mut plus_proche: Option<(f64, usize)> = None;
+    for (rang, &(a, b)) in faces.iter().enumerate() {
+        let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+        if longueur < 1e-9 {
+            continue;
+        }
+        let d = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+        let t = ((p.0 - a.0) * d.0 + (p.1 - a.1) * d.1).clamp(0.0, longueur);
+        let distance = (p.0 - a.0 - d.0 * t).hypot(p.1 - a.1 - d.1 * t);
+        if distance <= portee && plus_proche.is_none_or(|(meilleure, _)| distance < meilleure) {
+            plus_proche = Some((distance, rang));
+        }
+    }
+    let Some((_, rang)) = plus_proche else {
+        return false;
+    };
+    let (a, b) = faces[rang];
+    let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+    let d = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+    let libre = (-d.1, d.0);
+    let (largeur, profondeur) = dimensions;
+    let t = (p.0 - a.0) * d.0 + (p.1 - a.1) * d.1;
+    let t = if longueur >= largeur {
+        ((t / pas).round() * pas).clamp(largeur / 2.0, longueur - largeur / 2.0)
+    } else {
+        longueur / 2.0
+    };
+    // Son dos (0, −1), tourné de θ, regarde (sin θ, −cos θ) : vers le mur, à
+    // l'opposé du côté libre.
+    let angle = (-libre.0).atan2(libre.1).to_degrees();
+    let angle = ((angle * 1e6).round() / 1e6).rem_euclid(360.0);
+    objet.rotation = 0;
+    objet.angle = if angle.abs() < 1e-9 { 0.0 } else { angle };
+    objet.centre = (
+        a.0 + d.0 * t + libre.0 * profondeur / 2.0,
+        a.1 + d.1 * t + libre.1 * profondeur / 2.0,
+    );
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1322,5 +2341,98 @@ mod tests {
         let mut colimacon = droit.clone();
         colimacon.forme = FormeDEscalier::Colimacon;
         assert_eq!(colimacon.marches_en_3d((60.0, 60.0), &calcul).len(), 12 + 1);
+    }
+
+    #[test]
+    fn les_familles_d_objets() {
+        // Chaque genre est d'une famille, et paraît dans sa rangée.
+        let mut vus = std::collections::HashSet::new();
+        for genre in GenreDObjet::TOUS {
+            assert!(vus.insert(genre), "{genre:?} en double");
+            assert!(genre.famille().genres().contains(&genre), "{genre:?}");
+        }
+        for famille in Famille::TOUTES {
+            let genres = famille.genres();
+            for (i, genre) in genres.iter().enumerate() {
+                assert!(!genres[i + 1..].contains(genre), "{famille:?} : {genre:?}");
+            }
+        }
+        // Les meubles d'avant restent au calque MOBILIER.
+        assert_eq!(GenreDObjet::Toilette.famille().calque(), "MOBILIER");
+        assert_eq!(GenreDObjet::Prise.famille().calque(), "ELECTRICITE");
+        assert_eq!(GenreDObjet::Coude90.famille().calque(), "PLOMBERIE");
+        assert_eq!(GenreDObjet::Fournaise.famille().calque(), "VENTILATION");
+        // Un symbole ne fait obstacle à rien; une armoire du bas, oui.
+        assert!(!GenreDObjet::Prise.encombre() && GenreDObjet::ArmoireDuBas.encombre());
+        // Le nom d'un meuble s'écrit sur le plan; un coude se suffit.
+        assert!(GenreDObjet::Lit.nomme_sur_le_plan() && !GenreDObjet::Coude90.nomme_sur_le_plan());
+    }
+
+    #[test]
+    fn les_symboles_des_metiers_sur_le_plan() {
+        // Une prise : son symbole seul, sans contour.
+        let prise = Objet::nouveau(GenreDObjet::Prise, (0.0, 0.0));
+        assert_eq!(prise.traits_sur_le_plan((12.0, 12.0), None).len(), 3);
+        // Un lavabo : son contour, sa vasque en vingt traits, son drain et
+        // son robinet.
+        let lavabo = Objet::nouveau(GenreDObjet::Lavabo, (0.0, 0.0));
+        assert_eq!(
+            lavabo.traits_sur_le_plan((20.0, 18.0), None).len(),
+            4 + 20 + 1 + 1
+        );
+        // Une armoire du haut, au-dessus de la coupe : tout en tirets courts.
+        let armoire = Objet::nouveau(GenreDObjet::ArmoireDuHaut, (0.0, 0.0));
+        let traits = armoire.traits_sur_le_plan((30.0, 12.0), None);
+        assert!(traits.len() > 8);
+        for t in &traits {
+            let TraitSurLePlan::Ligne(a, b) = *t else {
+                panic!("un cercle dans une armoire");
+            };
+            assert!((b.0 - a.0).hypot(b.1 - a.1) <= TIRET + 1.0);
+        }
+        // Un côté de 30 po : six tirets de 3 1/3 po et cinq écarts de 2 po.
+        let mut cote = Vec::new();
+        en_tirets((0.0, 0.0), (30.0, 0.0), &mut cote);
+        assert_eq!(cote.len(), 6);
+        let TraitSurLePlan::Ligne(debut, fin) = cote[5] else {
+            panic!("un cercle");
+        };
+        assert!((debut.0 - 80.0 / 3.0).abs() < 1e-9 && (fin.0 - 30.0).abs() < 1e-9);
+    }
+
+    /// Une pièce de 12 pi sur 10 pi (en pouces, y vers le bas).
+    const SALLE: [(f64, f64); 4] = [(0.0, 0.0), (144.0, 0.0), (144.0, 120.0), (0.0, 120.0)];
+
+    #[test]
+    fn une_prise_se_pose_contre_le_mur_le_plus_proche() {
+        let faces = faces_d_appui(Some(&SALLE), &[]);
+        let poser = |centre: (f64, f64)| {
+            let mut prise = Objet::nouveau(GenreDObjet::Prise, centre);
+            let pose = contre_le_mur(&mut prise, (12.0, 12.0), &faces, 24.0, 1.0);
+            (pose, prise.angle_total(), prise.centre)
+        };
+        // Chaque mur : le dos de la prise contre lui, son centre à 6 po.
+        assert_eq!(poser((50.2, 10.0)), (true, 0.0, (50.0, 6.0)));
+        assert_eq!(poser((140.0, 60.0)), (true, 90.0, (138.0, 60.0)));
+        assert_eq!(poser((60.0, 118.0)), (true, 180.0, (60.0, 114.0)));
+        assert_eq!(poser((3.0, 50.0)), (true, 270.0, (6.0, 50.0)));
+        // Trop loin de tout mur : rien ne change.
+        assert_eq!(poser((72.0, 60.0)), (false, 0.0, (72.0, 60.0)));
+        // Près d'un coin, une armoire reste le long de son mur.
+        let mut armoire = Objet::nouveau(GenreDObjet::ArmoireDuBas, (2.0, 3.0));
+        assert!(contre_le_mur(&mut armoire, (30.0, 24.0), &faces, 36.0, 1.0));
+        assert_eq!(
+            (armoire.angle_total(), armoire.centre),
+            (270.0, (12.0, 15.0))
+        );
+        // Contre une cloison de 5 po : la face du côté où l'on touche.
+        let cloison = [(57.5, 0.0), (62.5, 0.0), (62.5, 60.0), (57.5, 60.0)];
+        let faces = faces_d_appui(Some(&SALLE), &[cloison]);
+        let mut prise = Objet::nouveau(GenreDObjet::Prise, (65.0, 30.0));
+        assert!(contre_le_mur(&mut prise, (12.0, 12.0), &faces, 24.0, 1.0));
+        assert_eq!((prise.angle_total(), prise.centre), (270.0, (68.5, 30.0)));
+        let mut prise = Objet::nouveau(GenreDObjet::Prise, (55.0, 30.0));
+        assert!(contre_le_mur(&mut prise, (12.0, 12.0), &faces, 24.0, 1.0));
+        assert_eq!((prise.angle_total(), prise.centre), (90.0, (51.5, 30.0)));
     }
 }

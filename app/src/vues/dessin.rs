@@ -12,7 +12,9 @@ use noyau::dessin::{
 };
 use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, EchelleDuPlan, MorceauDeMur};
 use noyau::metiers::Quantite;
-use noyau::mobilier::{self, Encombrement, FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan};
+use noyau::mobilier::{
+    self, Contour, Encombrement, Famille, FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan,
+};
 use noyau::plafond::{FormeDePlafond, Retombee};
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
@@ -139,6 +141,9 @@ pub struct Etat {
     ouvertures_a_l_ecran: Vec<(usize, Pos2, Pos2)>,
     /// L'objet qui attend qu'on touche la pièce pour s'y poser.
     objet_a_placer: Option<GenreDObjet>,
+    /// La famille d'objets dont la section montre les boutons (point 40) :
+    /// le choix dure le temps de la séance, comme le pliage des sections.
+    famille: Famille,
     /// L'objet choisi : il paraît en couleur.
     objet_choisi: Option<usize>,
     /// L'objet que le doigt déplace : son rang, et l'écart (pouces) entre le
@@ -711,20 +716,31 @@ fn pas_des_objets(solution: &Solution) -> f64 {
     if metrique { 1.0 / 2.54 } else { 1.0 }
 }
 
-/// Ce qui encombre la pièce pour l'objet de rang `sauf` : les autres objets,
-/// les morceaux des cloisons et les murs (R-98).
+/// Ce qui encombre la pièce pour l'objet de rang `sauf` : les autres objets
+/// qui occupent le plancher, les morceaux des cloisons et les murs (R-98).
+/// Rien n'encombre un symbole, qui se pose n'importe où (point 40).
 fn encombrement<'a>(
     dessin: &Dessin,
     solution: &Solution,
     sauf: usize,
     contour: Option<&'a [(f64, f64)]>,
 ) -> Encombrement<'a> {
+    if dessin
+        .objets
+        .get(sauf)
+        .is_some_and(|objet| !objet.genre.encombre())
+    {
+        return Encombrement {
+            obstacles: Vec::new(),
+            piece: None,
+        };
+    }
     let mut obstacles: Vec<[(f64, f64); 4]> = dessin
         .objets
         .iter()
         .zip(&solution.objets)
         .enumerate()
-        .filter(|(rang, _)| *rang != sauf)
+        .filter(|(rang, (objet, _))| *rang != sauf && objet.genre.encombre())
         .map(|(_, (objet, dimensions))| objet.coins(*dimensions))
         .collect();
     obstacles.extend(
@@ -739,6 +755,67 @@ fn encombrement<'a>(
         obstacles,
         piece: contour,
     }
+}
+
+/// Où s'attache le sigle d'un objet (sur le plan), et, s'il va à côté de son
+/// symbole, la direction de son devant (un vecteur unitaire, y vers le bas)
+/// (point 40).
+pub(crate) fn attache_du_sigle(
+    objet: &Objet,
+    dimensions: (f64, f64),
+) -> ((f64, f64), Option<(f64, f64)>) {
+    let attache = objet.vers_le_plan(objet.genre.place_du_sigle(), dimensions);
+    if !objet.genre.sigle_a_cote() {
+        return (attache, None);
+    }
+    let (dos, devant) = (
+        objet.vers_le_plan((0.5, 0.0), dimensions),
+        objet.vers_le_plan((0.5, 1.0), dimensions),
+    );
+    let (dx, dy) = (devant.0 - dos.0, devant.1 - dos.1);
+    let norme = dx.hypot(dy).max(1e-9);
+    (attache, Some((dx / norme, dy / norme)))
+}
+
+/// Le centre d'un texte de taille `taille` (largeur, hauteur) écrit à côté
+/// de `attache`, dans la direction `devant` (un vecteur unitaire) : poussé de
+/// la moitié de son étendue dans cette direction, et de `ecart`, il ne
+/// chevauche pas le symbole (point 40).
+pub(crate) fn texte_a_cote(
+    attache: (f64, f64),
+    devant: (f64, f64),
+    (largeur, hauteur): (f64, f64),
+    ecart: f64,
+) -> (f64, f64) {
+    let etendue = devant.0.abs() * largeur / 2.0 + devant.1.abs() * hauteur / 2.0;
+    (
+        attache.0 + devant.0 * (etendue + ecart),
+        attache.1 + devant.1 * (etendue + ecart),
+    )
+}
+
+/// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
+/// son centre, s'il en est un assez près (point 40). Retourne vrai s'il s'y
+/// est posé.
+fn appuyer_au_mur(
+    dessin: &mut Dessin,
+    solution: &Solution,
+    rang: usize,
+    dimensions: (f64, f64),
+) -> bool {
+    let contour = dessin.contour_interieur(solution);
+    let cloisons: Vec<[(f64, f64); 4]> = solution
+        .cloisons
+        .iter()
+        .flatten()
+        .flat_map(|cloison| cloison.morceaux())
+        .map(|morceau| morceau.coins)
+        .collect();
+    let faces = mobilier::faces_d_appui(contour.as_deref(), &cloisons);
+    // Assez près : à sa profondeur, et 1 pi de plus, du mur.
+    let portee = dimensions.1.max(12.0) + 12.0;
+    let pas = pas_des_objets(solution);
+    mobilier::contre_le_mur(&mut dessin.objets[rang], dimensions, &faces, portee, pas)
 }
 
 /// Met l'objet de rang `rang` à la place libre la plus proche (à 10 pi au plus);
@@ -1779,24 +1856,39 @@ fn planche_et_gestes(
                 ((point.0 - ecart.0) / pas).round() * pas,
                 ((point.1 - ecart.1) / pas).round() * pas,
             );
-            // Il s'arrête contre ce qui l'encombre et glisse le long (R-98).
-            let centre = match solution.objets.get(rang) {
-                Some(&dimensions) if dessin.objets[rang].centre != voulu => {
-                    let contour = dessin.contour_interieur(solution);
-                    let encombre = encombrement(dessin, solution, rang, contour.as_deref());
-                    mobilier::deplacer_sans_chevaucher(
-                        &dessin.objets[rang],
-                        dimensions,
-                        voulu,
-                        &encombre,
-                        pas,
-                    )
+            let genre = dessin.objets[rang].genre;
+            if !genre.encombre()
+                && genre.contre_un_mur()
+                && let Some(&dimensions) = solution.objets.get(rang)
+            {
+                // Un symbole du mur glisse le long des murs et des cloisons,
+                // et s'en détache plus loin (point 40).
+                let avant = dessin.objets[rang].clone();
+                dessin.objets[rang].centre = voulu;
+                appuyer_au_mur(dessin, solution, rang, dimensions);
+                if dessin.objets[rang] != avant {
+                    modifie = true;
                 }
-                _ => voulu,
-            };
-            if dessin.objets[rang].centre != centre {
-                dessin.objets[rang].centre = centre;
-                modifie = true;
+            } else {
+                // Il s'arrête contre ce qui l'encombre et glisse le long (R-98).
+                let centre = match solution.objets.get(rang) {
+                    Some(&dimensions) if dessin.objets[rang].centre != voulu => {
+                        let contour = dessin.contour_interieur(solution);
+                        let encombre = encombrement(dessin, solution, rang, contour.as_deref());
+                        mobilier::deplacer_sans_chevaucher(
+                            &dessin.objets[rang],
+                            dimensions,
+                            voulu,
+                            &encombre,
+                            pas,
+                        )
+                    }
+                    _ => voulu,
+                };
+                if dessin.objets[rang].centre != centre {
+                    dessin.objets[rang].centre = centre;
+                    modifie = true;
+                }
             }
         }
         if !reponse.dragged() {
@@ -2079,6 +2171,10 @@ fn planche_et_gestes(
             .push(Objet::nouveau(genre, (x.round(), y.round())));
         let rang = dessin.objets.len() - 1;
         let dimensions = dessin.objets[rang].dimensions_de_depart();
+        // Un objet du mur s'appuie au mur le plus proche du doigt (point 40).
+        if genre.contre_un_mur() {
+            appuyer_au_mur(dessin, solution, rang, dimensions);
+        }
         placer_au_mieux(dessin, solution, rang, dimensions);
         etat.objet_a_placer = None;
         etat.objet_choisi = Some(rang);
@@ -2204,11 +2300,15 @@ fn planche_et_gestes(
                 .iter()
                 .map(|coin| echelle.vers_l_ecran(*coin))
                 .collect();
-            painter.add(egui::Shape::convex_polygon(
-                coins.clone(),
-                theme::melanger(p.carte, p.texte, 0.06),
-                Stroke::NONE,
-            ));
+            // Un symbole sans contour, ou au-dessus de la coupe, n'a pas de
+            // fond, sauf choisi (point 40).
+            if objet.genre.contour() == Contour::Plein || choisi {
+                painter.add(egui::Shape::convex_polygon(
+                    coins.clone(),
+                    theme::melanger(p.carte, p.texte, 0.06),
+                    Stroke::NONE,
+                ));
+            }
             let contremarches = solution
                 .escaliers
                 .get(rang)
@@ -2232,15 +2332,43 @@ fn planche_et_gestes(
                     }
                 }
             }
+            // Son sigle (DDFT, 240 V…), à la taille du symbole; ou son nom,
+            // s'il y a la place (point 40).
             let plus_petit = coins[0].distance(coins[1]).min(coins[1].distance(coins[2]));
-            if plus_petit > 34.0 {
-                painter.text(
-                    echelle.vers_l_ecran(objet.centre),
-                    Align2::CENTER_CENTER,
-                    textes::objet(objet.genre).traduit(),
-                    theme::police(10.5),
-                    encre,
-                );
+            match textes::texte_d_objet_sur_le_plan(objet.genre) {
+                Some((sigle, true)) if plus_petit >= 9.0 => {
+                    let ecrit = painter.layout_no_wrap(
+                        sigle.traduit().to_string(),
+                        theme::police((plus_petit * 0.42).clamp(7.0, 10.5)),
+                        encre,
+                    );
+                    let (attache, devant) = attache_du_sigle(objet, dimensions);
+                    let attache = echelle.vers_l_ecran(attache);
+                    let place = match devant {
+                        Some(devant) => {
+                            let taille = (f64::from(ecrit.size().x), f64::from(ecrit.size().y));
+                            let (x, y) = texte_a_cote(
+                                (f64::from(attache.x), f64::from(attache.y)),
+                                devant,
+                                taille,
+                                2.0,
+                            );
+                            Pos2::new(x as f32, y as f32)
+                        }
+                        None => attache,
+                    };
+                    painter.galley(place - ecrit.size() / 2.0, ecrit, encre);
+                }
+                Some((nom, false)) if plus_petit > 34.0 => {
+                    painter.text(
+                        echelle.vers_l_ecran(objet.centre),
+                        Align2::CENTER_CENTER,
+                        nom.traduit(),
+                        theme::police(10.5),
+                        encre,
+                    );
+                }
+                _ => {}
             }
         }
     }
@@ -4455,14 +4583,20 @@ fn objets(
         // La copie se pose à côté, à la place libre la plus proche.
         etat.memoriser(dessin);
         let mut copie = dessin.objets[rang].clone();
-        copie.centre = (copie.centre.0 + 12.0, copie.centre.1 + 12.0);
-        dessin.objets.push(copie);
-        let nouveau = dessin.objets.len() - 1;
         let dimensions = solution
             .objets
             .get(rang)
             .copied()
-            .unwrap_or_else(|| dessin.objets[nouveau].dimensions_de_depart());
+            .unwrap_or_else(|| copie.dimensions_de_depart());
+        // Un objet du mur se copie tout contre lui, le long du mur (une
+        // rangée d'armoires); un autre, en biais (point 40).
+        copie.centre = if copie.genre.contre_un_mur() {
+            copie.vers_le_plan((1.5, 0.5), dimensions)
+        } else {
+            (copie.centre.0 + 12.0, copie.centre.1 + 12.0)
+        };
+        dessin.objets.push(copie);
+        let nouveau = dessin.objets.len() - 1;
         placer_au_mieux(dessin, solution, nouveau, dimensions);
         etat.objet_choisi = Some(nouveau);
         modifie = true;
@@ -4501,9 +4635,25 @@ fn objets(
         etat.choisir_autre(None);
         modifie = true;
     }
-    // Un bouton par genre : on touche ensuite la pièce pour y poser l'objet.
+    // La rangée des familles, comme la barre des métiers de la calculatrice,
+    // puis un bouton par objet de la famille choisie : on touche ensuite la
+    // pièce pour l'y poser (point 40).
     ui.horizontal_wrapped(|ui| {
-        for genre in GenreDObjet::TOUS {
+        for famille in Famille::TOUTES {
+            let genre = if etat.famille == famille {
+                super::Pastille::Active
+            } else {
+                super::Pastille::Ordinaire
+            };
+            let nom = textes::famille_d_objets(famille).traduit();
+            if super::pastille(ui, p, nom, genre).clicked() {
+                etat.famille = famille;
+            }
+        }
+    });
+    ui.add_space(4.0);
+    ui.horizontal_wrapped(|ui| {
+        for &genre in etat.famille.genres() {
             let en_attente = etat.objet_a_placer == Some(genre);
             let bouton = egui::Button::new(format!("+ {}", textes::objet(genre).traduit()))
                 .selected(en_attente);
@@ -4826,7 +4976,8 @@ fn notes(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool
 
 /// Les résultats d'une pièce complète : surface, périmètre, diagonale d'un
 /// rectangle, surface nette, puis les murs. `detail` ajoute une ligne par
-/// retrait et la hauteur des murs (pour l'export).
+/// retrait et la hauteur des murs (pour l'export); sans lui, le compte des
+/// symboles des métiers suit (à l'écran et au ruban).
 pub(crate) fn resultats_de_la_piece(
     dessin: &Dessin,
     solution: &Solution,
@@ -5005,7 +5156,36 @@ pub(crate) fn resultats_de_la_piece(
             ));
         }
     }
+    // À l'écran (et au ruban), le compte des appareils et des symboles des
+    // métiers : combien de prises, de coudes, d'armoires. Le PDF les met dans
+    // sa légende (point 40).
+    if !detail {
+        for (genre, nombre) in comptes_des_symboles(dessin) {
+            lignes.push((
+                textes::objet(genre).traduit().to_string(),
+                nombre.to_string(),
+            ));
+        }
+    }
     lignes
+}
+
+/// Combien la pièce compte de chaque appareil et de chaque symbole des
+/// métiers (tout sauf le mobilier), dans l'ordre des genres (point 40).
+pub(crate) fn comptes_des_symboles(dessin: &Dessin) -> Vec<(GenreDObjet, usize)> {
+    GenreDObjet::TOUS
+        .into_iter()
+        .filter(|genre| genre.famille() != Famille::Mobilier)
+        .map(|genre| {
+            let nombre = dessin
+                .objets
+                .iter()
+                .filter(|objet| objet.genre == genre)
+                .count();
+            (genre, nombre)
+        })
+        .filter(|&(_, nombre)| nombre > 0)
+        .collect()
 }
 
 /// Où en est la forme : ce qu'il reste à faire, ou la surface et le périmètre.
