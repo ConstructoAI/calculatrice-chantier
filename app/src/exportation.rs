@@ -49,6 +49,9 @@ struct PieceExportee {
     /// L'épaisseur des murs extérieurs (pouces) : positive s'ils vont vers
     /// l'extérieur des mesures, négative vers l'intérieur, zéro sans murs.
     epaisseur_des_murs: f64,
+    /// Les lignes de cote, si elles se montrent (section 25.1, point 35) :
+    /// chaque chaîne et le texte de chacun de ses morceaux.
+    chaines: Vec<(noyau::dessin::ChaineDeCotes, Vec<String>)>,
 }
 
 /// La normale extérieure d'un côté `ab` : perpendiculaire, unitaire, et
@@ -218,7 +221,156 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         murs_exterieurs,
         contour_exterieur,
         epaisseur_des_murs,
+        chaines: if dessin.lignes_de_cote {
+            dessin
+                .chaines_de_cotes(&solution)
+                .into_iter()
+                .map(|chaine| {
+                    let textes = chaine
+                        .points
+                        .windows(2)
+                        .map(|paire| {
+                            sans_insecables(&longueur_en_clair(
+                                paire[1] - paire[0],
+                                &solution,
+                                prefs,
+                            ))
+                        })
+                        .collect();
+                    (chaine, textes)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
     }
+}
+
+/// Où écrire le texte d'une cote ou d'une mesure, à `ecart` du point `milieu`
+/// dans la direction `(nx, ny)` (y vers le haut) : au-dessus ou au-dessous
+/// d'un trait horizontal, à côté d'un trait vertical, en coin d'un trait de
+/// biais. `hauteur` est la hauteur du texte.
+fn place_du_texte(
+    milieu: (f64, f64),
+    (nx, ny): (f64, f64),
+    ecart: f64,
+    hauteur: f64,
+) -> ((f64, f64), Alignement) {
+    let alignement_de_cote = if nx > 0.0 {
+        Alignement::Gauche
+    } else {
+        Alignement::Droite
+    };
+    if ny.abs() > 0.9 {
+        let y = if ny > 0.0 {
+            milieu.1 + ecart
+        } else {
+            milieu.1 - ecart - hauteur
+        };
+        ((milieu.0, y), Alignement::Centre)
+    } else if nx.abs() > 0.9 {
+        (
+            (milieu.0 + nx.signum() * ecart, milieu.1 - hauteur / 3.0),
+            alignement_de_cote,
+        )
+    } else {
+        let y = if ny > 0.0 {
+            milieu.1 + ecart
+        } else {
+            milieu.1 - ecart - hauteur
+        };
+        ((milieu.0 + nx.signum() * ecart, y), alignement_de_cote)
+    }
+}
+
+/// Un morceau d'une chaîne de cotes posée : son milieu, sa longueur dans le
+/// repère de sortie, et la direction où écrire son texte.
+type MorceauDeCote = ((f64, f64), f64, (f64, f64));
+
+/// Une chaîne de cotes posée sur une page ou dans un DXF (y vers le haut) :
+/// sa ligne, ses traits à 45°, ses lignes d'attache et la place du texte de
+/// chaque morceau (`poser_une_chaine`).
+struct CoteAPoser {
+    ligne: [(f64, f64); 2],
+    traits: Vec<[(f64, f64); 2]>,
+    attaches: Vec<[(f64, f64); 2]>,
+    morceaux: Vec<MorceauDeCote>,
+}
+
+/// Pose une chaîne de cotes : `vers` passe du plan au repère de sortie;
+/// `decalage` écarte la ligne de ce qu'elle mesure, `attache` est l'écart des
+/// lignes d'attache au mur, `trait_` la longueur d'un trait de cote.
+fn poser_une_chaine(
+    chaine: &noyau::dessin::ChaineDeCotes,
+    vers: &dyn Fn((f64, f64)) -> (f64, f64),
+    decalage: f64,
+    attache: f64,
+    trait_: f64,
+    centre: (f64, f64),
+) -> Option<CoteAPoser> {
+    let longueur = (chaine.fin.0 - chaine.debut.0).hypot(chaine.fin.1 - chaine.debut.1);
+    let (a0, b0) = (vers(chaine.debut), vers(chaine.fin));
+    let longueur_de_sortie = (b0.0 - a0.0).hypot(b0.1 - a0.1);
+    if longueur <= 1e-9 || longueur_de_sortie <= 1e-9 {
+        return None;
+    }
+    // Le repère de sortie a l'axe des y vers le haut.
+    let dehors = (chaine.dehors.0, -chaine.dehors.1);
+    let ecart = if dehors == (0.0, 0.0) { 0.0 } else { decalage };
+    let le_long = (
+        (b0.0 - a0.0) / longueur_de_sortie,
+        (b0.1 - a0.1) / longueur_de_sortie,
+    );
+    let decale = |q: (f64, f64), d: f64| (q.0 + dehors.0 * d, q.1 + dehors.1 * d);
+    let (a, b) = (decale(a0, ecart), decale(b0, ecart));
+    let au = |t: f64| {
+        let part = t / longueur;
+        (a.0 + (b.0 - a.0) * part, a.1 + (b.1 - a.1) * part)
+    };
+    let racine = std::f64::consts::FRAC_1_SQRT_2 * trait_;
+    let oblique = (
+        (le_long.0 - le_long.1) * racine,
+        (le_long.1 + le_long.0) * racine,
+    );
+    let mut traits = Vec::new();
+    let mut attaches = Vec::new();
+    for &t in &chaine.points {
+        let q = au(t);
+        traits.push([
+            (q.0 - oblique.0, q.1 - oblique.1),
+            (q.0 + oblique.0, q.1 + oblique.1),
+        ]);
+        if ecart > 0.0 {
+            let part = t / longueur;
+            let sur_le_mur = (a0.0 + (b0.0 - a0.0) * part, a0.1 + (b0.1 - a0.1) * part);
+            attaches.push([decale(sur_le_mur, attache), decale(q, trait_ * 0.6)]);
+        }
+    }
+    // La direction du texte : vers l'extérieur, ou, pour l'écart entre deux
+    // cloisons, à l'opposé du centre de la pièce.
+    let texte_vers = if ecart > 0.0 {
+        dehors
+    } else {
+        normale_exterieure(a, b, centre)
+    };
+    let morceaux = chaine
+        .points
+        .windows(2)
+        .map(|paire| {
+            let (q0, q1) = (au(paire[0]), au(paire[1]));
+            (
+                ((q0.0 + q1.0) / 2.0, (q0.1 + q1.1) / 2.0),
+                (q1.0 - q0.0).hypot(q1.1 - q0.1),
+                texte_vers,
+            )
+        })
+        .collect();
+    Some(CoteAPoser {
+        ligne: [a, b],
+        traits,
+        attaches,
+        morceaux,
+    })
 }
 
 // ---------------------------------------------------------------------- PDF
@@ -777,6 +929,44 @@ fn page_de_piece(piece: &PieceExportee, entete: &str, numero: usize, total: usiz
         };
         let couleur = if *deduite { GRIS } else { NOIR };
         page.texte(position, 9.0, false, alignement, couleur, texte);
+    }
+    // Les lignes de cote (point 35), au-delà des mesures.
+    let mur = epaisseur_des_murs.max(0.0);
+    for (chaine, textes_des_cotes) in &piece.chaines {
+        // Au-delà de la mesure du mur, qui s'écrit à côté d'un mur vertical.
+        let largeur_de_la_mesure = chaine
+            .mur
+            .and_then(|k| piece.cotes.get(k))
+            .map_or(0.0, |(texte, _)| {
+                largeur_du_texte(texte, false) * 9.0 / 1000.0
+            });
+        let horizontal = chaine.dehors.1.abs() > 0.9;
+        let decalage = if horizontal {
+            mur + 24.0
+        } else {
+            (mur + 24.0).max(mur + 6.0 + largeur_de_la_mesure + 8.0)
+        };
+        let Some(cote) = poser_une_chaine(chaine, &vers_la_page, decalage, mur + 2.0, 3.0, centre)
+        else {
+            continue;
+        };
+        page.trait_(&cote.ligne, 0.5, GRIS);
+        for attache in &cote.attaches {
+            page.trait_(attache, 0.3, GRIS);
+        }
+        for trait_ in &cote.traits {
+            page.trait_(trait_, 0.8, NOIR);
+        }
+        for (&(milieu, longueur, vers), texte) in cote.morceaux.iter().zip(textes_des_cotes) {
+            // Un morceau trop court garde ses traits, sans texte.
+            let largeur = largeur_du_texte(texte, false) * 7.0 / 1000.0;
+            let horizontal = vers.1.abs() > 0.9;
+            if (horizontal && largeur + 3.0 > longueur) || (!horizontal && 9.0 > longueur) {
+                continue;
+            }
+            let (position, alignement) = place_du_texte(milieu, vers, 2.5, 7.0);
+            page.texte(position, 7.0, false, alignement, NOIR, texte);
+        }
     }
     if !piece.a_l_echelle {
         page.texte(
@@ -1669,6 +1859,54 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             };
             texte_dans_le_dxf(&mut entites, "COTES", position, taille, alignement, texte);
         }
+        // Les lignes de cote (point 35), sur le calque COTES aussi.
+        let mur = piece.epaisseur_des_murs.max(0.0) * facteur;
+        for (chaine, textes_des_cotes) in &piece.chaines {
+            // Au-delà de la mesure du mur, qui s'écrit à côté d'un mur vertical.
+            let largeur_de_la_mesure = chaine
+                .mur
+                .and_then(|k| piece.cotes.get(k))
+                .map_or(0.0, |(texte, _)| {
+                    largeur_du_texte(texte, false) * taille / 1000.0
+                });
+            let decalage = if chaine.dehors.1.abs() > 0.9 {
+                mur + taille * 3.0
+            } else {
+                (mur + taille * 3.0).max(mur + taille * 1.3 + largeur_de_la_mesure)
+            };
+            let Some(cote) = poser_une_chaine(
+                chaine,
+                &vers_le_dxf,
+                decalage,
+                mur + taille * 0.3,
+                taille * 0.35,
+                centre,
+            ) else {
+                continue;
+            };
+            ligne_dxf(&mut entites, "COTES", cote.ligne[0], cote.ligne[1]);
+            for [a, b] in cote.attaches.iter().chain(&cote.traits) {
+                ligne_dxf(&mut entites, "COTES", *a, *b);
+            }
+            let hauteur = taille * 0.7;
+            for (&(milieu, longueur, vers), texte) in cote.morceaux.iter().zip(textes_des_cotes) {
+                let largeur = largeur_du_texte(texte, false) * hauteur / 1000.0;
+                let horizontal = vers.1.abs() > 0.9;
+                if (horizontal && largeur > longueur) || (!horizontal && hauteur * 1.2 > longueur) {
+                    continue;
+                }
+                // Le texte du DXF se place par son milieu, en hauteur.
+                let ((x, y), alignement) = place_du_texte(milieu, vers, taille * 0.3, hauteur);
+                texte_dans_le_dxf(
+                    &mut entites,
+                    "COTES",
+                    (x, y + hauteur / 2.0),
+                    hauteur,
+                    alignement,
+                    texte,
+                );
+            }
+        }
         // Le nom de la pièce et sa surface nette, sous la pièce.
         let etiquette = match piece.aire_nette {
             Some(aire) => format!(
@@ -2031,6 +2269,35 @@ mod tests {
         assert!(dxf.contains("\r\nLit\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Lit)") && pdf.contains("(Laveuse)"));
+    }
+
+    #[test]
+    fn les_lignes_de_cote_dans_le_pdf_et_le_dxf() {
+        // Une cloison de 5 po depuis le mur de gauche, à 4 pi du haut.
+        let mut chambre = rectangle("12", "10");
+        chambre.cloisons = vec![noyau::cloison::Cloison {
+            debut: (0.0, 48.0),
+            sens: Sens::Est,
+            longueur: "4".to_string(),
+            epaisseur: "5 po".to_string(),
+            porte: None,
+            suite: Vec::new(),
+        }];
+        let lignes_de_cote = |dxf: &str| dxf.matches("\r\nLINE\r\n  8\r\nCOTES\r\n").count();
+        // Sans le bouton « Cotes », aucune ligne de cote.
+        let sans = dxf_du_plan(&Plan::d_une_piece(chambre.clone()), &Preferences::default());
+        assert_eq!(lignes_de_cote(&sans.unwrap()), 0);
+        chambre.lignes_de_cote = true;
+        let plan = Plan::d_une_piece(chambre);
+        // Le mur de gauche : de 0 à 69 1/2 po, la cloison, puis 45 1/2 po; une
+        // ligne, quatre traits et quatre lignes d'attache.
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        assert_eq!(lignes_de_cote(&dxf), 9);
+        assert!(dxf.contains("\r\n5 pi 9 1/2 po\r\n"), "{dxf}");
+        assert!(dxf.contains("\r\n3 pi 9 1/2 po\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(5 pi 9 1/2 po)"));
+        assert!(pdf.contains("(3 pi 9 1/2 po)"));
     }
 
     #[test]

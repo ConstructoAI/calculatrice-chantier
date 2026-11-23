@@ -85,6 +85,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   pignon, retombées de plafond; la surface des murs devient exacte, et le dessin donne la
   surface du plafond et le volume de la pièce, que les outils de ventilation reçoivent.
 
+- **Cotes sur le plan** : le bouton « Cotes » montre les lignes de cote d'un plan
+  d'architecte — les distances entre les coins, les portes, les fenêtres et les cloisons le
+  long de chaque mur, et l'écart entre deux cloisons parallèles —, aussi au PDF et au DXF.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

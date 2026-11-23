@@ -1478,9 +1478,16 @@ fn planche_et_gestes(
         None
     };
     let faces_interieures = contour_interieur.as_deref().unwrap_or(sommets);
+    // Avec ses lignes de cote, la forme leur laisse de la place, et à leurs
+    // textes (point 35).
+    let zone_cadree = if complete && dessin.lignes_de_cote {
+        zone_de_la_forme.shrink2(Vec2::new(60.0, 26.0))
+    } else {
+        zone_de_la_forme
+    };
     let echelle = etat
         .cadrage
-        .appliquer(cadrer(zone_de_la_forme, a_cadrer), centre_de_la_planche);
+        .appliquer(cadrer(zone_cadree, a_cadrer), centre_de_la_planche);
     // Pendant qu'un mur s'étire, le plan garde son cadrage : le mur suit le doigt.
     let echelle = etat.mur_tire.as_ref().map_or(echelle, |tire| tire.echelle);
     // L'épaisseur des murs à l'écran : ils se dessinent hors des mesures, et
@@ -2133,6 +2140,7 @@ fn planche_et_gestes(
         let somme = points.iter().fold(Vec2::ZERO, |s, q| s + q.to_vec2());
         (somme / points.len() as f32).to_pos2()
     };
+    let mut cadres_des_mesures: Vec<Option<Rect>> = vec![None; points.len()];
     for (i, s) in points.windows(2).enumerate() {
         let (Some(cote), Some(mesure)) = (dessin.cotes.get(i), solution.mesures.get(i)) else {
             continue;
@@ -2174,8 +2182,120 @@ fn planche_et_gestes(
                 - (cadre.bottom() - planche.bottom() + 3.0).max(0.0),
         );
         let cadre = cadre.translate(decalage);
+        cadres_des_mesures[i] = Some(cadre);
         painter.rect_filled(cadre, 4, p.carte.gamma_multiply(0.92));
         painter.galley(cadre.min + Vec2::new(3.0, 1.0), galere, couleur);
+    }
+    // Les lignes de cote (point 35) : hors des murs, au-delà de leurs mesures;
+    // l'écart entre deux cloisons, entre elles.
+    if complete && dessin.lignes_de_cote {
+        let mur_dehors = if dessin.mesures_exterieures {
+            0.0
+        } else {
+            epaisseur_des_murs_a_l_ecran
+        };
+        for chaine in dessin.chaines_de_cotes(solution) {
+            let longueur = (chaine.fin.0 - chaine.debut.0).hypot(chaine.fin.1 - chaine.debut.1);
+            if longueur <= 1e-9 {
+                continue;
+            }
+            let dehors = Vec2::new(chaine.dehors.0 as f32, chaine.dehors.1 as f32);
+            let (a0, b0) = (
+                echelle.vers_l_ecran(chaine.debut),
+                echelle.vers_l_ecran(chaine.fin),
+            );
+            // Au-delà de la mesure du mur, comme la chaîne de détail d'un plan
+            // d'architecte.
+            let au_dela_de_la_mesure = chaine
+                .mur
+                .and_then(|mur| cadres_des_mesures.get(mur).copied().flatten())
+                .map_or(0.0, |cadre| {
+                    [
+                        cadre.left_top(),
+                        cadre.right_top(),
+                        cadre.left_bottom(),
+                        cadre.right_bottom(),
+                    ]
+                    .iter()
+                    .map(|coin| (*coin - a0).dot(dehors))
+                    .fold(0.0, f32::max)
+                        + 6.0
+                });
+            let decalage = if dehors == Vec2::ZERO {
+                0.0
+            } else {
+                (mur_dehors + 30.0).max(au_dela_de_la_mesure)
+            };
+            let (a, b) = (a0 + dehors * decalage, b0 + dehors * decalage);
+            let le_long = (b - a).normalized();
+            // Le trait de cote à 45°, comme sur un plan d'architecte.
+            let oblique =
+                Vec2::new(le_long.x - le_long.y, le_long.y + le_long.x).normalized() * 4.5;
+            painter.line_segment([a, b], Stroke::new(1.0, p.texte_attenue));
+            let sur_la_ligne = |t: f64| a + (b - a) * (t / longueur) as f32;
+            for &t in &chaine.points {
+                let q = sur_la_ligne(t);
+                if decalage > 0.0 {
+                    // La ligne d'attache, du mur jusqu'à la ligne de cote.
+                    let depuis =
+                        a0 + (b0 - a0) * (t / longueur) as f32 + dehors * (mur_dehors + 3.0);
+                    painter.line_segment(
+                        [depuis, q + dehors * 3.0],
+                        Stroke::new(0.7, p.texte_attenue.gamma_multiply(0.7)),
+                    );
+                }
+                painter.line_segment([q - oblique, q + oblique], Stroke::new(1.4, p.texte));
+            }
+            // Une cote verticale s'écrit le long de sa ligne, de bas en haut.
+            let verticale = le_long.y.abs() > 0.9;
+            for paire in chaine.points.windows(2) {
+                let (q0, q1) = (sur_la_ligne(paire[0]), sur_la_ligne(paire[1]));
+                let galere = painter.layout_no_wrap(
+                    sans_insecables(&longueur_en_clair(paire[1] - paire[0], solution, prefs)),
+                    theme::police(10.0),
+                    p.texte,
+                );
+                let place = q0.distance(q1);
+                let taille = galere.size();
+                let (vers, ancre) = place_de_la_mesure(q0, q1, centre);
+                if verticale && taille.x + 4.0 <= place {
+                    let milieu = q0 + (q1 - q0) * 0.5 + vers * (taille.y / 2.0 + 2.0);
+                    painter.rect_filled(
+                        Rect::from_center_size(milieu, Vec2::new(taille.y, taille.x)).expand(1.0),
+                        2,
+                        p.carte.gamma_multiply(0.85),
+                    );
+                    // Tourné d'un quart de tour vers la gauche, autour de son coin.
+                    let coin = milieu + Vec2::new(-taille.y / 2.0, taille.x / 2.0);
+                    painter.add(egui::Shape::Text(
+                        egui::epaint::TextShape::new(coin, galere, p.texte)
+                            .with_angle(-std::f32::consts::FRAC_PI_2),
+                    ));
+                    continue;
+                }
+                // Sinon à l'horizontale : le long d'une ligne horizontale, il lui
+                // faut sa largeur; à côté d'une autre, sa hauteur. Un morceau trop
+                // court à l'écran garde ses traits, sans texte.
+                let le_long_du_texte = if le_long.x.abs() > le_long.y.abs() {
+                    taille.x
+                } else {
+                    taille.y
+                };
+                if le_long_du_texte + 4.0 > place {
+                    continue;
+                }
+                let cadre = ancre.anchor_size(q0 + (q1 - q0) * 0.5 + vers * 2.0, taille);
+                // Le texte reste dans la planche, même près de son bord.
+                let cadre = cadre.translate(Vec2::new(
+                    (planche.left() + 2.0 - cadre.left()).max(0.0)
+                        - (cadre.right() - planche.right() + 2.0).max(0.0),
+                    (planche.top() + 2.0 - cadre.top()).max(0.0)
+                        - (cadre.bottom() - planche.bottom() + 2.0).max(0.0),
+                ));
+                painter.rect_filled(cadre.expand(1.0), 2, p.carte.gamma_multiply(0.85));
+                painter.galley(cadre.min, galere, p.texte);
+            }
+        }
     }
     // Le faîte d'un plafond cathédrale, ou le côté haut d'un plafond en pente
     // (point 34) : en tirets, d'un bout à l'autre de la pièce.
@@ -2359,6 +2479,27 @@ fn planche_et_gestes(
         )
     {
         etat.vue_3d = true;
+    }
+    // Les lignes de cote (point 35) : ce bouton les montre ou les cache.
+    let bouton_des_cotes = Rect::from_min_size(
+        Pos2::new(planche.left() + 66.0, planche.bottom() - 42.0),
+        Vec2::new(64.0, 34.0),
+    );
+    if dessin.fermee
+        && matches!(solution.etat, EtatDeLaForme::Complete { .. })
+        && bouton_de_planche(
+            ui,
+            &painter,
+            bouton_des_cotes,
+            textes::DESSIN_COTES.traduit(),
+            textes::DESSIN_MONTRER_LES_COTES.traduit(),
+            dessin.lignes_de_cote,
+            p,
+        )
+    {
+        etat.memoriser(dessin);
+        dessin.lignes_de_cote = !dessin.lignes_de_cote;
+        modifie = true;
     }
     if !dessin.fermee && fleches(ui, p, &painter, planche, dessin, etat) {
         modifie = true;

@@ -362,6 +362,27 @@ fn aire_et_perimetre(sommets: &[(f64, f64)]) -> (f64, f64) {
 /// mesurées (section 25.1, point 33).
 type FormeReelle = (Vec<(f64, f64)>, Option<f64>);
 
+/// Un segment de cloison à coter : le rang de sa cloison, le sien, ses deux
+/// bouts (pouces) et l'épaisseur de sa cloison.
+type SegmentACoter = (usize, usize, (f64, f64), (f64, f64), f64);
+
+/// Une chaîne de cotes (section 25.1, point 35) : ce qu'elle mesure, de
+/// `debut` à `fin` (pouces, sur le plan), et ses points de mesure.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChaineDeCotes {
+    pub debut: (f64, f64),
+    pub fin: (f64, f64),
+    /// Vers où la ligne de cote s'écarte de ce qu'elle mesure (unitaire) :
+    /// l'extérieur, pour un mur; nul pour l'écart entre deux cloisons, qui se
+    /// cote entre elles.
+    pub dehors: (f64, f64),
+    /// Les points de mesure, en pouces depuis `debut`, en ordre : le premier
+    /// est 0, le dernier la longueur.
+    pub points: Vec<f64>,
+    /// Le côté dont elle cote le mur; `None` pour l'écart entre deux cloisons.
+    pub mur: Option<usize>,
+}
+
 /// L'angle (radians) entre deux côtés d'un triangle, d'après leurs longueurs
 /// et celle du côté qui leur fait face; `None` si ces trois longueurs ne font
 /// pas un triangle, à 1/16 po près (un triangle aplati compte).
@@ -480,6 +501,9 @@ pub struct Dessin {
     pub plafond: crate::plafond::Plafond,
     /// Les retombées de plafond.
     pub retombees: Vec<crate::plafond::Retombee>,
+    /// Vrai quand les lignes de cote se montrent, à l'écran et dans les
+    /// exports (section 25.1, point 35).
+    pub lignes_de_cote: bool,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -1590,6 +1614,163 @@ impl Dessin {
             }
         }
         Some(etire)
+    }
+
+    /// Les chaînes de cotes d'une pièce complète (section 25.1, point 35) :
+    /// le long de chaque mur, ses coins, les bords de ses portes et de ses
+    /// fenêtres et les deux faces des cloisons qui le touchent (un mur sans
+    /// rien de tel n'en a pas : sa mesure suffit); entre deux segments de
+    /// cloison parallèles qui se font face, leur écart, de face à face.
+    pub fn chaines_de_cotes(&self, solution: &Solution) -> Vec<ChaineDeCotes> {
+        if !matches!(solution.etat, Etat::Complete { .. }) {
+            return Vec::new();
+        }
+        let Some(sommets) = self.sommets_mesures(solution) else {
+            return Vec::new();
+        };
+        let mut chaines = Vec::new();
+        // Une cloison touche un mur par un de ses bouts, sur la face
+        // intérieure du mur : à l'épaisseur du mur près de la ligne mesurée.
+        let portee = solution.epaisseur_des_murs.max(0.0) + 2.0;
+        for (cote, (mur, repere)) in sommets
+            .windows(2)
+            .zip(reperes_des_cotes(&sommets))
+            .enumerate()
+        {
+            let (a, b) = (mur[0], mur[1]);
+            let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+            if longueur <= 1e-6 {
+                continue;
+            }
+            let u = repere.u;
+            let mut points = vec![0.0, longueur];
+            for placement in solution.placements.iter().flatten() {
+                if placement.cote == cote {
+                    points.push(placement.debut.clamp(0.0, longueur));
+                    points.push(placement.fin.clamp(0.0, longueur));
+                }
+            }
+            for cloison in solution.cloisons.iter().flatten() {
+                let n = cloison.sommets.len();
+                if n < 2 {
+                    continue;
+                }
+                for (bout, voisin) in [
+                    (cloison.sommets[0], cloison.sommets[1]),
+                    (cloison.sommets[n - 1], cloison.sommets[n - 2]),
+                ] {
+                    let (dx, dy) = (bout.0 - a.0, bout.1 - a.1);
+                    let le_long = dx * u.0 + dy * u.1;
+                    let de_travers = (dx * u.1 - dy * u.0).abs();
+                    if de_travers > portee || le_long < -0.5 || le_long > longueur + 0.5 {
+                        continue;
+                    }
+                    let (vx, vy) = (voisin.0 - bout.0, voisin.1 - bout.1);
+                    let l = vx.hypot(vy);
+                    if l <= 1e-9 {
+                        continue;
+                    }
+                    // Une cloison de biais occupe plus de place le long du mur.
+                    let sinus = ((u.0 * vy - u.1 * vx) / l).abs();
+                    if sinus < 0.2 {
+                        continue;
+                    }
+                    let demi = cloison.epaisseur / 2.0 / sinus;
+                    points.push((le_long - demi).clamp(0.0, longueur));
+                    points.push((le_long + demi).clamp(0.0, longueur));
+                }
+            }
+            points.sort_by(f64::total_cmp);
+            points.dedup_by(|x, y| (*x - *y).abs() < TOLERANCE_PO);
+            if points.len() > 2 {
+                chaines.push(ChaineDeCotes {
+                    debut: a,
+                    fin: b,
+                    dehors: repere.dehors,
+                    points,
+                    mur: Some(cote),
+                });
+            }
+        }
+        // Entre deux segments de cloison parallèles qui se font face.
+        let segments: Vec<SegmentACoter> = solution
+            .cloisons
+            .iter()
+            .enumerate()
+            .filter_map(|(rang, c)| c.as_ref().map(|c| (rang, c)))
+            .flat_map(|(rang, c)| {
+                c.sommets
+                    .windows(2)
+                    .enumerate()
+                    .map(move |(k, s)| (rang, k, s[0], s[1], c.epaisseur))
+            })
+            .collect();
+        let unitaire = |p: (f64, f64), q: (f64, f64)| {
+            let l = (q.0 - p.0).hypot(q.1 - p.1);
+            (l > 1e-9).then(|| ((q.0 - p.0) / l, (q.1 - p.1) / l, l))
+        };
+        // L'écart signé de `q` à la droite de `p` dans la direction `d`, et sa
+        // place le long de cette droite.
+        let ecart_de = |p: (f64, f64), d: (f64, f64), q: (f64, f64)| {
+            (
+                d.0 * (q.1 - p.1) - d.1 * (q.0 - p.0),
+                d.0 * (q.0 - p.0) + d.1 * (q.1 - p.1),
+            )
+        };
+        for (i, &(rang_1, k_1, p0, p1, e1)) in segments.iter().enumerate() {
+            let Some((dx, dy, l1)) = unitaire(p0, p1) else {
+                continue;
+            };
+            for &(rang_2, k_2, q0, q1, e2) in &segments[i + 1..] {
+                if rang_1 == rang_2 && k_1.abs_diff(k_2) < 2 {
+                    continue;
+                }
+                let Some((ex, ey, _)) = unitaire(q0, q1) else {
+                    continue;
+                };
+                if (dx * ey - dy * ex).abs() > SINUS_MINIMAL {
+                    continue;
+                }
+                let ((ecart, t0), (_, t1)) =
+                    (ecart_de(p0, (dx, dy), q0), ecart_de(p0, (dx, dy), q1));
+                let (debut, fin) = (t0.min(t1).max(0.0), t0.max(t1).min(l1));
+                if ecart.abs() < 1.0 || fin - debut < 6.0 {
+                    continue;
+                }
+                let milieu = (debut + fin) / 2.0;
+                // Un autre segment parallèle entre les deux : il se cote avec
+                // chacun, pas par-dessus.
+                let entre = segments.iter().any(|&(r, k, s0, s1, _)| {
+                    if (r, k) == (rang_1, k_1) || (r, k) == (rang_2, k_2) {
+                        return false;
+                    }
+                    let Some((sx, sy, _)) = unitaire(s0, s1) else {
+                        return false;
+                    };
+                    let ((e, a), (_, b)) = (ecart_de(p0, (dx, dy), s0), ecart_de(p0, (dx, dy), s1));
+                    (dx * sy - dy * sx).abs() <= SINUS_MINIMAL
+                        && e * ecart.signum() > 0.0
+                        && e.abs() < ecart.abs()
+                        && a.min(b) <= milieu
+                        && milieu <= a.max(b)
+                });
+                let jour = ecart.abs() - (e1 + e2) / 2.0;
+                if entre || jour <= 0.5 {
+                    continue;
+                }
+                let n = (-dy * ecart.signum(), dx * ecart.signum());
+                let base = (p0.0 + dx * milieu, p0.1 + dy * milieu);
+                let face = |d: f64| (base.0 + n.0 * d, base.1 + n.1 * d);
+                chaines.push(ChaineDeCotes {
+                    debut: face(e1 / 2.0),
+                    fin: face(ecart.abs() - e2 / 2.0),
+                    dehors: (0.0, 0.0),
+                    points: vec![0.0, jour],
+                    mur: None,
+                });
+            }
+        }
+        chaines
     }
 
     /// Lit les mesures inscrites, déduit celles qui peuvent l'être et calcule
@@ -3348,6 +3529,79 @@ mod tests {
         let solution = dessin.resoudre(Format::PiPo);
         assert!((solution.murs().unwrap().brute - 44.0 * 12.0 * 96.0).abs() < 1e-6);
         assert!((solution.volume.unwrap() - 960.0 * pi3).abs() < 1e-6);
+    }
+
+    #[test]
+    fn les_chaines_de_cotes() {
+        use crate::cloison::Cloison;
+        // 12 × 10 pi : une porte de 32 po à 2 pi du coin 1 sur le premier mur,
+        // une fenêtre de 36 po à 30 po du coin 2 sur le deuxième.
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "12'"),
+            (Sens::Sud, 100.0, "10'"),
+            (Sens::Ouest, 120.0, ""),
+            (Sens::Nord, 100.0, ""),
+        ]);
+        dessin.ouvertures = vec![
+            Ouverture {
+                largeur: "32 po".to_string(),
+                hauteur: "80 po".to_string(),
+                genre: Some(GenreDOuverture::Porte),
+                cote: Some(0),
+                position: "2'".to_string(),
+                ..Ouverture::default()
+            },
+            Ouverture {
+                largeur: "36 po".to_string(),
+                hauteur: "48 po".to_string(),
+                genre: Some(GenreDOuverture::Fenetre),
+                cote: Some(1),
+                position: "30 po".to_string(),
+                ..Ouverture::default()
+            },
+        ];
+        let solution = dessin.resoudre(Format::PiPo);
+        let chaines = dessin.chaines_de_cotes(&solution);
+        assert_eq!(chaines.len(), 2, "{chaines:?}");
+        assert_eq!(chaines[0].points, vec![0.0, 24.0, 56.0, 144.0]);
+        assert_eq!(chaines[0].debut, (0.0, 0.0));
+        assert_eq!(chaines[0].dehors, (0.0, -1.0));
+        assert_eq!(chaines[1].points, vec![0.0, 30.0, 66.0, 120.0]);
+        // Deux cloisons parallèles depuis le mur de gauche, de 5 po : leurs
+        // faces sur ce mur, et leur écart de face à face.
+        let cloison = |y: f64, longueur: &str| Cloison {
+            debut: (0.0, y),
+            longueur: longueur.to_string(),
+            epaisseur: "5 po".to_string(),
+            ..Cloison::default()
+        };
+        dessin.cloisons = vec![cloison(48.0, "4'"), cloison(96.0, "5'")];
+        let solution = dessin.resoudre(Format::PiPo);
+        let chaines = dessin.chaines_de_cotes(&solution);
+        assert_eq!(chaines.len(), 4, "{chaines:?}");
+        // Le mur de gauche va de (0, 120) à (0, 0).
+        assert_eq!(chaines[2].points, vec![0.0, 21.5, 26.5, 69.5, 74.5, 120.0]);
+        let ecart = &chaines[3];
+        assert_eq!(ecart.points, vec![0.0, 43.0]);
+        assert_eq!((ecart.debut, ecart.fin), ((24.0, 50.5), (24.0, 93.5)));
+        assert_eq!(ecart.dehors, (0.0, 0.0));
+        // Une troisième entre les deux : chacune se cote avec sa voisine.
+        dessin.cloisons.push(cloison(72.0, "4'"));
+        let solution = dessin.resoudre(Format::PiPo);
+        let ecarts: Vec<f64> = dessin
+            .chaines_de_cotes(&solution)
+            .iter()
+            .filter(|chaine| chaine.dehors == (0.0, 0.0))
+            .map(|chaine| chaine.points[1])
+            .collect();
+        assert_eq!(ecarts, vec![19.0, 19.0]);
+        // Une pièce incomplète n'a pas de cotes.
+        dessin.cotes[0].saisie.clear();
+        assert!(
+            dessin
+                .chaines_de_cotes(&dessin.resoudre(Format::PiPo))
+                .is_empty()
+        );
     }
 
     #[test]
