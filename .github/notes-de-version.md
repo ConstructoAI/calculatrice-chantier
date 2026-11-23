@@ -96,6 +96,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Revenir à la calculatrice** : le premier onglet s'appelle désormais « Calculatrice »
   (plus « Accueil »), et le menu ☰ y mène aussi, en tête de ses outils.
 
+- **Plus de place pour dessiner** : « Agrandir » donne à la planche presque tout l'écran, et
+  chaque section sous le plan se plie et se déplie par son titre.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

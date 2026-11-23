@@ -169,6 +169,73 @@ pub struct Etat {
     angle_saisi: String,
     /// Ce qui n'a pas marché avec cet angle.
     avis_d_angle: Option<noyau::langue::Texte>,
+    /// Vrai quand la planche prend presque tout l'écran (point 37).
+    planche_agrandie: bool,
+    /// Les sections pliées sous le plan.
+    sections_pliees: Vec<Section>,
+}
+
+/// Une section repliable sous le plan (point 37).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Section {
+    Diagonales,
+    Retraits,
+    Murs,
+    Cloisons,
+    Objets,
+    Notes,
+    Exporter,
+}
+
+/// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
+/// est dépliée, et son nom; un toucher la plie ou la déplie. Retourne vrai
+/// si elle est dépliée.
+fn titre_de_section(
+    ui: &mut Ui,
+    p: &Palette,
+    etat: &mut Etat,
+    section: Section,
+    titre: &str,
+) -> bool {
+    let galere = ui
+        .painter()
+        .layout_no_wrap(titre.to_owned(), theme::police_grasse(13.0), p.titre);
+    let (zone, reponse) = ui.allocate_exact_size(
+        Vec2::new(galere.size().x + 22.0, galere.size().y.max(18.0) + 6.0),
+        Sense::click(),
+    );
+    let pliee = etat.sections_pliees.contains(&section);
+    reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, titre));
+    let centre = Pos2::new(zone.left() + 7.0, zone.center().y);
+    let pointes = if pliee {
+        vec![
+            centre + Vec2::new(-3.0, -5.0),
+            centre + Vec2::new(4.0, 0.0),
+            centre + Vec2::new(-3.0, 5.0),
+        ]
+    } else {
+        vec![
+            centre + Vec2::new(-5.0, -3.0),
+            centre + Vec2::new(5.0, -3.0),
+            centre + Vec2::new(0.0, 4.0),
+        ]
+    };
+    let painter = ui.painter();
+    painter.add(egui::Shape::convex_polygon(pointes, p.titre, Stroke::NONE));
+    painter.galley(
+        Pos2::new(zone.left() + 18.0, zone.center().y - galere.size().y / 2.0),
+        galere,
+        p.titre,
+    );
+    if reponse.clicked() {
+        if pliee {
+            etat.sections_pliees.retain(|s| *s != section);
+        } else {
+            etat.sections_pliees.push(section);
+        }
+        return pliee;
+    }
+    !pliee
 }
 
 /// Une mesure d'une cloison ou de sa porte.
@@ -819,12 +886,20 @@ pub fn afficher(
         let largeur = ui.available_width() - 20.0;
         // Pendant qu'on inscrit une mesure, la planche rapetisse pour laisser
         // voir le pavé de touches en entier, même sur un téléphone.
-        let reserve = if etat.choisi.is_some() || etat.autre_choisi.is_some() {
-            410.0
-        } else {
-            250.0
+        // Agrandie (point 37), elle prend toute la hauteur offerte, moins la
+        // rangée d'« Annuler » ou le pavé.
+        let mesure_en_cours = etat.choisi.is_some() || etat.autre_choisi.is_some();
+        let reserve = match (mesure_en_cours, etat.planche_agrandie) {
+            (true, _) => 410.0,
+            (false, true) => 100.0,
+            (false, false) => 250.0,
         };
-        let hauteur = (ui.available_height() - reserve).clamp(150.0, largeur.max(150.0));
+        let maximum = if etat.planche_agrandie {
+            f32::INFINITY
+        } else {
+            largeur.max(150.0)
+        };
+        let hauteur = (ui.available_height() - reserve).clamp(150.0, maximum);
         ui.add_space(6.0);
         let (planche, reponse) = ui
             .horizontal(|ui| {
@@ -837,6 +912,27 @@ pub fn afficher(
         });
         if planche_et_gestes(ui, p, planche, &reponse, dessin, etat, &solution, prefs) {
             action = Some(Action::Modifie);
+        }
+        // Le bouton « Agrandir », en haut à gauche des boutons du zoom.
+        let zone = Rect::from_min_size(
+            Pos2::new(planche.right() - 138.0, planche.top() + 8.0),
+            Vec2::new(88.0, 34.0),
+        );
+        let texte = if etat.planche_agrandie {
+            textes::DESSIN_REDUIRE
+        } else {
+            textes::DESSIN_AGRANDIR
+        };
+        if bouton_de_planche(
+            ui,
+            &ui.painter_at(planche),
+            zone,
+            texte.traduit(),
+            textes::DESSIN_AGRANDIR_LA_PLANCHE.traduit(),
+            etat.planche_agrandie,
+            p,
+        ) {
+            etat.planche_agrandie = !etat.planche_agrandie;
         }
     }
 
@@ -851,6 +947,9 @@ pub fn afficher(
             ui.add_space(6.0);
             if mesure_du_cote(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
+            }
+            if etat.planche_agrandie {
+                return;
             }
             let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
             match bilan(ui, p, dessin, etat, &solution, prefs) {
@@ -1079,11 +1178,15 @@ fn la_piece_et_le_total(
         )
     });
     ui.add_space(10.0);
-    ui.label(
-        RichText::new(textes::DESSIN_EXPORTER.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Exporter,
+        textes::DESSIN_EXPORTER.traduit(),
+    ) {
+        return (modifie, export);
+    }
     // La mise en page du PDF (point 36) : l'échelle, et le cartouche.
     ui.label(RichText::new(textes::DESSIN_MISE_EN_PAGE.traduit()).size(13.5));
     ui.horizontal_wrapped(|ui| {
@@ -3415,11 +3518,15 @@ fn diagonales(
     prefs: &Preferences,
 ) {
     ui.add_space(8.0);
-    ui.label(
-        RichText::new(textes::DESSIN_DIAGONALES.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Diagonales,
+        textes::DESSIN_DIAGONALES.traduit(),
+    ) {
+        return;
+    }
     ui.horizontal_wrapped(|ui| {
         for k in 0..2 {
             ui.label(RichText::new(textes::dessin_diagonale_courte(k)).size(13.5));
@@ -3475,11 +3582,15 @@ fn retraits(
     let mut modifie = false;
     let mut a_enlever = None;
     ui.add_space(8.0);
-    ui.label(
-        RichText::new(textes::DESSIN_RETRAITS.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Retraits,
+        textes::DESSIN_RETRAITS.traduit(),
+    ) {
+        return false;
+    }
     for rang in 0..dessin.retraits.len() {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(format!("{}.", rang + 1)).font(theme::police_grasse(13.5)));
@@ -3692,11 +3803,9 @@ fn murs(
 ) -> bool {
     let mut modifie = false;
     ui.add_space(8.0);
-    ui.label(
-        RichText::new(textes::DESSIN_MURS.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(ui, p, etat, Section::Murs, textes::DESSIN_MURS.traduit()) {
+        return false;
+    }
     ui.horizontal_wrapped(|ui| {
         ui.label(RichText::new(textes::DESSIN_HAUTEUR_DES_MURS.traduit()).size(13.5));
         let texte = mesure_du_bouton(
@@ -4053,11 +4162,15 @@ fn objets(
 ) -> bool {
     let mut modifie = false;
     ui.add_space(8.0);
-    ui.label(
-        RichText::new(textes::DESSIN_OBJETS.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Objets,
+        textes::DESSIN_OBJETS.traduit(),
+    ) {
+        return false;
+    }
     let (mut a_pivoter, mut a_enlever) = (None, None);
     let mut a_changer_de_forme = None;
     let mut a_copier = None;
@@ -4275,11 +4388,15 @@ fn cloisons(
 ) -> bool {
     let mut modifie = false;
     ui.add_space(8.0);
-    ui.label(
-        RichText::new(textes::DESSIN_CLOISONS.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Cloisons,
+        textes::DESSIN_CLOISONS.traduit(),
+    ) {
+        return false;
+    }
     ui.horizontal_wrapped(|ui| {
         ui.label(RichText::new(textes::DESSIN_EPAISSEUR_DES_CLOISONS.traduit()).size(13.5));
         let texte = longueur_en_clair(solution.epaisseur_des_cloisons, solution, prefs);
@@ -4467,11 +4584,9 @@ fn cloisons(
 fn notes(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool {
     let mut modifie = false;
     ui.add_space(8.0);
-    ui.label(
-        RichText::new(textes::DESSIN_NOTES.traduit())
-            .font(theme::police_grasse(13.0))
-            .color(p.titre),
-    );
+    if !titre_de_section(ui, p, etat, Section::Notes, textes::DESSIN_NOTES.traduit()) {
+        return false;
+    }
     let mut a_enlever = None;
     for rang in 0..dessin.notes.len() {
         ui.horizontal(|ui| {
