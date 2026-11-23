@@ -146,7 +146,8 @@ fn briques_et_blocs(e: &Lues) -> Calcul {
                 arrondi_au_dessus(surface / unite * (1.0 + e.nombre(6) / 100.0)),
                 t("unités", "units"),
             ),
-        ),
+        )
+        .a_acheter(t("Briques ou blocs", "Bricks or blocks"), &[3, 4]),
     ])
 }
 
@@ -187,7 +188,8 @@ fn muret(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Blocs", "Blocks"),
             Quantite::Compte(par_rang * rangs, t("blocs", "blocks")),
-        ),
+        )
+        .a_acheter(t("Blocs de muret", "Wall blocks"), &[2, 3]),
         Resultat::nouveau(
             t("Hauteur obtenue", "Height reached"),
             Quantite::Longueur(rangs * e.longueur(3)),
@@ -206,7 +208,8 @@ fn paves(e: &Lues) -> Calcul {
                 arrondi_au_dessus(surface * (1.0 + e.nombre(4) / 100.0) / pave),
                 t("pavés", "pavers"),
             ),
-        ),
+        )
+        .a_acheter(t("Pavés", "Pavers"), &[2, 3]),
         Resultat::nouveau(
             t("Sable du lit de pose", "Bedding sand"),
             Quantite::Vrac(surface * e.longueur(5)),

@@ -156,6 +156,10 @@ pub struct NoteDuBloc {
     /// Photos et fichiers joints, dans l'ordre d'ajout.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub pieces: Vec<PieceJointe>,
+    /// Vrai pour la liste d'achat (section 26, point 10) : les calculateurs y
+    /// ajoutent leurs articles, même si on la renomme.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub liste_d_achat: bool,
 }
 
 /// Une pièce jointe d'une note : sa description. Ses octets sont gardés à
@@ -1091,12 +1095,23 @@ mod tests {
             creee: "2026-11-21T08:04:00-05:00".to_string(),
             modifiee: "2026-11-21T09:15:00-05:00".to_string(),
             pieces: Vec::new(),
+            liste_d_achat: false,
         };
         enregistrer_notes(&d.depot(), std::slice::from_ref(&note)).unwrap();
         assert_eq!(charger_notes(&d.depot()), vec![note.clone()]);
         // Une note sans pièce jointe s'écrit comme avant la version 0.12.0.
         let texte = fs::read_to_string(d.0.join("notes.json")).unwrap();
         assert!(!texte.contains("pieces"), "{texte}");
+        // Ni le drapeau de la liste d'achat, pour une note ordinaire; la liste
+        // d'achat garde le sien.
+        assert!(!texte.contains("liste_d_achat"), "{texte}");
+        let liste = NoteDuBloc {
+            id: 2,
+            liste_d_achat: true,
+            ..note.clone()
+        };
+        enregistrer_notes(&d.depot(), std::slice::from_ref(&liste)).unwrap();
+        assert_eq!(charger_notes(&d.depot()), vec![liste]);
         assert_eq!(note.date_en_clair(), "21 novembre 2026, 9 h 15");
         assert!(
             note.en_texte(&note.titre)

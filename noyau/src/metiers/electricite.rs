@@ -659,6 +659,7 @@ fn eclairage(e: &Lues) -> Calcul {
                 arrondi_au_dessus(flux / e.nombre(3)),
                 t("luminaires", "fixtures"),
             ),
-        ),
+        )
+        .a_acheter(t("Luminaires", "Light fixtures"), &[3]),
     ])
 }

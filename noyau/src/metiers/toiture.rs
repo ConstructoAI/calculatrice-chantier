@@ -189,7 +189,8 @@ fn bardeaux(e: &Lues) -> Calcul {
                 arrondi_au_dessus(a_couvrir / e.nombre(4)),
                 t("paquets", "bundles"),
             ),
-        ),
+        )
+        .a_acheter(t("Paquets de bardeaux", "Bundles of shingles"), &[4]),
     ])
 }
 
@@ -243,7 +244,8 @@ fn panneaux(e: &Lues) -> Calcul {
                 arrondi_au_dessus(surface * (1.0 + e.nombre(3) / 100.0) / panneau),
                 t("panneaux", "sheets"),
             ),
-        ),
+        )
+        .a_acheter(t("Panneaux de revêtement", "Sheathing panels"), &[2]),
     ])
 }
 
@@ -274,7 +276,8 @@ fn revetement_exterieur(e: &Lues) -> Calcul {
                 arrondi_au_dessus(a_acheter / PO2_PAR_PI2 / e.nombre(4)),
                 t("boîtes", "boxes"),
             ),
-        ),
+        )
+        .a_acheter(t("Boîtes de revêtement extérieur", "Boxes of siding"), &[4]),
     ])
 }
 
@@ -297,6 +300,7 @@ fn membrane(e: &Lues) -> Calcul {
                 arrondi_au_dessus(surface * (1.0 + e.nombre(5) / 100.0) / utile),
                 t("rouleaux", "rolls"),
             ),
-        ),
+        )
+        .a_acheter(t("Rouleaux de membrane", "Rolls of membrane"), &[0, 1]),
     ])
 }

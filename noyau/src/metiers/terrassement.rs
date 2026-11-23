@@ -284,7 +284,8 @@ fn cloture(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Poteaux", "Posts"),
             Quantite::Compte(sections + 1.0, t("poteaux", "posts")),
-        ),
+        )
+        .a_acheter(t("Poteaux de clôture", "Fence posts"), &[]),
         Resultat::nouveau(
             t("Espacement réel", "Actual spacing"),
             Quantite::Longueur(longueur / sections),
@@ -397,7 +398,8 @@ fn terrasse(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Vis", "Screws"),
             Quantite::Compte(rangs * solives * 2.0, t("vis", "screws")),
-        ),
+        )
+        .a_acheter(t("Vis de terrasse", "Deck screws"), &[]),
     ])
 }
 
@@ -412,7 +414,8 @@ fn tourbe(e: &Lues) -> Calcul {
                 arrondi_au_dessus(a_couvrir / PO2_PAR_PI2 / e.nombre(2)),
                 t("rouleaux", "rolls"),
             ),
-        ),
+        )
+        .a_acheter(t("Rouleaux de tourbe", "Rolls of sod"), &[2]),
     ])
 }
 
@@ -444,6 +447,10 @@ fn poteaux(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Sacs de béton prémélangé", "Bags of premixed concrete"),
             Quantite::Compte(arrondi_au_dessus(litres / e.nombre(5)), t("sacs", "bags")),
+        )
+        .a_acheter(
+            t("Sacs de béton prémélangé", "Bags of premixed concrete"),
+            &[4],
         ),
     ])
 }

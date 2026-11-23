@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use eframe::egui::{self, Id, RichText, Sense, Ui};
 use noyau::Preferences;
-use noyau::metiers::{Calculateur, Metier, Nature, calculateur};
+use noyau::metiers::{Article, Calculateur, Metier, Nature, calculateur};
 use noyau::unites::Format;
 
 use super::{bouton_principal, cadre_de_saisie, carte, corps, en_tete, section};
@@ -54,6 +54,8 @@ pub enum Action {
     AuClavier(&'static str),
     /// Épingler ce calculateur, ou le désépingler (section 22.16).
     Epingler(&'static str),
+    /// Ajouter ces articles à la liste d'achat (section 22.17).
+    ListeDAchat(Vec<Article>),
 }
 
 /// Une carte cliquable : un titre, une ligne d'explication et, à droite, une mention.
@@ -356,6 +358,15 @@ fn formulaire(
                     entrees: evaluation.entrees.clone(),
                     resultats: evaluation.resultats.clone(),
                 });
+            }
+            // Des sacs, des panneaux, des boîtes : la liste d'achat.
+            if !evaluation.achats.is_empty()
+                && ui
+                    .button(textes::AJOUTER_A_LA_LISTE_D_ACHAT.traduit())
+                    .on_hover_text(textes::INFOBULLE_LISTE_D_ACHAT.traduit())
+                    .clicked()
+            {
+                action = Some(Action::ListeDAchat(evaluation.achats.clone()));
             }
             if ui
                 .button(textes::AU_CLAVIER.traduit())

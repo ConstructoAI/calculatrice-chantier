@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Color32, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
-use noyau::metiers::Quantite;
+use noyau::metiers::{Article, Quantite};
 use noyau::prefs::Preferences;
 
 use super::{bouton_principal, cadre_de_saisie, carte, corps, en_tete};
@@ -130,6 +130,47 @@ pub fn ajouter_une_case(texte: &mut String) {
         texte.push('\n');
     }
     texte.push_str("[ ] ");
+}
+
+/// Ajoute des articles à la liste d'achat (section 26, point 10), une note à
+/// cases : « [ ] 12 × Sacs de béton prémélangé · … ». Un article qui est déjà
+/// sur une ligne non cochée s'y additionne; sinon, il vient sur une ligne
+/// neuve, au bout. Une ligne cochée — l'article est acheté — reste telle quelle.
+pub fn ajouter_a_la_liste(texte: &mut String, articles: &[Article]) {
+    for article in articles.iter().filter(|article| article.nombre > 0) {
+        let mut lignes: Vec<String> = texte.split('\n').map(str::to_string).collect();
+        let deja = lignes.iter().position(|ligne| {
+            case_de_la_ligne(ligne).is_some_and(|(cochee, libelle)| {
+                !cochee
+                    && libelle
+                        .split_once(" × ")
+                        .is_some_and(|(nombre, description)| {
+                            description == article.description
+                                && nombre.trim().parse::<u64>().is_ok()
+                        })
+            })
+        });
+        match deja {
+            Some(rang) => {
+                let avant = case_de_la_ligne(&lignes[rang])
+                    .and_then(|(_, libelle)| libelle.split_once(" × "))
+                    .and_then(|(nombre, _)| nombre.trim().parse::<u64>().ok())
+                    .unwrap_or(0);
+                lignes[rang] = format!(
+                    "[ ] {} × {}",
+                    avant.saturating_add(article.nombre),
+                    article.description
+                );
+                *texte = lignes.join("\n");
+            }
+            None => {
+                if !texte.is_empty() && !texte.ends_with('\n') {
+                    texte.push('\n');
+                }
+                texte.push_str(&format!("[ ] {} × {}", article.nombre, article.description));
+            }
+        }
+    }
 }
 
 /// Le texte en minuscules et sans accents, pour chercher sans s'en soucier.
@@ -856,6 +897,44 @@ mod tests {
                 libelle: ""
             }]
         );
+    }
+
+    #[test]
+    fn liste_d_achat() {
+        let sacs = |nombre| Article {
+            description: "Sacs de béton prémélangé · Rendement d'un sac : 14 L".into(),
+            nombre,
+        };
+        let gypse = Article {
+            description: "Panneaux de gypse · Panneau : 1/2 po, 4 × 8 pi".into(),
+            nombre: 20,
+        };
+        let mut liste = String::new();
+        ajouter_a_la_liste(&mut liste, &[sacs(12)]);
+        assert_eq!(
+            liste,
+            "[ ] 12 × Sacs de béton prémélangé · Rendement d'un sac : 14 L"
+        );
+        // Le même article s'additionne; un autre vient au bout.
+        ajouter_a_la_liste(&mut liste, &[sacs(30), gypse.clone()]);
+        assert_eq!(
+            liste,
+            "[ ] 42 × Sacs de béton prémélangé · Rendement d'un sac : 14 L\n\
+             [ ] 20 × Panneaux de gypse · Panneau : 1/2 po, 4 × 8 pi"
+        );
+        ajouter_a_la_liste(&mut liste, &[gypse]);
+        assert!(liste.ends_with("[ ] 40 × Panneaux de gypse · Panneau : 1/2 po, 4 × 8 pi"));
+        // Une ligne cochée — déjà achetée — reste telle quelle : le nouveau
+        // besoin vient au bout, sur une ligne à lui.
+        basculer_la_case(&mut liste, 0);
+        ajouter_a_la_liste(&mut liste, &[sacs(5)]);
+        assert!(liste.starts_with("[x] 42 × Sacs"));
+        assert!(liste.ends_with("\n[ ] 5 × Sacs de béton prémélangé · Rendement d'un sac : 14 L"));
+        assert_eq!(cases_du_texte(&liste).len(), 3);
+        // Une ligne écrite à la main, et un article à zéro, ne changent rien.
+        let mut a_la_main = String::from("Pour lundi\n[ ] du café");
+        ajouter_a_la_liste(&mut a_la_main, &[sacs(0)]);
+        assert_eq!(a_la_main, "Pour lundi\n[ ] du café");
     }
 
     #[test]

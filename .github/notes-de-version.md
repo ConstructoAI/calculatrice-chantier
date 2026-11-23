@@ -37,6 +37,11 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   champ de recherche, en tête de la liste, retrouve une note par ses mots, sans égard aux
   majuscules ni aux accents.
 
+- **Liste d'achat** : sous les résultats d'un calculateur qui donne des sacs, des panneaux,
+  des boîtes ou des rouleaux, **Ajouter à la liste d'achat** les inscrit dans la note « Liste
+  d'achat » du bloc-notes, une ligne à cocher par article, avec son format; les mêmes
+  articles s'additionnent, et la liste se copie ou s'exporte.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

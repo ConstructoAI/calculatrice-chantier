@@ -214,7 +214,8 @@ fn gypse(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Panneaux", "Sheets"),
             Quantite::Compte(panneaux, t("panneaux", "sheets")),
-        ),
+        )
+        .a_acheter(t("Panneaux de gypse", "Gypsum boards"), &[6]),
     ])
 }
 
@@ -227,7 +228,8 @@ fn montants_de_cloison(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Montants", "Studs"),
             Quantite::Compte(montants, t("montants", "studs")),
-        ),
+        )
+        .a_acheter(t("Montants", "Studs"), &[]),
         Resultat::nouveau(
             t("Longueur de lisses", "Total plate length"),
             Quantite::Longueur(longueur * lisses),
@@ -253,7 +255,8 @@ fn isolant(e: &Lues) -> Calcul {
                 arrondi_au_dessus(a_couvrir / PO2_PAR_PI2 / e.nombre(3)),
                 t("paquets", "packages"),
             ),
-        ),
+        )
+        .a_acheter(t("Paquets d'isolant", "Packages of insulation"), &[3]),
     ])
 }
 
@@ -293,7 +296,8 @@ fn plafond_suspendu(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Tuiles", "Tiles"),
             Quantite::Compte(tuiles, t("tuiles", "tiles")),
-        ),
+        )
+        .a_acheter(t("Tuiles de plafond", "Ceiling tiles"), &[2]),
         Resultat::nouveau(
             t("Cornière murale", "Wall angle"),
             Quantite::Longueur(2.0 * (longueur + largeur)),

@@ -215,6 +215,10 @@ fn peinture(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Contenants de 3,78 L", "3.78 L cans"),
             Quantite::Compte(arrondi_au_dessus(contenants), t("contenants", "cans")),
+        )
+        .a_acheter(
+            t("Contenants de peinture de 3,78 L", "3.78 L cans of paint"),
+            &[],
         ),
     ])
 }
@@ -231,13 +235,19 @@ fn ceramique(e: &Lues) -> Calcul {
         ),
     ];
     if e.presente(5) {
-        resultats.push(Resultat::nouveau(
-            t("Boîtes", "Boxes"),
-            Quantite::Compte(
-                arrondi_au_dessus(tuiles / e.nombre(5)),
-                t("boîtes", "boxes"),
-            ),
-        ));
+        resultats.push(
+            Resultat::nouveau(
+                t("Boîtes", "Boxes"),
+                Quantite::Compte(
+                    arrondi_au_dessus(tuiles / e.nombre(5)),
+                    t("boîtes", "boxes"),
+                ),
+            )
+            .a_acheter(t("Boîtes de tuiles", "Boxes of tiles"), &[2, 3, 5]),
+        );
+    } else {
+        // Sans le nombre de tuiles par boîte, on achète les tuiles (section 22.17).
+        resultats[1] = resultats[1].a_acheter(t("Tuiles", "Tiles"), &[2, 3]);
     }
     Ok(resultats)
 }
@@ -260,7 +270,8 @@ fn revetement_de_sol(e: &Lues) -> Calcul {
                 arrondi_au_dessus(a_couvrir / PO2_PAR_PI2 / e.nombre(3)),
                 t("boîtes", "boxes"),
             ),
-        ),
+        )
+        .a_acheter(t("Boîtes de revêtement de sol", "Boxes of flooring"), &[3]),
     ])
 }
 
@@ -279,6 +290,10 @@ fn peinture_d_une_surface(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Contenants de 3,78 L", "3.78 L cans"),
             Quantite::Compte(arrondi_au_dessus(contenants), t("contenants", "cans")),
+        )
+        .a_acheter(
+            t("Contenants de peinture de 3,78 L", "3.78 L cans of paint"),
+            &[],
         ),
     ])
 }
@@ -315,6 +330,7 @@ fn moulures(e: &Lues) -> Calcul {
                 arrondi_au_dessus(a_acheter / e.longueur(5)),
                 t("moulures", "mouldings"),
             ),
-        ),
+        )
+        .a_acheter(t("Moulures", "Mouldings"), &[5]),
     ])
 }

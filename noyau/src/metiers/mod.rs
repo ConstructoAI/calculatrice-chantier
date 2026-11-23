@@ -538,12 +538,36 @@ impl Quantite {
 pub struct Resultat {
     pub libelle: Texte,
     pub quantite: Quantite,
+    /// Un article à acheter (section 22.17) : son nom sur la liste d'achat, et
+    /// les rangs des champs qui en fixent le format (le rendement d'un sac).
+    pub achat: Option<(Texte, &'static [usize])>,
 }
 
 impl Resultat {
     pub const fn nouveau(libelle: Texte, quantite: Quantite) -> Resultat {
-        Resultat { libelle, quantite }
+        Resultat {
+            libelle,
+            quantite,
+            achat: None,
+        }
     }
+
+    /// Un nombre d'articles à acheter (`Quantite::Compte`) : son nom sur la
+    /// liste d'achat et les champs qui en fixent le format.
+    pub fn a_acheter(mut self, article: Texte, format: &'static [usize]) -> Resultat {
+        self.achat = Some((article, format));
+        self
+    }
+}
+
+/// Un article à mettre sur la liste d'achat (section 22.17).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Article {
+    /// Son nom et son format : « Sacs de béton prémélangé · Rendement d'un
+    /// sac : 14 L ». Deux articles de même description s'additionnent.
+    pub description: String,
+    /// Combien en acheter.
+    pub nombre: u64,
 }
 
 /// Ce que rend la fonction de calcul : des résultats, ou la raison pour
@@ -578,6 +602,8 @@ pub struct Evaluation {
     pub resultats: Vec<(&'static str, String)>,
     /// La grandeur de chaque résultat, dans le même ordre.
     pub quantites: Vec<Quantite>,
+    /// Les articles à acheter que donnent les résultats (section 22.17).
+    pub achats: Vec<Article>,
     /// Format de la première longueur saisie : il donne le ton des résultats.
     pub modele: Option<Format>,
 }
@@ -610,6 +636,8 @@ impl Calculateur {
             ..Evaluation::default()
         };
         let mut lues = Vec::with_capacity(self.champs.len());
+        // Ce que chaque champ rempli montre, à son rang : le format d'un article.
+        let mut ecrits: Vec<Option<(&'static str, String)>> = vec![None; self.champs.len()];
         // Format de la première longueur saisie : il donne le ton des résultats.
         let mut modele = None;
         let mut complet = true;
@@ -626,6 +654,7 @@ impl Calculateur {
                     if modele.is_none() {
                         modele = lecture.format;
                     }
+                    ecrits[i] = Some((champ.libelle.traduit(), lecture.texte.clone()));
                     evaluation
                         .entrees
                         .push((champ.libelle.traduit(), lecture.texte));
@@ -653,6 +682,26 @@ impl Calculateur {
                         resultat.quantite.texte(modele, prefs),
                     ));
                     evaluation.quantites.push(resultat.quantite);
+                    if let (Some((article, format)), Quantite::Compte(nombre, _)) =
+                        (resultat.achat, resultat.quantite)
+                    {
+                        let precisions: Vec<String> = format
+                            .iter()
+                            .filter_map(|&rang| ecrits.get(rang).cloned().flatten())
+                            .map(|(libelle, texte)| {
+                                format!("{libelle}{} {texte}", selon(" :", ":"))
+                            })
+                            .collect();
+                        let mut description = article.traduit().to_string();
+                        if !precisions.is_empty() {
+                            description.push_str(" · ");
+                            description.push_str(&precisions.join(", "));
+                        }
+                        evaluation.achats.push(Article {
+                            description,
+                            nombre: nombre.max(0.0).round() as u64,
+                        });
+                    }
                 }
             }
             Err(avis) => evaluation.avis = Some(avis.traduit()),

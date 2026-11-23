@@ -450,6 +450,41 @@ impl Application {
         }
     }
 
+    /// Ajoute des articles à la liste d'achat (section 26, point 10) : une note
+    /// à cases du bloc-notes, créée au besoin, qui passe en tête des notes.
+    fn ajouter_a_la_liste_d_achat(
+        &mut self,
+        ctx: &egui::Context,
+        articles: &[noyau::metiers::Article],
+    ) {
+        let (date, _) = stockage::maintenant();
+        let rang = match self.notes.iter().position(|note| note.liste_d_achat) {
+            Some(rang) => rang,
+            None => {
+                if self.notes.len() >= MAX_NOTES {
+                    self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_NOTES);
+                    return;
+                }
+                let id = self.notes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+                self.notes.push(NoteDuBloc {
+                    id,
+                    titre: textes::LISTE_D_ACHAT.traduit().to_string(),
+                    creee: date.clone(),
+                    modifiee: date.clone(),
+                    liste_d_achat: true,
+                    ..NoteDuBloc::default()
+                });
+                self.notes.len() - 1
+            }
+        };
+        let mut note = self.notes.remove(rang);
+        notes::ajouter_a_la_liste(&mut note.texte, articles);
+        note.modifiee = date;
+        self.notes.insert(0, note);
+        self.notes_a_sauvegarder = true;
+        self.annoncer(ctx, textes::AVIS_AJOUTE_A_LA_LISTE);
+    }
+
     /// Change la langue de l'interface (section 24). Les saisies des
     /// calculateurs sont récrites comme elles se tapent dans la nouvelle
     /// langue : « 2,032 m » devient « 2.032 m », et la valeur reste la même.
@@ -2196,6 +2231,9 @@ impl Application {
                     self.saisies_a_sauvegarder = true;
                 }
                 match action {
+                    Some(vues::metiers::Action::ListeDAchat(articles)) => {
+                        self.ajouter_a_la_liste_d_achat(ui.ctx(), &articles);
+                    }
                     Some(vues::metiers::Action::Epingler(id)) => {
                         if self.favoris.basculer(id) {
                             self.saisies_a_sauvegarder = true;

@@ -252,13 +252,19 @@ fn colonnes(e: &Lues) -> Calcul {
     let volume = PI / 4.0 * diametre * diametre * e.longueur(1) * e.nombre(2);
     let a_commander = volume * (1.0 + e.nombre(3) / 100.0);
     let mut resultats = volumes(volume, e.nombre(3)).to_vec();
-    resultats.push(Resultat::nouveau(
-        t("Sacs de béton prémélangé", "Bags of premixed concrete"),
-        Quantite::Compte(
-            arrondi_au_dessus(a_commander / PO3_PAR_L / e.nombre(4)),
-            t("sacs", "bags"),
+    resultats.push(
+        Resultat::nouveau(
+            t("Sacs de béton prémélangé", "Bags of premixed concrete"),
+            Quantite::Compte(
+                arrondi_au_dessus(a_commander / PO3_PAR_L / e.nombre(4)),
+                t("sacs", "bags"),
+            ),
+        )
+        .a_acheter(
+            t("Sacs de béton prémélangé", "Bags of premixed concrete"),
+            &[4],
         ),
-    ));
+    );
     Ok(resultats)
 }
 
@@ -281,14 +287,16 @@ fn armature(e: &Lues) -> Calcul {
                 "Bars running lengthwise",
             ),
             Quantite::Compte(dans_la_longueur, t("barres", "bars")),
-        ),
+        )
+        .a_acheter(t("Barres d'armature", "Rebar"), &[3, 0]),
         Resultat::nouveau(
             t(
                 "Barres dans le sens de la largeur",
                 "Bars running crosswise",
             ),
             Quantite::Compte(dans_la_largeur, t("barres", "bars")),
-        ),
+        )
+        .a_acheter(t("Barres d'armature", "Rebar"), &[3, 1]),
         Resultat::nouveau(
             t("Longueur totale de barres", "Total bar length"),
             Quantite::Longueur(total),
@@ -318,6 +326,10 @@ fn sacs_de_beton(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Sacs de béton prémélangé", "Bags of premixed concrete"),
             Quantite::Compte(arrondi_au_dessus(litres / e.nombre(4)), t("sacs", "bags")),
+        )
+        .a_acheter(
+            t("Sacs de béton prémélangé", "Bags of premixed concrete"),
+            &[4],
         ),
     ])
 }
@@ -346,6 +358,7 @@ fn treillis(e: &Lues) -> Calcul {
         Resultat::nouveau(
             t("Feuilles de treillis", "Mesh sheets"),
             Quantite::Compte(arrondi_au_dessus(surface / utile), t("feuilles", "sheets")),
-        ),
+        )
+        .a_acheter(t("Feuilles de treillis", "Mesh sheets"), &[2, 3]),
     ])
 }

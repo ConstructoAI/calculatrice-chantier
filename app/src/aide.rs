@@ -1283,6 +1283,27 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Liste d'achat", "Shopping list"),
+        acces: t("onglet Métiers", "Trades tab"),
+        resume: t(
+            "Ce qu'il faut acheter, au fil des calculs :",
+            "What to buy, calculation after calculation:",
+        ),
+        mode_emploi: t(
+            "`Ajouter à la liste d'achat`, sous les résultats d'un calculateur qui donne des sacs, des panneaux, des boîtes ou des rouleaux, les inscrit dans la note Liste d'achat du bloc-notes, créée au besoin : une ligne à cocher par article, avec son format (le rendement d'un sac, les dimensions d'une tuile). Un article déjà sur la liste s'y additionne, tant que sa ligne n'est pas cochée : cochez ce qui est acheté. `Copier` ou `Exporter`, dans la note, la passent au commis ou au fournisseur.",
+            "`Add to shopping list`, below the results of a calculator that gives bags, boards, boxes or rolls, writes them into the Shopping list note of the notepad, created when needed: one line to tick per item, with its format (the yield of a bag, the size of a tile). An item already on the list adds up there as long as its line is not ticked: tick what is bought. `Copy` or `Export`, in the note, hand it to the clerk or the supplier.",
+        ),
+        exemple: None,
+        note: Some(t(
+            "La liste ne porte aucun prix. Les rangs, les voyages de camion et les autres comptes qui ne s'achètent pas n'y vont pas.",
+            "The list carries no prices. Courses, truckloads and other counts that are not bought do not go on it.",
+        )),
+        mots_cles: "liste achat acheter achats magasin quincaillerie fournisseur commande sacs panneaux boîtes rouleaux matériaux shopping list buy purchase store hardware supplier order bags boards boxes rolls materials",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t(
             "Calculateurs épinglés et récents",
             "Pinned and recent calculators",

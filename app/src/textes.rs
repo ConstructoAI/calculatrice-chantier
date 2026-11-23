@@ -302,6 +302,19 @@ pub const AUCUNE_NOTE_TROUVEE: Texte = t(
     "No note contains these words.",
 );
 
+// La liste d'achat (section 26, point 10)
+pub const LISTE_D_ACHAT: Texte = t("Liste d'achat", "Shopping list");
+pub const AJOUTER_A_LA_LISTE_D_ACHAT: Texte =
+    t("Ajouter à la liste d'achat", "Add to shopping list");
+pub const INFOBULLE_LISTE_D_ACHAT: Texte = t(
+    "Les sacs, les panneaux, les boîtes… dans la note « Liste d'achat » du bloc-notes",
+    "Bags, boards, boxes… in the Shopping list note of the notepad",
+);
+pub const AVIS_AJOUTE_A_LA_LISTE: Texte = t(
+    "Ajouté à la liste d'achat, dans le bloc-notes.",
+    "Added to the shopping list, in the notepad.",
+);
+
 /// « 3 cochées sur 5 », sous le titre d'une note qui a des cases à cocher.
 pub fn cases_cochees(cochees: usize, total: usize) -> String {
     match langue::en_cours() {
