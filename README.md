@@ -195,7 +195,9 @@ les reprend.
 Thème clair ou sombre, au choix dans les Préférences, aux couleurs de Constructo AI :
 barres bleu marine, bleu primaire, accent orange et fond façon plan quadrillé. Les
 dégradés, les ombres, les pictogrammes et l'icône sont dessinés par le code, sans aucun
-fichier image.
+fichier image. Le **mode chantier** (menu ou Préférences) passe en noir, blanc et jaune,
+très contrasté pour le plein soleil, avec de plus grosses touches au bas de l'écran pour les
+gants et pour taper d'une main.
 
 ## Raccourcis clavier
 

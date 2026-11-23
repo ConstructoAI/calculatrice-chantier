@@ -22,6 +22,11 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   la copie d'un meuble ou d'une cloison; un escalier tournant a son **Miroir**, pour tourner
   de l'autre côté; et **Mes dessins** duplique un dessin, pour comparer deux variantes.
 
+- **Mode chantier** : dans le menu ou les Préférences, la calculatrice passe en noir, blanc
+  et jaune de chantier, très contrastée, lisible en plein soleil; les touches des chiffres
+  grossissent et le clavier descend jusqu'au bas de l'écran, pour les gants et pour taper
+  d'une main.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

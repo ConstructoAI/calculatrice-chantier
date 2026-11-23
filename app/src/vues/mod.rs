@@ -53,7 +53,12 @@ pub fn bouton_principal<'a>(p: &Palette, libelle: &'a str, taille: f32) -> egui:
             .color(p.selection_texte),
     )
     .fill(p.selection)
-    .stroke(egui::Stroke::new(1.0, p.selection))
+    .stroke(if p.chantier {
+        // Mode chantier : le jaune se détache du blanc par un trait noir.
+        egui::Stroke::new(2.0, p.texte)
+    } else {
+        egui::Stroke::new(1.0, p.selection)
+    })
 }
 
 /// Entoure d'un liseré de la couleur primaire le champ de texte en cours de

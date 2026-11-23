@@ -439,7 +439,11 @@ fn dessiner_une_cloison(
     choisie: bool,
     ecrire: &dyn Fn(f64) -> String,
 ) {
-    let encre = if choisie { p.barre_accent } else { p.primaire };
+    let encre = if choisie {
+        p.accent_du_plan()
+    } else {
+        p.primaire
+    };
     let morceaux = cloison.morceaux();
     // Le plein d'abord, puis les faces et les bouts : les coins d'onglet ne
     // se tracent pas.
@@ -504,13 +508,13 @@ fn dessiner_une_cloison(
         let a = echelle.vers_l_ecran(cloison.sommets[segment]);
         let b = echelle.vers_l_ecran(cloison.sommets[segment + 1]);
         let le_long = (b - a).normalized();
-        painter.circle_stroke(a, 6.5, Stroke::new(1.6, p.barre_accent));
+        painter.circle_stroke(a, 6.5, Stroke::new(1.6, p.accent_du_plan()));
         painter.text(
             a - le_long * 15.0,
             Align2::CENTER_CENTER,
             "A",
             theme::police_grasse(12.0),
-            p.barre_accent,
+            p.accent_du_plan(),
         );
     }
 }
@@ -530,7 +534,7 @@ fn dessiner_un_morceau_de_mur(
         .map(|coin| echelle.vers_l_ecran(*coin))
         .collect();
     let encre = if choisi == Some(morceau.cote) {
-        p.barre_accent
+        p.accent_du_plan()
     } else {
         p.primaire
     };
@@ -1889,7 +1893,7 @@ fn planche_et_gestes(
                 || etat.objet_tire.is_some_and(|(r, _)| r == rang)
                 || matches!(etat.autre_choisi, Some(AutreSaisie::Objet(r, _)) if r == rang);
             let encre = if choisi {
-                p.barre_accent
+                p.accent_du_plan()
             } else {
                 p.texte_attenue
             };
@@ -1973,7 +1977,7 @@ fn planche_et_gestes(
     for (i, s) in points.windows(2).enumerate() {
         let choisi = etat.choisi == Some(i);
         let (epaisseur, couleur) = if choisi {
-            (5.0, p.barre_accent)
+            (5.0, p.accent_du_plan())
         } else {
             (3.0, p.primaire)
         };
@@ -1990,8 +1994,8 @@ fn planche_et_gestes(
         && points.len() > 1
     {
         // Le départ à rejoindre, et le bout d'où repart le tracé.
-        painter.circle_stroke(*depart, 8.0, Stroke::new(2.0, p.barre_accent));
-        painter.circle_filled(*fin, 5.5, p.barre_accent);
+        painter.circle_stroke(*depart, 8.0, Stroke::new(2.0, p.accent_du_plan()));
+        painter.circle_filled(*fin, 5.5, p.accent_du_plan());
     }
     // Les portes et les fenêtres, sur leur mur, ouvertes vers l'intérieur.
     etat.ouvertures_a_l_ecran.clear();
@@ -2027,11 +2031,11 @@ fn planche_et_gestes(
             let choisie = etat.ouverture_a_placer == Some(rang)
                 || etat.ouverture_tiree.is_some_and(|(r, _)| r == rang)
                 || matches!(etat.autre_choisi, Some(AutreSaisie::Ouverture(r, _)) if r == rang);
-            let encre = if choisie { p.barre_accent } else { p.texte };
+            let encre = if choisie { p.accent_du_plan() } else { p.texte };
             if choisie {
                 // Les deux distances jusqu'aux coins, à l'intérieur de la pièce,
                 // et le coin A, d'où se mesure la distance au coin.
-                let trait_ = Stroke::new(1.0, p.barre_accent);
+                let trait_ = Stroke::new(1.0, p.accent_du_plan());
                 for (depuis, jusqu_a, distance) in [
                     (*a, q0, placement.debut),
                     (q1, *b, longueur - placement.fin),
@@ -2048,16 +2052,16 @@ fn planche_et_gestes(
                         Align2::CENTER_CENTER,
                         longueur_en_clair(distance, solution, prefs),
                         theme::police_grasse(11.5),
-                        p.barre_accent,
+                        p.accent_du_plan(),
                     );
                 }
-                painter.circle_stroke(*a, 6.5, Stroke::new(1.6, p.barre_accent));
+                painter.circle_stroke(*a, 6.5, Stroke::new(1.6, p.accent_du_plan()));
                 painter.text(
                     *a + dedans * 14.0 + unite * 12.0,
                     Align2::CENTER_CENTER,
                     "A",
                     theme::police_grasse(12.0),
-                    p.barre_accent,
+                    p.accent_du_plan(),
                 );
             }
             // Le mur s'interrompt.
@@ -2084,7 +2088,7 @@ fn planche_et_gestes(
         for (i, s) in points.windows(2).enumerate() {
             let milieu = s[0] + (s[1] - s[0]) * 0.5;
             let tire = etat.mur_tire.as_ref().is_some_and(|tire| tire.cote == i);
-            let encre = if tire { p.barre_accent } else { p.primaire };
+            let encre = if tire { p.accent_du_plan() } else { p.primaire };
             painter.circle_filled(milieu, 5.5, p.carte);
             painter.circle_stroke(milieu, 5.5, Stroke::new(1.8, encre));
         }
@@ -2115,7 +2119,7 @@ fn planche_et_gestes(
             Mesure::Deduite(pouces) => {
                 (longueur_en_clair(*pouces, solution, prefs), p.texte_attenue)
             }
-            Mesure::Manquante => ("?".to_string(), p.barre_accent),
+            Mesure::Manquante => ("?".to_string(), p.accent_du_plan()),
             Mesure::Invalide => (cote.saisie.trim().to_string(), p.erreur),
         };
         // Hors du mur, à son épaisseur.
@@ -2156,7 +2160,7 @@ fn planche_et_gestes(
                 .expand2(Vec2::new(5.0, 3.0));
             painter.rect_filled(cadre, 4, p.carte.gamma_multiply(0.94));
             let bord = if choisie {
-                Stroke::new(1.8, p.barre_accent)
+                Stroke::new(1.8, p.accent_du_plan())
             } else {
                 Stroke::new(1.0, p.carte_bord)
             };
@@ -2169,7 +2173,7 @@ fn planche_et_gestes(
     if etat.trace.len() > 1 {
         painter.add(egui::Shape::line(
             etat.trace.clone(),
-            Stroke::new(3.0, p.barre_accent),
+            Stroke::new(3.0, p.accent_du_plan()),
         ));
     }
     // Une cloison attend son glissement.
@@ -2179,7 +2183,7 @@ fn planche_et_gestes(
             Align2::LEFT_TOP,
             textes::DESSIN_TRACER_LA_CLOISON.traduit(),
             theme::police_grasse(13.0),
-            p.barre_accent,
+            p.accent_du_plan(),
         );
     }
     // Une note attend qu'on touche le plan.
@@ -2189,7 +2193,7 @@ fn planche_et_gestes(
             Align2::LEFT_TOP,
             textes::DESSIN_TOUCHER_POUR_LA_NOTE.traduit(),
             theme::police_grasse(13.0),
-            p.barre_accent,
+            p.accent_du_plan(),
         );
     }
     // Un objet attend qu'on touche la pièce.
@@ -2199,7 +2203,7 @@ fn planche_et_gestes(
             Align2::LEFT_TOP,
             textes::dessin_toucher_pour_placer(textes::objet(genre).traduit()),
             theme::police_grasse(13.0),
-            p.barre_accent,
+            p.accent_du_plan(),
         );
     }
     // Une ouverture attend qu'on touche son mur.
@@ -2213,7 +2217,7 @@ fn planche_et_gestes(
             Align2::LEFT_TOP,
             textes::dessin_toucher_le_mur(porte),
             theme::police_grasse(13.0),
-            p.barre_accent,
+            p.accent_du_plan(),
         );
     }
     boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
@@ -3224,7 +3228,7 @@ fn murs(
                 Some(cote) => (textes::dessin_sur_le_cote(cote + 1), p.texte_attenue),
                 None => (
                     textes::DESSIN_PAS_PLACEE.traduit().to_string(),
-                    p.barre_accent,
+                    p.accent_du_plan(),
                 ),
             };
             ui.label(RichText::new(ou).color(couleur));

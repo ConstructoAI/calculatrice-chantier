@@ -38,6 +38,12 @@ pub const HAUTEUR_FRACTIONS: f32 = 34.0;
 /// Rayon des coins d'une touche.
 const RAYON_TOUCHE: u8 = 7;
 
+/// Mode chantier : les cinq rangées du bas (unités, chiffres, opérations)...
+const RANGEES_DU_BAS: usize = 5;
+
+/// ... sont d'un cinquième plus hautes que les autres (section 16.7).
+const POIDS_DU_BAS: f32 = 1.2;
+
 /// Suivi de l'appui en cours, pour l'appui long.
 #[derive(Clone, Copy, Debug)]
 struct Appui {
@@ -122,46 +128,59 @@ fn dessiner_bouton(
     let rayon = RAYON_TOUCHE;
     // La touche enfoncée descend de 1 point.
     let decalage = if enfoncee { 1.0 } else { 0.0 };
-    // Ombre portée : neutre sous les touches claires, teintée sous les touches
-    // de couleur, plus courte quand la touche est enfoncée.
-    let teinte = if famille == Famille::Chiffre {
-        p.ombre
+    let face = if p.chantier {
+        // Mode chantier : à plat, sans ombre ni relief.
+        rect.translate(Vec2::new(0.0, decalage))
     } else {
-        couleurs
-            .fond_bas
-            .gamma_multiply(if p.sombre { 0.55 } else { 0.42 })
+        // Ombre portée : neutre sous les touches claires, teintée sous les
+        // touches de couleur, plus courte quand la touche est enfoncée.
+        let teinte = if famille == Famille::Chiffre {
+            p.ombre
+        } else {
+            couleurs
+                .fond_bas
+                .gamma_multiply(if p.sombre { 0.55 } else { 0.42 })
+        };
+        let portee = if enfoncee { (3, 1) } else { (8, 3) };
+        theme::ombre_portee(painter, rect, rayon, teinte, portee);
+        // Liseré plus foncé de 2 points au bas, pour suggérer le relief.
+        painter.rect_filled(rect, rayon, theme::assombrir(couleurs.fond_bas, 0.32));
+        Rect::from_min_max(
+            Pos2::new(rect.left(), rect.top() + decalage),
+            Pos2::new(rect.right(), rect.bottom() - 2.0 + decalage),
+        )
     };
-    let portee = if enfoncee { (3, 1) } else { (8, 3) };
-    theme::ombre_portee(painter, rect, rayon, teinte, portee);
-    // Liseré plus foncé de 2 points au bas, pour suggérer le relief.
-    painter.rect_filled(rect, rayon, theme::assombrir(couleurs.fond_bas, 0.32));
-    let face = Rect::from_min_max(
-        Pos2::new(rect.left(), rect.top() + decalage),
-        Pos2::new(rect.right(), rect.bottom() - 2.0 + decalage),
-    );
-    theme::rect_degrade(
-        painter,
-        face,
-        rayon,
-        nuance(couleurs.fond),
-        nuance(couleurs.fond_bas),
-    );
+    // Mode chantier : une touche enfoncée s'inverse, son fond et son texte
+    // échangés, bien visible en plein soleil.
+    let inversee = p.chantier && enfoncee;
+    let (haut, bas, encre) = if inversee {
+        (couleurs.texte, couleurs.texte, couleurs.fond)
+    } else {
+        (
+            nuance(couleurs.fond),
+            nuance(couleurs.fond_bas),
+            couleurs.texte,
+        )
+    };
+    theme::rect_degrade(painter, face, rayon, haut, bas);
     painter.rect_stroke(
         face,
         rayon,
-        Stroke::new(1.0, couleurs.bord),
+        Stroke::new(if p.chantier { 2.0 } else { 1.0 }, couleurs.bord),
         StrokeKind::Inside,
     );
-    // Reflet : un filet clair sous l'arête supérieure.
-    let reflet = Rect::from_min_max(
-        Pos2::new(face.left() + f32::from(rayon), face.top() + 1.5),
-        Pos2::new(face.right() - f32::from(rayon), face.top() + 2.5),
-    );
-    painter.rect_filled(
-        reflet,
-        0,
-        Color32::from_white_alpha(if p.sombre { 26 } else { 58 }),
-    );
+    if !p.chantier {
+        // Reflet : un filet clair sous l'arête supérieure.
+        let reflet = Rect::from_min_max(
+            Pos2::new(face.left() + f32::from(rayon), face.top() + 1.5),
+            Pos2::new(face.right() - f32::from(rayon), face.top() + 2.5),
+        );
+        painter.rect_filled(
+            reflet,
+            0,
+            Color32::from_white_alpha(if p.sombre { 26 } else { 58 }),
+        );
+    }
     let police = theme::police_grasse(taille);
     let lignes: Vec<&str> = libelle.split('\n').collect();
     let interligne = taille * 1.12;
@@ -173,7 +192,7 @@ fn dessiner_bouton(
             Align2::CENTER_CENTER,
             ligne,
             police.clone(),
-            couleurs.texte,
+            encre,
         );
     }
 }
@@ -247,7 +266,8 @@ struct Case {
 /// (`champs` : le nombre de ses champs), ses touches occupent une ou deux
 /// rangées, étirées sur toute la largeur; viennent ensuite la rangée de la
 /// touche `Résultat`, puis les cinq rangées du bas, inchangées (section 23).
-fn disposer(grille: Rect, champs: Option<usize>) -> Vec<Case> {
+/// `grandes` (mode chantier) : les cinq rangées du bas sont plus hautes.
+fn disposer(grille: Rect, champs: Option<usize>, grandes: bool) -> Vec<Case> {
     let colonne = (grille.width() - ESPACE * 4.0) / 5.0;
     // Une rangée : (touche, bord gauche, largeur).
     let standard = |rangee: &[Touche; 5]| -> Vec<(Touche, f32, f32)> {
@@ -298,24 +318,32 @@ fn disposer(grille: Rect, champs: Option<usize>) -> Vec<Case> {
             rangees
         }
     };
-    let nombre = rangees.len() as f32;
-    let hauteur = (grille.height() - ESPACE * (nombre - 1.0)) / nombre;
-    rangees
-        .iter()
-        .enumerate()
-        .flat_map(|(r, rangee)| {
-            rangee.iter().map(move |(touche, gauche, largeur)| Case {
-                touche: *touche,
+    // La hauteur de chaque rangée, selon son poids; toutes remplissent la grille.
+    let poids = |r: usize| {
+        if grandes && r + RANGEES_DU_BAS >= rangees.len() {
+            POIDS_DU_BAS
+        } else {
+            1.0
+        }
+    };
+    let total: f32 = (0..rangees.len()).map(poids).sum();
+    let unite = (grille.height() - ESPACE * (rangees.len() as f32 - 1.0)) / total;
+    let mut cases = Vec::new();
+    let mut haut = grille.top();
+    for (r, rangee) in rangees.iter().enumerate() {
+        let hauteur = unite * poids(r);
+        for &(touche, gauche, largeur) in rangee {
+            cases.push(Case {
+                touche,
                 rect: Rect::from_min_size(
-                    Pos2::new(
-                        grille.left() + gauche,
-                        grille.top() + (hauteur + ESPACE) * r as f32,
-                    ),
-                    Vec2::new(*largeur, hauteur),
+                    Pos2::new(grille.left() + gauche, haut),
+                    Vec2::new(largeur, hauteur),
                 ),
-            })
-        })
-        .collect()
+            });
+        }
+        haut += hauteur + ESPACE;
+    }
+    cases
 }
 
 /// Le texte, raccourci au besoin par des points de suspension, et la taille de
@@ -359,7 +387,7 @@ pub fn dessiner(
     let mut actions = Vec::new();
     let painter = ui.painter_at(rect);
     let grille = rect.shrink(MARGE);
-    let cases = disposer(grille, outil.map(<[ToucheOutil]>::len));
+    let cases = disposer(grille, outil.map(<[ToucheOutil]>::len), p.chantier);
     let champ_de = |touche: Touche| match (touche, outil) {
         (Touche::Outil(rang), Some(champs)) if rang != TOUCHE_RESULTAT => {
             champs.get(usize::from(rang))
@@ -384,7 +412,12 @@ pub fn dessiner(
     };
     let libelle_de =
         |touche: Touche| textes::libelle(touche, contexte.trigo, contexte.point_decimal);
-    let plafond_des_mots = (hauteur_bouton * 0.36).clamp(9.0, 17.0);
+    // Mode chantier : des libellés plus gros.
+    let plafond_des_mots = if p.chantier {
+        (hauteur_bouton * 0.40).clamp(9.0, 19.0)
+    } else {
+        (hauteur_bouton * 0.36).clamp(9.0, 17.0)
+    };
     let libelles: Vec<String> = ordinaires().map(libelle_de).collect();
     let taille_mots = taille_ajustee(
         &painter,
@@ -396,7 +429,15 @@ pub fn dessiner(
         colonne - 2.0 * MARGE_LIBELLE,
         true,
     );
-    let taille_courts = (hauteur_bouton * 0.50).clamp(12.0, 26.0);
+    // Les chiffres et les symboles, selon la hauteur de leur touche (en mode
+    // chantier, celles du bas sont plus hautes).
+    let taille_courte = |hauteur: f32| {
+        if p.chantier {
+            (hauteur * 0.52).clamp(12.0, 32.0)
+        } else {
+            (hauteur * 0.50).clamp(12.0, 26.0)
+        }
+    };
     let taille_secondaire = taille_ajustee(
         &painter,
         ordinaires().map(|t| textes::libelle_secondaire(t, contexte.trigo)),
@@ -549,7 +590,7 @@ pub fn dessiner(
         reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &nom));
         let libelle = libelle_de(touche);
         let taille = if est_court(&libelle) {
-            taille_courts
+            taille_courte(zone_bouton.height())
         } else {
             taille_mots
         };
@@ -671,9 +712,9 @@ mod tests {
     fn disposition_du_clavier_d_un_outil() {
         let grille = Rect::from_min_size(Pos2::ZERO, Vec2::new(404.0, 600.0));
         // Clavier de base : quarante touches.
-        assert_eq!(disposer(grille, None).len(), 40);
+        assert_eq!(disposer(grille, None, false).len(), 40);
         // Quatre champs : une rangée de champs, la rangée de Résultat, cinq rangées.
-        let cases = disposer(grille, Some(4));
+        let cases = disposer(grille, Some(4), false);
         assert_eq!(cases.len(), 4 + 3 + 25);
         assert_eq!(cases[0].touche, Touche::Outil(0));
         assert_eq!(cases[4].touche, Touche::Metres);
@@ -685,15 +726,37 @@ mod tests {
             (cases[5].rect.width() - (3.0 * cases[4].rect.width() + 2.0 * ESPACE)).abs() < 0.01
         );
         // Neuf champs : deux rangées, cinq puis quatre.
-        let cases = disposer(grille, Some(9));
+        let cases = disposer(grille, Some(9), false);
         assert_eq!(cases.len(), 9 + 3 + 25);
         assert!((cases[4].rect.top() - cases[0].rect.top()).abs() < 0.01);
         assert!(cases[5].rect.top() > cases[4].rect.top());
         // La dernière touche touche le bas de la grille, quel que soit le nombre de rangées.
         for champs in [None, Some(2), Some(6), Some(10)] {
-            let cases = disposer(grille, champs);
+            let cases = disposer(grille, champs, false);
             let bas = cases.iter().map(|c| c.rect.bottom()).fold(0.0f32, f32::max);
             assert!((bas - grille.bottom()).abs() < 0.01);
+        }
+    }
+
+    #[test]
+    fn grandes_touches_du_mode_chantier() {
+        let grille = Rect::from_min_size(Pos2::ZERO, Vec2::new(404.0, 600.0));
+        for champs in [None, Some(4), Some(9)] {
+            let grandes = disposer(grille, champs, true);
+            let normales = disposer(grille, champs, false);
+            assert_eq!(grandes.len(), normales.len());
+            // Les cinq rangées du bas sont d'un cinquième plus hautes que les autres.
+            let (premiere, derniere) = (&grandes[0], &grandes[grandes.len() - 1]);
+            assert!((derniere.rect.height() / premiere.rect.height() - POIDS_DU_BAS).abs() < 1e-4);
+            // La grille reste remplie, et les chiffres sont plus gros qu'au clavier courant.
+            assert!((derniere.rect.bottom() - grille.bottom()).abs() < 0.01);
+            assert!(derniere.rect.height() > normales[normales.len() - 1].rect.height());
+            // Chaque touche garde sa place et sa largeur.
+            for (a, b) in grandes.iter().zip(&normales) {
+                assert_eq!(a.touche, b.touche);
+                assert!((a.rect.left() - b.rect.left()).abs() < 0.01);
+                assert!((a.rect.width() - b.rect.width()).abs() < 0.01);
+            }
         }
     }
 }

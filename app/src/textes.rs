@@ -378,6 +378,8 @@ pub const AVIS_PHOTO_EXPORT_ECHEC: Texte = t(
 );
 
 // Sauvegarde complète (section 17.4)
+pub const MENU_MODE_CHANTIER: Texte = t("Mode chantier", "Job-site mode");
+pub const MENU_QUITTER_MODE_CHANTIER: Texte = t("Quitter le mode chantier", "Leave job-site mode");
 pub const MENU_EXPORTER_DONNEES: Texte = t("Exporter mes données", "Export my data");
 pub const MENU_IMPORTER_DONNEES: Texte = t("Importer des données", "Import data");
 pub const TITRE_EXPORTER_DONNEES: Texte = t("Exporter mes données", "Export my data");
@@ -1073,6 +1075,11 @@ pub const PREF_PLEIN_ECRAN_AIDE: Texte = t(
     "Borderless full-screen window (also F11).",
 );
 pub const PREF_THEME: Texte = t("Thème", "Theme");
+pub const PREF_MODE_CHANTIER: Texte = t("Mode chantier", "Job-site mode");
+pub const PREF_MODE_CHANTIER_AIDE: Texte = t(
+    "Contraste élevé, lisible en plein soleil. Sur l'écran de la calculatrice, les touches des chiffres grossissent et le clavier descend jusqu'au bas de l'écran, pour les gants et pour taper d'une main; le menu mène aux autres écrans.",
+    "High contrast, readable in full sun. On the calculator screen, the number keys get bigger and the keypad goes down to the bottom of the screen, for gloves and one-handed typing; the menu leads to the other screens.",
+);
 
 pub const PREF_RESOLUTION: Texte = t("Résolution des fractions", "Fraction resolution");
 pub const PREF_MODE_FRACTIONS: Texte = t("Mode des fractions", "Fraction mode");

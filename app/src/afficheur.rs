@@ -255,7 +255,7 @@ pub fn dessiner(
     painter.rect_stroke(
         cadre,
         RAYON_ECRAN,
-        Stroke::new(1.0, p.ecran_bord),
+        Stroke::new(if p.chantier { 2.0 } else { 1.0 }, p.ecran_bord),
         StrokeKind::Inside,
     );
     let accent = Rect::from_min_max(

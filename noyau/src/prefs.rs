@@ -87,6 +87,9 @@ pub struct Preferences {
     pub fractions_rapides: bool,
     pub plein_ecran: bool,
     pub theme: Theme,
+    /// Mode chantier (section 16.7) : contraste élevé, et les touches du bas
+    /// plus grosses, jusqu'au bas de l'écran. Il passe avant le thème.
+    pub mode_chantier: bool,
     // Affichage
     pub resolution: u32,
     pub mode_fractions: ModeFractions,
@@ -116,6 +119,7 @@ impl Default for Preferences {
             fractions_rapides: false,
             plein_ecran: false,
             theme: Theme::Automatique,
+            mode_chantier: false,
             resolution: 16,
             mode_fractions: ModeFractions::Standard,
             exponentielle: false,

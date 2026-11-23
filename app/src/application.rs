@@ -80,6 +80,8 @@ enum ChoixMenu {
     ExporterDonnees,
     /// Remplacer les données par celles d'une sauvegarde.
     ImporterDonnees,
+    /// Passer au mode chantier, ou le quitter (section 16.7).
+    ModeChantier,
     Quitter,
 }
 
@@ -195,7 +197,8 @@ pub struct Application {
     derniere_sauvegarde: f64,
     echec_d_ecriture_signale: bool,
     plein_ecran_applique: bool,
-    sombre_applique: Option<bool>,
+    /// La palette en vigueur : (thème sombre, mode chantier).
+    palette_appliquee: Option<(bool, bool)>,
     /// Langue pour laquelle le titre de la fenêtre (ou de la page) est écrit.
     langue_appliquee: Option<Langue>,
     /// Texture des dégradés; elle doit vivre aussi longtemps que l'application.
@@ -342,7 +345,7 @@ impl Application {
             derniere_sauvegarde: f64::NEG_INFINITY,
             echec_d_ecriture_signale: false,
             plein_ecran_applique: false,
-            sombre_applique: None,
+            palette_appliquee: None,
             langue_appliquee: None,
             _rampe: theme::creer_la_rampe(ctx),
             marque: theme::creer_la_marque(ctx),
@@ -1667,16 +1670,18 @@ impl Application {
     }
 
     fn appliquer_theme(&mut self, ctx: &egui::Context) -> Palette {
-        let sombre = match self.moteur.preferences().theme {
+        let prefs = self.moteur.preferences();
+        let sombre = match prefs.theme {
             Theme::Clair => false,
             Theme::Sombre => true,
             Theme::Automatique => ctx.system_theme() == Some(egui::Theme::Dark),
         };
-        if self.sombre_applique != Some(sombre) {
-            theme::installer_le_style(ctx, theme::palette(sombre));
-            self.sombre_applique = Some(sombre);
+        let voulue = (sombre, prefs.mode_chantier);
+        if self.palette_appliquee != Some(voulue) {
+            theme::installer_le_style(ctx, theme::palette(voulue.0, voulue.1));
+            self.palette_appliquee = Some(voulue);
         }
-        *theme::palette(sombre)
+        *theme::palette(voulue.0, voulue.1)
     }
 
     fn appliquer_plein_ecran(&mut self, ctx: &egui::Context) {
@@ -1993,7 +1998,12 @@ impl Application {
             prefs.mode_trigo,
             noyau::format::separateur_decimal(prefs) == '.',
         );
-        let hauteur_afficheur = (rect.height() * 0.20).clamp(118.0, 240.0);
+        // Mode chantier : l'afficheur cède un peu de place aux grosses touches.
+        let hauteur_afficheur = if p.chantier {
+            (rect.height() * 0.18).clamp(118.0, 220.0)
+        } else {
+            (rect.height() * 0.20).clamp(118.0, 240.0)
+        };
         let hauteur_fractions = if prefs.fractions_rapides {
             clavier::rangees_de_fractions(resolution) as f32 * clavier::HAUTEUR_FRACTIONS + 4.0
         } else {
@@ -2321,6 +2331,14 @@ impl Application {
                 ChoixMenu::Aller(Vue::Preferences),
             ),
             (
+                if self.moteur.preferences().mode_chantier {
+                    textes::MENU_QUITTER_MODE_CHANTIER.traduit()
+                } else {
+                    textes::MENU_MODE_CHANTIER.traduit()
+                },
+                ChoixMenu::ModeChantier,
+            ),
+            (
                 textes::MENU_EXPORTER_DONNEES.traduit(),
                 ChoixMenu::ExporterDonnees,
             ),
@@ -2495,6 +2513,12 @@ impl Application {
             Some(ChoixMenu::ExporterDonnees) => {
                 self.tiroir_ouvert = false;
                 self.exporter_les_donnees(ctx);
+            }
+            Some(ChoixMenu::ModeChantier) => {
+                self.tiroir_ouvert = false;
+                let prefs = self.moteur.preferences_mut();
+                prefs.mode_chantier = !prefs.mode_chantier;
+                self.a_sauvegarder = true;
             }
             Some(ChoixMenu::ImporterDonnees) => {
                 self.tiroir_ouvert = false;
@@ -2996,7 +3020,7 @@ impl Application {
                     Confirmation::Reinitialiser => {
                         self.moteur.reinitialiser();
                         // Le thème et le plein écran suivent les préférences remises à neuf.
-                        self.sombre_applique = None;
+                        self.palette_appliquee = None;
                     }
                     Confirmation::ViderRuban => self.moteur.vider_ruban(),
                     Confirmation::SupprimerRuban(id) => {
@@ -3131,11 +3155,15 @@ impl eframe::App for Application {
             .show_separator_line(false)
             .frame(sans_marge(p.barre_fond))
             .show(ui, |ui| self.barre_superieure(ui, &p));
-        egui::Panel::bottom("barre-inferieure")
-            .exact_size(HAUTEUR_BARRE_INFERIEURE)
-            .show_separator_line(false)
-            .frame(sans_marge(p.barre_fond))
-            .show(ui, |ui| self.barre_inferieure(ui, &p));
+        // Mode chantier : sur l'écran de la calculatrice, le clavier descend
+        // jusqu'au bas de l'écran; le menu mène aux autres écrans (section 16.7).
+        if !(p.chantier && self.vue == Vue::Accueil) {
+            egui::Panel::bottom("barre-inferieure")
+                .exact_size(HAUTEUR_BARRE_INFERIEURE)
+                .show_separator_line(false)
+                .frame(sans_marge(p.barre_fond))
+                .show(ui, |ui| self.barre_inferieure(ui, &p));
+        }
         egui::CentralPanel::default()
             .frame(sans_marge(p.fond_app))
             .show(ui, |ui| self.centre(ui, &p));
@@ -3173,8 +3201,8 @@ impl eframe::App for Application {
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        let sombre = self.sombre_applique.unwrap_or(false);
-        let c = theme::palette(sombre).fond_app;
+        let (sombre, chantier) = self.palette_appliquee.unwrap_or((false, false));
+        let c = theme::palette(sombre, chantier).fond_app;
         [
             f32::from(c.r()) / 255.0,
             f32::from(c.g()) / 255.0,

@@ -255,6 +255,13 @@ pub fn afficher(ui: &mut Ui, p: &Palette, moteur: &mut Moteur) -> Option<Action>
                 &[Theme::Automatique, Theme::Clair, Theme::Sombre],
                 |t| textes::theme(t).to_string(),
             );
+            bascule(
+                ui,
+                p,
+                textes::PREF_MODE_CHANTIER.traduit(),
+                textes::PREF_MODE_CHANTIER_AIDE.traduit(),
+                &mut prefs.mode_chantier,
+            );
         });
 
         section(ui, p, textes::SECTION_AFFICHAGE.traduit());

@@ -1283,6 +1283,27 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Mode chantier", "Job-site mode"),
+        acces: t("menu, ou Préférences", "menu, or Preferences"),
+        resume: t(
+            "Pour travailler dehors, en plein soleil ou avec des gants :",
+            "For working outdoors, in full sun or with gloves:",
+        ),
+        mode_emploi: t(
+            "`Mode chantier`, dans le menu ou dans les Préférences, passe la calculatrice en noir, blanc et jaune de chantier, à plat et très contrastée. Sur l'écran de la calculatrice, les cinq rangées du bas — unités, chiffres et opérations — sont plus hautes, et le clavier descend jusqu'au bas de l'écran, sous le pouce, pour taper d'une main; le menu mène alors aux autres écrans, qui gardent leur barre d'onglets. Une touche enfoncée s'inverse, bien visible au soleil. `Quitter le mode chantier`, dans le menu, rend les couleurs du thème choisi.",
+            "`Job-site mode`, in the menu or in Preferences, switches the calculator to black, white and safety yellow, flat and high-contrast. On the calculator screen, the bottom five rows — units, digits and operations — are taller, and the keypad goes down to the bottom of the screen, under your thumb, for one-handed typing; the menu then leads to the other screens, which keep their tab bar. A pressed key turns inverse, easy to see in the sun. `Leave job-site mode`, in the menu, brings back the colours of the chosen theme.",
+        ),
+        exemple: None,
+        note: Some(t(
+            "Le mode chantier passe avant le thème (Automatique, Clair ou Sombre), qui revient quand on le quitte.",
+            "Job-site mode takes precedence over the theme (Automatic, Light or Dark), which comes back when you leave it.",
+        )),
+        mots_cles: "chantier soleil contraste lisible gants gant grosses touches une main pouce extérieur dehors jaune noir job site sun sunlight contrast readable gloves glove big keys one hand thumb outdoors yellow black",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Sauvegarde complète", "Full backup"),
         acces: t("menu", "menu"),
         resume: t(

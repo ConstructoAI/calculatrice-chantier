@@ -28,6 +28,9 @@ pub struct CouleursTouche {
 #[derive(Clone, Copy, Debug)]
 pub struct Palette {
     pub sombre: bool,
+    /// Mode chantier : touches à plat, traits épais, grosses touches au bas
+    /// du clavier (section 16.7).
+    pub chantier: bool,
     /// Fond de l'application : dégradé en diagonale, du premier au second.
     pub fond_app: Color32,
     pub fond_app_2: Color32,
@@ -103,6 +106,7 @@ const fn touche(haut: u32, bas: u32, texte: u32, bord: u32) -> CouleursTouche {
 
 pub const CLAIR: Palette = Palette {
     sombre: false,
+    chantier: false,
     fond_app: rvb(0xFFFFFF),
     fond_app_2: rvb(0xCFE2FC),
     // Bleu primaire, très transparent (couleurs prémultipliées).
@@ -149,6 +153,7 @@ pub const CLAIR: Palette = Palette {
 
 pub const SOMBRE: Palette = Palette {
     sombre: true,
+    chantier: false,
     fond_app: rvb(0x0F1923),
     fond_app_2: rvb(0x162340),
     grille: Color32::from_rgba_premultiplied(10, 10, 10, 10),
@@ -192,8 +197,76 @@ pub const SOMBRE: Palette = Palette {
     ombre: Color32::from_rgba_premultiplied(0, 0, 0, 115),
 };
 
-pub fn palette(sombre: bool) -> &'static Palette {
-    if sombre { &SOMBRE } else { &CLAIR }
+/// Le mode chantier (section 16.7) : noir, blanc et jaune de chantier, à
+/// plat, lisible en plein soleil; chaque texte y contraste à 7:1 au moins.
+pub const CHANTIER: Palette = Palette {
+    sombre: false,
+    chantier: true,
+    fond_app: rvb(0xFFFFFF),
+    fond_app_2: rvb(0xFFFFFF),
+    grille: Color32::TRANSPARENT,
+    grille_majeure: Color32::TRANSPARENT,
+    barre_fond: rvb(0x000000),
+    barre_fond_bas: rvb(0x000000),
+    pied_fond: rvb(0x000000),
+    pied_fond_bas: rvb(0x000000),
+    barre_texte: rvb(0xFFFFFF),
+    barre_accent: rvb(0xFFC400),
+    ecran_fond: rvb(0xFFFFFF),
+    ecran_fond_bas: rvb(0xFFFFFF),
+    ecran_bord: rvb(0x000000),
+    ecran_encre: rvb(0x000000),
+    ecran_secondaire: rvb(0x262626),
+    ecran_etiquette: rvb(0x00338A),
+    ecran_halo: Color32::TRANSPARENT,
+    touche_fonction: touche(0xFFC400, 0xFFC400, 0x000000, 0x000000),
+    touche_construction: touche(0x1A1A1A, 0x1A1A1A, 0xFFFFFF, 0x000000),
+    touche_chiffre: touche(0xFFFFFF, 0xFFFFFF, 0x000000, 0x000000),
+    touche_conv: touche(0xFF7A00, 0xFF7A00, 0x000000, 0x000000),
+    touche_effacer: touche(0xA00000, 0xA00000, 0xFFFFFF, 0x000000),
+    etiquette_secondaire: rvb(0x000000),
+    avertissement: rvb(0x7A3E00),
+    erreur: rvb(0xA00000),
+    texte: rvb(0x000000),
+    texte_attenue: rvb(0x333333),
+    entete: rvb(0x000000),
+    titre: rvb(0x00338A),
+    primaire: rvb(0x0047B3),
+    carte: rvb(0xFFFFFF),
+    carte_bord: rvb(0x000000),
+    champ: rvb(0xFFFFFF),
+    voile: Color32::from_rgba_premultiplied(0, 0, 0, 166),
+    bouton: rvb(0xFFFFFF),
+    bouton_bord: rvb(0x000000),
+    selection: rvb(0xFFC400),
+    selection_texte: rvb(0x000000),
+    puce: rvb(0xFFC400),
+    puce_texte: rvb(0x000000),
+    ombre: Color32::TRANSPARENT,
+};
+
+impl Palette {
+    /// Ce qui est choisi ou tiré sur un plan (fond clair ou sombre) : l'accent
+    /// des barres, sauf en mode chantier, où le jaune des barres noires se
+    /// perdrait sur le blanc du plan : un orange brûlé, à 7:1 au moins.
+    pub fn accent_du_plan(&self) -> Color32 {
+        if self.chantier {
+            rvb(0x9E2F00)
+        } else {
+            self.barre_accent
+        }
+    }
+}
+
+/// La palette en vigueur : celle du mode chantier passe avant le thème.
+pub fn palette(sombre: bool, chantier: bool) -> &'static Palette {
+    if chantier {
+        &CHANTIER
+    } else if sombre {
+        &SOMBRE
+    } else {
+        &CLAIR
+    }
 }
 
 /// Famille de couleur d'une touche (section 16.3).
@@ -551,6 +624,8 @@ pub fn installer_le_style(ctx: &egui::Context, p: &Palette) {
     } else {
         egui::Theme::Light
     });
+    // Mode chantier : des traits deux fois plus épais.
+    let epaisseur = if p.chantier { 2.0 } else { 1.0 };
     // Les deux styles (clair et sombre) d'egui reçoivent la palette en vigueur.
     ctx.all_styles_mut(|style| {
         let mut v = if p.sombre {
@@ -560,7 +635,7 @@ pub fn installer_le_style(ctx: &egui::Context, p: &Palette) {
         };
         v.panel_fill = p.fond_app;
         v.window_fill = p.carte;
-        v.window_stroke = Stroke::new(1.0, p.carte_bord);
+        v.window_stroke = Stroke::new(epaisseur, p.carte_bord);
         v.window_corner_radius = CornerRadius::same(8);
         v.menu_corner_radius = CornerRadius::same(6);
         v.window_shadow = Shadow {
@@ -585,7 +660,7 @@ pub fn installer_le_style(ctx: &egui::Context, p: &Palette) {
         v.selection.stroke = Stroke::new(1.0, p.selection_texte);
         let rayon = CornerRadius::same(4);
         v.widgets.noninteractive.bg_fill = p.carte;
-        v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, p.carte_bord);
+        v.widgets.noninteractive.bg_stroke = Stroke::new(epaisseur, p.carte_bord);
         v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, p.texte);
         v.widgets.noninteractive.corner_radius = rayon;
         for (etat, fraction) in [
@@ -597,13 +672,13 @@ pub fn installer_le_style(ctx: &egui::Context, p: &Palette) {
             let fond = melanger(p.bouton, p.texte, fraction);
             etat.bg_fill = fond;
             etat.weak_bg_fill = fond;
-            etat.bg_stroke = Stroke::new(1.0, p.bouton_bord);
+            etat.bg_stroke = Stroke::new(epaisseur, p.bouton_bord);
             etat.fg_stroke = Stroke::new(1.0, p.texte);
             etat.corner_radius = rayon;
             etat.expansion = 0.0;
         }
         // Survol : liseré de la couleur primaire, comme dans l'ERP.
-        v.widgets.hovered.bg_stroke = Stroke::new(1.0, p.primaire);
+        v.widgets.hovered.bg_stroke = Stroke::new(epaisseur, p.primaire);
         style.visuals = v;
         style.interaction.selectable_labels = false;
         style.spacing.item_spacing = egui::vec2(8.0, 7.0);
@@ -803,6 +878,46 @@ mod tests {
                 assert!(contraste(fond, p.barre_texte) >= 4.5, "barre ({theme})");
             }
         }
+    }
+
+    #[test]
+    fn contraste_du_mode_chantier() {
+        // Section 16.7 : en plein soleil, 7:1 au moins, pour chaque texte.
+        let p = &CHANTIER;
+        for f in [
+            Famille::Fonction,
+            Famille::Construction,
+            Famille::Chiffre,
+            Famille::Conv,
+            Famille::Effacer,
+        ] {
+            let c = p.couleurs(f);
+            assert!(contraste(c.fond, c.texte) >= 7.0, "{f:?} haut");
+            assert!(contraste(c.fond_bas, c.texte) >= 7.0, "{f:?} bas");
+        }
+        for (fond, encre, quoi) in [
+            (p.ecran_fond, p.ecran_encre, "afficheur"),
+            (p.ecran_fond, p.ecran_secondaire, "afficheur, seconde ligne"),
+            (p.ecran_fond, p.ecran_etiquette, "étiquette de l'afficheur"),
+            (p.ecran_fond, p.erreur, "erreur"),
+            (p.ecran_fond, p.avertissement, "avertissement"),
+            (p.fond_app, p.texte, "texte"),
+            (p.fond_app, p.texte_attenue, "texte atténué"),
+            (p.fond_app, p.titre, "titre"),
+            (p.fond_app, p.etiquette_secondaire, "étiquette secondaire"),
+            (p.carte, p.texte, "carte"),
+            (p.puce, p.puce_texte, "puce"),
+            (p.selection, p.selection_texte, "sélection"),
+            (p.barre_fond, p.barre_texte, "barre"),
+            (p.barre_fond, p.barre_accent, "repère de l'onglet"),
+            (p.pied_fond, p.barre_texte, "pied"),
+            (p.fond_app, p.accent_du_plan(), "accent du plan"),
+            (p.carte, p.accent_du_plan(), "accent du plan, sur une carte"),
+        ] {
+            assert!(contraste(fond, encre) >= 7.0, "{quoi}");
+        }
+        assert!(palette(true, true).chantier);
+        assert!(!palette(true, false).chantier && palette(true, false).sombre);
     }
 
     #[test]
