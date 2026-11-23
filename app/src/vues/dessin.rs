@@ -77,6 +77,22 @@ impl Cadrage {
 }
 
 /// Le mur qu'on étire par son milieu.
+/// Un segment de cloison qu'on étire par son milieu (point 38), comme un mur.
+struct CloisonEtiree {
+    rang: usize,
+    segment: usize,
+    /// Le dessin au début du geste : chaque image repart de lui.
+    avant: Dessin,
+    /// Le point de l'écran où le doigt s'est posé, et la direction dans
+    /// laquelle le segment avance à l'écran (unitaire).
+    origine: Pos2,
+    normale: Vec2,
+    /// Des pouces par point de l'écran.
+    pouces_par_point: f64,
+    /// Le cadrage du plan au début du geste, gardé jusqu'à sa fin.
+    echelle: Echelle,
+}
+
 struct MurTire {
     cote: usize,
     /// Le dessin au début du geste : chaque image repart de lui.
@@ -154,6 +170,8 @@ pub struct Etat {
     cloison_tiree: Option<(usize, (f64, f64))>,
     /// Le mur qu'on étire par son milieu.
     mur_tire: Option<MurTire>,
+    /// Le segment de cloison qu'on étire par son milieu (point 38).
+    cloison_etiree: Option<CloisonEtiree>,
     /// Vrai quand le nom de la pièce s'écrit sous la rangée des pièces.
     renommer: bool,
     /// Vrai quand ce champ doit prendre le clavier.
@@ -391,6 +409,7 @@ impl Etat {
         self.cloison_choisie = None;
         self.cloison_tiree = None;
         self.mur_tire = None;
+        self.cloison_etiree = None;
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -1452,6 +1471,7 @@ fn planche_et_gestes(
     if matches!(solution.etat, EtatDeLaForme::Complete { .. })
         && solution.forme_reelle.is_none()
         && etat.mur_tire.is_none()
+        && etat.cloison_etiree.is_none()
         && !etat.cloison_a_tracer
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
@@ -1477,9 +1497,53 @@ fn planche_et_gestes(
         });
         etat.choisir(None);
     }
+    // Une cloison se saisit aussi par la poignée du milieu de chacun de ses
+    // segments (point 38) : le segment glisse parallèlement à lui-même.
+    if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+        && etat.mur_tire.is_none()
+        && etat.cloison_etiree.is_none()
+        && !etat.cloison_a_tracer
+        && reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(origine) = ui.input(|i| i.pointer.press_origin())
+        && let Some(echelle) = etat.derniere_echelle
+        && let Some((rang, segment, normale)) =
+            solution
+                .cloisons
+                .iter()
+                .enumerate()
+                .find_map(|(rang, cloison)| {
+                    let cloison = cloison.as_ref()?;
+                    cloison.sommets.windows(2).enumerate().find_map(|(k, s)| {
+                        let milieu = ((s[0].0 + s[1].0) / 2.0, (s[0].1 + s[1].1) / 2.0);
+                        let longueur = (s[1].0 - s[0].0).hypot(s[1].1 - s[0].1);
+                        (longueur > 1e-9
+                            && echelle.vers_l_ecran(milieu).distance(origine)
+                                <= PORTEE_D_UNE_POIGNEE)
+                            .then(|| {
+                                let u =
+                                    ((s[1].0 - s[0].0) / longueur, (s[1].1 - s[0].1) / longueur);
+                                (rang, k, Vec2::new(-u.1 as f32, u.0 as f32))
+                            })
+                    })
+                })
+    {
+        etat.memoriser(dessin);
+        etat.cloison_etiree = Some(CloisonEtiree {
+            rang,
+            segment,
+            avant: dessin.clone(),
+            origine,
+            normale,
+            pouces_par_point: 1.0 / f64::from(echelle.facteur),
+            echelle,
+        });
+        etat.cloison_choisie = Some(rang);
+        etat.choisir(None);
+    }
     // Pendant le tracé d'une cloison, rien d'autre ne se saisit.
     let saisie = if dessin.fermee
         && etat.mur_tire.is_none()
+        && etat.cloison_etiree.is_none()
         && !etat.cloison_a_tracer
         && reponse.drag_started_by(egui::PointerButton::Primary)
     {
@@ -1525,6 +1589,7 @@ fn planche_et_gestes(
     // qu'elle recouvre.
     let note_saisie = if complete
         && etat.mur_tire.is_none()
+        && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
         && etat.ouverture_tiree.is_none()
         && reponse.drag_started_by(egui::PointerButton::Primary)
@@ -1547,6 +1612,7 @@ fn planche_et_gestes(
     // Une cloison saisie au doigt se déplace d'un bloc.
     let cloison_saisie = if complete
         && etat.mur_tire.is_none()
+        && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
         && etat.ouverture_tiree.is_none()
         && etat.note_tiree.is_none()
@@ -1573,6 +1639,7 @@ fn planche_et_gestes(
     }
     let objet_saisi = if complete
         && etat.mur_tire.is_none()
+        && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
         && etat.cloison_tiree.is_none()
         && etat.ouverture_tiree.is_none()
@@ -1603,7 +1670,8 @@ fn planche_et_gestes(
             && etat.note_tiree.is_none()
             && etat.cloison_tiree.is_none()
             && etat.cloison_en_trace.is_none()
-            && etat.mur_tire.is_none());
+            && etat.mur_tire.is_none()
+            && etat.cloison_etiree.is_none());
     if deplacer && !etat.geste_annule {
         etat.cadrage.decalage += reponse.drag_delta();
     }
@@ -1633,7 +1701,12 @@ fn planche_et_gestes(
         .cadrage
         .appliquer(cadrer(zone_cadree, a_cadrer), centre_de_la_planche);
     // Pendant qu'un mur s'étire, le plan garde son cadrage : le mur suit le doigt.
-    let echelle = etat.mur_tire.as_ref().map_or(echelle, |tire| tire.echelle);
+    let echelle = etat
+        .mur_tire
+        .as_ref()
+        .map(|tire| tire.echelle)
+        .or_else(|| etat.cloison_etiree.as_ref().map(|tire| tire.echelle))
+        .unwrap_or(echelle);
     // L'épaisseur des murs à l'écran : ils se dessinent hors des mesures, et
     // toute leur épaisseur choisit leur côté.
     let epaisseur_des_murs_a_l_ecran = if complete {
@@ -1743,6 +1816,36 @@ fn planche_et_gestes(
         }
         if reponse.dragged() {
             etat.mur_tire = Some(tire);
+        }
+    }
+    // Le segment de cloison qui glisse, au pouce près (point 38).
+    if let Some(tire) = etat.cloison_etiree.take() {
+        if reponse.dragged()
+            && let Some(pointeur) = reponse.interact_pointer_pos()
+        {
+            let pas = pas_du_plan(solution);
+            let brut =
+                f64::from((pointeur - tire.origine).dot(tire.normale)) * tire.pouces_par_point;
+            let delta = (brut / pas).round() * pas;
+            let base = tire.avant.resoudre(FORMAT_PAR_DEFAUT);
+            let ecrire = |pouces: f64| {
+                sans_insecables(&Quantite::Longueur(pouces).en_clair(base.modele, prefs))
+            };
+            let etire = if delta.abs() < 1e-9 {
+                Some(tire.avant.clone())
+            } else {
+                tire.avant
+                    .etirer_une_cloison(tire.rang, tire.segment, delta, &base, &ecrire)
+            };
+            if let Some(etire) = etire
+                && *dessin != etire
+            {
+                *dessin = etire;
+                modifie = true;
+            }
+        }
+        if reponse.dragged() {
+            etat.cloison_etiree = Some(tire);
         }
     }
     // La cloison qu'on trace suit le doigt, coins compris; elle naît quand il
@@ -2275,6 +2378,25 @@ fn planche_et_gestes(
             let encre = if tire { p.accent_du_plan() } else { p.primaire };
             painter.circle_filled(milieu, 5.5, p.carte);
             painter.circle_stroke(milieu, 5.5, Stroke::new(1.8, encre));
+        }
+    }
+    // Les poignées des cloisons, au milieu de chaque segment (point 38).
+    if complete && dessin.fermee {
+        for (rang, cloison) in solution.cloisons.iter().enumerate() {
+            let Some(cloison) = cloison else {
+                continue;
+            };
+            for (k, s) in cloison.sommets.windows(2).enumerate() {
+                let milieu =
+                    echelle.vers_l_ecran(((s[0].0 + s[1].0) / 2.0, (s[0].1 + s[1].1) / 2.0));
+                let tire = etat
+                    .cloison_etiree
+                    .as_ref()
+                    .is_some_and(|tire| tire.rang == rang && tire.segment == k);
+                let encre = if tire { p.accent_du_plan() } else { p.primaire };
+                painter.circle_filled(milieu, 4.5, p.carte);
+                painter.circle_stroke(milieu, 4.5, Stroke::new(1.6, encre));
+            }
         }
     }
     // Les mesures, à côté de chaque côté, vers l'extérieur de la forme.

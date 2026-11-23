@@ -99,6 +99,8 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Plus de place pour dessiner** : « Agrandir » donne à la planche presque tout l'écran, et
   chaque section sous le plan se plie et se déplie par son titre.
 
+- **Étirer une cloison** : comme un mur, par la poignée du milieu de chacun de ses segments.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

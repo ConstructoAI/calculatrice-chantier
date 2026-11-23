@@ -1680,6 +1680,27 @@ impl Dessin {
         Some(etire)
     }
 
+    /// La pièce dont la cloison `rang` a son segment `segment` déplacé de
+    /// `delta` pouces parallèlement à lui-même (`Cloison::etirer`, section
+    /// 25.1, point 38). `None` si le geste est impossible.
+    pub fn etirer_une_cloison(
+        &self,
+        rang: usize,
+        segment: usize,
+        delta: f64,
+        solution: &Solution,
+        ecrire: &dyn Fn(f64) -> String,
+    ) -> Option<Dessin> {
+        let mesuree = solution.cloisons.get(rang)?.as_ref()?;
+        let etiree = self
+            .cloisons
+            .get(rang)?
+            .etirer(segment, delta, mesuree, ecrire)?;
+        let mut dessin = self.clone();
+        dessin.cloisons[rang] = etiree;
+        Some(dessin)
+    }
+
     /// Les chaînes de cotes d'une pièce complète (section 25.1, point 35) :
     /// le long de chaque mur, ses coins, les bords de ses portes et de ses
     /// fenêtres et les deux faces des cloisons qui le touchent (un mur sans

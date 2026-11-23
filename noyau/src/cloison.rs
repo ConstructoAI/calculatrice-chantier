@@ -119,6 +119,75 @@ impl Cloison {
         }
     }
 
+    /// Déplace le segment `segment` de `delta` pouces parallèlement à
+    /// lui-même, vers sa droite telle qu'on la voit à l'écran (sa normale
+    /// (−y, x), y vers le bas) : le début du segment glisse le long du segment d'avant, sa
+    /// fin le long du segment d'après, et ces voisins s'allongent ou
+    /// raccourcissent; un bout libre suit à angle droit, si bien qu'un segment
+    /// seul déplace la cloison entière (section 25.1, point 38). `mesuree` est
+    /// la cloison à ses mesures; les longueurs qui changent se récrivent par
+    /// `ecrire`. `None` si un voisin est presque parallèle au segment, ou si
+    /// une longueur deviendrait plus courte qu'un pouce.
+    pub fn etirer(
+        &self,
+        segment: usize,
+        delta: f64,
+        mesuree: &CloisonMesuree,
+        ecrire: &dyn Fn(f64) -> String,
+    ) -> Option<Cloison> {
+        let s = &mesuree.sommets;
+        let n = s.len().checked_sub(1)?;
+        if segment >= n || n != self.nombre_de_segments() {
+            return None;
+        }
+        let unitaire = |k: usize| {
+            let (a, b) = (s[k], s[k + 1]);
+            let l = (b.0 - a.0).hypot(b.1 - a.1);
+            (l > 1e-9).then(|| ((b.0 - a.0) / l, (b.1 - a.1) / l, l))
+        };
+        let (ux, uy, _) = unitaire(segment)?;
+        let normale = (-uy, ux);
+        let avant: Vec<f64> = (0..n).map(|k| unitaire(k).map_or(0.0, |u| u.2)).collect();
+        let mut longueurs = avant.clone();
+        // Ce que fait un bout : glisser le long de son voisin, qui s'allonge
+        // (`signe` 1) ou raccourcit (−1); sans voisin, suivre à angle droit.
+        let glisser = |voisin: Option<usize>, longueurs: &mut Vec<f64>, signe: f64| match voisin {
+            Some(k) => {
+                let (vx, vy, _) = unitaire(k)?;
+                let cosinus = vx * normale.0 + vy * normale.1;
+                if cosinus.abs() < 0.2 {
+                    return None;
+                }
+                let glisse = delta / cosinus;
+                longueurs[k] += signe * glisse;
+                Some((vx * glisse, vy * glisse))
+            }
+            None => Some((normale.0 * delta, normale.1 * delta)),
+        };
+        let debut = glisser(segment.checked_sub(1), &mut longueurs, 1.0)?;
+        let fin = glisser(
+            (segment + 1 < n).then_some(segment + 1),
+            &mut longueurs,
+            -1.0,
+        )?;
+        longueurs[segment] += (fin.0 - debut.0) * ux + (fin.1 - debut.1) * uy;
+        if longueurs.iter().any(|longueur| *longueur < 1.0) {
+            return None;
+        }
+        let mut etiree = self.clone();
+        if segment == 0 {
+            etiree.debut = (self.debut.0 + debut.0, self.debut.1 + debut.1);
+        }
+        for k in 0..n {
+            if (longueurs[k] - avant[k]).abs() > 1e-9
+                && let Some(saisie) = etiree.longueur_du_segment_mut(k)
+            {
+                *saisie = ecrire(longueurs[k]);
+            }
+        }
+        Some(etiree)
+    }
+
     /// La direction d'un de ses segments.
     pub fn direction_du_segment(&self, segment: usize) -> Option<Sens> {
         if segment == 0 {
@@ -628,6 +697,55 @@ mod tests {
         );
         assert!((cloison.distance((50.0, 60.0)) - 2.0).abs() < 1e-9);
         assert!((cloison.distance((48.0, 130.0)) - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn etirer_une_cloison_par_le_milieu_d_un_segment() {
+        // Une cloison en L : 4 pi vers l'est depuis (0, 48), puis 3 pi vers le sud.
+        let cloison = Cloison {
+            debut: (0.0, 48.0),
+            longueur: "48".to_string(),
+            suite: vec![SegmentDeCloison {
+                sens: Sens::Sud,
+                longueur: "36".to_string(),
+            }],
+            ..Cloison::default()
+        };
+        let mesuree = CloisonMesuree::depuis(
+            (0.0, 48.0),
+            &[(Sens::Est, 48.0), (Sens::Sud, 36.0)],
+            5.0,
+            None,
+        );
+        let ecrire = |pouces: f64| format!("{pouces}");
+        // Le premier segment descend de 12 po : son bout libre suit à angle
+        // droit, et le segment d'après raccourcit d'autant; le coin reste au
+        // même endroit en x.
+        let etiree = cloison.etirer(0, 12.0, &mesuree, &ecrire).unwrap();
+        assert_eq!(etiree.debut, (0.0, 60.0));
+        assert_eq!(etiree.longueur, "48");
+        assert_eq!(etiree.suite[0].longueur, "24");
+        // Le second segment va de 12 po vers sa droite (l'ouest, pour un
+        // segment qui descend) : le premier raccourcit, le second garde sa
+        // longueur, le départ ne bouge pas.
+        let etiree = cloison.etirer(1, 12.0, &mesuree, &ecrire).unwrap();
+        assert_eq!(etiree.debut, (0.0, 48.0));
+        assert_eq!(etiree.longueur, "36");
+        assert_eq!(etiree.suite[0].longueur, "36");
+        // Trop loin : un segment de moins d'un pouce, refusé.
+        assert!(cloison.etirer(0, 40.0, &mesuree, &ecrire).is_none());
+        // Un segment seul : la cloison se déplace, sa longueur reste.
+        let seule = Cloison {
+            debut: (48.0, 0.0),
+            sens: Sens::Sud,
+            longueur: "120".to_string(),
+            ..Cloison::default()
+        };
+        let mesuree = CloisonMesuree::depuis((48.0, 0.0), &[(Sens::Sud, 120.0)], 5.0, None);
+        let etiree = seule.etirer(0, 6.0, &mesuree, &ecrire).unwrap();
+        // La droite d'une cloison qui descend, c'est l'ouest.
+        assert_eq!(etiree.debut, (42.0, 0.0));
+        assert_eq!(etiree.longueur, "120");
     }
 
     #[test]
