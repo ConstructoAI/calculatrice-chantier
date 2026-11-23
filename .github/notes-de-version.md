@@ -115,6 +115,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Dégagements, conflits et outil « Mesurer »** : les distances libres d'un meuble qu'on
   déplace, une porte qui frappe un meuble en rouge, et la distance entre deux points du plan.
 
+- **Croquis à main levée** : le crayon trace au doigt par-dessus le plan, en couleur ou au
+  surligneur; les traits restent avec le plan et vont au PDF et au DXF.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

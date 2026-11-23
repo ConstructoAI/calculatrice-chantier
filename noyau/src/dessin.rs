@@ -483,6 +483,8 @@ pub struct Dessin {
     pub objets: Vec<crate::mobilier::Objet>,
     /// Les notes écrites sur le plan.
     pub notes: Vec<Note>,
+    /// Les traits à main levée, par-dessus le plan (évolution 30).
+    pub croquis: Vec<TraitAMainLevee>,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
     /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.
@@ -589,6 +591,78 @@ pub struct Piece {
     /// Le nom donné par l'utilisateur; vide tant qu'il n'en a pas donné.
     pub nom: String,
     pub dessin: Dessin,
+}
+
+/// Le crayon d'un trait à main levée (évolution 30) : sa couleur, ou le
+/// surligneur, large et transparent, qui passe sous le plan.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Crayon {
+    #[default]
+    Rouge,
+    Bleu,
+    Vert,
+    Noir,
+    Surligneur,
+}
+
+impl Crayon {
+    /// Les crayons, dans l'ordre de la palette.
+    pub const TOUS: [Crayon; 5] = [
+        Crayon::Rouge,
+        Crayon::Bleu,
+        Crayon::Vert,
+        Crayon::Noir,
+        Crayon::Surligneur,
+    ];
+}
+
+/// Un trait à main levée par-dessus le plan (évolution 30) : ses points
+/// (pouces, sur le plan) et son crayon.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TraitAMainLevee {
+    pub points: Vec<(f64, f64)>,
+    #[serde(default)]
+    pub crayon: Crayon,
+}
+
+/// Allège un trait à main levée (méthode de Ramer-Douglas-Peucker) : ne garde
+/// que les points qui s'écartent de plus de `tolerance` (pouces) du trait
+/// simplifié; le premier et le dernier restent.
+pub fn simplifier_le_trait(points: &[(f64, f64)], tolerance: f64) -> Vec<(f64, f64)> {
+    if points.len() < 3 {
+        return points.to_vec();
+    }
+    let mut gardes = vec![false; points.len()];
+    gardes[0] = true;
+    gardes[points.len() - 1] = true;
+    let mut a_voir = vec![(0, points.len() - 1)];
+    while let Some((debut, fin)) = a_voir.pop() {
+        let (a, b) = (points[debut], points[fin]);
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let longueur = dx.hypot(dy);
+        let ecart = |p: (f64, f64)| {
+            if longueur < 1e-12 {
+                (p.0 - a.0).hypot(p.1 - a.1)
+            } else {
+                ((p.0 - a.0) * dy - (p.1 - a.1) * dx).abs() / longueur
+            }
+        };
+        let plus_loin =
+            (debut + 1..fin).max_by(|i, j| ecart(points[*i]).total_cmp(&ecart(points[*j])));
+        if let Some(i) = plus_loin
+            && ecart(points[i]) > tolerance
+        {
+            gardes[i] = true;
+            a_voir.push((debut, i));
+            a_voir.push((i, fin));
+        }
+    }
+    points
+        .iter()
+        .zip(gardes)
+        .filter(|(_, garde)| *garde)
+        .map(|(point, _)| *point)
+        .collect()
 }
 
 /// Ce qui gêne un objet de la pièce (évolution 23).
@@ -1620,6 +1694,11 @@ impl Dessin {
         }
         for note in &mut self.notes {
             note.position.0 = -note.position.0;
+        }
+        for trait_ in &mut self.croquis {
+            for point in &mut trait_.points {
+                point.0 = -point.0;
+            }
         }
         for cloison in &mut self.cloisons {
             cloison.debut.0 = -cloison.debut.0;
@@ -4063,5 +4142,36 @@ mod tests {
             objet: 0,
             raison: RaisonDuConflit::Objet(1),
         }));
+    }
+    #[test]
+    fn un_croquis_a_main_levee() {
+        // Un trait presque droit s'allège; un coin reste.
+        let presque_droit: Vec<(f64, f64)> = (0..=20)
+            .map(|k| (f64::from(k), if k % 2 == 0 { 0.0 } else { 0.1 }))
+            .collect();
+        assert_eq!(
+            simplifier_le_trait(&presque_droit, 0.5),
+            vec![(0.0, 0.0), (20.0, 0.0)]
+        );
+        let coin = [
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 5.0),
+            (10.0, 10.0),
+        ];
+        assert_eq!(
+            simplifier_le_trait(&coin, 0.5),
+            vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
+        );
+        // Un dessin d'avant n'a pas de croquis; le miroir le retourne aussi.
+        let mut dessin = Dessin::default();
+        assert!(dessin.croquis.is_empty());
+        dessin.croquis.push(TraitAMainLevee {
+            points: vec![(10.0, 5.0), (30.0, 5.0)],
+            crayon: Crayon::Surligneur,
+        });
+        dessin.miroir();
+        assert_eq!(dessin.croquis[0].points, vec![(-10.0, 5.0), (-30.0, 5.0)]);
     }
 }

@@ -258,6 +258,19 @@ impl Palette {
     }
 }
 
+/// La couleur d'un crayon du croquis à main levée (évolution 30); le
+/// surligneur est un jaune transparent.
+pub fn couleur_du_crayon(crayon: noyau::dessin::Crayon, p: &Palette) -> Color32 {
+    use noyau::dessin::Crayon;
+    match crayon {
+        Crayon::Rouge => rvb(0xDC2626),
+        Crayon::Bleu => rvb(0x2563EB),
+        Crayon::Vert => rvb(0x16A34A),
+        Crayon::Noir => p.texte,
+        Crayon::Surligneur => Color32::from_rgba_unmultiplied(250, 204, 21, 110),
+    }
+}
+
 /// La palette en vigueur : celle du mode chantier passe avant le thème.
 pub fn palette(sombre: bool, chantier: bool) -> &'static Palette {
     if chantier {

@@ -147,6 +147,13 @@ pub struct Etat {
     /// L'outil « Mesurer » (évolution 23) : `None` s'il est fermé, sinon ses
     /// points (pouces, sur le plan), deux au plus.
     mesure: Option<Vec<(f64, f64)>>,
+    /// Vrai quand le crayon du croquis à main levée est sorti (évolution
+    /// 30) : un glissement sur le plan trace alors un trait.
+    crayon_sorti: bool,
+    /// Le crayon choisi dans la palette.
+    crayon: noyau::dessin::Crayon,
+    /// Le trait que le doigt trace (pouces, sur le plan).
+    trait_en_cours: Option<Vec<(f64, f64)>>,
     /// L'objet choisi : il paraît en couleur.
     objet_choisi: Option<usize>,
     /// L'objet que le doigt déplace : son rang, et l'écart (pouces) entre le
@@ -415,6 +422,7 @@ impl Etat {
         self.viser_la_note = None;
         self.note_ecrite = None;
         self.cloison_a_tracer = false;
+        self.crayon_sorti = false;
         self.cloison_en_trace = None;
         self.cloison_choisie = None;
         self.cloison_tiree = None;
@@ -924,6 +932,33 @@ fn distance_sur_le_plan(
         egui::StrokeKind::Inside,
     );
     painter.galley(centre - ecrit.size() / 2.0, ecrit, couleur);
+}
+
+/// Un trait à main levée sur la planche (évolution 30) : au crayon, un trait
+/// de couleur; au surligneur, une large bande transparente.
+fn trait_a_main_levee(
+    painter: &egui::Painter,
+    p: &Palette,
+    trait_: &noyau::dessin::TraitAMainLevee,
+    echelle: &Echelle,
+) {
+    let points: Vec<Pos2> = trait_
+        .points
+        .iter()
+        .map(|point| echelle.vers_l_ecran(*point))
+        .collect();
+    if points.len() < 2 {
+        return;
+    }
+    let largeur = if trait_.crayon == noyau::dessin::Crayon::Surligneur {
+        14.0
+    } else {
+        2.6
+    };
+    painter.add(egui::Shape::line(
+        points,
+        Stroke::new(largeur, theme::couleur_du_crayon(trait_.crayon, p)),
+    ));
 }
 
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
@@ -1690,6 +1725,9 @@ fn planche_et_gestes(
     // prend plus de tracé).
     // Une porte ou une fenêtre saisie au doigt glisse le long de son mur, au
     // lieu de déplacer la vue.
+    // Le crayon sorti (évolution 30) : un glissement trace un trait, et ne
+    // saisit ni mur, ni cloison, ni ouverture, ni objet, ni note.
+    let crayon_actif = etat.crayon_sorti && matches!(solution.etat, EtatDeLaForme::Complete { .. });
     // Un mur se saisit par la poignée de son milieu : il glisse parallèlement
     // à lui-même, et ses voisins s'allongent ou raccourcissent.
     if matches!(solution.etat, EtatDeLaForme::Complete { .. })
@@ -1697,6 +1735,7 @@ fn planche_et_gestes(
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && !etat.cloison_a_tracer
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1727,6 +1766,7 @@ fn planche_et_gestes(
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && !etat.cloison_a_tracer
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1769,6 +1809,7 @@ fn planche_et_gestes(
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && !etat.cloison_a_tracer
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
     {
         ui.input(|i| i.pointer.press_origin()).and_then(|origine| {
@@ -1802,6 +1843,7 @@ fn planche_et_gestes(
     // Une cloison se trace d'un glissement, de son départ à son arrivée.
     if complete
         && etat.cloison_a_tracer
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1816,6 +1858,7 @@ fn planche_et_gestes(
         && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
         && etat.ouverture_tiree.is_none()
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1840,6 +1883,7 @@ fn planche_et_gestes(
         && etat.cloison_en_trace.is_none()
         && etat.ouverture_tiree.is_none()
         && etat.note_tiree.is_none()
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1868,6 +1912,7 @@ fn planche_et_gestes(
         && etat.cloison_tiree.is_none()
         && etat.ouverture_tiree.is_none()
         && etat.note_tiree.is_none()
+        && !crayon_actif
         && reponse.drag_started_by(egui::PointerButton::Primary)
         && let Some(origine) = ui.input(|i| i.pointer.press_origin())
         && let Some(echelle) = etat.derniere_echelle
@@ -1888,6 +1933,7 @@ fn planche_et_gestes(
     let deplacer = reponse.dragged_by(egui::PointerButton::Secondary)
         || reponse.dragged_by(egui::PointerButton::Middle)
         || (dessin.fermee
+            && !crayon_actif
             && reponse.dragged_by(egui::PointerButton::Primary)
             && etat.ouverture_tiree.is_none()
             && etat.objet_tire.is_none()
@@ -1898,6 +1944,59 @@ fn planche_et_gestes(
             && etat.cloison_etiree.is_none());
     if deplacer && !etat.geste_annule {
         etat.cadrage.decalage += reponse.drag_delta();
+    }
+    // Le croquis à main levée (évolution 30) : le crayon trace au doigt,
+    // par-dessus le plan.
+    if crayon_actif
+        && reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(origine) = ui.input(|i| i.pointer.press_origin())
+        && let Some(echelle) = etat.derniere_echelle
+    {
+        etat.trait_en_cours = Some(vec![echelle.vers_le_plan(origine)]);
+    }
+    if crayon_actif
+        && let Some(echelle) = etat.derniere_echelle
+        && (reponse.dragged_by(egui::PointerButton::Primary) || reponse.drag_stopped())
+        && let Some(points) = etat.trait_en_cours.as_mut()
+    {
+        // Toutes les positions de l'image : un geste rapide en apporte
+        // plusieurs à la fois.
+        let positions: Vec<Pos2> = ui.input(|i| {
+            i.events
+                .iter()
+                .filter_map(|evenement| match evenement {
+                    egui::Event::PointerMoved(position) => Some(*position),
+                    _ => None,
+                })
+                .collect()
+        });
+        for position in positions.into_iter().chain(reponse.interact_pointer_pos()) {
+            let assez_loin = points
+                .last()
+                .is_none_or(|dernier| echelle.vers_l_ecran(*dernier).distance(position) > 1.5);
+            if assez_loin {
+                points.push(echelle.vers_le_plan(position));
+            }
+        }
+    }
+    if reponse.drag_stopped()
+        && let Some(points) = etat.trait_en_cours.take()
+        && let Some(echelle) = etat.derniere_echelle
+        && points.len() > 1
+        && !etat.geste_annule
+    {
+        // Allégé au point de l'écran près.
+        let tolerance = f64::from(1.0 / echelle.facteur.max(1e-3));
+        etat.memoriser(dessin);
+        dessin.croquis.push(noyau::dessin::TraitAMainLevee {
+            // Au dixième de pouce près : le fichier reste léger.
+            points: noyau::dessin::simplifier_le_trait(&points, tolerance)
+                .into_iter()
+                .map(|(x, y)| ((x * 10.0).round() / 10.0, (y * 10.0).round() / 10.0))
+                .collect(),
+            crayon: etat.crayon,
+        });
+        modifie = true;
     }
 
     // Une pièce complète se cadre à l'extérieur de ses murs.
@@ -2147,6 +2246,7 @@ fn planche_et_gestes(
                 });
                 etat.cloison_choisie = Some(dessin.cloisons.len() - 1);
                 etat.cloison_a_tracer = false;
+                etat.crayon_sorti = false;
                 modifie = true;
             }
         }
@@ -2437,6 +2537,16 @@ fn planche_et_gestes(
     } else {
         Vec::new()
     };
+    // Le surligneur du croquis passe sous le plan (évolution 30).
+    if complete {
+        for trait_ in dessin
+            .croquis
+            .iter()
+            .filter(|trait_| trait_.crayon == noyau::dessin::Crayon::Surligneur)
+        {
+            trait_a_main_levee(&painter, p, trait_, &echelle);
+        }
+    }
     // Les objets : leur rectangle, plein, leur symbole et leur nom.
     if complete {
         for (rang, (objet, &dimensions)) in dessin.objets.iter().zip(&solution.objets).enumerate() {
@@ -3012,6 +3122,23 @@ fn planche_et_gestes(
             );
         }
     }
+    // Les traits du crayon, par-dessus tout, et celui que le doigt trace.
+    if complete {
+        for trait_ in dessin
+            .croquis
+            .iter()
+            .filter(|trait_| trait_.crayon != noyau::dessin::Crayon::Surligneur)
+        {
+            trait_a_main_levee(&painter, p, trait_, &echelle);
+        }
+        if let Some(points) = &etat.trait_en_cours {
+            let en_cours = noyau::dessin::TraitAMainLevee {
+                points: points.clone(),
+                crayon: etat.crayon,
+            };
+            trait_a_main_levee(&painter, p, &en_cours, &echelle);
+        }
+    }
     // Le tracé en cours.
     if etat.trace.len() > 1 {
         painter.add(egui::Shape::line(
@@ -3080,7 +3207,8 @@ fn planche_et_gestes(
         let mut droite = planche.right() - 8.0;
         // Sur une planche étroite, ils montent au-dessus de « 3D », « Cotes »
         // et « Mesurer ».
-        let fin_des_boutons_de_gauche = planche.left() + 8.0 + 52.0 + 6.0 + 64.0 + 6.0 + 84.0 + 6.0;
+        let fin_des_boutons_de_gauche =
+            planche.left() + 8.0 + 52.0 + 6.0 + 64.0 + 6.0 + 84.0 + 6.0 + 68.0 + 6.0;
         let bas = if droite - 3.0 * 52.0 - 2.0 * 6.0 < fin_des_boutons_de_gauche {
             planche.bottom() - 82.0
         } else {
@@ -3164,10 +3292,89 @@ fn planche_et_gestes(
         } else {
             Some(Vec::new())
         };
+        etat.crayon_sorti = false;
+        etat.trait_en_cours = None;
+        etat.objet_a_placer = None;
+        etat.note_a_placer = false;
+        etat.cloison_a_tracer = false;
+        etat.crayon_sorti = false;
+        etat.ouverture_a_placer = None;
+    }
+    // Le crayon du croquis à main levée (évolution 30).
+    let bouton_crayon = Rect::from_min_size(
+        Pos2::new(planche.left() + 226.0, planche.bottom() - 42.0),
+        Vec2::new(68.0, 34.0),
+    );
+    if dessin.fermee
+        && matches!(solution.etat, EtatDeLaForme::Complete { .. })
+        && bouton_de_planche(
+            ui,
+            &painter,
+            bouton_crayon,
+            textes::DESSIN_CRAYON.traduit(),
+            textes::DESSIN_DESSINER_A_MAIN_LEVEE.traduit(),
+            etat.crayon_sorti,
+            p,
+        )
+    {
+        let sortir = !etat.crayon_sorti;
+        etat.mesure = None;
         etat.objet_a_placer = None;
         etat.note_a_placer = false;
         etat.cloison_a_tracer = false;
         etat.ouverture_a_placer = None;
+        etat.trait_en_cours = None;
+        etat.crayon_sorti = sortir;
+    }
+    // Sa palette, en haut de la planche : ses couleurs, le surligneur et
+    // « Effacer ».
+    if etat.crayon_sorti && matches!(solution.etat, EtatDeLaForme::Complete { .. }) {
+        for (rang, crayon) in noyau::dessin::Crayon::TOUS.into_iter().enumerate() {
+            let zone = Rect::from_min_size(
+                Pos2::new(
+                    planche.left() + 10.0 + 36.0 * rang as f32,
+                    planche.top() + 8.0,
+                ),
+                Vec2::splat(32.0),
+            );
+            let nom = textes::nom_du_crayon(crayon).traduit();
+            let reponse = ui.interact(zone, egui::Id::unique(("crayon", nom)), Sense::click());
+            reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, nom));
+            painter.circle_filled(zone.center(), 15.0, p.carte);
+            painter.circle_filled(
+                zone.center(),
+                11.0,
+                theme::couleur_du_crayon(crayon, p).to_opaque(),
+            );
+            if crayon == etat.crayon {
+                painter.circle_stroke(zone.center(), 14.5, Stroke::new(2.5, p.accent_du_plan()));
+            } else {
+                painter.circle_stroke(zone.center(), 11.5, Stroke::new(1.0, p.bouton_bord));
+            }
+            if reponse.clicked() {
+                etat.crayon = crayon;
+            }
+        }
+        // « Effacer » sous les couleurs : il ne gêne pas « Agrandir ».
+        let zone = Rect::from_min_size(
+            Pos2::new(planche.left() + 10.0, planche.top() + 46.0),
+            Vec2::new(72.0, 32.0),
+        );
+        if !dessin.croquis.is_empty()
+            && bouton_de_planche(
+                ui,
+                &painter,
+                zone,
+                textes::DESSIN_EFFACER_LE_CROQUIS.traduit(),
+                textes::DESSIN_EFFACER_TOUS_LES_TRAITS.traduit(),
+                false,
+                p,
+            )
+        {
+            etat.memoriser(dessin);
+            dessin.croquis.clear();
+            modifie = true;
+        }
     }
     if !dessin.fermee && fleches(ui, p, &painter, planche, dessin, etat) {
         modifie = true;
@@ -4549,6 +4756,7 @@ fn murs(
                 etat.objet_a_placer = None;
                 etat.note_a_placer = false;
                 etat.cloison_a_tracer = false;
+                etat.crayon_sorti = false;
             }
             for champ in [ChampDOuverture::Largeur, ChampDOuverture::Hauteur] {
                 let ouverture = &dessin.ouvertures[rang];
@@ -4672,6 +4880,7 @@ fn murs(
                 etat.objet_a_placer = None;
                 etat.note_a_placer = false;
                 etat.cloison_a_tracer = false;
+                etat.crayon_sorti = false;
                 modifie = true;
             }
         }
@@ -4920,6 +5129,7 @@ fn objets(
                 etat.ouverture_a_placer = None;
                 etat.note_a_placer = false;
                 etat.cloison_a_tracer = false;
+                etat.crayon_sorti = false;
             }
         }
     });
@@ -5157,6 +5367,7 @@ fn cloisons(
         .selected(etat.cloison_a_tracer);
     if ui.add(bouton).clicked() {
         etat.cloison_a_tracer = !etat.cloison_a_tracer;
+        etat.crayon_sorti = false;
         etat.objet_a_placer = None;
         etat.ouverture_a_placer = None;
         etat.note_a_placer = false;
@@ -5228,6 +5439,7 @@ fn notes(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool
         etat.objet_a_placer = None;
         etat.ouverture_a_placer = None;
         etat.cloison_a_tracer = false;
+        etat.crayon_sorti = false;
     }
     modifie
 }

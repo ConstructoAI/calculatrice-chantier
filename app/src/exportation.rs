@@ -77,6 +77,9 @@ struct PieceExportee {
     legende: Vec<SymboleDeLaLegende>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
+    /// Le croquis à main levée d'une pièce complète : chaque trait et son
+    /// crayon (évolution 30).
+    croquis: Vec<(Vec<(f64, f64)>, noyau::dessin::Crayon)>,
     /// Les cloisons d'une pièce complète : leurs morceaux pleins (quatre
     /// coins, en pouces), et leurs portes.
     cloisons: Vec<noyau::cloison::MorceauDeCloison>,
@@ -291,6 +294,15 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
         modele: solution.modele,
         ouvertures,
         objets,
+        croquis: if complete {
+            dessin
+                .croquis
+                .iter()
+                .map(|trait_| (trait_.points.clone(), trait_.crayon))
+                .collect()
+        } else {
+            Vec::new()
+        },
         legende: if complete {
             legende_des_symboles(dessin)
         } else {
@@ -1093,6 +1105,19 @@ fn icone_d_un_symbole(
     }
 }
 
+/// La couleur d'un crayon du croquis à main levée au PDF (évolution 30); le
+/// surligneur, un jaune pâle tracé sous le plan.
+fn couleur_du_crayon(crayon: noyau::dessin::Crayon) -> Couleur {
+    use noyau::dessin::Crayon;
+    match crayon {
+        Crayon::Rouge => (0.86, 0.15, 0.15),
+        Crayon::Bleu => (0.15, 0.39, 0.92),
+        Crayon::Vert => (0.09, 0.64, 0.29),
+        Crayon::Noir => NOIR,
+        Crayon::Surligneur => (1.0, 0.92, 0.45),
+    }
+}
+
 /// Ce qu'il faut faire tenir d'une pièce sur une page (pouces) : sa forme,
 /// ses murs, ses objets, ses notes et ses cloisons.
 fn a_cadrer(piece: &PieceExportee) -> Vec<(f64, f64)> {
@@ -1101,6 +1126,12 @@ fn a_cadrer(piece: &PieceExportee) -> Vec<(f64, f64)> {
         points.extend(objet.traits.iter().flat_map(etendue_d_un_trait));
     }
     points.extend(piece.notes.iter().map(|(_, position)| *position));
+    points.extend(
+        piece
+            .croquis
+            .iter()
+            .flat_map(|(points, _)| points.iter().copied()),
+    );
     points.extend(piece.cloisons.iter().flat_map(|morceau| morceau.coins));
     points.extend(piece.contour_exterieur.iter().copied());
     points
@@ -1128,6 +1159,13 @@ fn dessiner_le_plan(
     let un_pouce = vers_la_page((1.0, 0.0));
     let echelle = (un_pouce.0 - origine.0).hypot(un_pouce.1 - origine.1);
     let epaisseur_des_murs = piece.epaisseur_des_murs * echelle;
+    // Le surligneur du croquis à main levée, sous le plan (évolution 30).
+    for (points, crayon) in &piece.croquis {
+        if *crayon == noyau::dessin::Crayon::Surligneur {
+            let points: Vec<(f64, f64)> = points.iter().map(|p| vers_la_page(*p)).collect();
+            page.trait_(&points, 8.0, couleur_du_crayon(*crayon));
+        }
+    }
     // Les murs à leur épaisseur, pleins : l'intérieur, l'extérieur et les
     // jambages; sans épaisseur, le contour.
     if piece.murs_exterieurs.is_empty() {
@@ -1313,6 +1351,13 @@ fn dessiner_le_plan(
             }
             let (position, alignement) = place_du_texte(milieu, vers, 2.5, 7.0);
             page.texte(position, 7.0, false, alignement, NOIR, texte);
+        }
+    }
+    // Les traits du crayon, par-dessus tout (évolution 30).
+    for (points, crayon) in &piece.croquis {
+        if *crayon != noyau::dessin::Crayon::Surligneur {
+            let points: Vec<(f64, f64)> = points.iter().map(|p| vers_la_page(*p)).collect();
+            page.trait_(&points, 1.3, couleur_du_crayon(*crayon));
         }
     }
 }
@@ -2297,6 +2342,12 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             .iter()
             .flat_map(|objet| objet.traits.iter().flat_map(etendue_d_un_trait))
             .chain(piece.notes.iter().map(|(_, position)| *position))
+            .chain(
+                piece
+                    .croquis
+                    .iter()
+                    .flat_map(|(points, _)| points.iter().copied()),
+            )
             .chain(piece.cloisons.iter().flat_map(|morceau| morceau.coins))
             .chain(piece.contour_exterieur.iter().copied())
             .map(|(x, y)| (x * facteur, -y * facteur))
@@ -2379,6 +2430,17 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                     hauteur,
                     Alignement::Centre,
                     texte,
+                );
+            }
+        }
+        // Le croquis à main levée, sur le calque CROQUIS (évolution 30).
+        for (points, _) in &piece.croquis {
+            for paire in points.windows(2) {
+                ligne_dxf(
+                    &mut entites,
+                    "CROQUIS",
+                    vers_le_dxf(paire[0]),
+                    vers_le_dxf(paire[1]),
                 );
             }
         }
@@ -2595,6 +2657,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("PLOMBERIE", "4"),
         ("ELECTRICITE", "30"),
         ("VENTILATION", "94"),
+        ("CROQUIS", "1"),
         ("NOTES", "2"),
         ("CLOISONS", "5"),
     ];
@@ -2892,6 +2955,27 @@ mod tests {
         assert!(dxf.contains("\r\nLit\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Lit)") && pdf.contains("(Laveuse)"));
+    }
+
+    #[test]
+    fn le_croquis_a_main_levee_au_pdf_et_au_dxf() {
+        let mut piece = rectangle("12", "10");
+        piece.croquis = vec![
+            noyau::dessin::TraitAMainLevee {
+                points: vec![(10.0, 10.0), (40.0, 20.0), (60.0, 60.0)],
+                crayon: noyau::dessin::Crayon::Rouge,
+            },
+            noyau::dessin::TraitAMainLevee {
+                points: vec![(20.0, 100.0), (120.0, 100.0)],
+                crayon: noyau::dessin::Crayon::Surligneur,
+            },
+        ];
+        let plan = Plan::d_une_piece(piece);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nCROQUIS\r\n").count(), 2 + 1);
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("0.860 0.150 0.150 RG"));
+        assert!(pdf.contains("1.000 0.920 0.450 RG"));
     }
 
     #[test]

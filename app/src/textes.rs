@@ -1435,6 +1435,30 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// Le crayon du croquis à main levée (évolution 30).
+pub const DESSIN_CRAYON: Texte = t("Crayon", "Pen");
+pub const DESSIN_DESSINER_A_MAIN_LEVEE: Texte = t(
+    "Dessiner à main levée sur le plan",
+    "Draw freehand on the plan",
+);
+pub const DESSIN_EFFACER_LE_CROQUIS: Texte = t("Effacer", "Erase");
+pub const DESSIN_EFFACER_TOUS_LES_TRAITS: Texte = t(
+    "Effacer tous les traits à main levée",
+    "Erase all freehand strokes",
+);
+
+/// Le nom d'un crayon de la palette, pour les lecteurs d'écran.
+pub fn nom_du_crayon(crayon: noyau::dessin::Crayon) -> Texte {
+    use noyau::dessin::Crayon;
+    match crayon {
+        Crayon::Rouge => t("Crayon rouge", "Red pen"),
+        Crayon::Bleu => t("Crayon bleu", "Blue pen"),
+        Crayon::Vert => t("Crayon vert", "Green pen"),
+        Crayon::Noir => t("Crayon noir", "Black pen"),
+        Crayon::Surligneur => t("Surligneur", "Highlighter"),
+    }
+}
+
 /// L'outil « Mesurer » de la planche (évolution 23).
 pub const DESSIN_MESURER: Texte = t("Mesurer", "Measure");
 pub const DESSIN_MESURER_UNE_DISTANCE: Texte = t(
