@@ -355,6 +355,28 @@ pub const CONFIRMER_RETIRER_PIECE: Texte = t(
     "The attachment will be erased from the device for good.",
 );
 
+// Mesures sur une photo du bloc-notes (section 26)
+pub const AJOUTER_COTE: Texte = t("+ Cote", "+ Dimension");
+pub const COTE_CONSIGNE: Texte = t(
+    "Glissez sur la photo d'un bout à l'autre de ce que vous avez mesuré.",
+    "Drag across the photo from one end to the other of what you measured.",
+);
+pub const MESURE_DE_LA_COTE: Texte = t("Mesure", "Measurement");
+pub const MESURE_INDICE: Texte = t("ex. : 32 po", "e.g. 32 in");
+pub const REFERENCE: Texte = t("Référence", "Reference");
+pub const PREFIXE_REFERENCE: Texte = t("Réf.", "Ref.");
+pub const COTES_EXPLICATION: Texte = t(
+    "Inscrivez la mesure prise au ruban. Une cote laissée vide est estimée d'après la cote de référence et marquée ~ : la perspective fausse les longueurs qui ne sont pas dans le plan de la référence.",
+    "Enter the measurement taken with the tape. A dimension left empty is estimated from the reference dimension and marked ~: perspective distorts lengths that are not in the plane of the reference.",
+);
+pub const TITRE_EXPORTER_PHOTO: Texte =
+    t("Exporter la photo cotée", "Export the dimensioned photo");
+pub const AVIS_PHOTO_EXPORTEE: Texte = t("Photo cotée exportée.", "Dimensioned photo exported.");
+pub const AVIS_PHOTO_EXPORT_ECHEC: Texte = t(
+    "La photo n'a pas pu être exportée.",
+    "The photo could not be exported.",
+);
+
 // Mes dessins : la bibliothèque des dessins (section 25)
 pub const MES_DESSINS: Texte = t("Mes dessins", "My drawings");
 pub const NOUVEAU_DESSIN: Texte = t("+ Nouveau dessin", "+ New drawing");

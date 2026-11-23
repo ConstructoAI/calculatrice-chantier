@@ -102,6 +102,8 @@ enum Demande {
     Grande(u64),
     /// Les octets, pour les enregistrer ailleurs.
     Enregistrer(u64),
+    /// La photo, pour l'exporter en PDF avec ses cotes.
+    Pdf(u64),
 }
 
 /// À quoi servent les fichiers que l'utilisateur est en train de choisir.
@@ -195,6 +197,8 @@ pub struct Application {
     /// (rien : introuvable); la photo vue en grand et sa texture une fois lue.
     vignettes: HashMap<u64, Option<egui::TextureHandle>>,
     photo_vue: Option<(u64, Option<egui::TextureHandle>)>,
+    /// La photo vue en grand, pendant qu'on la cote.
+    etat_de_la_photo: notes::EtatDeLaPhoto,
     /// Pièces jointes demandées à la plateforme, par clé, et pourquoi.
     demandes: HashMap<String, Vec<Demande>>,
     /// Ce que deviendront les fichiers que l'utilisateur est en train de choisir.
@@ -323,6 +327,7 @@ impl Application {
             notes_a_sauvegarder: false,
             vignettes: HashMap::new(),
             photo_vue: None,
+            etat_de_la_photo: notes::EtatDeLaPhoto::default(),
             demandes: HashMap::new(),
             fichiers_pour: None,
             dessins,
@@ -853,10 +858,19 @@ impl Application {
             notes::Action::VoirPhoto(id) => {
                 if let Some(piece) = self.piece_de_la_note_ouverte(id).cloned() {
                     self.photo_vue = Some((id, None));
+                    self.etat_de_la_photo = notes::EtatDeLaPhoto::default();
                     self.demander(pieces::cle_des_octets(&piece), Demande::Grande(id));
                 }
             }
-            notes::Action::FermerPhoto => self.photo_vue = None,
+            notes::Action::FermerPhoto => {
+                self.photo_vue = None;
+                self.etat_de_la_photo = notes::EtatDeLaPhoto::default();
+            }
+            notes::Action::PdfDeLaPhoto(id) => {
+                if let Some(piece) = self.piece_de_la_note_ouverte(id).cloned() {
+                    self.demander(pieces::cle_des_octets(&piece), Demande::Pdf(id));
+                }
+            }
             notes::Action::OuvrirPiece(id) => {
                 if let Some(piece) = self.piece_de_la_note_ouverte(id).cloned()
                     && !self.depot.ouvrir_piece(&pieces::cle_des_octets(&piece))
@@ -975,6 +989,7 @@ impl Application {
     fn oublier_les_images(&mut self) {
         self.vignettes.clear();
         self.photo_vue = None;
+        self.etat_de_la_photo = notes::EtatDeLaPhoto::default();
         self.demandes.clear();
     }
 
@@ -1253,7 +1268,8 @@ impl Application {
                 self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_ABSENTE);
             }
             (Demande::Enregistrer(id), Some(octets)) => self.enregistrer_la_piece(ctx, id, &octets),
-            (Demande::Enregistrer(_), None) => {
+            (Demande::Pdf(id), Some(octets)) => self.exporter_la_photo_cotee(ctx, id, &octets),
+            (Demande::Enregistrer(_) | Demande::Pdf(_), None) => {
                 self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_ABSENTE);
             }
         }
@@ -1310,6 +1326,7 @@ impl Application {
                     largeur: photo.largeur,
                     hauteur: photo.hauteur,
                     ajoutee,
+                    cotes: Vec::new(),
                 };
                 let texture = texture_de(ctx, &format!("vignette-{id}"), &photo.vignette);
                 self.vignettes.insert(id, texture);
@@ -1375,6 +1392,62 @@ impl Application {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_PIECE_ENREGISTREE),
             Export::Annule => {}
             Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_EXPORT_ECHEC),
+        }
+    }
+
+    /// Exporte une photo et ses cotes en PDF (R-100). Bureau : boîte
+    /// « Enregistrer sous »; navigateur : téléchargement.
+    fn exporter_la_photo_cotee(&mut self, ctx: &egui::Context, id: u64, octets: &[u8]) {
+        let Some(note) = self
+            .note_ouverte
+            .and_then(|ouverte| self.notes.iter().find(|n| n.id == ouverte))
+        else {
+            return;
+        };
+        let Some(piece) = note.pieces.iter().find(|piece| piece.id == id).cloned() else {
+            return;
+        };
+        let entete = format!("{} · {}", notes::titre_de(note), note.date_en_clair());
+        let Some((jpeg, largeur, hauteur)) = pieces::jpeg_pour_pdf(octets) else {
+            self.dialogue = Dialogue::Avis(textes::AVIS_PHOTO_EXPORT_ECHEC);
+            return;
+        };
+        let prefs = self.moteur.preferences();
+        let lectures = pieces::lire_les_cotes(&piece.cotes, piece.largeur, piece.hauteur);
+        let cotes: Vec<crate::exportation::CoteExportee> = piece
+            .cotes
+            .iter()
+            .zip(lectures)
+            .map(|(cote, lecture)| crate::exportation::CoteExportee {
+                a: cote.a,
+                b: cote.b,
+                texte: notes::texte_d_une_cote(cote, lecture, prefs),
+            })
+            .collect();
+        let pdf = crate::exportation::pdf_d_une_photo(
+            &piece.nom,
+            &entete,
+            &jpeg,
+            (largeur, hauteur),
+            &cotes,
+        );
+        let base = piece
+            .nom
+            .rsplit_once('.')
+            .map_or(piece.nom.as_str(), |(base, _)| base);
+        let nom = stockage::nom_de_fichier_avec(base, "pdf");
+        let fichier = Fichier {
+            titre: textes::TITRE_EXPORTER_PHOTO.traduit(),
+            filtre: textes::FILTRE_PDF.traduit(),
+            extension: "pdf",
+            type_mime: "application/pdf",
+            nom: &nom,
+            contenu: &pdf,
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_PHOTO_EXPORTEE),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_PHOTO_EXPORT_ECHEC),
         }
     }
 
@@ -1845,6 +1918,7 @@ impl Application {
                         .photo_vue
                         .as_ref()
                         .map(|(id, texture)| (*id, texture.as_ref())),
+                    prefs: self.moteur.preferences(),
                 };
                 let action = notes::afficher(
                     ui,
@@ -1853,6 +1927,7 @@ impl Application {
                     self.note_ouverte,
                     &mut self.viser_la_note,
                     &images,
+                    &mut self.etat_de_la_photo,
                 );
                 if let Some(action) = action {
                     self.traiter_action_note(ui.ctx(), action);

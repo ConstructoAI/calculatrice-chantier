@@ -1048,6 +1048,168 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     assembler_pdf(&pages, &textes::dessin_export_plan(pieces.len()))
 }
 
+// ------------------------------------------------------------ Photo cotée
+
+/// Une cote à dessiner sur la photo d'un PDF : ses bouts, en part de la photo
+/// (de 0 à 1, y vers le bas), et son texte (« 32 po », « ~ 2 pi 0 po »).
+pub struct CoteExportee {
+    pub a: (f64, f64),
+    pub b: (f64, f64),
+    pub texte: String,
+}
+
+/// La photo cotée en PDF, format Lettre (R-100) : son nom et la note en tête,
+/// la photo ajustée à la page, ses cotes par-dessus. `jpeg` est la photo déjà
+/// tournée, insérée telle quelle (filtre DCTDecode).
+pub fn pdf_d_une_photo(
+    titre: &str,
+    entete: &str,
+    jpeg: &[u8],
+    (largeur, hauteur): (u32, u32),
+    cotes: &[CoteExportee],
+) -> Vec<u8> {
+    let mut page = Page {
+        operateurs: String::new(),
+    };
+    en_tete_de_page(&mut page, titre, entete);
+    // La place de la photo, entre l'en-tête et le pied de page.
+    let (x0, y0, x1, y1) = (MARGE, 66.0, LARGEUR_PAGE - MARGE, 700.0);
+    let (lp, hp) = (f64::from(largeur.max(1)), f64::from(hauteur.max(1)));
+    let echelle = ((x1 - x0) / lp).min((y1 - y0) / hp);
+    let (l, h) = (lp * echelle, hp * echelle);
+    let (gauche, bas) = (x0 + ((x1 - x0) - l) / 2.0, y1 - h);
+    page.operateurs.push_str(&format!(
+        "q {l:.2} 0 0 {h:.2} {gauche:.2} {bas:.2} cm /Im1 Do Q\n"
+    ));
+    let sur_la_page = |(u, v): (f64, f64)| (gauche + u * l, bas + (1.0 - v) * h);
+    // Les traits d'abord, puis les textes : aucun trait ne cache un texte.
+    for cote in cotes {
+        let (a, b) = (sur_la_page(cote.a), sur_la_page(cote.b));
+        page.trait_(&[a, b], 1.6, ORANGE);
+        // Un trait de bout à chaque extrémité, en travers de la cote.
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let longueur = dx.hypot(dy).max(1e-9);
+        let (nx, ny) = (-dy / longueur * 5.0, dx / longueur * 5.0);
+        for bout in [a, b] {
+            page.trait_(
+                &[(bout.0 - nx, bout.1 - ny), (bout.0 + nx, bout.1 + ny)],
+                1.6,
+                ORANGE,
+            );
+        }
+    }
+    for cote in cotes {
+        let (a, b) = (sur_la_page(cote.a), sur_la_page(cote.b));
+        // Son texte au milieu, sur fond blanc.
+        let milieu = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+        let taille = 9.0;
+        let etendue = largeur_du_texte(&cote.texte, true) * taille / 1000.0;
+        let (gx, by) = (milieu.0 - etendue / 2.0 - 3.0, milieu.1 - 4.0);
+        page.polygone_plein(
+            &[
+                (gx, by),
+                (gx + etendue + 6.0, by),
+                (gx + etendue + 6.0, by + 13.0),
+                (gx, by + 13.0),
+            ],
+            BLANC,
+        );
+        page.texte(
+            (milieu.0, milieu.1 - 1.0),
+            taille,
+            true,
+            Alignement::Centre,
+            NOIR,
+            &cote.texte,
+        );
+    }
+    pied_de_page(&mut page, 1, 1);
+    assembler_pdf_d_une_photo(&page, titre, jpeg, (largeur, hauteur))
+}
+
+fn ajouter_objet_binaire(sortie: &mut Vec<u8>, decalages: &mut Vec<usize>, corps: &[u8]) {
+    decalages.push(sortie.len());
+    let numero = decalages.len();
+    sortie.extend_from_slice(format!("{numero} 0 obj\n").as_bytes());
+    sortie.extend_from_slice(corps);
+    sortie.extend_from_slice(b"\nendobj\n");
+}
+
+/// Assemble une page et sa photo en un fichier PDF 1.4 : catalogue, pages,
+/// polices standard, renseignements, la page, son contenu, puis la photo.
+fn assembler_pdf_d_une_photo(
+    page: &Page,
+    titre: &str,
+    jpeg: &[u8],
+    (largeur, hauteur): (u32, u32),
+) -> Vec<u8> {
+    // La seconde ligne annonce un fichier binaire.
+    let mut sortie: Vec<u8> = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".to_vec();
+    let mut decalages = Vec::new();
+    let mut objet = |sortie: &mut Vec<u8>, corps: &[u8]| {
+        ajouter_objet_binaire(sortie, &mut decalages, corps);
+    };
+    objet(&mut sortie, b"<< /Type /Catalog /Pages 2 0 R >>");
+    objet(&mut sortie, b"<< /Type /Pages /Kids [6 0 R] /Count 1 >>");
+    for police in ["Helvetica", "Helvetica-Bold"] {
+        objet(
+            &mut sortie,
+            format!(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /{police} /Encoding /WinAnsiEncoding >>"
+            )
+            .as_bytes(),
+        );
+    }
+    objet(
+        &mut sortie,
+        format!(
+            "<< /Title ({}) /Producer (Constructo AI {}) >>",
+            chaine_pdf(titre),
+            textes::VERSION
+        )
+        .as_bytes(),
+    );
+    objet(
+        &mut sortie,
+        format!(
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {LARGEUR_PAGE} {HAUTEUR_PAGE}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 8 0 R >> >> /Contents 7 0 R >>"
+        )
+        .as_bytes(),
+    );
+    objet(
+        &mut sortie,
+        format!(
+            "<< /Length {} >>\nstream\n{}endstream",
+            page.operateurs.len(),
+            page.operateurs
+        )
+        .as_bytes(),
+    );
+    let mut image = format!(
+        "<< /Type /XObject /Subtype /Image /Width {largeur} /Height {hauteur} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>\nstream\n",
+        jpeg.len()
+    )
+    .into_bytes();
+    image.extend_from_slice(jpeg);
+    image.extend_from_slice(b"\nendstream");
+    objet(&mut sortie, &image);
+    let renvois = sortie.len();
+    sortie.extend_from_slice(
+        format!("xref\n0 {}\n0000000000 65535 f \n", decalages.len() + 1).as_bytes(),
+    );
+    for decalage in &decalages {
+        sortie.extend_from_slice(format!("{decalage:010} 00000 n \n").as_bytes());
+    }
+    sortie.extend_from_slice(
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R /Info 5 0 R >>\nstartxref\n{renvois}\n%%EOF\n",
+            decalages.len() + 1
+        )
+        .as_bytes(),
+    );
+    sortie
+}
+
 // ---------------------------------------------------------------------- DXF
 
 /// Un texte écrit pour le DXF : ASCII, les autres caractères en `\U+XXXX`.
@@ -1537,6 +1699,59 @@ mod tests {
         // Un caractère sans équivalent devient un point d'interrogation.
         assert_eq!(chaine_pdf("中"), "?");
         assert!((largeur_du_texte("Pi", false) - 889.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn le_pdf_d_une_photo_cotee_est_bien_forme() {
+        // Un faux JPEG suffit : le PDF le recopie tel quel.
+        let jpeg: Vec<u8> = vec![0xFF, 0xD8, 0x00, 0x0A, b'e', b'n', b'd', 0xFF, 0xD9];
+        let cotes = [CoteExportee {
+            a: (0.1, 0.5),
+            b: (0.6, 0.5),
+            texte: "Réf. 32 po".to_string(),
+        }];
+        let pdf = pdf_d_une_photo(
+            "fenetre.jpg",
+            "Fenêtres du salon · 23 novembre 2026",
+            &jpeg,
+            (2048, 1536),
+            &cotes,
+        );
+        assert!(pdf.starts_with(b"%PDF-1.4\n") && pdf.ends_with(b"%%EOF\n"));
+        let texte = String::from_utf8_lossy(&pdf);
+        assert!(texte.contains("/Subtype /Image /Width 2048 /Height 1536"));
+        assert!(texte.contains("/Filter /DCTDecode /Length 9 >>"));
+        assert!(texte.contains("/Im1 Do"));
+        assert!(texte.contains("(R\\351f. 32 po) Tj"));
+        // La photo est recopiée octet pour octet, entre « stream » et « endstream ».
+        let debut = pdf
+            .windows(jpeg.len())
+            .position(|w| w == jpeg.as_slice())
+            .unwrap();
+        assert!(pdf[debut + jpeg.len()..].starts_with(b"\nendstream"));
+        // Chaque objet est là où la table des renvois le dit.
+        let depart: usize = texte
+            .rsplit("startxref\n")
+            .next()
+            .and_then(|fin| fin.lines().next())
+            .and_then(|nombre| nombre.parse().ok())
+            .unwrap();
+        assert!(pdf[depart..].starts_with(b"xref\n"));
+        let table = String::from_utf8_lossy(&pdf[depart..]).to_string();
+        let renvois: Vec<usize> = table
+            .lines()
+            .skip(3)
+            .take_while(|ligne| ligne.ends_with(" n "))
+            .map(|ligne| ligne[..10].parse().unwrap())
+            .collect();
+        assert_eq!(renvois.len(), 8);
+        for (i, decalage) in renvois.iter().enumerate() {
+            assert!(
+                pdf[*decalage..].starts_with(format!("{} 0 obj", i + 1).as_bytes()),
+                "objet {}",
+                i + 1
+            );
+        }
     }
 
     #[test]

@@ -25,6 +25,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.12.3** : **Mes dessins** — gardez plusieurs dessins, chacun avec ses pièces (nouveau,
   ouvrir, renommer, supprimer); **Enregistrer le fichier** en fait un fichier que **Ouvrir un
   fichier…** rouvre sur un autre appareil, du téléphone à l'ordinateur ou l'inverse.
+- **0.12.4** : des **mesures sur une photo** — sur une photo du bloc-notes, **+ Cote** puis un
+  glissé trace une cote, où s'inscrit la mesure prise au ruban; une cote laissée vide est
+  estimée d'après la cote de référence (marquée ~). **Exporter en PDF** fait un PDF de la
+  photo cotée.
 
 ## Nouveautés de la version 0.11
 

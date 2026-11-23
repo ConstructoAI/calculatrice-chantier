@@ -149,7 +149,9 @@ l'ordinateur ou l'inverse.
 L'onglet **Notes** est un bloc-notes : vos notes de chantier, chacune avec son titre et sa date,
 enregistrées sur l'appareil, à copier ou à exporter en fichier texte. Joignez-y des **photos**
 (sur un téléphone : l'appareil photo ou la galerie) et des **fichiers** (PDF, plans,
-soumissions) : les photos s'affichent en vignettes et s'ouvrent en grand.
+soumissions) : les photos s'affichent en vignettes et s'ouvrent en grand. Sur une photo,
+tracez des **cotes** et inscrivez-y vos mesures (une cote vide est estimée d'après la
+référence), puis exportez la photo cotée en PDF.
 
 ## Installer sur un téléphone ou une tablette
 

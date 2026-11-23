@@ -145,7 +145,7 @@ pub const MAX_NOTES: usize = 500;
 
 /// Une note du bloc-notes (section 26) : son titre, son texte, ses dates de
 /// création et de dernière modification (ISO 8601), et ses pièces jointes.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NoteDuBloc {
     pub id: u64,
@@ -160,7 +160,7 @@ pub struct NoteDuBloc {
 
 /// Une pièce jointe d'une note : sa description. Ses octets sont gardés à
 /// part, sous la clé que donne `pieces::cle_des_octets` (R-95).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PieceJointe {
     pub id: u64,
@@ -176,6 +176,22 @@ pub struct PieceJointe {
     pub hauteur: u32,
     /// Date d'ajout (ISO 8601).
     pub ajoutee: String,
+    /// Les cotes tracées sur une photo (section 26).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cotes: Vec<CoteSurPhoto>,
+}
+
+/// Une cote tracée sur une photo jointe : ses deux bouts, en part de la
+/// largeur et de la hauteur de la photo (de 0 à 1), et sa mesure.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CoteSurPhoto {
+    pub a: (f64, f64),
+    pub b: (f64, f64),
+    /// La mesure prise au ruban (« 35 1/2 po »); vide : estimée d'après la référence.
+    pub mesure: String,
+    /// La cote de référence : sa mesure sert à estimer les cotes laissées vides.
+    pub reference: bool,
 }
 
 impl NoteDuBloc {
@@ -750,6 +766,13 @@ mod tests {
             largeur: 2048,
             hauteur: 1536,
             ajoutee: "2026-11-23T10:00:00-05:00".to_string(),
+            // Une cote de référence, mesurée au ruban.
+            cotes: vec![CoteSurPhoto {
+                a: (0.1, 0.5),
+                b: (0.6, 0.5),
+                mesure: "32 po".to_string(),
+                reference: true,
+            }],
         };
         let devis = PieceJointe {
             id: 1_763_900_000_001,

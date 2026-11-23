@@ -12,7 +12,10 @@ use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageDecoder as _, ImageFormat, ImageReader, Limits, RgbImage};
 
-use crate::stockage::PieceJointe;
+use noyau::unites::Format;
+
+use crate::stockage::{CoteSurPhoto, PieceJointe};
+use crate::vues::dessin::FORMAT_PAR_DEFAUT;
 
 /// Côté le plus long d'une photo gardée, en pixels.
 pub const COTE_MAX_PHOTO: u32 = 2048;
@@ -187,6 +190,73 @@ pub fn cle_de_la_vignette(id: u64) -> String {
     format!("{id}.vignette.jpg")
 }
 
+/// La photo en JPEG, tournée selon son orientation, pour l'insérer telle
+/// quelle dans un PDF : (octets, largeur, hauteur).
+pub fn jpeg_pour_pdf(octets: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
+    let image = lire(octets)?;
+    let jpeg = en_jpeg(&image, 90)?;
+    Some((jpeg, image.width(), image.height()))
+}
+
+// ----------------------------------------------------------------------
+// Mesures sur une photo (R-100)
+// ----------------------------------------------------------------------
+
+/// Ce qu'une cote d'une photo donne à lire.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LectureDeCote {
+    /// La mesure inscrite (en pouces), dans son système.
+    Inscrite(f64, Format),
+    /// Une mesure inscrite qui ne se lit pas.
+    Illisible,
+    /// Estimée d'après la cote de référence (en pouces), dans son système.
+    Estimee(f64, Format),
+    /// Ni mesure, ni référence pour l'estimer.
+    Inconnue,
+}
+
+/// La longueur d'une cote, en pixels de la photo.
+fn longueur_en_pixels(cote: &CoteSurPhoto, largeur: u32, hauteur: u32) -> f64 {
+    let dx = (cote.b.0 - cote.a.0) * f64::from(largeur);
+    let dy = (cote.b.1 - cote.a.1) * f64::from(hauteur);
+    dx.hypot(dy)
+}
+
+/// Une mesure inscrite, lue comme celles du dessin (un nombre seul est en
+/// pieds) : (pouces, système).
+fn lire_une_mesure(texte: &str) -> Option<(f64, Format)> {
+    let valeur = noyau::analyse::analyser_longueur(texte.trim(), FORMAT_PAR_DEFAUT).ok()?;
+    (valeur.est_longueur() && valeur.base > 0.0 && valeur.base.is_finite())
+        .then_some((valeur.base, valeur.format))
+}
+
+/// Lit les cotes d'une photo de `largeur` × `hauteur` pixels : chaque mesure
+/// inscrite, et chaque cote laissée vide estimée d'après la première cote de
+/// référence lisible, au prorata de sa longueur sur la photo.
+pub fn lire_les_cotes(cotes: &[CoteSurPhoto], largeur: u32, hauteur: u32) -> Vec<LectureDeCote> {
+    let echelle = cotes.iter().filter(|c| c.reference).find_map(|c| {
+        let (pouces, format) = lire_une_mesure(&c.mesure)?;
+        let pixels = longueur_en_pixels(c, largeur, hauteur);
+        (pixels > 0.5).then_some((pouces / pixels, format))
+    });
+    cotes
+        .iter()
+        .map(|c| {
+            if !c.mesure.trim().is_empty() {
+                match lire_une_mesure(&c.mesure) {
+                    Some((pouces, format)) => LectureDeCote::Inscrite(pouces, format),
+                    None => LectureDeCote::Illisible,
+                }
+            } else if let Some((pouces_par_pixel, format)) = echelle {
+                let pouces = longueur_en_pixels(c, largeur, hauteur) * pouces_par_pixel;
+                LectureDeCote::Estimee(pouces, format)
+            } else {
+                LectureDeCote::Inconnue
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,6 +325,50 @@ mod tests {
         // Un JPEG tronqué est illisible.
         let entier = jpeg(64, 64);
         assert!(preparer_photo(&entier[..entier.len() / 3]).is_none());
+    }
+
+    #[test]
+    fn les_cotes_d_une_photo_se_lisent_et_s_estiment() {
+        let cote = |a, b, mesure: &str, reference| CoteSurPhoto {
+            a,
+            b,
+            mesure: mesure.to_string(),
+            reference,
+        };
+        // Photo de 2048 × 1536 : la référence fait la moitié de la largeur (1024 px)
+        // et mesure 32 po; une cote verticale de la moitié de la hauteur (768 px) en
+        // vaut donc 24.
+        let cotes = [
+            cote((0.1, 0.5), (0.6, 0.5), "32 po", true),
+            cote((0.5, 0.2), (0.5, 0.7), "", false),
+            cote((0.0, 0.0), (0.2, 0.0), "6 pi 8 po", false),
+            cote((0.0, 0.0), (0.2, 0.0), "ceci n'est pas une mesure", false),
+        ];
+        let lues = lire_les_cotes(&cotes, 2048, 1536);
+        assert!(matches!(lues[0], LectureDeCote::Inscrite(p, _) if (p - 32.0).abs() < 1e-9));
+        assert!(
+            matches!(lues[1], LectureDeCote::Estimee(p, _) if (p - 24.0).abs() < 1e-9),
+            "{:?}",
+            lues[1]
+        );
+        assert!(matches!(lues[2], LectureDeCote::Inscrite(p, _) if (p - 80.0).abs() < 1e-9));
+        assert_eq!(lues[3], LectureDeCote::Illisible);
+        // Sans référence, une cote vide reste inconnue; un nombre seul est en pieds.
+        let sans = [
+            cote((0.1, 0.5), (0.6, 0.5), "", false),
+            cote((0.0, 0.0), (1.0, 0.0), "3", false),
+        ];
+        let lues = lire_les_cotes(&sans, 2048, 1536);
+        assert_eq!(lues[0], LectureDeCote::Inconnue);
+        assert!(matches!(lues[1], LectureDeCote::Inscrite(p, _) if (p - 36.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn la_photo_pour_un_pdf_est_un_jpeg_tourne() {
+        let (jpeg, largeur, hauteur) = jpeg_pour_pdf(&png(300, 100)).unwrap();
+        assert_eq!((largeur, hauteur), (300, 100));
+        assert_eq!(image::guess_format(&jpeg).unwrap(), ImageFormat::Jpeg);
+        assert!(jpeg_pour_pdf(b"pas une image").is_none());
     }
 
     #[test]
