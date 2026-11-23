@@ -374,6 +374,27 @@ fn segments_pieds_pouces(pouces: f64, o: &OptionsFormat) -> Vec<Segment> {
     segments
 }
 
+/// « 16 h 15 » : les heures, puis les minutes sur deux chiffres, à la minute
+/// près (en anglais, « 16 h 15 min »).
+fn segments_heures_minutes(minutes: f64, o: &OptionsFormat) -> Vec<Segment> {
+    let total = minutes.abs().round() as u64;
+    let (heures, reste) = (total / 60, total % 60);
+    let mut texte_heures = String::new();
+    if minutes < 0.0 && total != 0 {
+        texte_heures.push(MOINS);
+    }
+    texte_heures.push_str(&grouper(&heures.to_string(), o.prefs));
+    let mut segments = vec![
+        Segment::Texte(texte_heures),
+        Segment::Unite(symbole(Format::HMin).to_string()),
+        Segment::Texte(format!("{reste:02}")),
+    ];
+    if langue::en_cours() == Langue::Anglais {
+        segments.push(Segment::Unite(symbole(Format::Min).to_string()));
+    }
+    segments
+}
+
 fn segments_pouces_fraction(pouces: f64, o: &OptionsFormat) -> Vec<Segment> {
     let resolution = o.resolution();
     let (entiers, num, den) = decomposer(pouces.abs(), resolution, o.prefs.mode_fractions);
@@ -467,6 +488,7 @@ pub fn formater(v: &Valeur, rendu: Rendu, o: &OptionsFormat) -> TexteValeur {
         Format::Monnaie => avec_unite(nombre_fixe(numerique, 2, prefs)),
         Format::PiPo => TexteValeur(segments_pieds_pouces(v.base, o)),
         Format::PoFrac => TexteValeur(segments_pouces_fraction(v.base, o)),
+        Format::HMin => TexteValeur(segments_heures_minutes(v.base, o)),
         Format::M if prefs.metres_fixes => avec_unite(nombre_fixe(numerique, 3, prefs)),
         _ => avec_unite(nombre_flottant(numerique, prefs)),
     }

@@ -24,6 +24,9 @@ pub enum UniteSaisie {
     Tc,
     T,
     Acre,
+    /// Les heures et les minutes d'une durée : « 7 h 45 » (évolution 16).
+    Heures,
+    Minutes,
 }
 
 impl UniteSaisie {
@@ -66,6 +69,8 @@ impl UniteSaisie {
             (Tc, _) => Format::Tc,
             (T, _) => Format::T,
             (Acre, _) => Format::Acre,
+            (Heures, _) => Format::HMin,
+            (Minutes, _) => Format::Min,
         }
     }
 }
@@ -112,6 +117,9 @@ struct Etat {
     unite: Option<(UniteSaisie, String)>,
     /// 0 ou 1 : linéaire; 2 : carré; 3 : cube.
     exposant: u8,
+    /// Les heures et les minutes d'une durée, comme les pieds et les pouces.
+    heures: Option<String>,
+    minutes: Option<String>,
 }
 
 impl Etat {
@@ -127,10 +135,22 @@ impl Etat {
         self.fraction.is_some() || self.fraction_rapide.is_some()
     }
 
+    /// La saisie est une durée : des heures ou des minutes.
+    fn est_duree(&self) -> bool {
+        self.heures.is_some() || self.minutes.is_some()
+    }
+
     /// La saisie est une unité seule, sans rien d'autre.
     fn unite_seule(&self) -> Option<UniteSaisie> {
         if !self.tampon.is_empty() || self.a_fraction() {
             return None;
+        }
+        if self.est_duree() {
+            return match (&self.heures, &self.minutes) {
+                (Some(_), None) => Some(UniteSaisie::Heures),
+                (None, Some(_)) => Some(UniteSaisie::Minutes),
+                _ => None,
+            };
         }
         match (&self.unite, &self.pieds, &self.pouces) {
             (Some((u, _)), None, None) => Some(*u),
@@ -150,7 +170,10 @@ impl Etat {
 
     /// La saisie ne peut plus recevoir de chiffres : elle est complète.
     fn est_complete(&self) -> bool {
-        self.unite.is_some() || self.exposant > 1 || self.fraction_rapide.is_some()
+        self.unite.is_some()
+            || self.exposant > 1
+            || self.fraction_rapide.is_some()
+            || self.minutes.is_some()
     }
 
     fn appliquer(&mut self, frappe: Frappe) -> Issue {
@@ -190,7 +213,7 @@ impl Etat {
                         Issue::Acceptee
                     }
                     // Seconde virgule d'un nombre sans unité : saisie D:M:S (7.5).
-                    1 if self.pieds.is_none() && self.pouces.is_none() => {
+                    1 if self.pieds.is_none() && self.pouces.is_none() && !self.est_duree() => {
                         self.tampon.push(',');
                         Issue::Acceptee
                     }
@@ -199,7 +222,11 @@ impl Etat {
             }
             Frappe::Unite(u) => self.appliquer_unite(u),
             Frappe::Barre => {
-                if self.est_complete() || self.fraction.is_some() || self.tampon.is_empty() {
+                if self.est_complete()
+                    || self.fraction.is_some()
+                    || self.tampon.is_empty()
+                    || self.est_duree()
+                {
                     return Issue::Ignoree;
                 }
                 if self.tampon.contains(',') || self.tampon.len() > MAX_CHIFFRES_FRACTION {
@@ -215,6 +242,9 @@ impl Etat {
                 }
             }
             Frappe::FractionRapide { num, den } => {
+                if self.est_duree() {
+                    return Issue::Ignoree;
+                }
                 if self.unite.is_some() || self.exposant > 1 {
                     return Issue::Nouvelle;
                 }
@@ -249,8 +279,51 @@ impl Etat {
             }
         }
         match u {
+            UniteSaisie::Heures => {
+                if self.unite.is_some()
+                    || self.pieds.is_some()
+                    || self.pouces.is_some()
+                    || self.a_fraction()
+                    || self.minutes.is_some()
+                {
+                    return Issue::Ignoree;
+                }
+                if self.est_dms() {
+                    return Issue::Erreur;
+                }
+                if self.heures.is_some() {
+                    return if self.tampon.is_empty() {
+                        Issue::Ignoree
+                    } else {
+                        Issue::Erreur
+                    };
+                }
+                if self.tampon.is_empty() {
+                    return Issue::Ignoree;
+                }
+                self.heures = Some(std::mem::take(&mut self.tampon));
+                Issue::Acceptee
+            }
+            UniteSaisie::Minutes => {
+                if self.unite.is_some()
+                    || self.pieds.is_some()
+                    || self.pouces.is_some()
+                    || self.a_fraction()
+                    || self.minutes.is_some()
+                {
+                    return Issue::Ignoree;
+                }
+                if self.est_dms() {
+                    return Issue::Erreur;
+                }
+                if self.tampon.is_empty() {
+                    return Issue::Ignoree;
+                }
+                self.minutes = Some(std::mem::take(&mut self.tampon));
+                Issue::Acceptee
+            }
             UniteSaisie::Pieds => {
-                if self.unite.is_some() || self.exposant > 1 {
+                if self.unite.is_some() || self.exposant > 1 || self.est_duree() {
                     return Issue::Ignoree;
                 }
                 if self.est_dms() {
@@ -275,7 +348,7 @@ impl Etat {
                 Issue::Acceptee
             }
             UniteSaisie::Pouces => {
-                if self.unite.is_some() || self.exposant > 1 {
+                if self.unite.is_some() || self.exposant > 1 || self.est_duree() {
                     return Issue::Ignoree;
                 }
                 if self.est_dms() {
@@ -301,6 +374,7 @@ impl Etat {
                     || self.pouces.is_some()
                     || self.a_fraction()
                     || self.unite.is_some()
+                    || self.est_duree()
                 {
                     return Issue::Ignoree;
                 }
@@ -393,7 +467,11 @@ impl Saisie {
     /// Vrai si la saisie est un nombre nu, sans unité ni fraction.
     pub fn est_nombre_simple(&self) -> bool {
         let e = &self.etat;
-        e.pieds.is_none() && e.pouces.is_none() && !e.a_fraction() && e.unite.is_none()
+        e.pieds.is_none()
+            && e.pouces.is_none()
+            && !e.a_fraction()
+            && e.unite.is_none()
+            && !e.est_duree()
     }
 
     /// Unité que porte seule la saisie (« 5 cm », « 100 pi »), s'il y a lieu.
@@ -412,6 +490,27 @@ impl Saisie {
             },
             resolution_temp: None,
         };
+
+        // Une durée : les heures, puis les minutes (un nombre laissé en suspens
+        // après les heures est en minutes, comme des pouces après des pieds).
+        if e.est_duree() {
+            let mut minutes = 0.0;
+            if let Some(h) = &e.heures {
+                minutes += lire_decimal(h)? * 60.0;
+            }
+            let suspendues = e.minutes.is_none() && !e.tampon.is_empty();
+            match &e.minutes {
+                Some(m) => minutes += lire_decimal(m)?,
+                None if suspendues => minutes += lire_decimal(&e.tampon)?,
+                None => {}
+            }
+            let format = match (&e.heures, &e.minutes) {
+                (Some(h), None) if !suspendues && h.contains(',') => Format::HDec,
+                (None, Some(_)) => Format::Min,
+                _ => Format::HMin,
+            };
+            return Ok(simple(Valeur::en_base(minutes, format)));
+        }
 
         // Unité simple, avec exposant éventuel.
         if let Some((u, nombre)) = &e.unite {
@@ -527,7 +626,18 @@ impl Saisie {
         };
         let avec_exposant = |format: Format| symbole(format).to_string();
         let mut segments: Vec<Segment> = Vec::new();
-        if let Some((u, nombre)) = &e.unite {
+        if e.est_duree() {
+            if let Some(h) = &e.heures {
+                segments.push(Segment::Texte(habiller(h)));
+                segments.push(Segment::Unite(symbole(Format::HMin).to_string()));
+            }
+            if let Some(m) = &e.minutes {
+                segments.push(Segment::Texte(habiller(m)));
+                segments.push(Segment::Unite(symbole(Format::Min).to_string()));
+            } else if !e.tampon.is_empty() {
+                segments.push(Segment::Texte(habiller(&e.tampon)));
+            }
+        } else if let Some((u, nombre)) = &e.unite {
             segments.push(Segment::Texte(habiller(nombre)));
             segments.push(Segment::Unite(avec_exposant(u.format(e.exposant))));
         } else {

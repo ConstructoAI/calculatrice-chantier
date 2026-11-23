@@ -6,6 +6,7 @@ pub mod bienvenue;
 pub mod coupe;
 pub mod dessin;
 pub mod dessins;
+pub mod heures;
 pub mod maquette;
 pub mod metiers;
 pub mod notes;

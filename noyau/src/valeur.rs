@@ -217,6 +217,15 @@ pub fn additionner(a: &Valeur, b: &Valeur, soustraire: bool) -> Result<Valeur, E
         } else {
             Format::Nombre
         }
+    } else if a.genre == Genre::Duree {
+        // Heures et minutes l'emportent; sinon, les heures décimales.
+        if a.format == b.format {
+            a.format
+        } else if a.format == Format::HMin || b.format == Format::HMin {
+            Format::HMin
+        } else {
+            Format::HDec
+        }
     } else if (est_pouces(a.format) && est_pieds(b.format))
         || (est_pieds(a.format) && est_pouces(b.format))
     {

@@ -21,6 +21,8 @@ pub const KG_PAR_LB: f64 = 0.453_592_37;
 pub const LB_PAR_KG: f64 = 1.0 / KG_PAR_LB;
 pub const LB_PAR_TC: f64 = 2000.0;
 pub const LB_PAR_T: f64 = 1000.0 / KG_PAR_LB;
+/// Les durées se comptent en minutes (évolution 16).
+pub const MIN_PAR_H: f64 = 60.0;
 
 /// Dimension physique d'une valeur.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -31,6 +33,8 @@ pub enum Genre {
     Aire,
     Volume,
     Masse,
+    /// Une durée, en minutes (heures et minutes, section 22.20).
+    Duree,
 }
 
 /// Format d'affichage d'une valeur.
@@ -73,6 +77,13 @@ pub enum Format {
     Kg,
     Tc,
     T,
+    // Durée
+    /// Heures et minutes : « 16 h 15 ».
+    HMin,
+    /// Heures décimales : « 16,25 h ».
+    HDec,
+    /// Minutes : « 75 min ».
+    Min,
 }
 
 /// Famille d'unités d'un format (section 6.2).
@@ -146,6 +157,7 @@ impl Format {
             Pi2 | Po2 | Vg2 | M2 | Cm2 | Mm2 | Acre => Genre::Aire,
             Pi3 | Po3 | Vg3 | M3 | Cm3 | Mm3 | Pmp => Genre::Volume,
             Lb | Kg | Tc | T => Genre::Masse,
+            HMin | HDec | Min => Genre::Duree,
         }
     }
 
@@ -179,6 +191,8 @@ impl Format {
             Kg => LB_PAR_KG,
             Tc => LB_PAR_TC,
             T => LB_PAR_T,
+            HMin | HDec => MIN_PAR_H,
+            Min => 1.0,
         }
     }
 
@@ -317,6 +331,8 @@ mod tests {
         assert_eq!(Format::Acre.genre(), Genre::Aire);
         assert_eq!(Format::Pmp.genre(), Genre::Volume);
         assert_eq!(Format::Tc.genre(), Genre::Masse);
+        assert_eq!(Format::HMin.genre(), Genre::Duree);
+        assert_eq!(Format::HDec.facteur(), 60.0);
         assert!((Format::M.facteur() - 39.370_078_74).abs() < 1e-8);
         assert!((Format::Acre.facteur() - 43_560.0 * 144.0).abs() < 1e-6);
     }

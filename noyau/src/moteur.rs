@@ -478,6 +478,8 @@ impl Moteur {
             }
             Touche::Pieds => self.touche_unite(UniteTouche::Pieds, false),
             Touche::Pouces => self.touche_unite(UniteTouche::Pouces, false),
+            Touche::Heures => self.touche_unite(UniteTouche::Heures, false),
+            Touche::Minutes => self.touche_unite(UniteTouche::Minutes, false),
             Touche::Verges => self.touche_unite(UniteTouche::Verges, false),
             Touche::Metres => self.touche_unite(UniteTouche::Metres, false),
             Touche::Additionner => self.operateur(Operateur::Additionner),
@@ -527,6 +529,8 @@ impl Moteur {
             Touche::Conv | Touche::Fraction => Ok(()),
             Touche::Pieds => self.touche_unite(UniteTouche::Pieds, true),
             Touche::Pouces => self.touche_unite(UniteTouche::Pouces, true),
+            Touche::Heures => self.touche_unite(UniteTouche::Heures, true),
+            Touche::Minutes => self.touche_unite(UniteTouche::Minutes, true),
             Touche::Verges => self.touche_unite(UniteTouche::Verges, true),
             Touche::Metres => self.touche_unite(UniteTouche::Metres, true),
             Touche::Chiffre(7) => self.touche_unite(UniteTouche::Cm, true),
@@ -1145,6 +1149,8 @@ fn unite_de_saisie(unite: UniteTouche) -> Option<UniteSaisie> {
         UniteTouche::Tc => UniteSaisie::Tc,
         UniteTouche::T => UniteSaisie::T,
         UniteTouche::Acre => UniteSaisie::Acre,
+        UniteTouche::Heures => UniteSaisie::Heures,
+        UniteTouche::Minutes => UniteSaisie::Minutes,
         UniteTouche::Pmp => return None,
     })
 }

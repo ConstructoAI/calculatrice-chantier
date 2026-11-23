@@ -48,6 +48,10 @@ pub enum Touche {
     /// Touche d'un outil de métier branché sur le clavier (section 23) : le
     /// rang d'un champ de l'outil, ou celui de la touche `Résultat`.
     Outil(u8),
+    /// Le clavier des heures (section 22.20) : les heures et les minutes
+    /// d'une durée, comme les pieds et les pouces.
+    Heures,
+    Minutes,
 }
 
 impl Touche {
@@ -124,6 +128,8 @@ impl Touche {
                 | Touche::RetourArriere
                 | Touche::FractionRapide { .. }
                 | Touche::Outil(_)
+                | Touche::Heures
+                | Touche::Minutes
         )
     }
 }

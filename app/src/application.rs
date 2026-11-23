@@ -50,6 +50,10 @@ const DUREE_FUGACE: f64 = 1.8;
 /// Fonction qui dessine un pictogramme dans un rectangle, d'une couleur donnée.
 type Dessin = fn(&Painter, Rect, Color32);
 
+/// L'outil gardé dans `metiers.json` quand le clavier des heures est à
+/// l'écran (section 22.20).
+const CLAVIER_D_HEURES: &str = "heures";
+
 /// Écran affiché.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Vue {
@@ -197,6 +201,8 @@ pub struct Application {
     derniers_outils: Vec<(Metier, &'static str)>,
     /// Les calculateurs épinglés et récents (section 22.16).
     favoris: stockage::Favoris,
+    /// Le clavier des heures est à l'écran (section 22.20).
+    clavier_d_heures: bool,
     /// La pastille de l'outil branché doit être amenée en vue dans la barre.
     outil_a_montrer: bool,
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
@@ -292,6 +298,7 @@ impl Application {
         let rubans = stockage::charger_rubans(&depot);
         let notes = stockage::charger_notes(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
+        let clavier_d_heures = outil.as_deref() == Some(CLAVIER_D_HEURES);
         let mut favoris = stockage::charger_favoris(&depot);
         favoris.nettoyer(|id| noyau::metiers::calculateur(id).is_some());
         let stockage::DessinCharge {
@@ -366,6 +373,7 @@ impl Application {
             saisies_a_sauvegarder,
             derniers_outils: Vec::new(),
             favoris,
+            clavier_d_heures,
             outil_a_montrer: true,
             fugace: None,
             a_sauvegarder: chargement.illisible,
@@ -437,6 +445,9 @@ impl Application {
     /// Branche un calculateur de métier sur le clavier (section 23), avec ce
     /// que son formulaire contient; `None` revient au clavier de charpente.
     fn brancher_l_outil(&mut self, id: Option<&'static str>) {
+        if id.is_some() {
+            self.clavier_d_heures = false;
+        }
         let avant = self.moteur.outil().map(|c| c.id);
         let saisies = id.and_then(|id| self.saisies_metiers.get(id));
         self.moteur.choisir_outil(id, saisies.map(Vec::as_slice));
@@ -535,7 +546,25 @@ impl Application {
 
     /// Adapte le clavier à un métier : son dernier outil utilisé, ou le
     /// premier de sa liste; `None` revient au clavier de charpente.
+    /// Le clavier des heures (section 22.20) : les heures et les minutes au
+    /// clavier, comme des pieds et des pouces.
+    fn passer_au_clavier_d_heures(&mut self) {
+        self.brancher_l_outil(None);
+        self.clavier_d_heures = true;
+        self.saisies_a_sauvegarder = true;
+    }
+
+    /// L'outil gardé dans `metiers.json` : celui du clavier, ou le clavier des heures.
+    fn outil_a_garder(&self) -> Option<&'static str> {
+        if self.clavier_d_heures {
+            Some(CLAVIER_D_HEURES)
+        } else {
+            self.moteur.outil().map(|c| c.id)
+        }
+    }
+
     fn choisir_metier(&mut self, metier: Option<Metier>) {
+        self.clavier_d_heures = false;
         let id = metier.and_then(|metier| {
             self.derniers_outils
                 .iter()
@@ -566,6 +595,8 @@ impl Application {
             ListeDesMetiers,
             Metier(Metier),
             Outil(&'static str),
+            Heures,
+            FeuilleDeTemps,
         }
         let outil = self.moteur.outil();
         let montrer = std::mem::replace(&mut self.outil_a_montrer, false);
@@ -575,6 +606,7 @@ impl Application {
             .iter()
             .filter_map(|id| noyau::metiers::calculateur(id))
             .collect();
+        let heures = self.clavier_d_heures && outil.is_none();
         let mut choix = None;
         ui.scope_builder(
             egui::UiBuilder::new()
@@ -582,8 +614,11 @@ impl Application {
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
             |ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
-                let nom =
-                    outil.map_or(textes::METIER_CHARPENTE.traduit(), |c| c.metier.nom_court());
+                let nom = if heures {
+                    textes::HEURES.traduit()
+                } else {
+                    outil.map_or(textes::METIER_CHARPENTE.traduit(), |c| c.metier.nom_court())
+                };
                 if vues::pastille(ui, p, nom, vues::Pastille::Menu)
                     .on_hover_text(textes::INFOBULLE_METIER.traduit())
                     .clicked()
@@ -636,8 +671,20 @@ impl Application {
                                         }
                                     }
                                 }
-                                // Clavier de charpente : les autres métiers, à un toucher.
+                                // Clavier de charpente, ou des heures : les autres métiers,
+                                // à un toucher; la feuille de temps, avec les heures.
                                 None => {
+                                    if heures
+                                        && vues::pastille(
+                                            ui,
+                                            p,
+                                            textes::FEUILLE_DE_TEMPS.traduit(),
+                                            vues::Pastille::Ordinaire,
+                                        )
+                                        .clicked()
+                                    {
+                                        choix = Some(Choix::FeuilleDeTemps);
+                                    }
                                     for metier in Metier::TOUS {
                                         if vues::pastille(
                                             ui,
@@ -651,6 +698,18 @@ impl Application {
                                             choix = Some(Choix::Metier(metier));
                                         }
                                     }
+                                    if !heures
+                                        && vues::pastille(
+                                            ui,
+                                            p,
+                                            textes::HEURES.traduit(),
+                                            vues::Pastille::Ordinaire,
+                                        )
+                                        .on_hover_text(textes::HEURES_RESUME.traduit())
+                                        .clicked()
+                                    {
+                                        choix = Some(Choix::Heures);
+                                    }
                                 }
                             }
                         });
@@ -661,6 +720,14 @@ impl Application {
             Some(Choix::ListeDesMetiers) => self.dialogue = Dialogue::ChoisirMetier,
             Some(Choix::Metier(metier)) => self.choisir_metier(Some(metier)),
             Some(Choix::Outil(id)) => self.brancher_l_outil(Some(id)),
+            Some(Choix::Heures) => self.passer_au_clavier_d_heures(),
+            Some(Choix::FeuilleDeTemps) => {
+                self.position_metiers = vues::metiers::Position {
+                    feuille_de_temps: true,
+                    ..Default::default()
+                };
+                self.aller(Vue::Metiers);
+            }
             None => {}
         }
     }
@@ -724,7 +791,7 @@ impl Application {
         }
         if self.saisies_a_sauvegarder {
             self.saisies_a_sauvegarder = false;
-            let outil = self.moteur.outil().map(|c| c.id);
+            let outil = self.outil_a_garder();
             let langue = self.moteur.preferences().langue;
             if stockage::enregistrer_saisies(
                 &self.depot,
@@ -2185,6 +2252,7 @@ impl Application {
             trigo: contexte_base.0,
             point_decimal: contexte_base.1,
             conv_arme: ecran.prefixe == Prefixe::Conv,
+            heures: self.clavier_d_heures && self.moteur.outil().is_none(),
         };
         self.barre_des_metiers(ui, zone_metiers, p);
         let outil = self.moteur.touches_d_outil();
@@ -2311,6 +2379,7 @@ impl Application {
                     }
                     // La carte « Charpente » : le clavier de base.
                     Some(vues::metiers::Action::Clavier) => {
+                        self.clavier_d_heures = false;
                         self.brancher_l_outil(None);
                         self.aller(Vue::Accueil);
                     }
@@ -3014,6 +3083,7 @@ impl Application {
             }
             Dialogue::ChoisirMetier => {
                 let actuel = self.moteur.outil().map(|c| c.metier);
+                let heures_en_cours = self.clavier_d_heures && actuel.is_none();
                 let hauteur = (ctx.content_rect().height() * 0.62).max(200.0);
                 let mention = |en_cours: bool| {
                     if en_cours {
@@ -3022,9 +3092,10 @@ impl Application {
                         ""
                     }
                 };
-                let ((choix, fermer), fermee) = modale(ctx, 350.0, |ui| {
+                let ((choix, fermer, heures), fermee) = modale(ctx, 350.0, |ui| {
                     // `Some(None)` : le clavier de charpente.
                     let mut choix: Option<Option<Metier>> = None;
+                    let mut heures = false;
                     ui.label(
                         RichText::new(textes::TITRE_CHOISIR_METIER.traduit())
                             .font(theme::police_grasse(17.0)),
@@ -3046,9 +3117,20 @@ impl Application {
                                 "metier-charpente",
                                 textes::CHARPENTE_NOM.traduit(),
                                 textes::CHARPENTE_RESUME.traduit(),
-                                mention(actuel.is_none()),
+                                mention(actuel.is_none() && !heures_en_cours),
                             ) {
                                 choix = Some(None);
+                            }
+                            // Le clavier des heures (section 22.20).
+                            if vues::metiers::carte_cliquable(
+                                ui,
+                                p,
+                                "clavier-d-heures",
+                                textes::HEURES.traduit(),
+                                textes::HEURES_RESUME.traduit(),
+                                mention(heures_en_cours),
+                            ) {
+                                heures = true;
                             }
                             for metier in Metier::TOUS {
                                 if vues::metiers::carte_cliquable(
@@ -3067,9 +3149,13 @@ impl Application {
                     let fermer = ui
                         .vertical_centered(|ui| ui.button(textes::FERMER.traduit()).clicked())
                         .inner;
-                    (choix, fermer)
+                    (choix, fermer, heures)
                 });
                 match choix {
+                    _ if heures => {
+                        self.passer_au_clavier_d_heures();
+                        Dialogue::Aucun
+                    }
                     Some(metier) => {
                         self.choisir_metier(metier);
                         Dialogue::Aucun
@@ -3129,7 +3215,7 @@ impl Application {
                         self.position_metiers = vues::metiers::Position {
                             metier: Some(c.metier),
                             calculateur: Some(c.id),
-                            liste_de_coupe: false,
+                            ..Default::default()
                         };
                         self.aller(Vue::Metiers);
                         Dialogue::Aucun
@@ -3395,7 +3481,7 @@ impl eframe::App for Application {
         // L'état est sauvegardé à la fermeture (R-45).
         let _ = stockage::enregistrer_etat(&self.depot, &self.moteur.etat_persistant());
         if self.saisies_a_sauvegarder {
-            let outil = self.moteur.outil().map(|c| c.id);
+            let outil = self.outil_a_garder();
             let langue = self.moteur.preferences().langue;
             let _ = stockage::enregistrer_saisies(
                 &self.depot,

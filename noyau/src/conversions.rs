@@ -19,6 +19,9 @@ pub enum UniteTouche {
     T,
     Acre,
     Pmp,
+    /// Heures et minutes, ou heures décimales; minutes (évolution 16).
+    Heures,
+    Minutes,
 }
 
 /// Effet d'une touche d'unité sur une valeur montrée.
@@ -57,6 +60,8 @@ pub fn convertir(
                 Acre => Valeur::avec_format(v.base, Format::Acre),
                 // Produit « pouces × pouces × pieds » d'une pièce de bois (R-20).
                 Pmp => Valeur::en_base(v.base / 12.0 * PO3_PAR_PMP, Format::Pmp),
+                Heures => Valeur::avec_format(v.base, Format::HMin),
+                Minutes => Valeur::avec_format(v.base, Format::Min),
             }
         }
         Genre::Longueur => {
@@ -73,6 +78,7 @@ pub fn convertir(
                 Metres => Format::M,
                 Cm => Format::Cm,
                 Mm => Format::Mm,
+                Heures | Minutes => return Err(Erreur::Unites),
                 Lb | Kg | Tc | T | Acre | Pmp => {
                     // Sur une longueur à fraction : résolution temporaire (R-24).
                     if !v.format.est_fractionnaire() {
@@ -116,7 +122,7 @@ pub fn convertir(
                 let format = format_masse(unite);
                 Valeur::en_base(v.base * masse_volumique.lb_par_po3(), format)
             }
-            Acre => return Err(Erreur::Unites),
+            Acre | Heures | Minutes => return Err(Erreur::Unites),
         },
         Genre::Masse => match unite {
             Lb | Kg | Tc | T => v.convertie(format_masse(unite)),
@@ -135,7 +141,18 @@ pub fn convertir(
                 };
                 Valeur::en_base(v.base / densite, format)
             }
-            Acre | Pmp => return Err(Erreur::Unites),
+            Acre | Pmp | Heures | Minutes => return Err(Erreur::Unites),
+        },
+        // Une durée : la touche des heures passe des heures et minutes aux
+        // heures décimales, et inversement; celle des minutes, aux minutes.
+        Genre::Duree => match unite {
+            Heures => v.convertie(if v.format == Format::HMin {
+                Format::HDec
+            } else {
+                Format::HMin
+            }),
+            Minutes => v.convertie(Format::Min),
+            _ => return Err(Erreur::Unites),
         },
     };
     if valeur.base.is_finite() {

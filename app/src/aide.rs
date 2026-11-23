@@ -1283,6 +1283,33 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Calcul d'heures", "Hours calculation"),
+        acces: t("barre des métiers : Heures", "trade bar: Hours"),
+        resume: t(
+            "Additionnez des heures et des minutes comme des pieds et des pouces :",
+            "Add hours and minutes like feet and inches:",
+        ),
+        mode_emploi: t(
+            "Touchez Heures dans la barre des métiers, ou dans la liste qu'ouvre le métier : les touches `h` et `min` s'ajoutent en haut du clavier. Un nombre laissé après les heures compte en minutes. `h` sur un résultat le passe en heures décimales, et inversement; `min`, en minutes. Une durée se multiplie et se divise par un nombre; deux durées se divisent l'une par l'autre. La Feuille de temps, dans la barre ou dans l'onglet Métiers, compte les heures de la semaine : l'arrivée, le départ et le dîner de chaque jour, sur 24 heures.",
+            "Tap Hours in the trade bar, or in the list the trade opens: the `h` and `min` keys are added at the top of the keypad. A number left after the hours counts as minutes. `h` on a result switches it to decimal hours, and back; `min`, to minutes. A duration is multiplied and divided by a number; two durations divide one by the other. The Timesheet, in the bar or in the Trades tab, counts the week's hours: arrival, departure and lunch each day, on the 24-hour clock.",
+        ),
+        exemple: Some((
+            t(
+                "`7` `h` `45` `min` `+` `8` `h` `30` `min` `=`, puis `h`",
+                "`7` `h` `45` `min` `+` `8` `h` `30` `min` `=`, then `h`",
+            ),
+            t("16 h 15, puis 16,25 h", "16 h 15 min, then 16.25 h"),
+        )),
+        note: Some(t(
+            "Aucun taux de salaire : la feuille de temps compte les heures, pas la paie.",
+            "No pay rate: the timesheet counts hours, not pay.",
+        )),
+        mots_cles: "heures minutes heure durée temps feuille de temps semaine arrivée départ dîner pause horaire décimales hours minutes hour duration time timesheet week arrival departure lunch break decimal",
+        touches: &[Touche::Heures, Touche::Minutes],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Liste de coupe", "Cut list"),
         acces: t("onglet Métiers", "Trades tab"),
         resume: t(

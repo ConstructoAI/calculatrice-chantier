@@ -13,6 +13,7 @@ pub mod erreurs;
 pub mod etiquettes;
 pub mod fonctions;
 pub mod format;
+pub mod heures;
 pub mod langue;
 pub mod maquette;
 pub mod memoire;

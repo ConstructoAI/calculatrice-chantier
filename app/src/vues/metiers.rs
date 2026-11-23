@@ -27,12 +27,14 @@ pub struct Position {
     pub calculateur: Option<&'static str>,
     /// La liste de coupe est ouverte (section 22.19).
     pub liste_de_coupe: bool,
+    /// La feuille de temps est ouverte (section 22.20).
+    pub feuille_de_temps: bool,
 }
 
 impl Position {
     /// Remonte d'un niveau. Retourne faux si l'on était déjà à la liste des métiers.
     pub fn remonter(&mut self) -> bool {
-        if std::mem::take(&mut self.liste_de_coupe) {
+        if std::mem::take(&mut self.liste_de_coupe) || std::mem::take(&mut self.feuille_de_temps) {
             return true;
         }
         if self.calculateur.take().is_some() {
@@ -194,6 +196,17 @@ fn liste_des_metiers(
             textes::LISTE_DE_COUPE_MENTION.traduit(),
         ) {
             position.liste_de_coupe = true;
+        }
+        // La feuille de temps de la semaine (section 22.20).
+        if carte_cliquable(
+            ui,
+            p,
+            "feuille-de-temps",
+            textes::FEUILLE_DE_TEMPS.traduit(),
+            textes::FEUILLE_DE_TEMPS_RESUME_COURT.traduit(),
+            textes::FEUILLE_DE_TEMPS_MENTION.traduit(),
+        ) {
+            position.feuille_de_temps = true;
         }
         // La charpente, la toiture et les escaliers se calculent au clavier principal.
         if carte_cliquable(
@@ -436,6 +449,12 @@ pub fn afficher(
     prefs: &Preferences,
     favoris: &Favoris,
 ) -> Option<Action> {
+    if position.feuille_de_temps {
+        let saisies = saisies
+            .entry(super::heures::IDENTIFIANT.to_string())
+            .or_insert_with(super::heures::saisies_de_depart);
+        return super::heures::afficher(ui, p, position, saisies, prefs);
+    }
     if position.liste_de_coupe {
         let saisies = saisies
             .entry(super::coupe::IDENTIFIANT.to_string())

@@ -53,6 +53,8 @@ pub fn libelle(touche: Touche, trigo: bool, point_decimal: bool) -> String {
         // de l'outil (section 23).
         Touche::Outil(TOUCHE_RESULTAT) => RESULTAT.traduit(),
         Touche::Outil(_) => "",
+        Touche::Heures => "h",
+        Touche::Minutes => "min",
         Touche::Pente => selon("Pente", "Pitch"),
         Touche::Montee => selon("Montée", "Rise"),
         Touche::Course => selon("Course", "Run"),
@@ -144,6 +146,8 @@ pub fn nom(touche: Touche, trigo: bool) -> String {
     let fixe = match touche {
         Touche::Outil(TOUCHE_RESULTAT) => RESULTAT.traduit(),
         Touche::Outil(_) => "",
+        Touche::Heures => selon("Heures", "Hours"),
+        Touche::Minutes => "Minutes",
         Touche::Pente => selon("Pente", "Pitch"),
         Touche::Montee => selon("Montée", "Rise"),
         Touche::Course => selon("Course", "Run"),
@@ -301,6 +305,74 @@ pub const AUCUNE_NOTE_TROUVEE: Texte = t(
     "Aucune note ne contient ces mots.",
     "No note contains these words.",
 );
+
+// Le calcul d'heures et la feuille de temps (section 22.20)
+pub const HEURES: Texte = t("Heures", "Hours");
+pub const HEURES_RESUME: Texte = t(
+    "Des heures et des minutes au clavier, comme des pieds et des pouces, et la feuille de temps de la semaine",
+    "Hours and minutes on the keypad, like feet and inches, and the weekly timesheet",
+);
+pub const FEUILLE_DE_TEMPS: Texte = t("Feuille de temps", "Timesheet");
+pub const FEUILLE_DE_TEMPS_MENTION: Texte = t("Semaine", "Week");
+pub const FEUILLE_DE_TEMPS_RESUME_COURT: Texte = t(
+    "L'arrivée, le départ et le dîner de chaque jour : les heures de la semaine",
+    "Arrival, departure and lunch each day: the hours of the week",
+);
+pub const FEUILLE_DE_TEMPS_RESUME: Texte = t(
+    "L'arrivée, le départ et le dîner de chaque jour : les heures de chaque jour et le total de la semaine. Une heure s'écrit 7:30 ou 7 h 30, sur 24 heures; un dîner, en minutes (30) ou en heures (1 h).",
+    "Arrival, departure and lunch each day: the hours of each day and the week total. A time is written 7:30 or 7 h 30, on the 24-hour clock; a lunch, in minutes (30) or in hours (1 h).",
+);
+pub const COLONNE_ARRIVEE: Texte = t("Arrivée", "In");
+pub const COLONNE_DEPART: Texte = t("Départ", "Out");
+pub const COLONNE_DINER: Texte = t("Dîner", "Lunch");
+pub const COLONNE_HEURES: Texte = t("Heures", "Hours");
+pub const TOTAL_DE_LA_SEMAINE: Texte = t("Total de la semaine", "Week total");
+pub const VIDER_LA_SEMAINE: Texte = t("Vider la semaine", "Clear the week");
+pub const JOURS_COURTS: [Texte; 7] = [
+    t("Lun", "Mon"),
+    t("Mar", "Tue"),
+    t("Mer", "Wed"),
+    t("Jeu", "Thu"),
+    t("Ven", "Fri"),
+    t("Sam", "Sat"),
+    t("Dim", "Sun"),
+];
+pub const JOURS: [Texte; 7] = [
+    t("Lundi", "Monday"),
+    t("Mardi", "Tuesday"),
+    t("Mercredi", "Wednesday"),
+    t("Jeudi", "Thursday"),
+    t("Vendredi", "Friday"),
+    t("Samedi", "Saturday"),
+    t("Dimanche", "Sunday"),
+];
+
+/// « Lundi : « 7:75 » ne se lit pas. »
+pub fn heure_illisible(jour: &str, texte: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{jour} : « {texte} » ne se lit pas."),
+        Langue::Anglais => format!("{jour}: \"{texte}\" cannot be read."),
+    }
+}
+
+/// « Lundi : le dîner dépasse la journée. »
+pub fn diner_trop_long(jour: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{jour} : le dîner dépasse la journée."),
+        Langue::Anglais => format!("{jour}: lunch is longer than the day."),
+    }
+}
+
+/// « 7:30 – 16:30 · dîner 30 », dans le ruban.
+pub fn journee_en_clair(arrivee: &str, depart: &str, diner: &str) -> String {
+    if diner.is_empty() {
+        return format!("{arrivee} – {depart}");
+    }
+    match langue::en_cours() {
+        Langue::Francais => format!("{arrivee} – {depart} · dîner {diner}"),
+        Langue::Anglais => format!("{arrivee} – {depart} · lunch {diner}"),
+    }
+}
 
 // La liste de coupe (section 22.19)
 pub const LISTE_DE_COUPE: Texte = t("Liste de coupe", "Cut list");

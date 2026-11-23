@@ -64,6 +64,9 @@ pub struct Contexte {
     pub trigo: bool,
     pub point_decimal: bool,
     pub conv_arme: bool,
+    /// Le clavier des heures (section 22.20) : les heures et les minutes en
+    /// haut, sur les cinq rangées du bas.
+    pub heures: bool,
 }
 
 /// Largeur d'un texte sur une ligne.
@@ -267,7 +270,8 @@ struct Case {
 /// rangées, étirées sur toute la largeur; viennent ensuite la rangée de la
 /// touche `Résultat`, puis les cinq rangées du bas, inchangées (section 23).
 /// `grandes` (mode chantier) : les cinq rangées du bas sont plus hautes.
-fn disposer(grille: Rect, champs: Option<usize>, grandes: bool) -> Vec<Case> {
+/// `heures` (sans outil) : les touches des heures et des minutes en haut.
+fn disposer(grille: Rect, champs: Option<usize>, grandes: bool, heures: bool) -> Vec<Case> {
     let colonne = (grille.width() - ESPACE * 4.0) / 5.0;
     // Une rangée : (touche, bord gauche, largeur).
     let standard = |rangee: &[Touche; 5]| -> Vec<(Touche, f32, f32)> {
@@ -292,6 +296,15 @@ fn disposer(grille: Rect, champs: Option<usize>, grandes: bool) -> Vec<Case> {
             .collect()
     };
     let rangees: Vec<Vec<(Touche, f32, f32)>> = match champs {
+        None if heures => {
+            let moitie = (grille.width() - ESPACE) / 2.0;
+            let mut rangees = vec![vec![
+                (Touche::Heures, 0.0, moitie),
+                (Touche::Minutes, moitie + ESPACE, moitie),
+            ]];
+            rangees.extend(Touche::GRILLE.iter().skip(3).map(standard));
+            rangees
+        }
         None => Touche::GRILLE.iter().map(standard).collect(),
         Some(nombre) => {
             let nombre = nombre.min(CHAMPS_D_OUTIL);
@@ -387,7 +400,12 @@ pub fn dessiner(
     let mut actions = Vec::new();
     let painter = ui.painter_at(rect);
     let grille = rect.shrink(MARGE);
-    let cases = disposer(grille, outil.map(<[ToucheOutil]>::len), p.chantier);
+    let cases = disposer(
+        grille,
+        outil.map(<[ToucheOutil]>::len),
+        p.chantier,
+        contexte.heures,
+    );
     let champ_de = |touche: Touche| match (touche, outil) {
         (Touche::Outil(rang), Some(champs)) if rang != TOUCHE_RESULTAT => {
             champs.get(usize::from(rang))
@@ -712,9 +730,9 @@ mod tests {
     fn disposition_du_clavier_d_un_outil() {
         let grille = Rect::from_min_size(Pos2::ZERO, Vec2::new(404.0, 600.0));
         // Clavier de base : quarante touches.
-        assert_eq!(disposer(grille, None, false).len(), 40);
+        assert_eq!(disposer(grille, None, false, false).len(), 40);
         // Quatre champs : une rangée de champs, la rangée de Résultat, cinq rangées.
-        let cases = disposer(grille, Some(4), false);
+        let cases = disposer(grille, Some(4), false, false);
         assert_eq!(cases.len(), 4 + 3 + 25);
         assert_eq!(cases[0].touche, Touche::Outil(0));
         assert_eq!(cases[4].touche, Touche::Metres);
@@ -726,24 +744,39 @@ mod tests {
             (cases[5].rect.width() - (3.0 * cases[4].rect.width() + 2.0 * ESPACE)).abs() < 0.01
         );
         // Neuf champs : deux rangées, cinq puis quatre.
-        let cases = disposer(grille, Some(9), false);
+        let cases = disposer(grille, Some(9), false, false);
         assert_eq!(cases.len(), 9 + 3 + 25);
         assert!((cases[4].rect.top() - cases[0].rect.top()).abs() < 0.01);
         assert!(cases[5].rect.top() > cases[4].rect.top());
         // La dernière touche touche le bas de la grille, quel que soit le nombre de rangées.
         for champs in [None, Some(2), Some(6), Some(10)] {
-            let cases = disposer(grille, champs, false);
+            let cases = disposer(grille, champs, false, false);
             let bas = cases.iter().map(|c| c.rect.bottom()).fold(0.0f32, f32::max);
             assert!((bas - grille.bottom()).abs() < 0.01);
         }
     }
 
     #[test]
+    fn clavier_des_heures() {
+        let grille = Rect::from_min_size(Pos2::ZERO, Vec2::new(404.0, 600.0));
+        let cases = disposer(grille, None, false, true);
+        assert_eq!(cases.len(), 2 + 25);
+        assert_eq!(cases[0].touche, Touche::Heures);
+        assert_eq!(cases[1].touche, Touche::Minutes);
+        assert!((cases[1].rect.right() - grille.right()).abs() < 0.01);
+        assert_eq!(cases[2].touche, Touche::Verges);
+        let bas = cases.iter().map(|c| c.rect.bottom()).fold(0.0f32, f32::max);
+        assert!((bas - grille.bottom()).abs() < 0.01);
+        // Un outil branché passe avant le clavier des heures.
+        assert_eq!(disposer(grille, Some(4), false, true).len(), 4 + 3 + 25);
+    }
+
+    #[test]
     fn grandes_touches_du_mode_chantier() {
         let grille = Rect::from_min_size(Pos2::ZERO, Vec2::new(404.0, 600.0));
         for champs in [None, Some(4), Some(9)] {
-            let grandes = disposer(grille, champs, true);
-            let normales = disposer(grille, champs, false);
+            let grandes = disposer(grille, champs, true, false);
+            let normales = disposer(grille, champs, false, false);
             assert_eq!(grandes.len(), normales.len());
             // Les cinq rangées du bas sont d'un cinquième plus hautes que les autres.
             let (premiere, derniere) = (&grandes[0], &grandes[grandes.len() - 1]);

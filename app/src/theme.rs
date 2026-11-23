@@ -291,7 +291,9 @@ pub fn famille(t: Touche) -> Famille {
         | Touche::Pouces
         | Touche::Fraction
         | Touche::Stocker
-        | Touche::Rappel => Famille::Fonction,
+        | Touche::Rappel
+        | Touche::Heures
+        | Touche::Minutes => Famille::Fonction,
         Touche::Chiffre(_) | Touche::Virgule | Touche::FractionRapide { .. } => Famille::Chiffre,
         // La touche `Résultat` d'un outil de métier se détache comme `Conv`.
         Touche::Conv | Touche::Outil(noyau::moteur::TOUCHE_RESULTAT) => Famille::Conv,

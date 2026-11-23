@@ -250,6 +250,8 @@ pub fn symbole(format: Format) -> &'static str {
         Kg => "kg",
         Tc => selon("tc", "ton"),
         T => "t",
+        HMin | HDec => "h",
+        Min => "min",
     }
 }
 

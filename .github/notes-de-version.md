@@ -51,6 +51,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   trait de scie compris, avec la chute; pour le bois, les moulures, les conduits et les
   tuyaux.
 
+- **Calcul d'heures** : le clavier **Heures** (barre des métiers) additionne des heures et des
+  minutes comme des pieds et des pouces — 7 h 45 + 8 h 30 = 16 h 15, ou 16,25 h —, et la
+  **feuille de temps** compte les heures de la semaine (arrivée, départ, dîner).
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

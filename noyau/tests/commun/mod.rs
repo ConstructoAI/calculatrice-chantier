@@ -54,6 +54,8 @@ fn touches(jeton: &str) -> Vec<Touche> {
     }
     let touche = match sans_accents(jeton).as_str() {
         "pi" => Touche::Pieds,
+        "h" => Touche::Heures,
+        "min" => Touche::Minutes,
         "po" => Touche::Pouces,
         "vg" => Touche::Verges,
         "m" => Touche::Metres,
