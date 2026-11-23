@@ -1394,6 +1394,78 @@ pub const DESSIN_ANGLE_REFUSE: Texte = t(
     "Avec cet angle, la forme ne se referme pas : essayez-en un autre.",
     "With this angle, the shape does not close: try another one.",
 );
+// Les diagonales d'une pièce à quatre côtés (section 25.1, point 33)
+pub const DESSIN_DIAGONALES: Texte = t(
+    "Diagonales (pièce hors d'équerre)",
+    "Diagonals (out-of-square room)",
+);
+pub const DESSIN_DIAGONALES_AIDE: Texte = t(
+    "Mesurez les diagonales d'un coin à l'autre : la pièce se redessine telle qu'elle est, avec l'angle de chaque coin et son écart à l'équerre.",
+    "Measure the diagonals corner to corner: the room is redrawn as it really is, with each corner's angle and how far it is out of square.",
+);
+pub const DESSIN_DIAGONALES_ATTENTE: Texte = t(
+    "Les diagonales servent quand les quatre côtés sont mesurés.",
+    "The diagonals are used once all four sides are measured.",
+);
+pub const DESSIN_D_EQUERRE: Texte = t("d'équerre", "square");
+
+/// Le titre d'une diagonale : 0 du coin 1 au coin 3, 1 du coin 2 au coin 4.
+pub fn dessin_diagonale(diagonale: usize) -> String {
+    let (de, a) = (diagonale + 1, diagonale + 3);
+    match langue::en_cours() {
+        Langue::Francais => format!("Diagonale du coin {de} au coin {a}"),
+        Langue::Anglais => format!("Diagonal from corner {de} to corner {a}"),
+    }
+}
+
+/// Une diagonale en bref : « 1 → 3 ».
+pub fn dessin_diagonale_courte(diagonale: usize) -> String {
+    format!("{} → {}", diagonale + 1, diagonale + 3)
+}
+
+/// Une diagonale qui ne va pas avec les côtés.
+pub fn dessin_diagonale_impossible(diagonale: usize) -> String {
+    let (de, a) = (diagonale + 1, diagonale + 3);
+    match langue::en_cours() {
+        Langue::Francais => format!(
+            "La diagonale du coin {de} au coin {a} ne va pas avec ces côtés : elle est trop longue ou trop courte. Vérifiez les mesures."
+        ),
+        Langue::Anglais => format!(
+            "The diagonal from corner {de} to corner {a} does not fit these sides: it is too long or too short. Check the measurements."
+        ),
+    }
+}
+
+/// Deux diagonales qui ne s'accordent pas.
+pub fn dessin_diagonales_en_desaccord(ecart: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!(
+            "Les deux diagonales diffèrent de {ecart} de ce que donnent les côtés : mesurez-les de nouveau. La forme suit la diagonale 1 → 3."
+        ),
+        Langue::Anglais => format!(
+            "The two diagonals are {ecart} off from what the sides give: measure them again. The shape follows diagonal 1 → 3."
+        ),
+    }
+}
+
+/// Le nom d'un coin.
+pub fn dessin_coin(rang: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Coin {rang}"),
+        Langue::Anglais => format!("Corner {rang}"),
+    }
+}
+
+/// L'écart d'un coin à l'équerre : « 3/8 po sur 4 pi ».
+pub fn dessin_ecart_sur(ecart: &str, metrique: bool) -> String {
+    match (langue::en_cours(), metrique) {
+        (Langue::Francais, false) => format!("{ecart} sur 4 pi"),
+        (Langue::Francais, true) => format!("{ecart} sur 1 m"),
+        (Langue::Anglais, false) => format!("{ecart} over 4 ft"),
+        (Langue::Anglais, true) => format!("{ecart} over 1 m"),
+    }
+}
+
 pub const DESSIN_ETAPE_TRACER: Texte = t(
     "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre, ou à 45° pour un mur en biais (le bouton 45° fait passer les flèches en biais).",
     "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up, or set at 45° for an angled wall (the 45° button switches the arrows to angled).",

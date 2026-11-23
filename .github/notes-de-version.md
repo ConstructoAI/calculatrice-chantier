@@ -74,6 +74,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   précédent — 22,5°, 30°, 45°, 60°, 90° ou l'angle tapé; les côtés déduits suivent. Les
   segments de cloison aussi.
 
+- **Pièce hors d'équerre** : avec ses quatre côtés et une diagonale mesurés, une pièce se
+  redessine telle qu'elle est, et chaque coin donne son angle et son écart à l'équerre
+  (« 1/4 po sur 4 pi »).
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

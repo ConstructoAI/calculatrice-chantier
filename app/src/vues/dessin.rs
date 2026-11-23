@@ -209,6 +209,9 @@ enum AutreSaisie {
     EpaisseurDesMurs,
     /// L'épaisseur des cloisons de la pièce.
     EpaisseurDesCloisons,
+    /// Une diagonale d'une pièce à quatre côtés : 0 du coin 1 au coin 3, 1
+    /// du coin 2 au coin 4 (section 25.1, point 33).
+    Diagonale(usize),
 }
 
 /// Une mesure d'un objet : ses dimensions, et pour un escalier sa hauteur à
@@ -253,6 +256,7 @@ impl AutreSaisie {
                     })
             }
             AutreSaisie::EpaisseurDesMurs | AutreSaisie::EpaisseurDesCloisons => true,
+            AutreSaisie::Diagonale(k) => k < 2 && dessin.fermee && dessin.cotes.len() == 4,
         }
     }
 }
@@ -846,6 +850,9 @@ pub fn afficher(
                 Some(autre) => action = Some(autre),
                 None => {}
             }
+            if dessin.fermee && dessin.cotes.len() == 4 {
+                diagonales(ui, p, dessin, etat, &solution, prefs);
+            }
             if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
@@ -1283,6 +1290,7 @@ fn planche_et_gestes(
     // Un mur se saisit par la poignée de son milieu : il glisse parallèlement
     // à lui-même, et ses voisins s'allongent ou raccourcissent.
     if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+        && solution.forme_reelle.is_none()
         && etat.mur_tire.is_none()
         && !etat.cloison_a_tracer
         && reponse.drag_started_by(egui::PointerButton::Primary)
@@ -2091,8 +2099,9 @@ fn planche_et_gestes(
         }
     }
 
-    // Les poignées des murs, à leur milieu : on les glisse pour étirer la pièce.
-    if complete && dessin.fermee {
+    // Les poignées des murs, à leur milieu : on les glisse pour étirer la pièce
+    // (pas une pièce tirée de ses diagonales, qui ne s'étire pas).
+    if complete && dessin.fermee && solution.forme_reelle.is_none() {
         for (i, s) in points.windows(2).enumerate() {
             let milieu = s[0] + (s[1] - s[0]) * 0.5;
             let tire = etat.mur_tire.as_ref().is_some_and(|tire| tire.cote == i);
@@ -2151,6 +2160,32 @@ fn planche_et_gestes(
         let cadre = cadre.translate(decalage);
         painter.rect_filled(cadre, 4, p.carte.gamma_multiply(0.92));
         painter.galley(cadre.min + Vec2::new(3.0, 1.0), galere, couleur);
+    }
+    // La diagonale qu'on mesure (point 33) : en pointillé, avec le numéro de
+    // chaque coin, pour savoir d'où à où la prendre.
+    if let Some(AutreSaisie::Diagonale(k)) = etat.autre_choisi
+        && dessin.fermee
+        && points.len() == 5
+        && k < 2
+    {
+        painter.extend(egui::Shape::dashed_line(
+            &[points[k], points[k + 2]],
+            Stroke::new(2.0, p.accent_du_plan()),
+            8.0,
+            5.0,
+        ));
+        for (rang, coin) in points[..4].iter().enumerate() {
+            let position = *coin + (centre - *coin).normalized() * 17.0;
+            painter.circle_filled(position, 9.5, p.carte);
+            painter.circle_stroke(position, 9.5, Stroke::new(1.8, p.accent_du_plan()));
+            painter.text(
+                position,
+                Align2::CENTER_CENTER,
+                (rang + 1).to_string(),
+                theme::police_grasse(11.5),
+                p.texte,
+            );
+        }
     }
     // Les notes, par-dessus tout : leur texte dans un cadre clair.
     etat.notes_a_l_ecran.clear();
@@ -2741,6 +2776,17 @@ fn autre_mesure(
                 (!en_largeur).then_some(AutreSaisie::Retrait(rang, true)),
             )
         }
+        AutreSaisie::Diagonale(k) => {
+            let Some(saisie) = dessin.diagonales.get_mut(k) else {
+                return false;
+            };
+            (
+                saisie,
+                textes::dessin_diagonale(k),
+                textes::DESSIN_EXEMPLE.traduit().to_string(),
+                (k == 0).then_some(AutreSaisie::Diagonale(1)),
+            )
+        }
         AutreSaisie::Hauteur => (
             &mut dessin.hauteur_des_murs,
             textes::DESSIN_HAUTEUR_DES_MURS.traduit().to_string(),
@@ -3060,6 +3106,70 @@ fn rangee_de_l_angle(
         ui.label(RichText::new(avis.traduit()).size(12.5).color(p.erreur));
     }
     choisi
+}
+
+/// Au-delà de cet écart (pouces) entre ses deux diagonales et ce que donnent
+/// ses côtés, une pièce est à mesurer de nouveau.
+const ECART_TOLERE_DES_DIAGONALES: f64 = 0.25;
+
+/// Les diagonales d'une pièce à quatre côtés (section 25.1, point 33) : un
+/// bouton pour chacune, qui ouvre le pavé; sur le plan, la diagonale choisie
+/// paraît en pointillé, avec le numéro des coins.
+fn diagonales(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) {
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_DIAGONALES.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    ui.horizontal_wrapped(|ui| {
+        for k in 0..2 {
+            ui.label(RichText::new(textes::dessin_diagonale_courte(k)).size(13.5));
+            let cible = AutreSaisie::Diagonale(k);
+            let choisie = etat.autre_choisi == Some(cible);
+            let texte = mesure_du_bouton(&dessin.diagonales[k], "?", prefs);
+            if ui
+                .add(egui::Button::new(texte).selected(choisie))
+                .on_hover_text(textes::dessin_diagonale(k))
+                .clicked()
+            {
+                etat.choisir_autre((!choisie).then_some(cible));
+            }
+        }
+    });
+    let quatre_mesures = solution
+        .mesures
+        .iter()
+        .all(|mesure| matches!(mesure, Mesure::Lue(_)));
+    let aide = if quatre_mesures {
+        textes::DESSIN_DIAGONALES_AIDE
+    } else {
+        textes::DESSIN_DIAGONALES_ATTENTE
+    };
+    ui.label(
+        RichText::new(aide.traduit())
+            .size(12.5)
+            .color(p.texte_attenue),
+    );
+    if let Some(ecart) = solution
+        .ecart_des_diagonales
+        .filter(|ecart| *ecart > ECART_TOLERE_DES_DIAGONALES)
+    {
+        ui.label(
+            RichText::new(textes::dessin_diagonales_en_desaccord(&longueur_en_clair(
+                ecart, solution, prefs,
+            )))
+            .size(12.5)
+            .color(p.erreur),
+        );
+    }
 }
 
 /// La liste des retraits : ce qui se retire de la surface de la pièce.
@@ -4038,6 +4148,41 @@ pub(crate) fn resultats_de_la_piece(
             longueur(a.hypot(b)),
         ));
     }
+    // Une pièce redessinée d'après ses diagonales : l'angle de chaque coin et
+    // son écart à l'équerre, à 4 pi du coin (à 1 m en métrique).
+    if let Some(forme) = &solution.forme_reelle {
+        let metrique = solution.modele.and_then(noyau::unites::Format::systeme)
+            == Some(noyau::unites::Systeme::Metrique);
+        let (sur, format, sous_le_seuil) = if metrique {
+            (1000.0 / 25.4, noyau::unites::Format::Mm, 0.5 / 25.4)
+        } else {
+            (
+                48.0,
+                noyau::unites::Format::PoFrac,
+                0.5 / f64::from(prefs.resolution.max(1)),
+            )
+        };
+        for (rang, angle) in noyau::dessin::angles_des_coins(forme)
+            .into_iter()
+            .enumerate()
+        {
+            let ecart = noyau::dessin::ecart_a_l_equerre(angle, sur);
+            let degres =
+                noyau::format::nombre_et_unite(&noyau::format::nombre_fixe(angle, 1, prefs), "°");
+            let ecart_en_clair = if ecart < sous_le_seuil {
+                textes::DESSIN_D_EQUERRE.traduit().to_string()
+            } else {
+                textes::dessin_ecart_sur(
+                    &sans_insecables(&Quantite::Longueur(ecart).en_clair(Some(format), prefs)),
+                    metrique,
+                )
+            };
+            lignes.push((
+                textes::dessin_coin(rang + 1),
+                format!("{degres} · {ecart_en_clair}"),
+            ));
+        }
+    }
     if detail {
         for (rang, (retrait, aire_du_retrait)) in
             dessin.retraits.iter().zip(&solution.retraits).enumerate()
@@ -4131,6 +4276,11 @@ fn bilan(
             p.erreur,
         ),
         EtatDeLaForme::SeCroise => consigne(ui, textes::DESSIN_SE_CROISE.traduit(), p.erreur),
+        EtatDeLaForme::DiagonaleImpossible(diagonale) => consigne(
+            ui,
+            &textes::dessin_diagonale_impossible(diagonale),
+            p.erreur,
+        ),
         EtatDeLaForme::Complete { aire, perimetre } => {
             let resultats = resultats_de_la_piece(dessin, solution, prefs, false);
             // Les retraits : ce qui empêche de calculer la surface nette.

@@ -357,6 +357,85 @@ fn aire_et_perimetre(sommets: &[(f64, f64)]) -> (f64, f64) {
     (aire.abs() / 2.0, perimetre)
 }
 
+/// Une forme tirée de ses diagonales : ses sommets (pouces, le départ répété
+/// à la fin), et l'écart entre les deux diagonales quand les deux sont
+/// mesurées (section 25.1, point 33).
+type FormeReelle = (Vec<(f64, f64)>, Option<f64>);
+
+/// L'angle (radians) entre deux côtés d'un triangle, d'après leurs longueurs
+/// et celle du côté qui leur fait face; `None` si ces trois longueurs ne font
+/// pas un triangle, à 1/16 po près (un triangle aplati compte).
+fn angle_du_triangle(cote: f64, autre: f64, en_face: f64) -> Option<f64> {
+    if cote <= 0.0 || autre <= 0.0 || en_face <= 0.0 {
+        return None;
+    }
+    if en_face > cote + autre + TOLERANCE_PO || en_face < (cote - autre).abs() - TOLERANCE_PO {
+        return None;
+    }
+    let cosinus = (cote * cote + autre * autre - en_face * en_face) / (2.0 * cote * autre);
+    Some(cosinus.clamp(-1.0, 1.0).acos())
+}
+
+/// Le point à `r1` du centre `c1` et à `r2` du centre `c2`, du côté `cote`
+/// (+1 ou −1) de la droite de `c1` à `c2`; `None` si les deux cercles ne se
+/// rencontrent pas, à 1/16 po près.
+fn rencontre_de_cercles(
+    c1: (f64, f64),
+    r1: f64,
+    c2: (f64, f64),
+    r2: f64,
+    cote: f64,
+) -> Option<(f64, f64)> {
+    let (dx, dy) = (c2.0 - c1.0, c2.1 - c1.1);
+    let distance = dx.hypot(dy);
+    if distance <= 1e-9
+        || distance > r1 + r2 + TOLERANCE_PO
+        || distance < (r1 - r2).abs() - TOLERANCE_PO
+    {
+        return None;
+    }
+    let le_long = (r1 * r1 - r2 * r2 + distance * distance) / (2.0 * distance);
+    let de_travers = (r1 * r1 - le_long * le_long).max(0.0).sqrt() * cote;
+    let (ux, uy) = (dx / distance, dy / distance);
+    Some((
+        c1.0 + ux * le_long - uy * de_travers,
+        c1.1 + uy * le_long + ux * de_travers,
+    ))
+}
+
+/// L'angle intérieur de chaque coin d'un contour fermé (le départ répété à la
+/// fin), en degrés : 90 pour un coin d'équerre, plus de 180 pour un coin
+/// rentrant. Le coin k est le début du côté k.
+pub fn angles_des_coins(sommets: &[(f64, f64)]) -> Vec<f64> {
+    let n = sommets.len().saturating_sub(1);
+    if n < 3 {
+        return Vec::new();
+    }
+    let aire: f64 = sommets
+        .windows(2)
+        .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+        .sum();
+    let signe = if aire < 0.0 { -1.0 } else { 1.0 };
+    (0..n)
+        .map(|i| {
+            let (avant, ici, apres) = (sommets[(i + n - 1) % n], sommets[i], sommets[i + 1]);
+            let u = (ici.0 - avant.0, ici.1 - avant.1);
+            let v = (apres.0 - ici.0, apres.1 - ici.1);
+            let virage = (u.0 * v.1 - u.1 * v.0)
+                .atan2(u.0 * v.0 + u.1 * v.1)
+                .to_degrees();
+            180.0 - signe * virage
+        })
+        .collect()
+}
+
+/// L'écart d'un coin à l'équerre, mesuré à `sur` du coin : pour un coin de
+/// cet angle (degrés), le bout d'un côté s'écarte de `sur` × tan(écart) de
+/// l'équerre — « 3/8 po sur 4 pi » (section 25.1, point 33).
+pub fn ecart_a_l_equerre(angle: f64, sur: f64) -> f64 {
+    sur * (angle - 90.0).to_radians().tan().abs()
+}
+
 /// Une note écrite sur le plan : son texte, et sa place en pouces dans le
 /// repère du plan (le départ du tracé en (0, 0), y vers le bas), comme un objet.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -392,6 +471,11 @@ pub struct Dessin {
     /// Vrai si les mesures sont celles de l'extérieur des murs : les murs se
     /// dessinent alors vers l'intérieur.
     pub mesures_exterieures: bool,
+    /// Les diagonales mesurées d'une pièce à quatre côtés (section 25.1,
+    /// point 33), telles qu'inscrites : du coin 1 au coin 3, puis du coin 2 au
+    /// coin 4 (le coin k est le début du côté k); vides si elles ne sont pas
+    /// mesurées.
+    pub diagonales: [String; 2],
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -610,6 +694,9 @@ pub enum Etat {
     NeFermePas(f64),
     /// Les côtés se croisent une fois mis à leurs mesures.
     SeCroise,
+    /// La diagonale (0 : du coin 1 au coin 3; 1 : du coin 2 au coin 4) est
+    /// trop longue ou trop courte pour les côtés.
+    DiagonaleImpossible(usize),
     /// Tout est connu : aire en pouces carrés, périmètre en pouces.
     Complete { aire: f64, perimetre: f64 },
 }
@@ -649,6 +736,15 @@ pub struct Solution {
     /// La surface brute, à l'extérieur des murs, quand les mesures sont celles
     /// de l'extérieur (la surface de l'état est alors celle de l'intérieur).
     pub aire_exterieure: Option<f64>,
+    /// Les diagonales lues d'une pièce à quatre côtés (point 33).
+    pub diagonales: [Mesure; 2],
+    /// La vraie forme de la pièce d'après ses quatre côtés et ses diagonales :
+    /// ses sommets (pouces), le départ répété à la fin. `None` quand aucune
+    /// diagonale ne sert : la forme suit alors les directions de ses côtés.
+    pub forme_reelle: Option<Vec<(f64, f64)>>,
+    /// Quand les deux diagonales sont mesurées : l'écart (pouces) entre la
+    /// diagonale du coin 2 au coin 4 et celle de la forme, que donne l'autre.
+    pub ecart_des_diagonales: Option<f64>,
 }
 
 impl Solution {
@@ -1260,6 +1356,9 @@ impl Dessin {
 
     /// Sommets à l'échelle des mesures (en pouces), quand toutes sont connues.
     pub fn sommets_mesures(&self, solution: &Solution) -> Option<Vec<(f64, f64)>> {
+        if let Some(forme) = &solution.forme_reelle {
+            return Some(forme.clone());
+        }
         let longueurs: Option<Vec<f64>> = solution.mesures.iter().map(|m| m.pouces()).collect();
         let longueurs = longueurs?;
         (longueurs.len() == self.cotes.len()).then(|| self.sommets(&longueurs))
@@ -1391,7 +1490,9 @@ impl Dessin {
         solution: &Solution,
         ecrire: &dyn Fn(f64) -> String,
     ) -> Option<Dessin> {
-        if !matches!(solution.etat, Etat::Complete { .. }) {
+        // Une forme tirée de ses diagonales ne s'étire pas : ses côtés et ses
+        // diagonales ne s'accorderaient plus.
+        if !matches!(solution.etat, Etat::Complete { .. }) || solution.forme_reelle.is_some() {
             return None;
         }
         let n = self.cotes.len();
@@ -1503,6 +1604,21 @@ impl Dessin {
                 }
             })
             .collect();
+        // Les diagonales d'une pièce à quatre côtés : avec les quatre côtés
+        // mesurés, elles donnent sa vraie forme (point 33).
+        let diagonales = [0, 1].map(|k| {
+            let texte = self.diagonales[k].trim();
+            if texte.is_empty() {
+                Mesure::Manquante
+            } else {
+                lire(texte).map_or(Mesure::Invalide, Mesure::Lue)
+            }
+        });
+        let (etat, reelle) = self.selon_les_diagonales(etat, &mesures, &diagonales);
+        let (forme_reelle, ecart_des_diagonales) = match reelle {
+            Some((sommets, ecart)) => (Some(sommets), ecart),
+            None => (None, None),
+        };
         let texte_de_la_hauteur = self.hauteur_des_murs.trim();
         let hauteur = if texte_de_la_hauteur.is_empty() {
             None
@@ -1668,8 +1784,11 @@ impl Dessin {
         let (etat, aire_exterieure) = match etat {
             Etat::Complete { aire, .. } if self.mesures_exterieures && epaisseur_des_murs > 0.0 => {
                 let longueurs: Option<Vec<f64>> = mesures.iter().map(|m| m.pouces()).collect();
-                let interieur = longueurs
-                    .and_then(|l| decaler(&self.sommets(&l), epaisseur_des_murs, false))
+                let sommets = forme_reelle
+                    .clone()
+                    .or_else(|| longueurs.map(|l| self.sommets(&l)));
+                let interieur = sommets
+                    .and_then(|s| decaler(&s, epaisseur_des_murs, false))
                     .map(|contour| aire_et_perimetre(&contour));
                 match interieur {
                     Some((aire_interieure, perimetre)) if aire_interieure > 0.0 => (
@@ -1699,7 +1818,109 @@ impl Dessin {
             epaisseur_des_murs,
             epaisseur_des_cloisons,
             aire_exterieure,
+            diagonales,
+            forme_reelle,
+            ecart_des_diagonales,
         }
+    }
+
+    /// L'état d'une pièce à quatre côtés fermée, ses quatre côtés mesurés et
+    /// au moins une diagonale aussi : sa vraie forme, et l'écart entre les
+    /// diagonales si les deux sont mesurées. Sinon, l'état reste celui de la
+    /// fermeture (une diagonale illisible le rend illisible).
+    fn selon_les_diagonales(
+        &self,
+        etat: Etat,
+        mesures: &[Mesure],
+        diagonales: &[Mesure; 2],
+    ) -> (Etat, Option<FormeReelle>) {
+        if !self.fermee || self.cotes.len() != 4 || matches!(etat, Etat::MesureInvalide) {
+            return (etat, None);
+        }
+        if diagonales.contains(&Mesure::Invalide) {
+            return (Etat::MesureInvalide, None);
+        }
+        let lues = diagonales.map(|m| match m {
+            Mesure::Lue(x) => Some(x),
+            _ => None,
+        });
+        let cotes: Option<Vec<f64>> = mesures
+            .iter()
+            .map(|m| match m {
+                Mesure::Lue(x) => Some(*x),
+                _ => None,
+            })
+            .collect();
+        let (Some(cotes), true) = (cotes, lues.iter().any(Option::is_some)) else {
+            return (etat, None);
+        };
+        match self.forme_d_apres_les_diagonales([cotes[0], cotes[1], cotes[2], cotes[3]], lues) {
+            Ok((sommets, ecart)) => {
+                if se_croise(&sommets) {
+                    return (Etat::SeCroise, None);
+                }
+                let (aire, perimetre) = aire_et_perimetre(&sommets);
+                (Etat::Complete { aire, perimetre }, Some((sommets, ecart)))
+            }
+            Err(diagonale) => (Etat::DiagonaleImpossible(diagonale), None),
+        }
+    }
+
+    /// La vraie forme d'une pièce à quatre côtés (`a`, `b`, `c`, `d`, du coin
+    /// 1 au coin 1) d'après une diagonale ou les deux : du coin 1 au coin 3
+    /// (`p`), et du coin 2 au coin 4 (`q`). Le premier côté garde sa direction;
+    /// chaque coin se place du même côté qu'il est sur le croquis. Avec les
+    /// deux diagonales, la forme suit `p`, et l'écart avec `q` est rendu.
+    /// `Err(k)` si la diagonale `k` ne va pas avec les côtés.
+    fn forme_d_apres_les_diagonales(
+        &self,
+        [a, b, c, d]: [f64; 4],
+        [p, q]: [Option<f64>; 2],
+    ) -> Result<FormeReelle, usize> {
+        let croquis = self.sommets_du_croquis();
+        // De quel côté de la droite de `o` à `v` est le point `w` : +1 ou −1.
+        let cote_de = |o: (f64, f64), v: (f64, f64), w: (f64, f64)| {
+            if (v.0 - o.0) * (w.1 - o.1) - (v.1 - o.1) * (w.0 - o.0) < 0.0 {
+                -1.0
+            } else {
+                1.0
+            }
+        };
+        // Un point à `longueur` de l'origine, dans la direction `u` tournée de
+        // `angle` (radians, vers le bas comme à l'écran).
+        let vers = |u: (f64, f64), angle: f64, longueur: f64| {
+            let (sin, cos) = angle.sin_cos();
+            (
+                (u.0 * cos - u.1 * sin) * longueur,
+                (u.0 * sin + u.1 * cos) * longueur,
+            )
+        };
+        let [ka, kb, kc, kd] = [croquis[0], croquis[1], croquis[2], croquis[3]];
+        let u = self.cotes[0].sens.pas();
+        let pa = (0.0, 0.0);
+        let pb = vers(u, 0.0, a);
+        let (pc, pd) = if let Some(p) = p {
+            // Les triangles 1-2-3 et 1-3-4, de part et d'autre de la diagonale
+            // (ou du même côté, pour un coin rentrant).
+            let alpha = angle_du_triangle(a, p, b).ok_or(0usize)?;
+            let beta = angle_du_triangle(p, d, c).ok_or(0usize)?;
+            let pc = vers(u, cote_de(ka, kb, kc) * alpha, p);
+            let vers_c = (pc.0 / p, pc.1 / p);
+            let pd = vers(vers_c, cote_de(ka, kc, kd) * beta, d);
+            (pc, pd)
+        } else {
+            let q = q.ok_or(1usize)?;
+            // Le triangle 1-2-4, puis le coin 3 à la rencontre de ses deux côtés.
+            let alpha = angle_du_triangle(a, d, q).ok_or(1usize)?;
+            let pd = vers(u, cote_de(ka, kb, kd) * alpha, d);
+            let pc = rencontre_de_cercles(pb, b, pd, c, cote_de(kb, kd, kc)).ok_or(1usize)?;
+            (pc, pd)
+        };
+        let ecart = match (p, q) {
+            (Some(_), Some(q)) => Some(((pd.0 - pb.0).hypot(pd.1 - pb.1) - q).abs()),
+            _ => None,
+        };
+        Ok((vec![pa, pb, pc, pd, pa], ecart))
     }
 
     fn etat(&self, mesures: &mut [Mesure]) -> Etat {
@@ -2808,6 +3029,137 @@ mod tests {
         // Le deuxième tourne vers la droite de qui avance : il le garde.
         assert!(dessin.orienter(1, 30.0));
         assert_eq!(dessin.cotes[1].sens, Sens::Libre(30_000));
+    }
+
+    #[test]
+    fn une_piece_hors_d_equerre_d_apres_ses_diagonales() {
+        // 12 × 10 pi, mais la diagonale du coin 1 au coin 3 mesure 15 pi 7 po
+        // au lieu de 15 pi 7 7/16 po : un parallélogramme.
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "12'"),
+            (Sens::Sud, 100.0, "10'"),
+            (Sens::Ouest, 120.0, "12'"),
+            (Sens::Nord, 100.0, "10'"),
+        ]);
+        dessin.diagonales[0] = "15' 7\"".to_string();
+        let solution = dessin.resoudre(Format::PiPo);
+        let (a, b, p) = (144.0f64, 120.0f64, 187.0f64);
+        let angle_b = ((a * a + b * b - p * p) / (2.0 * a * b))
+            .acos()
+            .to_degrees();
+        let Etat::Complete { aire, perimetre } = solution.etat else {
+            panic!("{:?}", solution.etat);
+        };
+        assert!((aire - a * b * angle_b.to_radians().sin()).abs() < 1e-6);
+        assert!((perimetre - 528.0).abs() < 1e-6);
+        let forme = solution.forme_reelle.clone().expect("vraie forme");
+        assert_eq!(dessin.sommets_mesures(&solution), Some(forme.clone()));
+        // Les côtés gardent leurs mesures; le premier, sa direction.
+        for (k, longueur) in [a, b, a, b].into_iter().enumerate() {
+            let (s, t) = (forme[k], forme[k + 1]);
+            assert!(((t.0 - s.0).hypot(t.1 - s.1) - longueur).abs() < 1e-9);
+        }
+        assert!(forme[1].1.abs() < 1e-12 && forme[1].0 > 0.0);
+        let coins = angles_des_coins(&forme);
+        for (k, attendu) in [180.0 - angle_b, angle_b, 180.0 - angle_b, angle_b]
+            .into_iter()
+            .enumerate()
+        {
+            assert!((coins[k] - attendu).abs() < 1e-9, "coin {k} : {coins:?}");
+        }
+        // Un peu plus de 1/4 po sur 4 pi à chaque coin.
+        let ecart = ecart_a_l_equerre(coins[0], 48.0);
+        assert!((ecart - 48.0 * (90.0 - angle_b).to_radians().tan()).abs() < 1e-12);
+        assert!((ecart - 0.232).abs() < 0.001, "{ecart}");
+        assert_eq!(solution.ecart_des_diagonales, None);
+        // L'autre diagonale seule donne la même forme.
+        let q = (2.0 * (a * a + b * b) - p * p).sqrt();
+        let mut par_l_autre = dessin.clone();
+        par_l_autre.diagonales = [String::new(), format!("{q} po")];
+        let autre = par_l_autre
+            .resoudre(Format::PiPo)
+            .forme_reelle
+            .expect("forme");
+        for (s, t) in autre.iter().zip(&forme) {
+            assert!(
+                (s.0 - t.0).abs() < 1e-6 && (s.1 - t.1).abs() < 1e-6,
+                "{autre:?}"
+            );
+        }
+        // Les deux : la forme suit la première, et l'écart avec la seconde se lit.
+        let mut les_deux = dessin.clone();
+        les_deux.diagonales[1] = format!("{} po", q + 0.5);
+        let ecart = les_deux.resoudre(Format::PiPo).ecart_des_diagonales;
+        assert!(ecart.is_some_and(|e| (e - 0.5).abs() < 1e-6), "{ecart:?}");
+        // Une forme tirée de ses diagonales ne s'étire pas.
+        assert!(
+            dessin
+                .etirer(1, 6.0, &solution, &|x| format!("{x}"))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn des_diagonales_qui_ne_vont_pas() {
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "12'"),
+            (Sens::Sud, 100.0, "10'"),
+            (Sens::Ouest, 120.0, "12'"),
+            (Sens::Nord, 100.0, "10'"),
+        ]);
+        // Plus longue que deux côtés mis bout à bout.
+        dessin.diagonales[0] = "23'".to_string();
+        assert_eq!(
+            dessin.resoudre(Format::PiPo).etat,
+            Etat::DiagonaleImpossible(0)
+        );
+        dessin.diagonales = [String::new(), "1'".to_string()];
+        assert_eq!(
+            dessin.resoudre(Format::PiPo).etat,
+            Etat::DiagonaleImpossible(1)
+        );
+        // Illisible.
+        dessin.diagonales = ["abc".to_string(), String::new()];
+        assert_eq!(dessin.resoudre(Format::PiPo).etat, Etat::MesureInvalide);
+        // Un côté sans mesure : la diagonale attend, la fermeture le déduit.
+        dessin.diagonales = ["15' 7\"".to_string(), String::new()];
+        dessin.cotes[3].saisie.clear();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!(matches!(solution.etat, Etat::Complete { .. }));
+        assert_eq!(solution.forme_reelle, None);
+        assert_eq!(solution.diagonales[0], Mesure::Lue(187.0));
+    }
+
+    #[test]
+    fn un_trapeze_retrouve_par_sa_diagonale() {
+        // Le trapèze d'un rectangle dont le deuxième côté tourne de 60°,
+        // croqué comme un rectangle : sa diagonale le redonne.
+        let cote_2 = 96.0 / 60f64.to_radians().sin();
+        let cote_3 = 144.0 + cote_2 * 0.5;
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "144 po"),
+            (Sens::Sud, 100.0, &format!("{cote_2} po")),
+            (Sens::Ouest, 120.0, &format!("{cote_3} po")),
+            (Sens::Nord, 100.0, "96 po"),
+        ]);
+        dessin.diagonales[0] = format!("{} po", cote_3.hypot(96.0));
+        let forme = dessin.resoudre(Format::PiPo).forme_reelle.expect("forme");
+        let coins = angles_des_coins(&forme);
+        for (k, attendu) in [90.0, 120.0, 60.0, 90.0].into_iter().enumerate() {
+            assert!((coins[k] - attendu).abs() < 1e-6, "{coins:?}");
+        }
+        // Le croquis en miroir donne la forme en miroir, aux mêmes angles.
+        let mut miroir = dessin.clone();
+        miroir.miroir();
+        let forme_miroir = miroir.resoudre(Format::PiPo).forme_reelle.expect("miroir");
+        for (s, t) in forme_miroir.iter().zip(&forme) {
+            assert!((s.0 + t.0).abs() < 1e-6 && (s.1 - t.1).abs() < 1e-6);
+        }
+        assert!(ecart_a_l_equerre(90.0, 48.0).abs() < 1e-12);
+        assert!(
+            (ecart_a_l_equerre(90.0 + (0.375f64 / 48.0).atan().to_degrees(), 48.0) - 0.375).abs()
+                < 1e-12
+        );
     }
 
     #[test]
