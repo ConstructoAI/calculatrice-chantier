@@ -154,6 +154,12 @@ thread_local! {
     static CONTEXTE: RefCell<Option<eframe::egui::Context>> = const { RefCell::new(None) };
     /// La base, ouverte une fois pour toutes.
     static BASE: RefCell<Option<web_sys::IdbDatabase>> = const { RefCell::new(None) };
+    /// Les angles du capteur d'inclinaison, lissés (section 22.22) : rien
+    /// tant qu'il n'a rien envoyé.
+    static INCLINAISON: RefCell<Option<[f64; 2]>> = const { RefCell::new(None) };
+    /// Un événement aux angles nuls est arrivé : le navigateur n'a pas de
+    /// capteur à lire (Chrome et Edge, sur un ordinateur).
+    static INCLINAISON_NULLE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn deposer(arrivee: Arrivee) {
@@ -381,6 +387,81 @@ fn telecharger(nom: &str, contenu: &[u8], type_mime: &str) -> Option<()> {
 /// (`app/sw.js`).
 pub fn adresse_du_manuel(_depot: &Depot) -> String {
     textes::FICHIER_DU_MANUEL.traduit().to_string()
+}
+
+/// Écoute le capteur d'inclinaison du téléphone (section 22.22), s'il en a
+/// un : ses angles, lissés, attendent `inclinaison_lue`. Sur un appareil sans
+/// capteur, rien n'arrive, et le niveau reste caché.
+pub fn ecouter_l_inclinaison() {
+    let Some(fenetre) = web_sys::window() else {
+        return;
+    };
+    let rappel = Closure::<dyn FnMut(web_sys::DeviceOrientationEvent)>::new(
+        |evenement: web_sys::DeviceOrientationEvent| {
+            let (Some(beta), Some(gamma)) = (evenement.beta(), evenement.gamma()) else {
+                INCLINAISON_NULLE.with(|nulle| nulle.set(true));
+                return;
+            };
+            INCLINAISON.with(|inclinaison| {
+                let mut inclinaison = inclinaison.borrow_mut();
+                *inclinaison = Some(match *inclinaison {
+                    // Un lissage léger : la lecture ne tremble pas.
+                    Some([b, g]) => [b + 0.25 * (beta - b), g + 0.25 * (gamma - g)],
+                    None => [beta, gamma],
+                });
+            });
+        },
+    );
+    let _ = fenetre
+        .add_event_listener_with_callback("deviceorientation", rappel.as_ref().unchecked_ref());
+    rappel.forget();
+}
+
+/// Les derniers angles du capteur d'inclinaison : (avant-arrière,
+/// gauche-droite), en degrés.
+pub fn inclinaison_lue() -> Option<[f64; 2]> {
+    INCLINAISON.with(|inclinaison| *inclinaison.borrow())
+}
+
+/// La fonction `requestPermission` du capteur, là où le navigateur en a une
+/// (Safari, sur iPhone et iPad).
+fn demande_de_permission() -> Option<js_sys::Function> {
+    let fenetre = web_sys::window()?;
+    let classe =
+        js_sys::Reflect::get(&fenetre, &JsValue::from_str("DeviceOrientationEvent")).ok()?;
+    js_sys::Reflect::get(&classe, &JsValue::from_str("requestPermission"))
+        .ok()?
+        .dyn_into::<js_sys::Function>()
+        .ok()
+}
+
+/// Vrai si le capteur attend la permission de l'utilisateur (iPhone, iPad) :
+/// rien n'est arrivé, pas même un événement aux angles nuls, et le navigateur
+/// sait demander la permission.
+pub fn inclinaison_a_permettre() -> bool {
+    inclinaison_lue().is_none()
+        && !INCLINAISON_NULLE.with(std::cell::Cell::get)
+        && demande_de_permission().is_some()
+}
+
+/// Demande la permission de lire le capteur (au toucher d'un bouton).
+pub fn demander_l_inclinaison() {
+    let Some(demande) = demande_de_permission() else {
+        return;
+    };
+    let Ok(classe) = web_sys::window()
+        .map(|f| js_sys::Reflect::get(&f, &JsValue::from_str("DeviceOrientationEvent")))
+        .transpose()
+    else {
+        return;
+    };
+    let _ = classe.map(|classe| demande.call0(&classe));
+}
+
+/// Vrai si le niveau a de quoi lire : un capteur qui a parlé, ou qui attend
+/// la permission de l'utilisateur.
+pub fn inclinaison_disponible() -> bool {
+    inclinaison_lue().is_some() || inclinaison_a_permettre()
 }
 
 /// L'écran qu'un raccourci de l'application installée demande d'ouvrir

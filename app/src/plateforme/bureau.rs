@@ -236,6 +236,24 @@ pub fn adresse_du_manuel(depot: &Depot) -> String {
     }
 }
 
+/// Le bureau n'a pas de capteur d'inclinaison (section 22.22) : le niveau
+/// y reste caché.
+pub fn ecouter_l_inclinaison() {}
+
+pub fn inclinaison_lue() -> Option<[f64; 2]> {
+    None
+}
+
+pub fn inclinaison_a_permettre() -> bool {
+    false
+}
+
+pub fn demander_l_inclinaison() {}
+
+pub fn inclinaison_disponible() -> bool {
+    false
+}
+
 /// L'écran qu'un raccourci demande d'ouvrir (section 22.16) : seule
 /// l'application installée depuis le navigateur en a.
 pub fn ecran_demande() -> Option<String> {

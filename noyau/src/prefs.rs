@@ -92,6 +92,9 @@ pub struct Preferences {
     pub mode_chantier: bool,
     /// Le projet écrit sur les rapports de calcul (section 22.18); vide : aucun.
     pub projet: String,
+    /// Les angles du niveau sur sa surface de référence (section 22.22) :
+    /// l'avant-arrière et la gauche-droite, en degrés, retranchés des lectures.
+    pub etalon_niveau: [f64; 2],
     // Affichage
     pub resolution: u32,
     pub mode_fractions: ModeFractions,
@@ -123,6 +126,7 @@ impl Default for Preferences {
             theme: Theme::Automatique,
             mode_chantier: false,
             projet: String::new(),
+            etalon_niveau: [0.0; 2],
             resolution: 16,
             mode_fractions: ModeFractions::Standard,
             exponentielle: false,

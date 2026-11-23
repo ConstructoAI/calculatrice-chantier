@@ -31,6 +31,8 @@ pub struct Position {
     pub feuille_de_temps: bool,
     /// Le carnet de nivellement est ouvert (section 22.21).
     pub carnet: bool,
+    /// Le niveau est ouvert (section 22.22).
+    pub niveau: bool,
 }
 
 impl Position {
@@ -39,6 +41,7 @@ impl Position {
         if std::mem::take(&mut self.liste_de_coupe)
             || std::mem::take(&mut self.feuille_de_temps)
             || std::mem::take(&mut self.carnet)
+            || std::mem::take(&mut self.niveau)
         {
             return true;
         }
@@ -74,6 +77,10 @@ pub enum Action {
     CarnetModifie,
     /// Exporter le carnet de nivellement en CSV.
     ExporterCarnet,
+    /// Mettre cette valeur à l'afficheur du clavier (section 22.22).
+    ValeurAuClavier(noyau::Valeur),
+    /// Étalonner le niveau : les angles de la surface de référence.
+    Etalonner([f64; 2]),
 }
 
 /// Une carte cliquable : un titre, une ligne d'explication et, à droite, une mention.
@@ -227,6 +234,19 @@ fn liste_des_metiers(
             textes::NIVELLEMENT_MENTION.traduit(),
         ) {
             position.carnet = true;
+        }
+        // Le niveau, sur un appareil qui a un capteur d'inclinaison (section 22.22).
+        if crate::plateforme::inclinaison_disponible()
+            && carte_cliquable(
+                ui,
+                p,
+                "niveau",
+                textes::NIVEAU.traduit(),
+                textes::NIVEAU_RESUME_COURT.traduit(),
+                textes::NIVEAU_MENTION.traduit(),
+            )
+        {
+            position.niveau = true;
         }
         // La charpente, la toiture et les escaliers se calculent au clavier principal.
         if carte_cliquable(
@@ -470,6 +490,9 @@ pub fn afficher(
     favoris: &Favoris,
     carnet: &mut Carnet,
 ) -> Option<Action> {
+    if position.niveau {
+        return super::niveau::afficher(ui, p, position, prefs);
+    }
     if position.carnet {
         return super::nivellement::afficher(ui, p, position, carnet, prefs);
     }

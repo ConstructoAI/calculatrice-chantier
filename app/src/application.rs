@@ -262,6 +262,8 @@ impl Application {
         theme::installer_les_polices(&cc.egui_ctx);
         // Ce qui arrive plus tard (pièces jointes, fichiers choisis) fait redessiner.
         plateforme::retenir_le_contexte(&cc.egui_ctx);
+        // Le capteur d'inclinaison du téléphone, s'il en a un (section 22.22).
+        plateforme::ecouter_l_inclinaison();
         // L'échelle suit la taille de la fenêtre : pas de zoom au clavier.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         let mut application = Self::charger(&cc.egui_ctx);
@@ -2388,6 +2390,16 @@ impl Application {
                 match action {
                     Some(vues::metiers::Action::ListeDAchat(articles)) => {
                         self.ajouter_a_la_liste_d_achat(ui.ctx(), &articles);
+                    }
+                    Some(vues::metiers::Action::ValeurAuClavier(valeur)) => {
+                        self.moteur.injecter(valeur);
+                        self.aller(Vue::Accueil);
+                        self.annoncer(ui.ctx(), textes::AVIS_NIVEAU_ENVOYE);
+                    }
+                    Some(vues::metiers::Action::Etalonner(angles)) => {
+                        self.moteur.preferences_mut().etalon_niveau = angles;
+                        self.a_sauvegarder = true;
+                        self.annoncer(ui.ctx(), textes::AVIS_NIVEAU_ETALONNE);
                     }
                     Some(vues::metiers::Action::CarnetModifie) => {
                         self.carnet_a_sauvegarder = true;

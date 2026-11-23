@@ -113,6 +113,8 @@ Le clavier *Heures* additionne des heures et des minutes comme des pieds et des 
 *Feuille de temps* compte les heures de la semaine.
 Le *Carnet de nivellement* donne, au niveau laser, l'élévation de chaque point et ce qu'il
 faut creuser ou remblayer.
+Sur un téléphone, le *Niveau* donne la pente d'un chevron, d'un tuyau ou d'une rampe en
+degrés, sur 12 et en %.
 *PDF* en fait un rapport d'une page — date, projet, données et résultats — à joindre à une
 soumission.
 

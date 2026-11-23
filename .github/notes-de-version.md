@@ -59,6 +59,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   laser donnent l'élévation de chaque point et ce qu'il faut creuser ou remblayer par rapport
   à l'élévation visée; le carnet se garde et s'exporte en CSV.
 
+- **Niveau et inclinomètre** : sur un téléphone ou une tablette posé sur un chevron, un tuyau
+  ou une rampe, la pente en degrés, sur 12 et en pour cent, qu'un toucher envoie à la
+  calculatrice; étalonnage sur une surface de référence.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

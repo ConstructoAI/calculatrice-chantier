@@ -306,6 +306,54 @@ pub const AUCUNE_NOTE_TROUVEE: Texte = t(
     "No note contains these words.",
 );
 
+// Le niveau et inclinomètre (section 22.22)
+pub const NIVEAU: Texte = t("Niveau", "Level");
+pub const NIVEAU_MENTION: Texte = t("Capteur", "Sensor");
+pub const NIVEAU_RESUME_COURT: Texte = t(
+    "Le téléphone posé sur un chevron, un tuyau ou une rampe : la pente en degrés, sur 12 et en %",
+    "The phone laid on a rafter, a pipe or a ramp: the slope in degrees, in 12 and in %",
+);
+pub const NIVEAU_RESUME: Texte = t(
+    "Posez le téléphone à plat sur la surface, l'écran vers le haut : il en donne la pente. Un toucher sur Envoyer met la valeur à l'afficheur de la calculatrice.",
+    "Lay the phone flat on the surface, screen up: it gives the slope. A tap on Send puts the value on the calculator's display.",
+);
+pub const NIVEAU_EN_ATTENTE: Texte = t(
+    "En attente du capteur d'inclinaison…",
+    "Waiting for the tilt sensor…",
+);
+pub const NIVEAU_AUTORISER: Texte = t("Autoriser le capteur", "Allow the sensor");
+pub const NIVEAU_DE_NIVEAU: Texte = t("De niveau", "Level");
+pub const NIVEAU_ENVOYER: Texte = t("Envoyer", "Send");
+pub const INFOBULLE_NIVEAU_ENVOYER: Texte = t(
+    "À l'afficheur de la calculatrice",
+    "To the calculator's display",
+);
+pub const NIVEAU_FIGER: Texte = t("Figer", "Hold");
+pub const NIVEAU_REPRENDRE: Texte = t("Reprendre", "Resume");
+pub const NIVEAU_ETALONNER: Texte = t("Étalonner", "Calibrate");
+pub const INFOBULLE_NIVEAU_ETALONNER: Texte = t(
+    "Le téléphone posé sur une surface de référence, de niveau : sa lecture devient le zéro",
+    "With the phone on a level reference surface: its reading becomes zero",
+);
+pub const NIVEAU_SANS_ETALONNAGE: Texte = t("Effacer l'étalonnage", "Clear calibration");
+pub const NIVEAU_AIDE: Texte = t(
+    "Pour étalonner, posez le téléphone sur une surface de référence, de niveau, et touchez Étalonner : sa lecture devient le zéro. Un étui inégal fausse la lecture.",
+    "To calibrate, lay the phone on a level reference surface and tap Calibrate: its reading becomes zero. An uneven case skews the reading.",
+);
+pub const AVIS_NIVEAU_ENVOYE: Texte = t(
+    "Valeur envoyée à la calculatrice.",
+    "Value sent to the calculator.",
+);
+pub const AVIS_NIVEAU_ETALONNE: Texte = t("Niveau étalonné.", "Level calibrated.");
+
+/// « 6 sur 12 », la pente sur 12.
+pub fn niveau_sur_douze(montee: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{montee} sur 12"),
+        Langue::Anglais => format!("{montee} in 12"),
+    }
+}
+
 // Le carnet de nivellement (section 22.21)
 pub const CARNET_DE_NIVELLEMENT: Texte = t("Carnet de nivellement", "Levelling book");
 pub const NIVELLEMENT_MENTION: Texte = t("Laser", "Laser");

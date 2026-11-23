@@ -1283,6 +1283,36 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Niveau", "Level"),
+        acces: t("onglet Métiers (téléphone)", "Trades tab (phone)"),
+        resume: t(
+            "Le téléphone devient un niveau et un inclinomètre :",
+            "The phone becomes a level and an inclinometer:",
+        ),
+        mode_emploi: t(
+            "Dans l'onglet Métiers, la carte Niveau — sur un téléphone ou une tablette qui a un capteur d'inclinaison; ailleurs, elle est cachée. Posez l'appareil à plat sur un chevron, un tuyau ou une rampe, l'écran vers le haut : la bulle montre le côté haut, et l'écran donne la pente en degrés, sur 12 et en pour cent. `Envoyer` met une valeur à l'afficheur de la calculatrice. `Figer` garde la lecture pour la lire à l'aise; `Étalonner`, sur une surface de référence de niveau, en fait le zéro. Sur un iPhone, `Autoriser le capteur` demande d'abord la permission.",
+            "In the Trades tab, the Level card — on a phone or tablet with a tilt sensor; elsewhere, it is hidden. Lay the device flat on a rafter, a pipe or a ramp, screen up: the bubble shows the high side, and the screen gives the slope in degrees, in 12 and in percent. `Send` puts a value on the calculator's display. `Hold` keeps the reading so you can read it at ease; `Calibrate`, on a level reference surface, makes it zero. On an iPhone, `Allow the sensor` first asks for permission.",
+        ),
+        exemple: Some((
+            t(
+                "Le téléphone sur un chevron à 6/12, puis `Envoyer`",
+                "The phone on a 6/12 rafter, then `Send`",
+            ),
+            t(
+                "26,57° · 6,00 sur 12 · 50,0 %",
+                "26.57° · 6.00 in 12 · 50.0%",
+            ),
+        )),
+        note: Some(t(
+            "Un étui inégal fausse la lecture : étalonnez avec l'étui. Le niveau n'émet ni son ni vibration.",
+            "An uneven case skews the reading: calibrate with the case on. The level makes no sound or vibration.",
+        )),
+        mots_cles: "niveau inclinomètre bulle pente degrés pourcentage chevron tuyau rampe capteur étalonner level inclinometer bubble slope degrees pitch percent rafter pipe ramp sensor calibrate",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Carnet de nivellement", "Levelling book"),
         acces: t("onglet Métiers", "Trades tab"),
         resume: t(
