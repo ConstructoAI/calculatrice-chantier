@@ -29,6 +29,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   glissé trace une cote, où s'inscrit la mesure prise au ruban; une cote laissée vide est
   estimée d'après la cote de référence (marquée ~). **Exporter en PDF** fait un PDF de la
   photo cotée.
+- **0.12.5** : les **mesures des cloisons** se modifient comme celles des murs — touchez une
+  cloison sur le plan : le pavé s'ouvre sur la longueur du segment touché, et **Suivant** passe
+  au segment suivant.
 
 ## Nouveautés de la version 0.11
 

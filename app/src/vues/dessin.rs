@@ -357,6 +357,26 @@ impl Echelle {
 }
 
 /// La cloison sous un point du plan (pouces), à `marge` près.
+/// Le segment d'une cloison le plus proche d'un point du plan (pouces).
+fn segment_le_plus_proche(cloison: &CloisonMesuree, (x, y): (f64, f64)) -> usize {
+    let distance = |(a, b): ((f64, f64), (f64, f64))| {
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let longueur = dx * dx + dy * dy;
+        let t = if longueur > 0.0 {
+            (((x - a.0) * dx + (y - a.1) * dy) / longueur).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        (x - (a.0 + dx * t)).hypot(y - (a.1 + dy * t))
+    };
+    cloison
+        .axes()
+        .into_iter()
+        .enumerate()
+        .min_by(|(_, s), (_, t)| distance(*s).total_cmp(&distance(*t)))
+        .map_or(0, |(segment, _)| segment)
+}
+
 fn cloison_sous(solution: &Solution, point: (f64, f64), marge: f64) -> Option<usize> {
     solution
         .cloisons
@@ -1735,10 +1755,18 @@ fn planche_et_gestes(
             f64::from(8.0 / echelle.facteur),
         )
     {
-        // Toucher une cloison la choisit.
+        // Toucher une cloison la choisit, et ouvre le pavé sur la longueur du
+        // segment touché, comme un côté de mur (point 29).
         etat.cloison_choisie = Some(rang);
         etat.objet_choisi = None;
         etat.note_choisie = None;
+        if let Some(Some(cloison)) = solution.cloisons.get(rang) {
+            let segment = segment_le_plus_proche(cloison, echelle.vers_le_plan(position));
+            etat.choisir_autre(Some(AutreSaisie::Cloison(
+                rang,
+                ChampDeCloison::Longueur(segment),
+            )));
+        }
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
@@ -2699,6 +2727,16 @@ fn autre_mesure(
                 return false;
             };
             let plusieurs = cloison.nombre_de_segments() > 1;
+            // « Suivant » passe au segment suivant, puis referme le pavé.
+            let ensuite = match champ {
+                ChampDeCloison::Longueur(segment) if segment + 1 < cloison.nombre_de_segments() => {
+                    Some(AutreSaisie::Cloison(
+                        rang,
+                        ChampDeCloison::Longueur(segment + 1),
+                    ))
+                }
+                _ => None,
+            };
             let (saisie, dimension, indice) = match champ {
                 ChampDeCloison::Longueur(segment) => {
                     let Some(saisie) = cloison.longueur_du_segment_mut(segment) else {
@@ -2756,7 +2794,7 @@ fn autre_mesure(
                     dimension
                 ),
                 indice,
-                None,
+                ensuite,
             )
         }
     };
@@ -4044,6 +4082,25 @@ fn pave_de_touches(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn toucher_une_cloison_choisit_le_segment_le_plus_proche() {
+        // Une cloison en L : 72 po vers l'est, puis 48 po vers le sud.
+        let cloison = CloisonMesuree::depuis(
+            (0.0, 72.0),
+            &[
+                (noyau::dessin::Sens::Est, 72.0),
+                (noyau::dessin::Sens::Sud, 48.0),
+            ],
+            5.0,
+            None,
+        );
+        assert_eq!(segment_le_plus_proche(&cloison, (37.0, 71.7)), 0);
+        assert_eq!(segment_le_plus_proche(&cloison, (72.5, 100.0)), 1);
+        // Près du coin, le segment le plus proche l'emporte.
+        assert_eq!(segment_le_plus_proche(&cloison, (60.0, 74.0)), 0);
+        assert_eq!(segment_le_plus_proche(&cloison, (74.0, 90.0)), 1);
+    }
 
     #[test]
     fn le_pave_ecrit_une_mesure_lisible() {
