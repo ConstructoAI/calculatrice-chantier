@@ -104,8 +104,10 @@ pub struct Etat {
     viser_le_champ: bool,
     /// Vrai quand la liste des outils qui peuvent recevoir la pièce est ouverte.
     outils_ouverts: bool,
-    /// Les états précédents du dessin, pour le bouton « Annuler ».
+    /// Les états précédents du dessin, pour le bouton « Annuler »; et ceux
+    /// qu'« Annuler » a défaits, pour « Rétablir ».
     historique: Vec<Dessin>,
+    futur: Vec<Dessin>,
     /// Le zoom et le décalage de la planche.
     cadrage: Cadrage,
     /// Vrai quand les flèches dessinent en biais, à 45°.
@@ -183,6 +185,7 @@ enum GesteSurUneCloison {
     SansPorte,
     /// La porte passe au segment suivant.
     SegmentSuivant,
+    Copier,
 }
 
 /// Une mesure autre que celle d'un côté.
@@ -270,6 +273,7 @@ impl Etat {
         self.outils_ouverts = false;
         self.trace.clear();
         self.historique.clear();
+        self.futur.clear();
         self.cadrage = Cadrage::default();
         self.geste_annule = false;
         self.ouverture_a_placer = None;
@@ -305,6 +309,8 @@ impl Etat {
 
     /// Retient le dessin tel qu'il est, avant un changement.
     fn memoriser(&mut self, dessin: &Dessin) {
+        // Un changement nouveau : ce qu'« Annuler » avait défait ne revient plus.
+        self.futur.clear();
         if self.historique.last() != Some(dessin) {
             self.historique.push(dessin.clone());
             if self.historique.len() > PROFONDEUR_DE_L_HISTORIQUE {
@@ -905,6 +911,28 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                 if ui.add(renommer).clicked() {
                     etat.renommer = !etat.renommer;
                     etat.viser_le_nom = etat.renommer;
+                }
+                // Une copie de la pièce, juste après elle.
+                if plan.pieces.len() < noyau::dessin::MAX_PIECES
+                    && ui
+                        .add(egui::Button::new(textes::DESSIN_DUPLIQUER.traduit()))
+                        .clicked()
+                    && plan.dupliquer(textes::nom_de_copie(&nom_de_la_piece(plan, plan.courante)))
+                {
+                    etat.changer_de_piece();
+                    modifie = true;
+                }
+                // La pièce retournée, la gauche et la droite échangées.
+                if ui
+                    .add(egui::Button::new(textes::DESSIN_MIROIR.traduit()))
+                    .clicked()
+                {
+                    let dessin = &mut plan.pieces[plan.courante].dessin;
+                    etat.memoriser(dessin);
+                    dessin.miroir();
+                    etat.cadrage = Cadrage::default();
+                    etat.choisir(None);
+                    modifie = true;
                 }
                 ui.add_space(10.0);
             });
@@ -2525,7 +2553,19 @@ fn boutons(ui: &mut Ui, dessin: &mut Dessin, etat: &mut Etat) -> bool {
             .clicked()
             && let Some(precedent) = etat.historique.pop()
         {
-            *dessin = precedent;
+            etat.futur.push(std::mem::replace(dessin, precedent));
+            etat.choisir(None);
+            modifie = true;
+        }
+        if ui
+            .add_enabled(
+                !etat.futur.is_empty(),
+                egui::Button::new(textes::DESSIN_RETABLIR.traduit()),
+            )
+            .clicked()
+            && let Some(suivant) = etat.futur.pop()
+        {
+            etat.historique.push(std::mem::replace(dessin, suivant));
             etat.choisir(None);
             modifie = true;
         }
@@ -3346,6 +3386,8 @@ fn objets(
     );
     let (mut a_pivoter, mut a_enlever) = (None, None);
     let mut a_changer_de_forme = None;
+    let mut a_copier = None;
+    let mut a_retourner = None;
     for rang in 0..dessin.objets.len() {
         ui.horizontal_wrapped(|ui| {
             let objet = &dessin.objets[rang];
@@ -3456,6 +3498,21 @@ fn objets(
                     a_pivoter = Some((rang, degres));
                 }
             }
+            // Un escalier tournant se retourne : il tourne de l'autre côté.
+            if objet.genre == GenreDObjet::Escalier
+                && objet.forme != FormeDEscalier::Droit
+                && ui
+                    .add(egui::Button::new(textes::DESSIN_MIROIR.traduit()))
+                    .clicked()
+            {
+                a_retourner = Some(rang);
+            }
+            if ui
+                .add(egui::Button::new(textes::COPIER.traduit()))
+                .clicked()
+            {
+                a_copier = Some(rang);
+            }
             if ui
                 .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
                 .clicked()
@@ -3463,6 +3520,30 @@ fn objets(
                 a_enlever = Some(rang);
             }
         });
+    }
+    if let Some(rang) = a_copier {
+        // La copie se pose à côté, à la place libre la plus proche.
+        etat.memoriser(dessin);
+        let mut copie = dessin.objets[rang].clone();
+        copie.centre = (copie.centre.0 + 12.0, copie.centre.1 + 12.0);
+        dessin.objets.push(copie);
+        let nouveau = dessin.objets.len() - 1;
+        let dimensions = solution
+            .objets
+            .get(rang)
+            .copied()
+            .unwrap_or_else(|| dessin.objets[nouveau].dimensions_de_depart());
+        placer_au_mieux(dessin, solution, nouveau, dimensions);
+        etat.objet_choisi = Some(nouveau);
+        modifie = true;
+    }
+    if let Some(rang) = a_retourner {
+        // Son rectangle ne change pas : il ne peut rien chevaucher de plus.
+        etat.memoriser(dessin);
+        let objet = &mut dessin.objets[rang];
+        objet.retourne = !objet.retourne;
+        etat.objet_choisi = Some(rang);
+        modifie = true;
     }
     if let Some((rang, degres)) = a_pivoter {
         etat.memoriser(dessin);
@@ -3585,6 +3666,12 @@ fn cloisons(
                 geste = Some((rang, GesteSurUneCloison::AjouterUnePorte));
             }
             if ui
+                .add(egui::Button::new(textes::COPIER.traduit()))
+                .clicked()
+            {
+                geste = Some((rang, GesteSurUneCloison::Copier));
+            }
+            if ui
                 .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
                 .clicked()
             {
@@ -3651,6 +3738,13 @@ fn cloisons(
     if let Some((rang, geste)) = geste {
         etat.memoriser(dessin);
         match geste {
+            GesteSurUneCloison::Copier => {
+                // La copie, décalée d'un pied, à faire glisser à sa place.
+                let mut copie = dessin.cloisons[rang].clone();
+                copie.debut = (copie.debut.0 + 12.0, copie.debut.1 + 12.0);
+                dessin.cloisons.push(copie);
+                etat.cloison_choisie = Some(dessin.cloisons.len() - 1);
+            }
             GesteSurUneCloison::Enlever => {
                 dessin.cloisons.remove(rang);
                 etat.cloison_choisie = None;

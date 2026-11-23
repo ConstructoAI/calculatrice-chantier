@@ -314,13 +314,13 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <li><strong>With your finger or the mouse</strong>, in one stroke or one side at a time: each stroke straightens to horizontal, vertical or 45°. The shape closes on its own when the drawing comes back to its start; <em>Close the shape</em> adds the missing side.</li>
     <li><strong>With the arrows</strong> at the bottom of the board: each one adds a side in its direction; the <em>45°</em> button turns them diagonal.</li>
     <li><strong>Zooming:</strong> the <kbd>+</kbd> and <kbd>−</kbd> buttons on the board, two fingers or the mouse wheel; <em>Fit</em> reframes. A closed shape pans with one finger.</li>
-    <li><em>Undo</em> goes back up to 40 steps; <em>Clear all</em> starts the room over.</li>
+    <li><em>Undo</em> goes back up to 40 steps, and <em>Redo</em> brings back what it undid; <em>Clear all</em> starts the room over.</li>
 </ul>
 <h3>Entering the measurements</h3>
 <p>Tap a side: the keypad opens below the drawing, with <kbd>Feet</kbd>, <kbd>Inches</kbd>, fractions of an inch and <kbd>m</kbd>. A number alone is in feet; <em>Next</em> moves to the next side without a measurement. As soon as only one side is missing in a direction, it is worked out from the others and shown in grey. Once everything is known, the shape is redrawn to scale and the screen gives the area and the perimeter, and, for a rectangle, the squaring diagonal to check on site.</p>
 <p class="exemple"><span class="mot">Example</span> A rectangle: <kbd>12</kbd> <kbd>Feet</kbd> on top, <kbd>10</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inches</kbd> on the right → <span class="ecran">126 ft² (11.7 m²)</span>, perimeter <span class="ecran">45 ft 0 in</span>, diagonal <span class="ecran">15 ft 11 5/16 in</span></p>
 <h3>Several rooms and deductions</h3>
-<p><em>+ Room</em> adds a room (30 at most); <em>Rename</em>, or a tap on the chosen room, changes its name. <strong>Deductions</strong> — island, stairwell, column — are rectangles taken off the area: the screen then gives the net area, then the total of the rooms.</p>
+<p><em>+ Room</em> adds a room (30 at most); <em>Rename</em>, or a tap on the chosen room, changes its name. <em>Duplicate</em> adds a copy of it, right after it, and <em>Mirror</em> flips it, left and right swapped, with its measurements, openings, partitions and furniture: the other side of a semi-detached house is drawn in two taps. <strong>Deductions</strong> — island, stairwell, column — are rectangles taken off the area: the screen then gives the net area, then the total of the rooms.</p>
 <h3>Walls, doors and windows</h3>
 <ul>
     <li><strong>The wall height</strong>, entered in the <em>Walls</em> section, gives the wall area, less that of the doors and windows.</li>
@@ -332,6 +332,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <ul>
     <li><em>+ Partition</em>: drag on the plan from one end to the other, turning corners as needed, for an L- or U-shaped partition. Its ends reach the nearby walls; tap a segment on the plan to enter its length on the keypad, as for a wall (<em>Next</em> moves to the next segment), and the <em>+ Door</em> on its row gives it a door.</li>
     <li><strong>Stairs and furniture</strong> — bed, table, sofa, counter, toilet, bathtub, shower, washer, fridge, range: tap its button, then the room to set it down, and drag it. <em>+15°</em> and <em>+90°</em> turn it; its size is set with the keypad. Stairs have a shape (straight, L-shaped, U-shaped, quarter-turn, spiral), a width, a length and a rise; their risers are worked out at 7 1/2 in at most, and the tread of straight stairs follows. Furniture does not overlap: when moved, an item stops against the others, against partitions and against walls, and slides along them.</li>
+    <li><em>Copy</em>, on the row of an item or a partition, sets a copy beside it: the item in the nearest free spot, the partition offset by a foot, to drag into place. The <em>Mirror</em> of a turning staircase (L-shaped, U-shaped, quarter-turn, spiral) makes it turn the other way.</li>
     <li><em>+ Note</em>: tap the spot on the plan, then type the note.</li>
 </ul>
 <h3>3D, the tape, the tools and the exports</h3>
@@ -341,7 +342,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <li><em>Export as PDF</em> makes a Letter-size document, one page per room; <em>Export as DXF</em>, a full-scale drawing for AutoCAD, LibreCAD or QCAD.</li>
 </ul>
 <h3>My drawings, from one device to another</h3>
-<p>The <em>My drawings</em> button, at the top of the screen, keeps several drawings — a house, a cottage, a basement —, each with its rooms. <em>+ New drawing</em> starts one; <em>Open</em>, <em>Rename</em> and <em>Delete</em> do what they say. To pick up a drawing on another device, from the phone to the computer or the other way around: <em>Save as a file</em> makes a file of it, which you send by email, through a cloud or with a cable; on the other device, <em>Open a file…</em> reopens it.</p>
+<p>The <em>My drawings</em> button, at the top of the screen, keeps several drawings — a house, a cottage, a basement —, each with its rooms. <em>+ New drawing</em> starts one; <em>Open</em>, <em>Rename</em> and <em>Delete</em> do what they say; <em>Duplicate</em> copies a drawing, to compare two variants. To pick up a drawing on another device, from the phone to the computer or the other way around: <em>Save as a file</em> makes a file of it, which you send by email, through a cloud or with a cable; on the other device, <em>Open a file…</em> reopens it.</p>
 <p class="note">Your drawings stay on the device and are there the next time you open the calculator. Walls are drawn square or at 45°; other angles are not supported yet.</p>
 
 <h2 id="ruban">9. The calculation tape <a class="haut" href="#sommaire">Contents</a></h2>

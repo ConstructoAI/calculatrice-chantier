@@ -143,7 +143,9 @@ outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons 
 zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
 dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle). Les meubles ne se superposent pas.
 L'escalier se choisit droit, en L, en U, quart tournant ou en colimaçon, avec sa hauteur à
-monter : ses contremarches et son giron se calculent.
+monter : ses contremarches et son giron se calculent. **Rétablir** refait ce
+qu'**Annuler** a défait; **Dupliquer** et **Miroir** copient et retournent une pièce, et
+**Copier** pose la copie d'un meuble ou d'une cloison.
 **Mes dessins** garde plusieurs dessins, chacun avec ses pièces; **Enregistrer le fichier** en
 fait un fichier que **Ouvrir un fichier…** rouvre sur un autre appareil, du téléphone à
 l'ordinateur ou l'inverse.
@@ -176,6 +178,7 @@ calculatrice prend la dernière version.
 |---|---|---|
 | Données (réglages, mémoires, rubans) | fichiers JSON dans `%APPDATA%\CalculatriceChantier\` | stockage local du navigateur, sur l'appareil |
 | Export d'un ruban en `.txt` | boîte « Enregistrer sous » | téléchargement |
+| Sauvegarde complète (menu « Exporter mes données ») | boîte « Enregistrer sous » | téléchargement |
 | Plein écran | préférence, bouton ou `F11` | bouton (là où le navigateur le permet) ou `F11` du navigateur |
 | Police | Segoe UI (Windows) | Selawik, police libre aux mêmes largeurs |
 | Menu « Quitter » | oui | non : on ferme l'onglet |
@@ -183,7 +186,9 @@ calculatrice prend la dernière version.
 
 Dans les deux cas, aucune donnée n'est envoyée sur Internet : pas de télémétrie, pas de
 compte. Dans la version Web, effacer les données de navigation du site efface aussi les
-réglages et les rubans enregistrés.
+réglages et les rubans enregistrés. **Exporter mes données**, dans le menu ☰, les réunit toutes dans un
+fichier, à garder à l'abri ou à passer à un autre appareil, où **Importer des données**
+les reprend.
 
 ## Apparence
 

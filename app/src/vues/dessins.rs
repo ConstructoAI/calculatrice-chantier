@@ -22,6 +22,8 @@ pub enum Action {
     /// L'enregistrer en fichier.
     Enregistrer(u64),
     Supprimer(u64),
+    /// En faire une copie, pour comparer deux variantes.
+    Dupliquer(u64),
 }
 
 /// Affiche la liste des dessins, du plus récemment modifié au plus ancien;
@@ -86,6 +88,10 @@ pub fn afficher(
                     }
                     for (libelle, a) in [
                         (textes::RENOMMER.traduit(), Action::Renommer(dessin.id)),
+                        (
+                            textes::DESSIN_DUPLIQUER.traduit(),
+                            Action::Dupliquer(dessin.id),
+                        ),
                         (
                             textes::ENREGISTRER_LE_FICHIER.traduit(),
                             Action::Enregistrer(dessin.id),

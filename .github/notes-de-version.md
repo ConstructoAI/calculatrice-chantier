@@ -16,6 +16,12 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   seul fichier. Gardez-le à l'abri, ou passez-le à un autre appareil : **Importer des données**
   l'y relit et, après confirmation, remplace ses données.
 
+- **Copier, dupliquer, miroir et rétablir** dans le dessin : **Rétablir** refait ce
+  qu'**Annuler** a défait; **Dupliquer** copie une pièce, et **Miroir** la retourne, la
+  gauche et la droite échangées — l'autre côté d'un jumelé en deux gestes; **Copier** pose
+  la copie d'un meuble ou d'une cloison; un escalier tournant a son **Miroir**, pour tourner
+  de l'autre côté; et **Mes dessins** duplique un dessin, pour comparer deux variantes.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

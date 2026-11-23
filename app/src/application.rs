@@ -1174,6 +1174,24 @@ impl Application {
             A::Supprimer(id) => {
                 self.dialogue = Dialogue::Confirmer(Confirmation::SupprimerDessin(id));
             }
+            A::Dupliquer(id) => {
+                // La copie entre dans la liste, sous le nom de l'original.
+                self.synchroniser_le_dessin_courant();
+                if self.dessins.len() >= MAX_DESSINS {
+                    self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_DESSINS);
+                } else if let Some(original) = self.dessins.iter().find(|d| d.id == id).cloned() {
+                    let (date, _) = stockage::maintenant();
+                    self.dessins.push(DessinEnregistre {
+                        id: nouveau_numero(self.dessins.iter().map(|d| d.id)),
+                        nom: textes::nom_de_copie(&original.nom),
+                        cree: date.clone(),
+                        modifie: date,
+                        ..original
+                    });
+                    self.dessins_a_sauvegarder = true;
+                    self.annoncer(ctx, textes::AVIS_DESSIN_DUPLIQUE);
+                }
+            }
         }
     }
 

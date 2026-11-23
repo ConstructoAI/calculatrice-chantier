@@ -424,6 +424,20 @@ pub fn nom_de_sauvegarde(jour: &str) -> String {
     }
 }
 
+// Copier, dupliquer, miroir et rétablir (section 25.1, point 31)
+pub const DESSIN_RETABLIR: Texte = t("Rétablir", "Redo");
+pub const DESSIN_DUPLIQUER: Texte = t("Dupliquer", "Duplicate");
+pub const DESSIN_MIROIR: Texte = t("Miroir", "Mirror");
+pub const AVIS_DESSIN_DUPLIQUE: Texte = t("Dessin dupliqué.", "Drawing duplicated.");
+
+/// « Chambre (copie) », le nom d'une copie.
+pub fn nom_de_copie(nom: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{nom} (copie)"),
+        Langue::Anglais => format!("{nom} (copy)"),
+    }
+}
+
 // Mes dessins : la bibliothèque des dessins (section 25)
 pub const MES_DESSINS: Texte = t("Mes dessins", "My drawings");
 pub const NOUVEAU_DESSIN: Texte = t("+ Nouveau dessin", "+ New drawing");

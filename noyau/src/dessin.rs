@@ -97,6 +97,20 @@ impl Axe {
 }
 
 impl Sens {
+    /// La direction vue dans un miroir vertical : l'est et l'ouest échangés.
+    pub fn en_miroir(self) -> Sens {
+        match self {
+            Sens::Est => Sens::Ouest,
+            Sens::Ouest => Sens::Est,
+            Sens::NordEst => Sens::NordOuest,
+            Sens::NordOuest => Sens::NordEst,
+            Sens::SudEst => Sens::SudOuest,
+            Sens::SudOuest => Sens::SudEst,
+            Sens::Nord => Sens::Nord,
+            Sens::Sud => Sens::Sud,
+        }
+    }
+
     /// L'axe du côté.
     pub fn axe(self) -> Axe {
         match self {
@@ -446,6 +460,20 @@ impl Plan {
         }
         self.pieces.push(Piece::default());
         self.courante = self.pieces.len() - 1;
+        true
+    }
+
+    /// Ajoute une copie de la pièce à l'écran, sous ce nom, juste après elle;
+    /// la copie passe à l'écran. Faux si le plan est plein.
+    pub fn dupliquer(&mut self, nom: String) -> bool {
+        self.normaliser();
+        if self.pieces.len() >= MAX_PIECES {
+            return false;
+        }
+        let mut copie = self.pieces[self.courante].clone();
+        copie.nom = nom;
+        self.pieces.insert(self.courante + 1, copie);
+        self.courante += 1;
         true
     }
 
@@ -1001,6 +1029,39 @@ impl Dessin {
     }
 
     /// Retire le dernier côté tracé; rouvre d'abord une forme fermée.
+    /// La pièce retournée comme dans un miroir, la gauche et la droite
+    /// échangées : ses côtés, ses notes, ses cloisons et leurs portes, et ses
+    /// objets, retournés eux aussi (un escalier tournant tourne de l'autre
+    /// côté). Ses mesures, ses ouvertures (placées depuis le début de leur
+    /// côté) et ses retraits restent les mêmes; deux miroirs la redonnent.
+    pub fn miroir(&mut self) {
+        for cote in &mut self.cotes {
+            cote.sens = cote.sens.en_miroir();
+        }
+        for objet in &mut self.objets {
+            objet.centre.0 = -objet.centre.0;
+            let angle = (360.0 - objet.angle_total()).rem_euclid(360.0);
+            objet.rotation = 0;
+            objet.angle = angle;
+            objet.retourne = !objet.retourne;
+        }
+        for note in &mut self.notes {
+            note.position.0 = -note.position.0;
+        }
+        for cloison in &mut self.cloisons {
+            cloison.debut.0 = -cloison.debut.0;
+            cloison.sens = cloison.sens.en_miroir();
+            for segment in &mut cloison.suite {
+                segment.sens = segment.sens.en_miroir();
+            }
+            // Sa porte s'ouvre du même côté de la pièce, donc de l'autre côté
+            // de son segment, dont le sens est retourné.
+            if let Some(porte) = &mut cloison.porte {
+                porte.inversee = !porte.inversee;
+            }
+        }
+    }
+
     pub fn retirer_le_dernier(&mut self) {
         self.fermee = false;
         self.cotes.pop();
@@ -1605,6 +1666,139 @@ fn se_touchent(a: (f64, f64), b: (f64, f64), c: (f64, f64), d: (f64, f64), eps: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn le_miroir_est_un_vrai_reflet() {
+        use crate::mobilier::{FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan};
+        let mut dessin = Dessin::default();
+        dessin.ajouter_trace(&[
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 60.0),
+            (0.0, 60.0),
+            (0.0, 4.0),
+        ]);
+        dessin.cotes[0].saisie = "12".to_string();
+        dessin.cotes[1].saisie = "10".to_string();
+        let mut en_l = Objet::nouveau(GenreDObjet::Escalier, (40.0, 30.0));
+        en_l.forme = FormeDEscalier::EnL;
+        en_l.pivoter(30.0);
+        let mut tournant = Objet::nouveau(GenreDObjet::Escalier, (100.0, 50.0));
+        tournant.forme = FormeDEscalier::Tournant;
+        tournant.rotation = 1;
+        let mut colimacon = Objet::nouveau(GenreDObjet::Escalier, (70.0, 90.0));
+        colimacon.forme = FormeDEscalier::Colimacon;
+        dessin.objets.extend([en_l, tournant, colimacon]);
+        dessin.cloisons.push(crate::cloison::Cloison {
+            debut: (0.0, 72.0),
+            sens: Sens::Est,
+            longueur: "6".to_string(),
+            porte: Some(crate::cloison::PorteDeCloison::default()),
+            ..crate::cloison::Cloison::default()
+        });
+        let reflet = |(x, y): (f64, f64)| (-x, y);
+        let proches =
+            |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).abs() < 1e-9 && (a.1 - b.1).abs() < 1e-9;
+        let dimensions = (36.0, 120.0);
+        let traits = |dessin: &Dessin| -> Vec<Vec<TraitSurLePlan>> {
+            dessin
+                .objets
+                .iter()
+                .map(|objet| objet.traits_sur_le_plan(dimensions, Some(14)))
+                .collect()
+        };
+        let porte = |dessin: &Dessin| {
+            dessin.resoudre(Format::PiPo).cloisons[0]
+                .as_ref()
+                .expect("cloison mesurée")
+                .cote_de_la_porte()
+        };
+        let (traits_avant, porte_avant) = (traits(&dessin), porte(&dessin));
+        dessin.miroir();
+        assert!(dessin.objets.iter().all(|objet| objet.retourne));
+        // Chaque trait de chaque escalier est le reflet de celui d'avant.
+        for (avant, apres) in traits_avant.iter().zip(traits(&dessin)) {
+            assert_eq!(avant.len(), apres.len());
+            for (a, b) in avant.iter().zip(&apres) {
+                match (a, b) {
+                    (TraitSurLePlan::Ligne(a0, a1), TraitSurLePlan::Ligne(b0, b1)) => {
+                        assert!(proches(reflet(*a0), *b0) && proches(reflet(*a1), *b1));
+                    }
+                    (TraitSurLePlan::Cercle(a0, ra), TraitSurLePlan::Cercle(b0, rb)) => {
+                        assert!(proches(reflet(*a0), *b0) && (ra - rb).abs() < 1e-9);
+                    }
+                    _ => panic!("des traits de genres différents"),
+                }
+            }
+        }
+        // La porte de la cloison s'ouvre toujours du même côté de la pièce.
+        assert!(proches(reflet(porte_avant), porte(&dessin)));
+        dessin.miroir();
+        assert!(dessin.objets.iter().all(|objet| !objet.retourne));
+        assert!(proches(porte_avant, porte(&dessin)));
+    }
+
+    #[test]
+    fn le_miroir_d_une_piece_et_sa_copie() {
+        let mut dessin = Dessin::default();
+        dessin.ajouter_trace(&[
+            (0.0, 0.0),
+            (100.0, 0.0),
+            (100.0, 60.0),
+            (0.0, 60.0),
+            (0.0, 4.0),
+        ]);
+        assert!(dessin.fermee);
+        dessin.cotes[0].saisie = "12".to_string();
+        dessin.cotes[1].saisie = "10".to_string();
+        let mut lit =
+            crate::mobilier::Objet::nouveau(crate::mobilier::GenreDObjet::Lit, (30.0, 40.0));
+        lit.pivoter(15.0);
+        dessin.objets.push(lit);
+        dessin.notes.push(Note {
+            texte: "Prise".to_string(),
+            position: (10.0, 12.0),
+        });
+        dessin.cloisons.push(crate::cloison::Cloison {
+            debut: (0.0, 72.0),
+            sens: Sens::Est,
+            longueur: "6".to_string(),
+            suite: vec![crate::cloison::SegmentDeCloison {
+                sens: Sens::Sud,
+                longueur: "4".to_string(),
+            }],
+            ..crate::cloison::Cloison::default()
+        });
+        let origine = dessin.clone();
+        let avant = dessin.resoudre(Format::PiPo);
+        dessin.miroir();
+        let sens: Vec<Sens> = dessin.cotes.iter().map(|c| c.sens).collect();
+        assert_eq!(sens, [Sens::Ouest, Sens::Sud, Sens::Est, Sens::Nord]);
+        assert_eq!(dessin.objets[0].centre, (-30.0, 40.0));
+        assert!((dessin.objets[0].angle_total() - 345.0).abs() < 1e-9);
+        assert_eq!(dessin.notes[0].position, (-10.0, 12.0));
+        assert_eq!(dessin.cloisons[0].sens, Sens::Ouest);
+        assert_eq!(dessin.cloisons[0].suite[0].sens, Sens::Sud);
+        // Les mesures et les résultats ne changent pas.
+        let apres = dessin.resoudre(Format::PiPo);
+        assert_eq!(avant.aire_nette(), apres.aire_nette());
+        assert_eq!(avant.etat, apres.etat);
+        // Deux miroirs redonnent la pièce.
+        dessin.miroir();
+        assert_eq!(dessin.cotes, origine.cotes);
+        assert_eq!(dessin.objets[0].centre, origine.objets[0].centre);
+        assert!((dessin.objets[0].angle_total() - 15.0).abs() < 1e-9);
+        assert_eq!(dessin.cloisons, origine.cloisons);
+        // La copie d'une pièce vient juste après elle, à l'écran.
+        let mut plan = Plan::d_une_piece(origine);
+        plan.ajouter();
+        plan.courante = 0;
+        assert!(plan.dupliquer("Chambre (copie)".to_string()));
+        assert_eq!(plan.pieces.len(), 3);
+        assert_eq!(plan.courante, 1);
+        assert_eq!(plan.pieces[1].nom, "Chambre (copie)");
+        assert_eq!(plan.pieces[1].dessin, plan.pieces[0].dessin);
+    }
 
     /// Un trait à main levée de `a` à `b`, avec un léger tremblement.
     fn trait_tremble(a: (f64, f64), b: (f64, f64)) -> Vec<(f64, f64)> {

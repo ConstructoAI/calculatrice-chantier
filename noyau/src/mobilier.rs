@@ -342,6 +342,10 @@ pub struct Objet {
     /// pour des contremarches d'au plus 7 1/2 po.
     #[serde(default)]
     pub contremarches: String,
+    /// Vrai s'il est retourné comme dans un miroir, sa gauche et sa droite
+    /// échangées (point 31) : un escalier tournant tourne de l'autre côté.
+    #[serde(default)]
+    pub retourne: bool,
 }
 
 impl Objet {
@@ -357,6 +361,7 @@ impl Objet {
             forme: FormeDEscalier::Droit,
             hauteur: String::new(),
             contremarches: String::new(),
+            retourne: false,
         }
     }
 
@@ -388,6 +393,8 @@ impl Objet {
         (u, v): (f64, f64),
         (largeur, profondeur): (f64, f64),
     ) -> (f64, f64) {
+        // Retourné : sa gauche et sa droite échangées.
+        let u = if self.retourne { 1.0 - u } else { u };
         let (dx, dy) = ((u - 0.5) * largeur, (v - 0.5) * profondeur);
         let angle = self.angle_total();
         let quarts = angle / 90.0;
