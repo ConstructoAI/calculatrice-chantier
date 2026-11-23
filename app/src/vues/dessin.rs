@@ -12,7 +12,7 @@ use noyau::dessin::{
 };
 use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, MorceauDeMur};
 use noyau::metiers::Quantite;
-use noyau::mobilier::{GenreDObjet, Objet, TraitSurLePlan};
+use noyau::mobilier::{self, Encombrement, GenreDObjet, Objet, TraitSurLePlan};
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
 
@@ -532,6 +532,62 @@ fn objet_sous(dessin: &Dessin, solution: &Solution, point: (f64, f64)) -> Option
         .iter()
         .zip(&solution.objets)
         .rposition(|(objet, dimensions)| objet.contient(point, *dimensions))
+}
+
+/// Le pas d'un objet qu'on déplace : le pouce, ou le centimètre en métrique.
+fn pas_des_objets(solution: &Solution) -> f64 {
+    let metrique =
+        solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique);
+    if metrique { 1.0 / 2.54 } else { 1.0 }
+}
+
+/// Ce qui encombre la pièce pour l'objet de rang `sauf` : les autres objets,
+/// les morceaux des cloisons et les murs (R-98).
+fn encombrement<'a>(
+    dessin: &Dessin,
+    solution: &Solution,
+    sauf: usize,
+    contour: Option<&'a [(f64, f64)]>,
+) -> Encombrement<'a> {
+    let mut obstacles: Vec<[(f64, f64); 4]> = dessin
+        .objets
+        .iter()
+        .zip(&solution.objets)
+        .enumerate()
+        .filter(|(rang, _)| *rang != sauf)
+        .map(|(_, (objet, dimensions))| objet.coins(*dimensions))
+        .collect();
+    obstacles.extend(
+        solution
+            .cloisons
+            .iter()
+            .flatten()
+            .flat_map(|cloison| cloison.morceaux())
+            .map(|morceau| morceau.coins),
+    );
+    Encombrement {
+        obstacles,
+        piece: contour,
+    }
+}
+
+/// Fait pivoter un objet sans qu'il chevauche quoi que ce soit : s'il le faut,
+/// il se dégage de 24 po au plus; sans place, il garde son angle (R-98).
+fn pivoter_sans_chevaucher(dessin: &mut Dessin, solution: &Solution, rang: usize, degres: f64) {
+    let avant = dessin.objets[rang].clone();
+    dessin.objets[rang].pivoter(degres);
+    let Some(&dimensions) = solution.objets.get(rang) else {
+        return;
+    };
+    let contour = dessin.contour_interieur(solution);
+    let encombre = encombrement(dessin, solution, rang, contour.as_deref());
+    let pas = pas_des_objets(solution);
+    match mobilier::position_libre_proche(&dessin.objets[rang], dimensions, &encombre, pas, 24.0) {
+        Some(place) => dessin.objets[rang].centre = place,
+        // Un objet qui chevauchait déjà (un plan d'avant) pivote quand même.
+        None if encombre.libre(&avant.coins(dimensions)) => dessin.objets[rang] = avant,
+        None => {}
+    }
 }
 
 /// Cadre la forme dans la planche. Sans forme : un point par unité, depuis le coin.
@@ -1369,13 +1425,26 @@ fn planche_et_gestes(
             && rang < dessin.objets.len()
         {
             let point = echelle.vers_le_plan(pointeur);
-            let metrique =
-                solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique);
-            let pas = if metrique { 1.0 / 2.54 } else { 1.0 };
-            let centre = (
+            let pas = pas_des_objets(solution);
+            let voulu = (
                 ((point.0 - ecart.0) / pas).round() * pas,
                 ((point.1 - ecart.1) / pas).round() * pas,
             );
+            // Il s'arrête contre ce qui l'encombre et glisse le long (R-98).
+            let centre = match solution.objets.get(rang) {
+                Some(&dimensions) if dessin.objets[rang].centre != voulu => {
+                    let contour = dessin.contour_interieur(solution);
+                    let encombre = encombrement(dessin, solution, rang, contour.as_deref());
+                    mobilier::deplacer_sans_chevaucher(
+                        &dessin.objets[rang],
+                        dimensions,
+                        voulu,
+                        &encombre,
+                        pas,
+                    )
+                }
+                _ => voulu,
+            };
             if dessin.objets[rang].centre != centre {
                 dessin.objets[rang].centre = centre;
                 modifie = true;
@@ -1621,14 +1690,28 @@ fn planche_et_gestes(
         && complete
         && let Some(genre) = etat.objet_a_placer
     {
-        // L'objet se pose là où la pièce a été touchée.
+        // L'objet se pose là où la pièce a été touchée, ou à la place libre
+        // la plus proche (R-98).
         let (x, y) = echelle.vers_le_plan(position);
         etat.memoriser(dessin);
         dessin
             .objets
             .push(Objet::nouveau(genre, (x.round(), y.round())));
+        let rang = dessin.objets.len() - 1;
+        let (largeur, profondeur, _) = genre.dimensions();
+        let contour = dessin.contour_interieur(solution);
+        let encombre = encombrement(dessin, solution, rang, contour.as_deref());
+        if let Some(place) = mobilier::position_libre_proche(
+            &dessin.objets[rang],
+            (largeur, profondeur),
+            &encombre,
+            pas_des_objets(solution),
+            120.0,
+        ) {
+            dessin.objets[rang].centre = place;
+        }
         etat.objet_a_placer = None;
-        etat.objet_choisi = Some(dessin.objets.len() - 1);
+        etat.objet_choisi = Some(rang);
         modifie = true;
     } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
@@ -2073,7 +2156,7 @@ fn planche_et_gestes(
             let nom = format!("{} {}", textes::DESSIN_PIVOTER.traduit(), texte.traduit());
             if bouton_de_planche(ui, &painter, zone, texte.traduit(), &nom, false, p) {
                 etat.memoriser(dessin);
-                dessin.objets[rang].pivoter(degres);
+                pivoter_sans_chevaucher(dessin, solution, rang, degres);
                 modifie = true;
             }
         }
@@ -3237,7 +3320,7 @@ fn objets(
     }
     if let Some((rang, degres)) = a_pivoter {
         etat.memoriser(dessin);
-        dessin.objets[rang].pivoter(degres);
+        pivoter_sans_chevaucher(dessin, solution, rang, degres);
         etat.objet_choisi = Some(rang);
         modifie = true;
     }

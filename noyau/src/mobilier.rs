@@ -430,6 +430,206 @@ impl Objet {
     }
 }
 
+// ----------------------------------------------------------------------
+// Collisions (R-98) : un objet ne chevauche ni un autre objet, ni une cloison,
+// ni les murs de sa pièce.
+// ----------------------------------------------------------------------
+
+/// Tolérance des collisions, en pouces : deux formes qui se touchent ne se
+/// chevauchent pas.
+const TOLERANCE: f64 = 1e-6;
+
+/// Vrai si deux polygones convexes (en pouces, sur le plan) se chevauchent,
+/// au sens strict : se toucher par un côté ou un coin n'est pas chevaucher.
+/// Un segment (deux points) compte comme un polygone aplati. Méthode des axes
+/// séparateurs.
+pub fn se_chevauchent(a: &[(f64, f64)], b: &[(f64, f64)]) -> bool {
+    let axes = |forme: &[(f64, f64)]| -> Vec<(f64, f64)> {
+        (0..forme.len())
+            .filter_map(|k| {
+                let (p, q) = (forme[k], forme[(k + 1) % forme.len()]);
+                let (dx, dy) = (q.0 - p.0, q.1 - p.1);
+                let longueur = dx.hypot(dy);
+                (longueur > TOLERANCE).then(|| (-dy / longueur, dx / longueur))
+            })
+            .collect()
+    };
+    let projeter = |forme: &[(f64, f64)], axe: (f64, f64)| {
+        forme.iter().fold((f64::MAX, f64::MIN), |(bas, haut), p| {
+            let x = p.0 * axe.0 + p.1 * axe.1;
+            (bas.min(x), haut.max(x))
+        })
+    };
+    axes(a).into_iter().chain(axes(b)).all(|axe| {
+        let (a0, a1) = projeter(a, axe);
+        let (b0, b1) = projeter(b, axe);
+        // Un segment n'a pas d'épaisseur sur sa normale : il traverse l'autre
+        // forme s'il tombe strictement dedans.
+        if a1 - a0 <= TOLERANCE {
+            b0 < a0 - TOLERANCE && a1 + TOLERANCE < b1
+        } else if b1 - b0 <= TOLERANCE {
+            a0 < b0 - TOLERANCE && b1 + TOLERANCE < a1
+        } else {
+            a1.min(b1) - a0.max(b0) > TOLERANCE
+        }
+    })
+}
+
+/// Vrai si le point est dans le polygone (règle des croisements).
+fn dans_le_polygone((x, y): (f64, f64), polygone: &[(f64, f64)]) -> bool {
+    let mut dedans = false;
+    for k in 0..polygone.len() {
+        let (a, b) = (polygone[k], polygone[(k + 1) % polygone.len()]);
+        if (a.1 > y) != (b.1 > y) && x < a.0 + (y - a.1) * (b.0 - a.0) / (b.1 - a.1) {
+            dedans = !dedans;
+        }
+    }
+    dedans
+}
+
+/// Ce qui encombre une pièce pour un objet qu'on déplace : les autres objets
+/// et les morceaux de cloison (des quadrilatères convexes), et le contour
+/// intérieur des murs, s'il est connu.
+pub struct Encombrement<'a> {
+    pub obstacles: Vec<[(f64, f64); 4]>,
+    pub piece: Option<&'a [(f64, f64)]>,
+}
+
+impl Encombrement<'_> {
+    /// Vrai si un objet de ces quatre coins est à sa place : dans la pièce, et
+    /// sans chevaucher d'obstacle (il peut les toucher).
+    pub fn libre(&self, coins: &[(f64, f64); 4]) -> bool {
+        if let Some(piece) = self.piece {
+            // Aucun mur ne traverse l'objet, et l'objet est du bon côté.
+            let traverse = (0..piece.len())
+                .any(|k| se_chevauchent(&[piece[k], piece[(k + 1) % piece.len()]], coins));
+            let centre = (
+                coins.iter().map(|c| c.0).sum::<f64>() / 4.0,
+                coins.iter().map(|c| c.1).sum::<f64>() / 4.0,
+            );
+            if traverse || !dans_le_polygone(centre, piece) {
+                return false;
+            }
+        }
+        !self.obstacles.iter().any(|o| se_chevauchent(o, coins))
+    }
+}
+
+/// Les coins de l'objet s'il avait ce centre.
+fn coins_au_centre(objet: &Objet, dimensions: (f64, f64), centre: (f64, f64)) -> [(f64, f64); 4] {
+    let mut deplace = objet.clone();
+    deplace.centre = centre;
+    deplace.coins(dimensions)
+}
+
+/// Où l'objet peut aller, au plus près du centre `voulu` : il avance pas à pas
+/// (`pas`, en pouces) et s'arrête contre ce qui l'encombre, puis glisse le long
+/// (le mouvement se fait en x puis en y, ou en y puis en x : le plus proche du
+/// but l'emporte). Un objet qui chevauche déjà quelque chose (un plan d'avant
+/// les collisions) va où l'on veut, pour qu'on puisse le dégager.
+pub fn deplacer_sans_chevaucher(
+    objet: &Objet,
+    dimensions: (f64, f64),
+    voulu: (f64, f64),
+    encombrement: &Encombrement<'_>,
+    pas: f64,
+) -> (f64, f64) {
+    let depart = objet.centre;
+    let libre =
+        |centre: (f64, f64)| encombrement.libre(&coins_au_centre(objet, dimensions, centre));
+    // Un objet qui chevauche déjà quelque chose va où l'on veut; un chemin
+    // direct libre se prend tel quel.
+    if !libre(depart) || trajet_libre(depart, voulu, pas, &libre) {
+        return voulu;
+    }
+    // Avancer en ligne droite jusqu'au dernier pas libre.
+    let avancer = |de: (f64, f64), vers: (f64, f64)| -> (f64, f64) {
+        let (dx, dy) = (vers.0 - de.0, vers.1 - de.1);
+        let n = nombre_de_pas(dx, dy, pas);
+        let mut dernier = de;
+        for k in 1..=n {
+            let t = k as f64 / n as f64;
+            let point = (de.0 + dx * t, de.1 + dy * t);
+            if !libre(point) {
+                break;
+            }
+            dernier = point;
+        }
+        dernier
+    };
+    // En x puis en y, ou en y puis en x : l'objet glisse le long de l'obstacle.
+    let x_d_abord = avancer(depart, (voulu.0, depart.1));
+    let par_x = avancer(x_d_abord, (x_d_abord.0, voulu.1));
+    let y_d_abord = avancer(depart, (depart.0, voulu.1));
+    let par_y = avancer(y_d_abord, (voulu.0, y_d_abord.1));
+    let distance = |p: (f64, f64)| (p.0 - voulu.0).hypot(p.1 - voulu.1);
+    if distance(par_x) <= distance(par_y) {
+        par_x
+    } else {
+        par_y
+    }
+}
+
+/// Le nombre de pas d'au plus `pas` pouces pour aller de (0, 0) à (dx, dy)
+/// (sur la grille, un déplacement d'un nombre entier de pas en garde le compte).
+fn nombre_de_pas(dx: f64, dy: f64, pas: f64) -> usize {
+    ((dx.abs().max(dy.abs()) / pas) - 1e-9).ceil().max(1.0) as usize
+}
+
+/// Vrai si l'objet passe de `de` à `vers` sans rien traverser (pas à pas).
+fn trajet_libre(
+    de: (f64, f64),
+    vers: (f64, f64),
+    pas: f64,
+    libre: &dyn Fn((f64, f64)) -> bool,
+) -> bool {
+    let (dx, dy) = (vers.0 - de.0, vers.1 - de.1);
+    let n = nombre_de_pas(dx, dy, pas);
+    (1..=n).all(|k| {
+        let t = k as f64 / n as f64;
+        libre((de.0 + dx * t, de.1 + dy * t))
+    })
+}
+
+/// Le centre libre le plus proche de celui de l'objet, à `rayon` pouces au
+/// plus, sur la grille de `pas` pouces; rien s'il n'y en a pas. L'objet déjà
+/// libre reste où il est.
+pub fn position_libre_proche(
+    objet: &Objet,
+    dimensions: (f64, f64),
+    encombrement: &Encombrement<'_>,
+    pas: f64,
+    rayon: f64,
+) -> Option<(f64, f64)> {
+    let (cx, cy) = objet.centre;
+    let libre =
+        |centre: (f64, f64)| encombrement.libre(&coins_au_centre(objet, dimensions, centre));
+    if libre((cx, cy)) {
+        return Some((cx, cy));
+    }
+    let anneaux = (rayon / pas).ceil() as i64;
+    for anneau in 1..=anneaux {
+        // Les points de l'anneau, du plus proche au plus loin du centre.
+        let mut points: Vec<(f64, f64)> = Vec::new();
+        for i in -anneau..=anneau {
+            for j in -anneau..=anneau {
+                if i.abs().max(j.abs()) == anneau {
+                    points.push((cx + i as f64 * pas, cy + j as f64 * pas));
+                }
+            }
+        }
+        points.sort_by(|a, b| {
+            let da = (a.0 - cx).hypot(a.1 - cy);
+            let db = (b.0 - cx).hypot(b.1 - cy);
+            da.total_cmp(&db)
+        });
+        if let Some(point) = points.into_iter().find(|p| libre(*p)) {
+            return Some(point);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -529,5 +729,128 @@ mod tests {
             assert!(largeur > 0.0 && profondeur > 0.0 && hauteur >= 0.0);
             assert!(!genre.symbole(profondeur).is_empty());
         }
+    }
+
+    /// Une pièce de 20 pi sur 12 pi (en pouces, y vers le bas).
+    const PIECE: [(f64, f64); 4] = [(0.0, 0.0), (240.0, 0.0), (240.0, 144.0), (0.0, 144.0)];
+
+    fn table_en(centre: (f64, f64)) -> (Objet, (f64, f64)) {
+        (Objet::nouveau(GenreDObjet::Table, centre), (36.0, 60.0))
+    }
+
+    #[test]
+    fn se_toucher_n_est_pas_chevaucher() {
+        let a = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+        let colle = [(10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 10.0)];
+        let mord = [(9.5, 2.0), (20.0, 2.0), (20.0, 8.0), (9.5, 8.0)];
+        assert!(!se_chevauchent(&a, &colle));
+        assert!(se_chevauchent(&a, &mord));
+        // Un carré tourné de 45° qui ne touche que la pointe… ou qui mord.
+        let losange = |dx: f64| {
+            [
+                (15.0 + dx, 5.0),
+                (20.0 + dx, 0.0),
+                (25.0 + dx, 5.0),
+                (20.0 + dx, 10.0),
+            ]
+        };
+        assert!(!se_chevauchent(&a, &losange(-5.0)));
+        assert!(se_chevauchent(&a, &losange(-6.0)));
+        // Un segment le long d'un côté ne traverse pas; en travers, il traverse.
+        assert!(!se_chevauchent(&[(0.0, 10.0), (30.0, 10.0)], &a));
+        assert!(se_chevauchent(&[(5.0, -5.0), (5.0, 15.0)], &a));
+    }
+
+    #[test]
+    fn un_meuble_s_arrete_contre_un_autre_et_glisse_le_long() {
+        // Une table de 36 po sur 60 po contre un lit posé à droite.
+        let lit = Objet::nouveau(GenreDObjet::Lit, (150.0, 72.0));
+        let encombrement = Encombrement {
+            obstacles: vec![lit.coins((60.0, 80.0))],
+            piece: Some(&PIECE),
+        };
+        let (table, dimensions) = table_en((40.0, 72.0));
+        // Le lit occupe x de 120 à 180 : la table (demi-largeur 18) s'arrête à x = 102.
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (150.0, 72.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (102.0, 72.0));
+        // En visant en biais, elle avance en y le long du lit.
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (130.0, 90.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (102.0, 90.0));
+        // Un chemin libre se prend tel quel.
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (60.0, 80.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (60.0, 80.0));
+    }
+
+    #[test]
+    fn un_meuble_reste_dans_la_piece_et_ne_traverse_pas_une_cloison() {
+        // Une cloison de 5 po d'épaisseur, de haut en bas, à x de 118 à 123.
+        let cloison = [(118.0, 0.0), (123.0, 0.0), (123.0, 144.0), (118.0, 144.0)];
+        let encombrement = Encombrement {
+            obstacles: vec![cloison],
+            piece: Some(&PIECE),
+        };
+        let (table, dimensions) = table_en((40.0, 72.0));
+        // Un geste rapide vers l'autre côté s'arrête contre la cloison, sans la sauter.
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (200.0, 72.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (100.0, 72.0));
+        // Vers le mur du haut : la table (demi-profondeur 30) s'arrête à y = 30.
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (40.0, -50.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (40.0, 30.0));
+        // Dehors, elle n'est pas libre.
+        assert!(!encombrement.libre(&table_en((-100.0, 72.0)).0.coins(dimensions)));
+    }
+
+    #[test]
+    fn une_piece_en_l_retient_un_meuble_dans_son_coin_rentrant() {
+        // Une pièce en L : le coin de (120, 72) à (240, 144) est dehors.
+        let en_l = [
+            (0.0, 0.0),
+            (240.0, 0.0),
+            (240.0, 72.0),
+            (120.0, 72.0),
+            (120.0, 144.0),
+            (0.0, 144.0),
+        ];
+        let encombrement = Encombrement {
+            obstacles: Vec::new(),
+            piece: Some(&en_l),
+        };
+        let (table, dimensions) = table_en((60.0, 100.0));
+        // Vers la droite, le mur du coin rentrant l'arrête (x de 120 moins 18).
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (200.0, 100.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (102.0, 100.0));
+        // À cheval sur le coin rentrant : pas libre, même si ses coins sont dedans.
+        let travers = Objet::nouveau(GenreDObjet::Sofa, (130.0, 60.0));
+        assert!(!encombrement.libre(&travers.coins((84.0, 36.0))));
+    }
+
+    #[test]
+    fn un_meuble_qui_chevauche_deja_se_degage_librement() {
+        let lit = Objet::nouveau(GenreDObjet::Lit, (60.0, 72.0));
+        let encombrement = Encombrement {
+            obstacles: vec![lit.coins((60.0, 80.0))],
+            piece: Some(&PIECE),
+        };
+        // Une table posée sur le lit (un plan d'avant les collisions).
+        let (table, dimensions) = table_en((60.0, 72.0));
+        assert!(!encombrement.libre(&table.coins(dimensions)));
+        let arrivee =
+            deplacer_sans_chevaucher(&table, dimensions, (65.0, 72.0), &encombrement, 1.0);
+        assert_eq!(arrivee, (65.0, 72.0));
+        // La place libre la plus proche est juste à côté du lit.
+        let proche = position_libre_proche(&table, dimensions, &encombrement, 1.0, 120.0).unwrap();
+        assert!(encombrement.libre(&table_en(proche).0.coins(dimensions)));
+        assert!(
+            (proche.0 - 60.0).abs() + (proche.1 - 72.0).abs() <= 50.0,
+            "{proche:?}"
+        );
+        // Sans place assez proche : rien.
+        assert!(position_libre_proche(&table, dimensions, &encombrement, 1.0, 3.0).is_none());
     }
 }

@@ -19,6 +19,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.12.1** : le **manuel d'utilisation** revu — deux chapitres nouveaux, *Le dessin d'une
   pièce* et *Le bloc-notes*; la présentation, les six onglets, l'emplacement des données et le
   dépannage mis à jour.
+- **0.12.2** : dans le dessin, **les meubles ne se superposent plus** — déplacé, un meuble
+  s'arrête contre les autres, contre les cloisons et contre les murs, et glisse le long; posé ou
+  pivoté sur une place prise, il va à la place libre la plus proche.
 
 ## Nouveautés de la version 0.11
 
