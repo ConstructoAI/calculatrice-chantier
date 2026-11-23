@@ -1,6 +1,7 @@
 //! Dessin d'une pièce (section 25) : un croquis tracé à main levée devient une
 //! forme aux angles d'équerre — ou à 45° pour un mur en biais —, dont chaque
-//! côté reçoit ensuite sa mesure.
+//! côté reçoit ensuite sa mesure. Un côté peut ensuite prendre n'importe quel
+//! angle par rapport au précédent (section 25.1, point 32).
 //!
 //! Le croquis n'est pas à l'échelle : seules comptent la direction de chaque
 //! côté et les mesures inscrites. Un côté manquant se déduit des autres quand
@@ -24,7 +25,7 @@ const PART_NEGLIGEABLE: f64 = 0.10;
 const FINESSE: f64 = 0.07;
 
 /// Direction d'un côté, comme sur l'écran : l'est à droite, le sud en bas. Les
-/// quatre directions en biais sont à 45°.
+/// quatre directions en biais sont à 45°; toute autre direction est libre.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Sens {
     Est,
@@ -35,9 +36,15 @@ pub enum Sens {
     SudEst,
     SudOuest,
     NordOuest,
+    /// Une direction qui n'est pas un multiple de 45° : son angle en millièmes
+    /// de degré, de 0 (vers l'est) à 360 000, compté vers le sud comme à
+    /// l'écran (section 25.1, point 32). Les dessins enregistrés sans elle se lisent
+    /// tels quels.
+    Libre(i32),
 }
 
-/// L'axe d'un côté : horizontal, vertical, ou l'une des deux diagonales à 45°.
+/// L'axe d'un côté : horizontal, vertical, l'une des deux diagonales à 45°, ou
+/// un axe libre.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Axe {
     Horizontal,
@@ -46,7 +53,16 @@ pub enum Axe {
     Descendant,
     /// Du bas à gauche vers le haut à droite.
     Montant,
+    /// Un autre axe : l'angle de son sens positif en millièmes de degré, de 0
+    /// à 180 000 (exclu), jamais un multiple de 45 000.
+    Libre(i32),
 }
+
+/// Millièmes de degré dans un demi-tour.
+const DEMI_TOUR: i32 = 180_000;
+/// Sous ce sinus (un demi-degré), deux axes sont trop près d'être parallèles
+/// pour que la fermeture de la forme les départage.
+const SINUS_MINIMAL: f64 = 0.0087;
 
 /// Composante d'un déplacement unitaire à 45°.
 const DEMI_RACINE: f64 = std::f64::consts::FRAC_1_SQRT_2;
@@ -62,6 +78,7 @@ impl Axe {
             Axe::Vertical => Sens::Sud,
             Axe::Descendant => Sens::SudEst,
             Axe::Montant => Sens::NordEst,
+            Axe::Libre(angle) => Sens::Libre(angle),
         }
     }
 
@@ -72,6 +89,7 @@ impl Axe {
             Axe::Vertical => Sens::Nord,
             Axe::Descendant => Sens::NordOuest,
             Axe::Montant => Sens::SudOuest,
+            Axe::Libre(angle) => Sens::Libre(angle + DEMI_TOUR),
         }
     }
 
@@ -97,6 +115,41 @@ impl Axe {
 }
 
 impl Sens {
+    /// La direction d'un angle en degrés, compté comme à l'écran : 0 vers la
+    /// droite (l'est), 90 vers le bas (le sud). Un multiple de 45° donne l'une
+    /// des huit directions; tout autre angle, une direction libre, au
+    /// millième de degré.
+    pub fn d_angle(degres: f64) -> Sens {
+        let angle = ((degres * 1000.0).round() as i64).rem_euclid(2 * DEMI_TOUR as i64) as i32;
+        match angle {
+            0 => Sens::Est,
+            45_000 => Sens::SudEst,
+            90_000 => Sens::Sud,
+            135_000 => Sens::SudOuest,
+            180_000 => Sens::Ouest,
+            225_000 => Sens::NordOuest,
+            270_000 => Sens::Nord,
+            315_000 => Sens::NordEst,
+            angle => Sens::Libre(angle),
+        }
+    }
+
+    /// L'angle de la direction en degrés, de 0 (vers la droite) à 360, compté
+    /// vers le bas comme à l'écran.
+    pub fn angle(self) -> f64 {
+        match self {
+            Sens::Est => 0.0,
+            Sens::SudEst => 45.0,
+            Sens::Sud => 90.0,
+            Sens::SudOuest => 135.0,
+            Sens::Ouest => 180.0,
+            Sens::NordOuest => 225.0,
+            Sens::Nord => 270.0,
+            Sens::NordEst => 315.0,
+            Sens::Libre(angle) => f64::from(angle) / 1000.0,
+        }
+    }
+
     /// La direction vue dans un miroir vertical : l'est et l'ouest échangés.
     pub fn en_miroir(self) -> Sens {
         match self {
@@ -108,6 +161,7 @@ impl Sens {
             Sens::SudOuest => Sens::SudEst,
             Sens::Nord => Sens::Nord,
             Sens::Sud => Sens::Sud,
+            Sens::Libre(_) => Sens::d_angle(180.0 - self.angle()),
         }
     }
 
@@ -118,6 +172,11 @@ impl Sens {
             Sens::Sud | Sens::Nord => Axe::Vertical,
             Sens::SudEst | Sens::NordOuest => Axe::Descendant,
             Sens::NordEst | Sens::SudOuest => Axe::Montant,
+            // Lu d'un fichier, l'angle n'est peut-être pas ramené à son tour.
+            Sens::Libre(_) => match Sens::d_angle(self.angle()) {
+                Sens::Libre(angle) => Axe::Libre(angle % DEMI_TOUR),
+                ramene => ramene.axe(),
+            },
         }
     }
 
@@ -126,9 +185,14 @@ impl Sens {
         self.axe() == Axe::Horizontal
     }
 
-    /// Vrai pour un côté en biais, à 45°.
+    /// Vrai pour un côté ni horizontal ni vertical : à 45° ou à un angle libre.
     pub fn en_biais(self) -> bool {
-        matches!(self.axe(), Axe::Descendant | Axe::Montant)
+        !matches!(self.axe(), Axe::Horizontal | Axe::Vertical)
+    }
+
+    /// Vrai pour une direction libre, qui n'est pas un multiple de 45°.
+    pub fn libre(self) -> bool {
+        matches!(self.axe(), Axe::Libre(_))
     }
 
     /// Déplacement unitaire (x vers la droite, y vers le bas).
@@ -143,7 +207,17 @@ impl Sens {
             Sens::SudEst => (d, d),
             Sens::SudOuest => (-d, d),
             Sens::NordOuest => (-d, -d),
+            Sens::Libre(_) => {
+                let angle = self.angle().to_radians();
+                (angle.cos(), angle.sin())
+            }
         }
+    }
+
+    /// L'angle dont cette direction tourne depuis `avant`, en degrés, de −180
+    /// à 180 : positif vers la droite de qui avance, comme du sud à l'ouest.
+    pub fn virage_depuis(self, avant: Sens) -> f64 {
+        (self.angle() - avant.angle() + 540.0).rem_euclid(360.0) - 180.0
     }
 
     /// +1 dans le sens positif de son axe, −1 dans l'autre.
@@ -1002,30 +1076,129 @@ impl Dessin {
     /// sens. Retourne faux si c'est impossible.
     fn reprendre_l_ecart(&mut self) -> bool {
         let n = self.cotes.len();
-        if n < 2 {
-            return false;
-        }
+        n >= 2 && self.reprendre_l_ecart_sur(n - 2, n - 1, 0.0)
+    }
+
+    /// Reprend l'écart du croquis sur les côtés `i` et `j`, qui gardent leur
+    /// sens et au moins la longueur `minimum`; ne change rien si c'est
+    /// impossible.
+    fn reprendre_l_ecart_sur(&mut self, i: usize, j: usize, minimum: f64) -> bool {
         let (dx, dy) = self.fin();
-        let u = self.cotes[n - 2].sens.axe().vecteur();
-        let v = self.cotes[n - 1].sens.axe().vecteur();
+        let u = self.cotes[i].sens.axe().vecteur();
+        let v = self.cotes[j].sens.axe().vecteur();
         let determinant = u.0 * v.1 - u.1 * v.0;
-        if determinant.abs() < 1e-9 {
+        if determinant.abs() < SINUS_MINIMAL {
             return false;
         }
         let (wx, wy) = (-dx, -dy);
-        let corrections = [
-            (n - 2, (wx * v.1 - wy * v.0) / determinant),
-            (n - 1, (u.0 * wy - u.1 * wx) / determinant),
-        ];
-        for (rang, correction) in corrections {
+        let mut nouvelles = [0.0; 2];
+        for (k, (rang, correction)) in [
+            (i, (wx * v.1 - wy * v.0) / determinant),
+            (j, (u.0 * wy - u.1 * wx) / determinant),
+        ]
+        .into_iter()
+        .enumerate()
+        {
             let avant = self.cotes[rang].signe();
             let apres = avant + correction;
-            if apres.abs() <= 0.0 || (apres > 0.0) != (avant > 0.0) {
+            if apres.abs() <= minimum || (apres > 0.0) != (avant > 0.0) {
                 return false;
             }
-            self.cotes[rang].croquis = apres.abs();
+            nouvelles[k] = apres.abs();
+        }
+        self.cotes[i].croquis = nouvelles[0];
+        self.cotes[j].croquis = nouvelles[1];
+        true
+    }
+
+    /// Le côté qui précède le côté `rang` : le dernier pour le premier côté
+    /// d'une forme fermée; aucun pour celui d'une forme ouverte.
+    fn precedent(&self, rang: usize) -> Option<usize> {
+        let n = self.cotes.len();
+        if rang >= n || n < 2 {
+            None
+        } else if rang > 0 {
+            Some(rang - 1)
+        } else if self.fermee {
+            Some(n - 1)
+        } else {
+            None
+        }
+    }
+
+    /// L'angle, en degrés, dont le côté `rang` tourne par rapport au côté
+    /// précédent, à gauche ou à droite : 90 d'équerre, 45 en biais, 0 en
+    /// ligne droite (section 25.1, point 32). `None` pour le premier côté d'une forme
+    /// ouverte.
+    pub fn virage(&self, rang: usize) -> Option<f64> {
+        let precedent = self.precedent(rang)?;
+        Some(
+            self.cotes[rang]
+                .sens
+                .virage_depuis(self.cotes[precedent].sens)
+                .abs(),
+        )
+    }
+
+    /// Tourne le côté `rang` pour qu'il fasse l'angle `virage` (en degrés,
+    /// plus de 0 et moins de 180) avec le côté précédent, du même côté qu'il
+    /// tournait. Les autres côtés gardent leur direction; une forme fermée se
+    /// referme sur le croquis par deux autres côtés, et ses mesures déduites
+    /// se déduisent à nouveau. Retourne faux si rien n'a changé ou si c'est
+    /// impossible.
+    pub fn orienter(&mut self, rang: usize, virage: f64) -> bool {
+        if !(virage > 0.0 && virage < 180.0) {
+            return false;
+        }
+        let Some(precedent) = self.precedent(rang) else {
+            return false;
+        };
+        let avant = self.cotes[precedent].sens;
+        let actuel = self.cotes[rang].sens.virage_depuis(avant);
+        let signe = if actuel.abs() > 1e-9 && actuel.abs() < 180.0 - 1e-9 {
+            actuel.signum()
+        } else {
+            self.orientation()
+        };
+        let sens = Sens::d_angle(avant.angle() + signe * virage);
+        if sens == self.cotes[rang].sens {
+            return false;
+        }
+        let ancien = self.clone();
+        self.cotes[rang].sens = sens;
+        if self.fermee && !self.refermer_le_croquis(rang) {
+            *self = ancien;
+            return false;
         }
         true
+    }
+
+    /// Le sens de rotation du croquis : 1 s'il tourne vers la droite de qui
+    /// avance (l'aire signée est positive), −1 sinon.
+    fn orientation(&self) -> f64 {
+        let sommets = self.sommets_du_croquis();
+        let aire: f64 = sommets
+            .windows(2)
+            .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+            .sum();
+        if aire < 0.0 { -1.0 } else { 1.0 }
+    }
+
+    /// Ramène le croquis d'une forme fermée à son départ après que le côté
+    /// `tourne` a changé de direction : deux autres côtés reprennent l'écart,
+    /// les plus proches après lui d'abord, sans devenir minuscules.
+    fn refermer_le_croquis(&mut self, tourne: usize) -> bool {
+        let n = self.cotes.len();
+        let minimum = self.etendue() * 0.02;
+        let autres: Vec<usize> = (1..n).map(|k| (tourne + k) % n).collect();
+        for (a, &i) in autres.iter().enumerate() {
+            for &j in &autres[a + 1..] {
+                if self.reprendre_l_ecart_sur(i, j, minimum) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Retire le dernier côté tracé; rouvre d'abord une forme fermée.
@@ -1575,7 +1748,12 @@ impl Dessin {
                     &mut manquantes,
                 );
             }
-            [(a, rangs_a), (b, rangs_b)] => {
+            [(a, rangs_a), (b, rangs_b)]
+                if {
+                    let (u, v) = (a.vecteur(), b.vecteur());
+                    (u.0 * v.1 - u.1 * v.0).abs() >= SINUS_MINIMAL
+                } =>
+            {
                 let (u, v) = (a.vecteur(), b.vecteur());
                 let determinant = u.0 * v.1 - u.1 * v.0;
                 let (wx, wy) = (-rx, -ry);
@@ -1597,8 +1775,12 @@ impl Dessin {
                 );
             }
             _ => {
+                // Sur trois axes ou plus, il faut mesurer jusqu'à ce qu'il ne
+                // reste que deux axes; sur deux axes presque parallèles,
+                // jusqu'à ce qu'il n'en reste qu'un.
                 let inconnus: usize = groupes.iter().map(|(_, rangs)| rangs.len()).sum();
-                manquantes += inconnus - 2;
+                let determinables = if groupes.len() == 2 { 1 } else { 2 };
+                manquantes += inconnus - determinables;
             }
         }
         if ecart_maximal > TOLERANCE_PO {
@@ -2536,6 +2718,109 @@ mod tests {
         }
         assert!(dessin.fermer());
         assert!(dessin.cotes.iter().all(|cote| !cote.sens.en_biais()));
+    }
+
+    #[test]
+    fn les_directions_libres() {
+        // Un multiple de 45° redonne l'une des huit directions.
+        assert_eq!(Sens::d_angle(45.0), Sens::SudEst);
+        assert_eq!(Sens::d_angle(-90.0), Sens::Nord);
+        assert_eq!(Sens::d_angle(720.0), Sens::Est);
+        // Tout autre angle est libre, ramené à son tour, au millième de degré.
+        assert_eq!(Sens::d_angle(30.0), Sens::Libre(30_000));
+        assert_eq!(Sens::d_angle(390.0004), Sens::Libre(30_000));
+        assert_eq!(Sens::d_angle(-22.5), Sens::Libre(337_500));
+        assert!((Sens::Libre(30_000).angle() - 30.0).abs() < 1e-12);
+        let (x, y) = Sens::Libre(30_000).pas();
+        assert!((x - 3f64.sqrt() / 2.0).abs() < 1e-12 && (y - 0.5).abs() < 1e-12);
+        // Son axe, son miroir, et le virage d'une direction à l'autre.
+        assert_eq!(Sens::Libre(210_000).axe(), Axe::Libre(30_000));
+        assert_eq!(Sens::Libre(30_000).axe(), Sens::Libre(210_000).axe());
+        assert_eq!(Sens::Libre(30_000).en_miroir(), Sens::Libre(150_000));
+        assert!(Sens::Libre(30_000).en_biais() && Sens::Libre(30_000).libre());
+        assert!(!Sens::SudEst.libre() && Sens::SudEst.en_biais());
+        assert!((Sens::Sud.virage_depuis(Sens::Est) - 90.0).abs() < 1e-12);
+        assert!((Sens::Est.virage_depuis(Sens::Sud) + 90.0).abs() < 1e-12);
+        assert!((Sens::Libre(10_000).virage_depuis(Sens::Libre(350_000)) - 20.0).abs() < 1e-9);
+        // Lu d'un fichier sans être ramené : le même axe.
+        assert_eq!(Sens::Libre(390_000).axe(), Axe::Libre(30_000));
+        assert_eq!(Sens::Libre(405_000).axe(), Axe::Descendant);
+    }
+
+    #[test]
+    fn un_mur_a_60_degres_du_precedent() {
+        // Un rectangle dont le deuxième côté tourne de 60° au lieu de 90° : un
+        // trapèze. Le premier côté et le dernier sont mesurés; les deux autres
+        // se déduisent de la fermeture.
+        let mut dessin = piece(&[
+            (Sens::Est, 100.0, "12'"),
+            (Sens::Sud, 80.0, ""),
+            (Sens::Ouest, 100.0, ""),
+            (Sens::Nord, 80.0, "8'"),
+        ]);
+        assert_eq!(dessin.virage(0), Some(90.0));
+        assert_eq!(dessin.virage(1), Some(90.0));
+        assert!(dessin.orienter(1, 60.0));
+        assert_eq!(dessin.cotes[1].sens, Sens::Libre(60_000));
+        assert!((dessin.virage(1).unwrap() - 60.0).abs() < 1e-9);
+        assert!((dessin.virage(2).unwrap() - 120.0).abs() < 1e-9);
+        // Le croquis reste fermé.
+        let (dx, dy) = dessin.fin();
+        assert!(dx.hypot(dy) < 1e-9, "{dx} {dy}");
+        let solution = dessin.resoudre(Format::PiPo);
+        let cote_2 = 96.0 / 60f64.to_radians().sin();
+        let cote_3 = 144.0 + cote_2 * 0.5;
+        let Etat::Complete { aire, perimetre } = solution.etat else {
+            panic!("{:?}", solution.etat);
+        };
+        assert!(matches!(solution.mesures[1], Mesure::Deduite(x) if (x - cote_2).abs() < 1e-6));
+        assert!(matches!(solution.mesures[2], Mesure::Deduite(x) if (x - cote_3).abs() < 1e-6));
+        assert!((aire - (144.0 + cote_3) / 2.0 * 96.0).abs() < 1e-6);
+        assert!((perimetre - (144.0 + cote_2 + cote_3 + 96.0)).abs() < 1e-6);
+        // Le même angle ne change rien; un angle hors de 0 à 180 est refusé.
+        assert!(!dessin.orienter(1, 60.0));
+        assert!(!dessin.orienter(1, 0.0) && !dessin.orienter(1, 180.0));
+        assert!(!dessin.orienter(1, f64::NAN));
+        // Le miroir garde la surface.
+        let mut miroir = dessin.clone();
+        miroir.miroir();
+        assert_eq!(miroir.cotes[1].sens, Sens::Libre(120_000));
+        let Etat::Complete {
+            aire: aire_du_miroir,
+            ..
+        } = miroir.resoudre(Format::PiPo).etat
+        else {
+            panic!("miroir");
+        };
+        assert!((aire_du_miroir - aire).abs() < 1e-6);
+        // Revenir à 90° redonne le rectangle.
+        assert!(dessin.orienter(1, 90.0));
+        assert_eq!(dessin.cotes[1].sens, Sens::Sud);
+    }
+
+    #[test]
+    fn le_premier_cote_d_une_forme_ouverte_n_a_pas_de_precedent() {
+        let mut dessin = Dessin::default();
+        dessin.ajouter_cote(Sens::Est);
+        dessin.ajouter_cote(Sens::Sud);
+        assert_eq!(dessin.virage(0), None);
+        assert!(!dessin.orienter(0, 30.0));
+        // Le deuxième tourne vers la droite de qui avance : il le garde.
+        assert!(dessin.orienter(1, 30.0));
+        assert_eq!(dessin.cotes[1].sens, Sens::Libre(30_000));
+    }
+
+    #[test]
+    fn deux_cotes_inconnus_presque_paralleles() {
+        // Deux côtés inconnus à un dixième de degré l'un de l'autre : la
+        // fermeture ne les départage pas, il manque une mesure.
+        let dessin = piece(&[
+            (Sens::Est, 100.0, "10'"),
+            (Sens::Libre(89_900), 80.0, ""),
+            (Sens::Ouest, 100.0, "10'"),
+            (Sens::Nord, 80.0, ""),
+        ]);
+        assert_eq!(dessin.resoudre(Format::PiPo).etat, Etat::Incomplete(1));
     }
 
     #[test]

@@ -164,6 +164,10 @@ pub struct Etat {
     /// Vrai quand un geste à deux doigts a interrompu le geste en cours : rien
     /// n'est tracé ni déplacé jusqu'à ce que les doigts se lèvent.
     geste_annule: bool,
+    /// L'angle qu'on tape pour le côté ou le segment choisi (section 25.1, point 32).
+    angle_saisi: String,
+    /// Ce qui n'a pas marché avec cet angle.
+    avis_d_angle: Option<noyau::langue::Texte>,
 }
 
 /// Une mesure d'une cloison ou de sa porte.
@@ -262,6 +266,8 @@ impl Etat {
         self.choisi = rang;
         self.autre_choisi = None;
         self.viser_le_champ = rang.is_some();
+        self.angle_saisi.clear();
+        self.avis_d_angle = None;
     }
 
     /// Une autre pièce vient à l'écran : rien n'y est choisi, et « Annuler »
@@ -305,6 +311,8 @@ impl Etat {
         self.choisi = None;
         self.autre_choisi = lequel;
         self.viser_le_champ = lequel.is_some();
+        self.angle_saisi.clear();
+        self.avis_d_angle = None;
     }
 
     /// Retient le dessin tel qu'il est, avant un changement.
@@ -2612,11 +2620,13 @@ fn mesure_du_cote(
         return false;
     };
     let nombre = dessin.cotes.len();
+    let virage = dessin.virage(rang);
     let Some(cote) = dessin.cotes.get_mut(rang) else {
         return false;
     };
     let mut modifie = false;
     let mut suivant = false;
+    let mut angle_choisi = None;
     carte(ui, p, |ui| {
         let libelle = ui.label(
             RichText::new(textes::dessin_cote(rang + 1, nombre)).font(theme::police_grasse(13.5)),
@@ -2667,7 +2677,22 @@ fn mesure_du_cote(
                     .color(p.texte_attenue),
             );
         }
+        if let Some(virage) = virage {
+            ui.add_space(6.0);
+            angle_choisi =
+                rangee_de_l_angle(ui, p, textes::DESSIN_ANGLE_DU_COTE, virage, etat, prefs);
+        }
     });
+    if let Some(angle) = angle_choisi {
+        let avant = dessin.clone();
+        if dessin.orienter(rang, angle) {
+            etat.memoriser(&avant);
+            etat.avis_d_angle = None;
+            modifie = true;
+        } else {
+            etat.avis_d_angle = Some(textes::DESSIN_ANGLE_REFUSE);
+        }
+    }
     if suivant && nombre > 0 {
         // Le prochain côté sans mesure, sinon simplement le suivant.
         let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
@@ -2689,6 +2714,16 @@ fn autre_mesure(
     autre: AutreSaisie,
     prefs: &Preferences,
 ) -> bool {
+    // Un segment de cloison après le premier : son angle par rapport au
+    // précédent (section 25.1, point 32).
+    let virage_du_segment = match autre {
+        AutreSaisie::Cloison(rang, ChampDeCloison::Longueur(segment)) => dessin
+            .cloisons
+            .get(rang)
+            .and_then(|cloison| cloison.virage(segment))
+            .map(|virage| (rang, segment, virage)),
+        _ => None,
+    };
     let (saisie, titre, indice, ensuite) = match autre {
         AutreSaisie::Retrait(rang, en_largeur) => {
             let Some(retrait) = dessin.retraits.get_mut(rang) else {
@@ -2897,6 +2932,7 @@ fn autre_mesure(
     };
     let mut modifie = false;
     let mut suivant = false;
+    let mut angle_choisi = None;
     carte(ui, p, |ui| {
         let libelle = ui.label(RichText::new(titre).font(theme::police_grasse(13.5)));
         let champ = egui::TextEdit::singleline(saisie)
@@ -2922,12 +2958,108 @@ fn autre_mesure(
             Some(Frappe::Suivant) => suivant = true,
             None => {}
         }
+        if let Some((_, _, virage)) = virage_du_segment {
+            ui.add_space(6.0);
+            angle_choisi =
+                rangee_de_l_angle(ui, p, textes::DESSIN_ANGLE_DU_SEGMENT, virage, etat, prefs);
+        }
     });
+    if let (Some((rang, segment, _)), Some(angle)) = (virage_du_segment, angle_choisi) {
+        let avant = dessin.clone();
+        if dessin.cloisons[rang].orienter(segment, angle) {
+            etat.memoriser(&avant);
+            etat.avis_d_angle = None;
+            modifie = true;
+        } else {
+            etat.avis_d_angle = Some(textes::DESSIN_ANGLE_REFUSE);
+        }
+    }
     if suivant {
         // De la première dimension à la seconde, puis l'éditeur se referme.
         etat.choisir_autre(ensuite);
     }
     modifie
+}
+
+/// Les angles proposés pour un côté ou un segment de cloison, par rapport au
+/// précédent (section 25.1, point 32).
+const ANGLES_PROPOSES: [f64; 5] = [22.5, 30.0, 45.0, 60.0, 90.0];
+
+/// Un angle en degrés, au millième près, sans zéros inutiles : « 22,5° ».
+fn degres_en_clair(angle: f64, prefs: &Preferences) -> String {
+    let mut texte = noyau::format::nombre_fixe(angle, 3, prefs);
+    if texte.contains([',', '.']) {
+        texte = texte
+            .trim_end_matches('0')
+            .trim_end_matches([',', '.'])
+            .to_string();
+    }
+    noyau::format::nombre_et_unite(&texte, "°")
+}
+
+/// Lit un angle tapé (« 22,5 », « 22.5° »); `None` s'il n'est pas de plus de
+/// 0° et de moins de 180°.
+fn lire_un_angle(texte: &str) -> Option<f64> {
+    let nettoye = texte.trim().trim_end_matches('°').trim().replace(',', ".");
+    let angle: f64 = nettoye.parse().ok()?;
+    (angle > 0.0 && angle < 180.0).then_some(angle)
+}
+
+/// La rangée de l'angle d'un côté ou d'un segment de cloison par rapport au
+/// précédent : les angles courants, et un champ pour en taper un autre.
+/// Retourne l'angle choisi, s'il diffère de l'angle actuel.
+fn rangee_de_l_angle(
+    ui: &mut Ui,
+    p: &Palette,
+    libelle: noyau::langue::Texte,
+    actuel: f64,
+    etat: &mut Etat,
+    prefs: &Preferences,
+) -> Option<f64> {
+    let mut choisi = None;
+    let titre = ui
+        .label(RichText::new(libelle.traduit()).size(13.5))
+        .on_hover_text(textes::INFOBULLE_DESSIN_ANGLE.traduit());
+    ui.horizontal_wrapped(|ui| {
+        for angle in ANGLES_PROPOSES {
+            let selectionne = (actuel - angle).abs() < 5e-4;
+            let bouton = egui::Button::new(degres_en_clair(angle, prefs)).selected(selectionne);
+            if ui
+                .add(bouton)
+                .on_hover_text(textes::INFOBULLE_DESSIN_ANGLE.traduit())
+                .clicked()
+                && !selectionne
+            {
+                choisi = Some(angle);
+            }
+        }
+        let champ = egui::TextEdit::singleline(&mut etat.angle_saisi)
+            .desired_width(72.0)
+            .hint_text(degres_en_clair(actuel, prefs));
+        let reponse = ui.add(champ).labelled_by(titre.id);
+        cadre_de_saisie(ui, p, &reponse);
+        let entree = reponse.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        if ui
+            .button(textes::DESSIN_ANGLE_APPLIQUER.traduit())
+            .clicked()
+            || entree
+        {
+            match lire_un_angle(&etat.angle_saisi) {
+                Some(angle) => {
+                    etat.angle_saisi.clear();
+                    etat.avis_d_angle = None;
+                    if (angle - actuel).abs() >= 5e-4 {
+                        choisi = Some(angle);
+                    }
+                }
+                None => etat.avis_d_angle = Some(textes::DESSIN_ANGLE_INVALIDE),
+            }
+        }
+    });
+    if let Some(avis) = etat.avis_d_angle {
+        ui.label(RichText::new(avis.traduit()).size(12.5).color(p.erreur));
+    }
+    choisi
 }
 
 /// La liste des retraits : ce qui se retire de la surface de la pièce.
@@ -4470,5 +4602,42 @@ mod tests {
         assert_eq!(en_clair("3,81 m").as_deref(), Some("3,810 m"));
         assert_eq!(en_clair("abc"), None);
         assert_eq!(en_clair("0"), None);
+    }
+
+    #[test]
+    fn un_angle_tape_et_un_angle_ecrit() {
+        assert_eq!(lire_un_angle("22,5"), Some(22.5));
+        assert_eq!(lire_un_angle(" 37.5° "), Some(37.5));
+        assert_eq!(lire_un_angle("90"), Some(90.0));
+        assert_eq!(lire_un_angle("0"), None);
+        assert_eq!(lire_un_angle("180"), None);
+        assert_eq!(lire_un_angle("-30"), None);
+        assert_eq!(lire_un_angle("abc"), None);
+        let prefs = Preferences::default();
+        assert_eq!(degres_en_clair(22.5, &prefs), "22,5°");
+        assert_eq!(degres_en_clair(90.0, &prefs), "90°");
+        assert_eq!(degres_en_clair(100.0, &prefs), "100°");
+        assert_eq!(degres_en_clair(89.625, &prefs), "89,625°");
+        let _anglais = noyau::langue::pour_la_portee(noyau::langue::Langue::Anglais);
+        let anglaises = Preferences {
+            langue: noyau::langue::Langue::Anglais,
+            ..Preferences::default()
+        };
+        assert_eq!(degres_en_clair(22.5, &anglaises), "22.5°");
+    }
+
+    #[test]
+    fn un_dessin_aux_angles_libres_s_enregistre_et_se_relit() {
+        // Un dessin d'avant les angles libres se lit tel quel; un côté libre
+        // s'écrit avec son angle et se relit.
+        let ancien = r#"{"cotes":[{"sens":"Est","croquis":100.0,"saisie":"12'"},{"sens":"SudEst","croquis":50.0}],"fermee":false}"#;
+        let dessin: Dessin = serde_json::from_str(ancien).expect("ancien dessin");
+        assert_eq!(dessin.cotes[1].sens, noyau::dessin::Sens::SudEst);
+        let mut libre = dessin.clone();
+        libre.cotes[1].sens = noyau::dessin::Sens::Libre(30_000);
+        let texte = serde_json::to_string(&libre).expect("écrit");
+        assert!(texte.contains(r#""sens":{"Libre":30000}"#), "{texte}");
+        let relu: Dessin = serde_json::from_str(&texte).expect("relu");
+        assert_eq!(relu, libre);
     }
 }

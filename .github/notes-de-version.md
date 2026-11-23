@@ -70,6 +70,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Un menu ☰ en ordre** : ses entrées sont rangées en sections — Outils, Réglages, Mes
   données, Aide et informations — et tout le menu tient d'un coup d'œil sur un téléphone.
 
+- **Angles libres dans le dessin** : touchez un côté, et réglez son angle par rapport au côté
+  précédent — 22,5°, 30°, 45°, 60°, 90° ou l'angle tapé; les côtés déduits suivent. Les
+  segments de cloison aussi.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

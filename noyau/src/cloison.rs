@@ -118,6 +118,58 @@ impl Cloison {
             self.suite.get_mut(segment - 1).map(|s| &mut s.longueur)
         }
     }
+
+    /// La direction d'un de ses segments.
+    pub fn direction_du_segment(&self, segment: usize) -> Option<Sens> {
+        if segment == 0 {
+            Some(self.sens)
+        } else {
+            self.suite.get(segment - 1).map(|s| s.sens)
+        }
+    }
+
+    /// L'angle, en degrés, dont le segment `segment` tourne par rapport au
+    /// précédent, à gauche ou à droite (section 25.1, point 32); `None` pour le premier.
+    pub fn virage(&self, segment: usize) -> Option<f64> {
+        let avant = self.direction_du_segment(segment.checked_sub(1)?)?;
+        Some(
+            self.direction_du_segment(segment)?
+                .virage_depuis(avant)
+                .abs(),
+        )
+    }
+
+    /// Tourne le segment `segment` pour qu'il fasse l'angle `virage` (en
+    /// degrés, plus de 0 et moins de 180) avec le précédent, du même côté
+    /// qu'il tournait. Les segments suivants gardent leur direction. Faux si
+    /// rien n'a changé ou si c'est impossible (le premier segment n'a pas de
+    /// précédent).
+    pub fn orienter(&mut self, segment: usize, virage: f64) -> bool {
+        if !(virage > 0.0 && virage < 180.0) {
+            return false;
+        }
+        let Some(avant) = segment
+            .checked_sub(1)
+            .and_then(|k| self.direction_du_segment(k))
+        else {
+            return false;
+        };
+        let Some(actuel) = self.direction_du_segment(segment) else {
+            return false;
+        };
+        let ecart = actuel.virage_depuis(avant);
+        let signe = if ecart < -1e-9 && ecart > -180.0 + 1e-9 {
+            -1.0
+        } else {
+            1.0
+        };
+        let sens = Sens::d_angle(avant.angle() + signe * virage);
+        if sens == actuel {
+            return false;
+        }
+        self.suite[segment - 1].sens = sens;
+        true
+    }
 }
 
 /// Un morceau plein d'une cloison : ses quatre coins — un côté de son début
@@ -576,5 +628,39 @@ mod tests {
         );
         assert!((cloison.distance((50.0, 60.0)) - 2.0).abs() < 1e-9);
         assert!((cloison.distance((48.0, 130.0)) - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn l_angle_d_un_segment_de_cloison() {
+        // Une cloison en L : vers l'est, puis vers le sud.
+        let mut cloison = Cloison {
+            suite: vec![SegmentDeCloison {
+                sens: Sens::Sud,
+                longueur: "5'".to_string(),
+            }],
+            longueur: "4'".to_string(),
+            ..Cloison::default()
+        };
+        assert_eq!(cloison.virage(0), None);
+        assert_eq!(cloison.virage(1), Some(90.0));
+        assert!(!cloison.orienter(0, 30.0));
+        // Le deuxième segment tourne de 30° au lieu de 90°, toujours vers le sud.
+        assert!(cloison.orienter(1, 30.0));
+        assert_eq!(cloison.suite[0].sens, Sens::Libre(30_000));
+        assert!((cloison.virage(1).unwrap() - 30.0).abs() < 1e-9);
+        assert!(cloison.orienter(1, 45.0));
+        assert_eq!(cloison.suite[0].sens, Sens::SudEst);
+        assert!(!cloison.orienter(1, 45.0));
+        // À ses mesures, la cloison suit sa direction libre.
+        assert!(cloison.orienter(1, 60.0));
+        let mesuree = CloisonMesuree::depuis(
+            (0.0, 0.0),
+            &[(Sens::Est, 48.0), (cloison.suite[0].sens, 60.0)],
+            0.0,
+            None,
+        );
+        let fin = mesuree.point(1, 60.0);
+        assert!((fin.0 - 78.0).abs() < 1e-9, "{fin:?}");
+        assert!((fin.1 - 60.0 * 60f64.to_radians().sin()).abs() < 1e-9);
     }
 }

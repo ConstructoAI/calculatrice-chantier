@@ -1372,6 +1372,28 @@ pub const DESSIN_MESURE_DEDUITE: Texte = t(
     "Déduite des autres côtés. Inscrivez-la pour la vérifier.",
     "Worked out from the other sides. Enter it to double-check.",
 );
+// L'angle d'un côté ou d'un segment de cloison (section 25.1, point 32)
+pub const DESSIN_ANGLE_DU_COTE: Texte = t(
+    "Angle par rapport au côté précédent",
+    "Angle from the previous side",
+);
+pub const DESSIN_ANGLE_DU_SEGMENT: Texte = t(
+    "Angle par rapport au segment précédent",
+    "Angle from the previous segment",
+);
+pub const DESSIN_ANGLE_APPLIQUER: Texte = t("Appliquer", "Apply");
+pub const INFOBULLE_DESSIN_ANGLE: Texte = t(
+    "90° : d'équerre; 45° : en biais. Tapez un autre angle au besoin. Les autres côtés gardent leur direction; les mesures déduites suivent.",
+    "90°: square; 45°: angled. Type another angle if needed. The other sides keep their direction; worked-out measurements follow.",
+);
+pub const DESSIN_ANGLE_INVALIDE: Texte = t(
+    "Tapez un angle de plus de 0° et de moins de 180°.",
+    "Type an angle over 0° and under 180°.",
+);
+pub const DESSIN_ANGLE_REFUSE: Texte = t(
+    "Avec cet angle, la forme ne se referme pas : essayez-en un autre.",
+    "With this angle, the shape does not close: try another one.",
+);
 pub const DESSIN_ETAPE_TRACER: Texte = t(
     "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre, ou à 45° pour un mur en biais (le bouton 45° fait passer les flèches en biais).",
     "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up, or set at 45° for an angled wall (the 45° button switches the arrows to angled).",
