@@ -1508,7 +1508,8 @@ mod tests {
             ",\"forme\":\"Droit\",\"hauteur\":\"\",\"contremarches\":\"\"",
             "",
         );
-        assert!(!texte.contains("forme"), "{texte}");
+        // (Le plafond a aussi sa forme : seule celle de l'escalier est retirée.)
+        assert!(!texte.contains("\"forme\":\"Droit\""), "{texte}");
         fs::write(
             d.0.join("dessin.json"),
             format!("{{ \"version\": 1, \"dessin\": {texte} }}"),

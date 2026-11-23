@@ -81,6 +81,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Le pavé vient à l'écran** : toucher une longueur de cloison, une porte ou un meuble plus
   bas dans la page fait remonter la page jusqu'au pavé, qui restait sinon hors de vue.
 
+- **Plafonds et hauteurs différentes** : plafond plat, cathédrale ou en pente, murs en
+  pignon, retombées de plafond; la surface des murs devient exacte, et le dessin donne la
+  surface du plafond et le volume de la pièce, que les outils de ventilation reçoivent.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

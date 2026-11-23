@@ -13,6 +13,7 @@ use noyau::dessin::{
 use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, MorceauDeMur};
 use noyau::metiers::Quantite;
 use noyau::mobilier::{self, Encombrement, FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan};
+use noyau::plafond::{FormeDePlafond, Retombee};
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
 
@@ -212,6 +213,19 @@ enum AutreSaisie {
     /// Une diagonale d'une pièce à quatre côtés : 0 du coin 1 au coin 3, 1
     /// du coin 2 au coin 4 (section 25.1, point 33).
     Diagonale(usize),
+    /// La hauteur haute d'un plafond qui n'est pas plat (point 34).
+    HautDuPlafond,
+    /// Une mesure d'une retombée de plafond : son rang, et laquelle.
+    Retombee(usize, ChampDeRetombee),
+}
+
+/// Une mesure d'une retombée de plafond.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChampDeRetombee {
+    Longueur,
+    Largeur,
+    /// De combien elle descend sous le plafond.
+    Descente,
 }
 
 /// Une mesure d'un objet : ses dimensions, et pour un escalier sa hauteur à
@@ -257,6 +271,8 @@ impl AutreSaisie {
             }
             AutreSaisie::EpaisseurDesMurs | AutreSaisie::EpaisseurDesCloisons => true,
             AutreSaisie::Diagonale(k) => k < 2 && dessin.fermee && dessin.cotes.len() == 4,
+            AutreSaisie::HautDuPlafond => dessin.plafond.forme != FormeDePlafond::Plat,
+            AutreSaisie::Retombee(rang, _) => rang < dessin.retombees.len(),
         }
     }
 }
@@ -2161,6 +2177,45 @@ fn planche_et_gestes(
         painter.rect_filled(cadre, 4, p.carte.gamma_multiply(0.92));
         painter.galley(cadre.min + Vec2::new(3.0, 1.0), galere, couleur);
     }
+    // Le faîte d'un plafond cathédrale, ou le côté haut d'un plafond en pente
+    // (point 34) : en tirets, d'un bout à l'autre de la pièce.
+    if complete
+        && let Some(au_plafond) = solution
+            .plafond
+            .filter(|plafond| plafond.forme != FormeDePlafond::Plat)
+        && let Some(interieur) = dessin.contour_interieur(solution)
+    {
+        let n = au_plafond.normale;
+        let u = (n.1, -n.0);
+        let (debut, fin) = interieur
+            .iter()
+            .map(|q| u.0 * q.0 + u.1 * q.1)
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), s| {
+                (lo.min(s), hi.max(s))
+            });
+        let sur_la_ligne = |s: f64| {
+            (
+                n.0 * au_plafond.ligne + u.0 * s,
+                n.1 * au_plafond.ligne + u.1 * s,
+            )
+        };
+        let (a, b) = (
+            echelle.vers_l_ecran(sur_la_ligne(debut)),
+            echelle.vers_l_ecran(sur_la_ligne(fin)),
+        );
+        // En pente, la ligne se tient un peu en dedans de son mur.
+        let dedans = if au_plafond.forme == FormeDePlafond::EnPente {
+            (centre - (a + (b - a) * 0.5)).normalized() * 6.0
+        } else {
+            Vec2::ZERO
+        };
+        painter.extend(egui::Shape::dashed_line(
+            &[a + dedans, b + dedans],
+            Stroke::new(2.0, p.accent_du_plan()),
+            10.0,
+            6.0,
+        ));
+    }
     // La diagonale qu'on mesure (point 33) : en pointillé, avec le numéro de
     // chaque coin, pour savoir d'où à où la prendre.
     if let Some(AutreSaisie::Diagonale(k)) = etat.autre_choisi
@@ -2780,6 +2835,48 @@ fn autre_mesure(
                 textes::dessin_retrait(rang + 1, en_largeur),
                 textes::DESSIN_EXEMPLE.traduit().to_string(),
                 (!en_largeur).then_some(AutreSaisie::Retrait(rang, true)),
+            )
+        }
+        AutreSaisie::HautDuPlafond => {
+            let titre = if dessin.plafond.forme == FormeDePlafond::Cathedrale {
+                textes::DESSIN_HAUTEUR_AU_FAITE
+            } else {
+                textes::DESSIN_HAUTEUR_DU_COTE_HAUT
+            };
+            (
+                &mut dessin.plafond.haut,
+                titre.traduit().to_string(),
+                textes::DESSIN_HAUT_EXEMPLE.traduit().to_string(),
+                None,
+            )
+        }
+        AutreSaisie::Retombee(rang, champ) => {
+            let Some(retombee) = dessin.retombees.get_mut(rang) else {
+                return false;
+            };
+            let (saisie, nom, ensuite) = match champ {
+                ChampDeRetombee::Longueur => (
+                    &mut retombee.longueur,
+                    textes::DESSIN_LONGUEUR,
+                    Some(ChampDeRetombee::Largeur),
+                ),
+                ChampDeRetombee::Largeur => (
+                    &mut retombee.largeur,
+                    textes::DESSIN_LARGEUR,
+                    Some(ChampDeRetombee::Descente),
+                ),
+                ChampDeRetombee::Descente => (&mut retombee.hauteur, textes::DESSIN_DESCENTE, None),
+            };
+            (
+                saisie,
+                format!(
+                    "{} {} : {}",
+                    textes::DESSIN_RETOMBEE.traduit(),
+                    rang + 1,
+                    nom.traduit()
+                ),
+                textes::DESSIN_EXEMPLE.traduit().to_string(),
+                ensuite.map(|champ| AutreSaisie::Retombee(rang, champ)),
             )
         }
         AutreSaisie::Diagonale(k) => {
@@ -3457,6 +3554,143 @@ fn murs(
             }
         }
     });
+    // Le plafond (point 34) : plat, cathédrale ou en pente.
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(textes::DESSIN_PLAFOND.traduit()).size(13.5));
+        for (forme, texte) in [
+            (FormeDePlafond::Plat, textes::DESSIN_PLAFOND_PLAT),
+            (
+                FormeDePlafond::Cathedrale,
+                textes::DESSIN_PLAFOND_CATHEDRALE,
+            ),
+            (FormeDePlafond::EnPente, textes::DESSIN_PLAFOND_EN_PENTE),
+        ] {
+            let bouton = egui::Button::new(texte.traduit()).selected(dessin.plafond.forme == forme);
+            if ui.add(bouton).clicked() && dessin.plafond.forme != forme {
+                etat.memoriser(dessin);
+                dessin.plafond.forme = forme;
+                modifie = true;
+                // Sa hauteur haute s'inscrit ensuite au pavé.
+                if forme != FormeDePlafond::Plat && dessin.plafond.haut.trim().is_empty() {
+                    etat.choisir_autre(Some(AutreSaisie::HautDuPlafond));
+                }
+            }
+        }
+    });
+    if dessin.plafond.forme != FormeDePlafond::Plat {
+        let nombre = dessin.cotes.len().max(1);
+        let cote = dessin.plafond.cote % nombre;
+        ui.horizontal_wrapped(|ui| {
+            let (libelle, du_cote) = if dessin.plafond.forme == FormeDePlafond::Cathedrale {
+                (
+                    textes::DESSIN_HAUTEUR_AU_FAITE,
+                    textes::dessin_faite_parallele(cote + 1),
+                )
+            } else {
+                (
+                    textes::DESSIN_HAUTEUR_DU_COTE_HAUT,
+                    textes::dessin_cote_haut(cote + 1),
+                )
+            };
+            ui.label(RichText::new(libelle.traduit()).size(13.5));
+            let cible = AutreSaisie::HautDuPlafond;
+            let texte = mesure_du_bouton(&dessin.plafond.haut, "?", prefs);
+            if ui
+                .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                .clicked()
+            {
+                etat.choisir_autre(Some(cible));
+            }
+            if ui
+                .add(egui::Button::new(du_cote))
+                .on_hover_text(textes::INFOBULLE_COTE_DU_PLAFOND.traduit())
+                .clicked()
+            {
+                etat.memoriser(dessin);
+                dessin.plafond.cote = (cote + 1) % nombre;
+                modifie = true;
+            }
+        });
+        if solution.plafond_invalide {
+            ui.label(
+                RichText::new(textes::DESSIN_PLAFOND_INVALIDE.traduit())
+                    .size(12.5)
+                    .color(p.erreur),
+            );
+        } else if solution.plafond_incomplet {
+            ui.label(
+                RichText::new(textes::DESSIN_PLAFOND_INCOMPLET.traduit())
+                    .size(12.5)
+                    .color(p.texte_attenue),
+            );
+        }
+    }
+    // Les retombées de plafond : longueur × largeur × descente.
+    let mut retombee_a_enlever = None;
+    for rang in 0..dessin.retombees.len() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(format!(
+                    "{} {}.",
+                    textes::DESSIN_RETOMBEE.traduit(),
+                    rang + 1
+                ))
+                .font(theme::police_grasse(13.5)),
+            );
+            for (champ, vide) in [
+                (ChampDeRetombee::Longueur, textes::DESSIN_LONGUEUR),
+                (ChampDeRetombee::Largeur, textes::DESSIN_LARGEUR),
+                (ChampDeRetombee::Descente, textes::DESSIN_DESCENTE),
+            ] {
+                let retombee = &dessin.retombees[rang];
+                let saisie = match champ {
+                    ChampDeRetombee::Longueur => &retombee.longueur,
+                    ChampDeRetombee::Largeur => &retombee.largeur,
+                    ChampDeRetombee::Descente => &retombee.hauteur,
+                };
+                let cible = AutreSaisie::Retombee(rang, champ);
+                let bouton = egui::Button::new(mesure_du_bouton(saisie, vide.traduit(), prefs))
+                    .selected(etat.autre_choisi == Some(cible));
+                if ui.add(bouton).clicked() {
+                    etat.choisir_autre(Some(cible));
+                }
+                if champ != ChampDeRetombee::Descente {
+                    ui.label("×");
+                }
+            }
+            if ui
+                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                .clicked()
+            {
+                retombee_a_enlever = Some(rang);
+            }
+        });
+    }
+    if let Some(rang) = retombee_a_enlever {
+        etat.memoriser(dessin);
+        dessin.retombees.remove(rang);
+        etat.choisir_autre(None);
+        modifie = true;
+    }
+    if solution.retombees.iter().any(Option::is_none) {
+        ui.label(
+            RichText::new(textes::DESSIN_RETOMBEE_INCOMPLETE.traduit())
+                .size(12.5)
+                .color(p.erreur),
+        );
+    }
+    if ui
+        .add(egui::Button::new(textes::DESSIN_AJOUTER_RETOMBEE.traduit()))
+        .clicked()
+    {
+        etat.memoriser(dessin);
+        dessin.retombees.push(Retombee::default());
+        etat.choisir_autre(Some(AutreSaisie::Retombee(
+            dessin.retombees.len() - 1,
+            ChampDeRetombee::Longueur,
+        )));
+        modifie = true;
+    }
     if solution.hauteur_invalide {
         ui.label(
             RichText::new(textes::DESSIN_HAUTEUR_INVALIDE.traduit())
@@ -4243,6 +4477,47 @@ pub(crate) fn resultats_de_la_piece(
             ));
         }
     }
+    // Le plafond et le volume de la pièce (point 34).
+    if detail
+        && let Some(au_plafond) = solution
+            .plafond
+            .filter(|plafond| plafond.forme != FormeDePlafond::Plat)
+    {
+        let forme = if au_plafond.forme == FormeDePlafond::Cathedrale {
+            textes::DESSIN_PLAFOND_CATHEDRALE
+        } else {
+            textes::DESSIN_PLAFOND_EN_PENTE
+        };
+        lignes.push((
+            textes::DESSIN_PLAFOND.traduit().to_string(),
+            format!("{} · {}", forme.traduit(), longueur(au_plafond.haut)),
+        ));
+    }
+    if let Some(surface) = solution.surface_du_plafond {
+        lignes.push((
+            textes::DESSIN_SURFACE_DU_PLAFOND.traduit().to_string(),
+            aire_en_clair(surface),
+        ));
+    }
+    if let Some(volume) = solution.volume {
+        let metrique =
+            solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique);
+        let (pi3, m3) = (
+            volume / noyau::unites::PO3_PAR_PI3,
+            volume / noyau::metiers::PO3_PAR_M3,
+        );
+        let (pieds_cubes, metres_cubes) =
+            (noyau::langue::t("pi³", "ft³"), noyau::langue::tel("m³"));
+        let quantite = if metrique {
+            Quantite::Double(m3, metres_cubes, pi3, pieds_cubes)
+        } else {
+            Quantite::Double(pi3, pieds_cubes, m3, metres_cubes)
+        };
+        lignes.push((
+            textes::DESSIN_VOLUME.traduit().to_string(),
+            quantite.en_clair(solution.modele, prefs),
+        ));
+    }
     let longueur_des_cloisons = solution.longueur_des_cloisons();
     if longueur_des_cloisons > 0.0 {
         lignes.push((
@@ -4383,9 +4658,20 @@ fn bilan(
                                 (rang_longueur, a_taper(longueur)),
                                 (rang_largeur, a_taper(largeur)),
                             ];
-                            // La hauteur des murs, si l'outil en a une.
-                            if let (Some(rang), Some(hauteur)) = (rang_hauteur, solution.hauteur) {
-                                champs.push((rang, a_taper(hauteur)));
+                            // La hauteur, si l'outil en a une (point 34) : pour
+                            // la ventilation, celle qui redonne le volume de la
+                            // pièce; pour les autres, la hauteur moyenne des murs.
+                            // Sous un plafond plat, c'est la hauteur des murs.
+                            if let Some(rang) = rang_hauteur {
+                                let hauteur = if c.metier == noyau::metiers::Metier::Ventilation {
+                                    solution.volume.map(|volume| volume / aire_utile)
+                                } else {
+                                    solution.murs().map(|murs| murs.brute / perimetre)
+                                }
+                                .or(solution.hauteur);
+                                if let Some(hauteur) = hauteur {
+                                    champs.push((rang, a_taper(hauteur)));
+                                }
                             }
                             action = Some(Action::VersOutil { id: c.id, champs });
                         }

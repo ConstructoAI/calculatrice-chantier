@@ -1466,6 +1466,52 @@ pub fn dessin_ecart_sur(ecart: &str, metrique: bool) -> String {
     }
 }
 
+// Le plafond et les retombées (section 25.1, point 34)
+pub const DESSIN_PLAFOND: Texte = t("Plafond", "Ceiling");
+pub const DESSIN_PLAFOND_PLAT: Texte = t("Plat", "Flat");
+pub const DESSIN_PLAFOND_CATHEDRALE: Texte = t("Cathédrale", "Cathedral");
+pub const DESSIN_PLAFOND_EN_PENTE: Texte = t("En pente", "Sloped");
+pub const DESSIN_HAUTEUR_AU_FAITE: Texte = t("Hauteur au faîte", "Height at the ridge");
+pub const DESSIN_HAUTEUR_DU_COTE_HAUT: Texte = t("Hauteur du côté haut", "Height on the high side");
+pub const DESSIN_HAUT_EXEMPLE: Texte = t("ex. 12 pi", "e.g. 12 ft");
+pub const INFOBULLE_COTE_DU_PLAFOND: Texte = t(
+    "Touchez pour passer au côté suivant : la ligne orange du plan suit.",
+    "Tap to move to the next side: the orange line on the plan follows.",
+);
+pub const DESSIN_PLAFOND_INCOMPLET: Texte = t(
+    "Inscrivez la hauteur haute du plafond : sans elle, ni la surface des murs ni le volume ne se calculent.",
+    "Enter the ceiling's high height: without it, neither the wall area nor the volume can be worked out.",
+);
+pub const DESSIN_PLAFOND_INVALIDE: Texte = t(
+    "Hauteur du plafond illisible. Exemple : 12 pi.",
+    "Unreadable ceiling height. Example: 12 ft.",
+);
+pub const DESSIN_RETOMBEE: Texte = t("Retombée", "Bulkhead");
+pub const DESSIN_AJOUTER_RETOMBEE: Texte = t("+ Retombée", "+ Bulkhead");
+pub const DESSIN_DESCENTE: Texte = t("Descente", "Drop");
+pub const DESSIN_RETOMBEE_INCOMPLETE: Texte = t(
+    "Une retombée est incomplète ou illisible : le volume et la surface du plafond attendent ses trois mesures.",
+    "A bulkhead is incomplete or unreadable: the volume and the ceiling area wait for its three measurements.",
+);
+pub const DESSIN_SURFACE_DU_PLAFOND: Texte = t("Surface du plafond", "Ceiling area");
+pub const DESSIN_VOLUME: Texte = t("Volume", "Volume");
+
+/// Le côté auquel le faîte d'un plafond cathédrale est parallèle.
+pub fn dessin_faite_parallele(cote: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Faîte parallèle au côté {cote}"),
+        Langue::Anglais => format!("Ridge parallel to side {cote}"),
+    }
+}
+
+/// Le côté haut d'un plafond en pente.
+pub fn dessin_cote_haut(cote: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Côté haut : {cote}"),
+        Langue::Anglais => format!("High side: {cote}"),
+    }
+}
+
 pub const DESSIN_ETAPE_TRACER: Texte = t(
     "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre, ou à 45° pour un mur en biais (le bouton 45° fait passer les flèches en biais).",
     "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up, or set at 45° for an angled wall (the 45° button switches the arrows to angled).",

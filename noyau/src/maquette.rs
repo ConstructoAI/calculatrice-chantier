@@ -1,6 +1,6 @@
-//! Maquette 3D d'une pièce (section 25) : le plancher, les murs à leur
-//! hauteur, et les portes et les fenêtres dans leurs murs, en faces planes
-//! prêtes à projeter. Les coordonnées sont en pouces : x et z sur le plan,
+//! Maquette 3D d'une pièce (section 25) : le plancher, les murs jusqu'au
+//! plafond (un mur en pignon monte au faîte, section 25.1, point 34), et les
+//! portes et les fenêtres dans leurs murs, en faces planes prêtes à projeter. Les coordonnées sont en pouces : x et z sur le plan,
 //! y vers le haut.
 
 use crate::dessin::{Dessin, Etat, Placement, Solution};
@@ -74,6 +74,9 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         return None;
     }
     let hauteur = solution.hauteur.unwrap_or(HAUTEUR_PAR_DEFAUT);
+    // La hauteur du plafond en un point du plan (point 34).
+    let plafond = solution.plafond;
+    let haut_au = |p: (f64, f64)| plafond.map_or(hauteur, |au_plafond| au_plafond.hauteur_au(p));
     let aire_signee: f64 = sommets
         .windows(2)
         .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
@@ -108,22 +111,45 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         let rectangle = |t0: f64, t1: f64, y0: f64, y1: f64| {
             vec![point(t0, y0), point(t1, y0), point(t1, y1), point(t0, y1)]
         };
+        // Le haut du mur suit le plafond; il se brise où le mur croise le faîte.
+        let haut_du_mur = |t: f64| haut_au((a.0 + u.0 * t, a.1 + u.1 * t));
+        let brisure = plafond.and_then(|au_plafond| au_plafond.brisure(a, b));
+        let mut cretes = vec![0.0, longueur];
+        cretes.extend(brisure);
+        cretes.sort_by(f64::total_cmp);
         // Le bas et le haut du mur, et le coin où il commence.
         aretes.push([point(0.0, 0.0), point(longueur, 0.0)]);
-        aretes.push([point(0.0, hauteur), point(longueur, hauteur)]);
-        aretes.push([point(0.0, 0.0), point(0.0, hauteur)]);
+        for paire in cretes.windows(2) {
+            aretes.push([
+                point(paire[0], haut_du_mur(paire[0])),
+                point(paire[1], haut_du_mur(paire[1])),
+            ]);
+        }
+        aretes.push([point(0.0, 0.0), point(0.0, haut_du_mur(0.0))]);
         // Le dessus du mur, à son épaisseur; il se range avec son mur.
         if let Some(exterieur) = &exterieur
             && solution.epaisseur_des_murs > 1e-9
         {
             let (wa, wb) = (exterieur[cote], exterieur[cote + 1]);
-            let (wa, wb) = ([wa.0, hauteur, wa.1], [wb.0, hauteur, wb.1]);
-            faces.push(Face {
-                genre: GenreDeFace::DessusDeMur,
-                sommets: vec![point(0.0, hauteur), point(longueur, hauteur), wb, wa],
-                normale: dedans,
-            });
-            aretes.push([wa, wb]);
+            let dehors = |t: f64| {
+                let part = t / longueur;
+                let p = (wa.0 + (wb.0 - wa.0) * part, wa.1 + (wb.1 - wa.1) * part);
+                [p.0, haut_au(p), p.1]
+            };
+            for paire in cretes.windows(2) {
+                let (t0, t1) = (paire[0], paire[1]);
+                faces.push(Face {
+                    genre: GenreDeFace::DessusDeMur,
+                    sommets: vec![
+                        point(t0, haut_du_mur(t0)),
+                        point(t1, haut_du_mur(t1)),
+                        dehors(t1),
+                        dehors(t0),
+                    ],
+                    normale: dedans,
+                });
+                aretes.push([dehors(t0), dehors(t1)]);
+            }
         }
         // Les ouvertures de ce mur, à leur place sur sa face intérieure (elles
         // se mesurent sur la ligne tracée).
@@ -140,8 +166,10 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 ..*placement
             })
             .collect();
-        // Les bornes le long du mur : ses deux coins et les bords des ouvertures.
+        // Les bornes le long du mur : ses deux coins, le faîte et les bords
+        // des ouvertures.
         let mut bornes = vec![0.0, longueur];
+        bornes.extend(brisure);
         for placement in &ouvertures {
             bornes.push(placement.debut.clamp(0.0, longueur));
             bornes.push(placement.fin.clamp(0.0, longueur));
@@ -150,6 +178,8 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         bornes.dedup_by(|x, y| (*x - *y).abs() < 1e-6);
         for paire in bornes.windows(2) {
             let (t0, t1) = (paire[0], paire[1]);
+            let (h0, h1) = (haut_du_mur(t0), haut_du_mur(t1));
+            let plafond_du_troncon = h0.min(h1);
             let milieu = (t0 + t1) / 2.0;
             // Ce que les ouvertures retirent de ce tronçon, en hauteur.
             let mut vides: Vec<(f64, f64)> = ouvertures
@@ -157,15 +187,15 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 .filter(|placement| placement.debut <= milieu && milieu <= placement.fin)
                 .map(|placement| {
                     (
-                        placement.bas.clamp(0.0, hauteur),
-                        placement.haut.clamp(0.0, hauteur),
+                        placement.bas.clamp(0.0, plafond_du_troncon),
+                        placement.haut.clamp(0.0, plafond_du_troncon),
                     )
                 })
                 .filter(|(bas, haut)| haut > bas)
                 .collect();
             vides.sort_by(|x, y| x.0.total_cmp(&y.0));
             let mut depuis = 0.0;
-            for (bas, haut) in vides.into_iter().chain([(hauteur, hauteur)]) {
+            for (bas, haut) in vides {
                 if bas > depuis + 1e-6 {
                     faces.push(Face {
                         genre: GenreDeFace::Mur,
@@ -175,11 +205,25 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 }
                 depuis = f64::max(depuis, haut);
             }
+            // Jusqu'au plafond, peut-être en pente.
+            if h0.max(h1) > depuis + 1e-6 {
+                faces.push(Face {
+                    genre: GenreDeFace::Mur,
+                    sommets: vec![
+                        point(t0, depuis),
+                        point(t1, depuis),
+                        point(t1, h1.max(depuis)),
+                        point(t0, h0.max(depuis)),
+                    ],
+                    normale: dedans,
+                });
+            }
         }
         for placement in &ouvertures {
+            let dessus = haut_du_mur(placement.debut).min(haut_du_mur(placement.fin));
             let (bas, haut) = (
-                placement.bas.clamp(0.0, hauteur),
-                placement.haut.clamp(0.0, hauteur),
+                placement.bas.clamp(0.0, dessus),
+                placement.haut.clamp(0.0, dessus),
             );
             if haut > bas {
                 let cadre = rectangle(placement.debut, placement.fin, bas, haut);
@@ -245,24 +289,35 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
     }
     // Les cloisons, jusqu'au haut des murs, interrompues par leur porte, que
     // surmonte un linteau.
+    // Sous un plafond en pente, chaque morceau monte jusqu'au plus bas du
+    // plafond au-dessus de lui.
+    let sous_le_plafond = |coins: &[(f64, f64); 4]| {
+        coins
+            .iter()
+            .map(|coin| haut_au(*coin))
+            .fold(f64::INFINITY, f64::min)
+    };
     for cloison in solution.cloisons.iter().flatten() {
         let genre = GenreDeFace::Cloison;
         for coins in cloison.morceaux().into_iter().map(|morceau| morceau.coins) {
+            let haut = sous_le_plafond(&coins);
             bloc(
                 &mut faces,
                 &mut aretes,
                 &mut blocs,
                 coins,
-                (0.0, hauteur),
+                (0.0, haut),
                 genre,
                 false,
             );
         }
-        if let Some(porte) = cloison.porte
-            && hauteur > crate::cloison::HAUTEUR_DE_PORTE
-        {
+        if let Some(porte) = cloison.porte {
             let coins = cloison.rectangle(porte.segment, porte.debut, porte.fin);
-            let hauteurs = (crate::cloison::HAUTEUR_DE_PORTE, hauteur);
+            let haut = sous_le_plafond(&coins);
+            if haut <= crate::cloison::HAUTEUR_DE_PORTE {
+                continue;
+            }
+            let hauteurs = (crate::cloison::HAUTEUR_DE_PORTE, haut);
             bloc(
                 &mut faces,
                 &mut aretes,

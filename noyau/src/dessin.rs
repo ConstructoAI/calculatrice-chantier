@@ -476,6 +476,10 @@ pub struct Dessin {
     /// coin 4 (le coin k est le début du côté k); vides si elles ne sont pas
     /// mesurées.
     pub diagonales: [String; 2],
+    /// Le plafond (section 25.1, point 34) : plat, cathédrale ou en pente.
+    pub plafond: crate::plafond::Plafond,
+    /// Les retombées de plafond.
+    pub retombees: Vec<crate::plafond::Retombee>,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -745,6 +749,27 @@ pub struct Solution {
     /// Quand les deux diagonales sont mesurées : l'écart (pouces) entre la
     /// diagonale du coin 2 au coin 4 et celle de la forme, que donne l'autre.
     pub ecart_des_diagonales: Option<f64>,
+    /// Le plafond à ses mesures, sur la face intérieure des murs, pour une
+    /// pièce complète (point 34) : à la hauteur des murs inscrite, sinon à
+    /// 8 pi. Un plafond qui n'est pas plat, sans hauteur haute lisible, reste
+    /// plat.
+    pub plafond: Option<crate::plafond::PlafondMesure>,
+    /// La hauteur haute d'un plafond qui n'est pas plat manque, ou est
+    /// illisible.
+    pub plafond_incomplet: bool,
+    pub plafond_invalide: bool,
+    /// La surface de chaque mur, sur sa face intérieure, du plancher au
+    /// plafond (pouces carrés); vide sans hauteur des murs inscrite, ou avec un
+    /// plafond incomplet ou illisible.
+    pub surfaces_des_murs: Vec<f64>,
+    /// La surface du plafond, côtés des retombées compris (pouces carrés), et
+    /// le volume de la pièce, retombées déduites (pouces cubes) : `None` dans
+    /// les mêmes cas, ou si une retombée est incomplète.
+    pub surface_du_plafond: Option<f64>,
+    pub volume: Option<f64>,
+    /// Chaque retombée : son volume et la surface de ses côtés; zéro si elle
+    /// est vide, `None` si elle est incomplète ou illisible.
+    pub retombees: Vec<Option<(f64, f64)>>,
 }
 
 impl Solution {
@@ -786,10 +811,11 @@ impl Solution {
     /// hauteur manque, si une ouverture est incomplète, ou si les ouvertures
     /// dépassent les murs.
     pub fn murs(&self) -> Option<Murs> {
-        let Etat::Complete { perimetre, .. } = self.etat else {
+        if !matches!(self.etat, Etat::Complete { .. }) || self.surfaces_des_murs.is_empty() {
             return None;
-        };
-        let brute = perimetre * self.hauteur?;
+        }
+        // Chaque mur du plancher au plafond : un mur en pignon monte au faîte.
+        let brute: f64 = self.surfaces_des_murs.iter().sum();
         let ouvertures = self.aire_des_ouvertures()?;
         let nette = brute - ouvertures;
         (nette > 0.0).then_some(Murs {
@@ -1803,6 +1829,91 @@ impl Dessin {
             }
             _ => (etat, None),
         };
+        // Le plafond, sur la face intérieure des murs (point 34) : la surface
+        // de chaque mur, celle du plafond et le volume de la pièce.
+        let interieur: Option<Vec<(f64, f64)>> = match etat {
+            Etat::Complete { .. } => {
+                let longueurs: Option<Vec<f64>> = mesures.iter().map(|m| m.pouces()).collect();
+                let sommets = forme_reelle
+                    .clone()
+                    .or_else(|| longueurs.map(|l| self.sommets(&l)));
+                if self.mesures_exterieures && epaisseur_des_murs > 0.0 {
+                    sommets.and_then(|s| decaler(&s, epaisseur_des_murs, false))
+                } else {
+                    sommets
+                }
+            }
+            _ => None,
+        };
+        let texte_du_haut = self.plafond.haut.trim();
+        let haut_du_plafond = if texte_du_haut.is_empty() {
+            None
+        } else {
+            lire(texte_du_haut)
+        };
+        let plat = self.plafond.forme == crate::plafond::FormeDePlafond::Plat;
+        let plafond_incomplet = !plat && texte_du_haut.is_empty();
+        let plafond_invalide = !plat && !texte_du_haut.is_empty() && haut_du_plafond.is_none();
+        let bas = hauteur.unwrap_or(crate::maquette::HAUTEUR_PAR_DEFAUT);
+        let plafond = interieur.as_ref().and_then(|sommets| {
+            let forme = if haut_du_plafond.is_some() {
+                self.plafond.forme
+            } else {
+                crate::plafond::FormeDePlafond::Plat
+            };
+            crate::plafond::PlafondMesure::nouveau(
+                forme,
+                bas,
+                haut_du_plafond.unwrap_or(bas),
+                sommets,
+                self.plafond.cote,
+            )
+        });
+        let retombees_lues: Vec<Option<(f64, f64)>> = self
+            .retombees
+            .iter()
+            .map(|retombee| {
+                let textes = [&retombee.longueur, &retombee.largeur, &retombee.hauteur];
+                if textes.iter().all(|texte| texte.trim().is_empty()) {
+                    return Some((0.0, 0.0));
+                }
+                let (longueur, largeur, descente) = (
+                    lire(&retombee.longueur)?,
+                    lire(&retombee.largeur)?,
+                    lire(&retombee.hauteur)?,
+                );
+                Some((
+                    longueur * largeur * descente,
+                    2.0 * (longueur + largeur) * descente,
+                ))
+            })
+            .collect();
+        let (surfaces_des_murs, surface_du_plafond, volume) = match (&plafond, &interieur) {
+            (Some(au_plafond), Some(sommets))
+                if hauteur.is_some() && !plafond_incomplet && !plafond_invalide =>
+            {
+                let murs = sommets
+                    .windows(2)
+                    .map(|mur| au_plafond.surface_du_mur(mur[0], mur[1]))
+                    .collect();
+                let retombees: Option<Vec<(f64, f64)>> = retombees_lues.iter().copied().collect();
+                match retombees {
+                    Some(retombees) => (
+                        murs,
+                        Some(
+                            au_plafond.surface(sommets)
+                                + retombees.iter().map(|r| r.1).sum::<f64>(),
+                        ),
+                        Some(
+                            au_plafond.volume(sommets) - retombees.iter().map(|r| r.0).sum::<f64>(),
+                        )
+                        .filter(|volume| *volume > 0.0),
+                    ),
+                    None => (murs, None, None),
+                }
+            }
+            _ => (Vec::new(), None, None),
+        };
         Solution {
             mesures,
             etat,
@@ -1821,6 +1932,13 @@ impl Dessin {
             diagonales,
             forme_reelle,
             ecart_des_diagonales,
+            plafond,
+            plafond_incomplet,
+            plafond_invalide,
+            surfaces_des_murs,
+            surface_du_plafond,
+            volume,
+            retombees: retombees_lues,
         }
     }
 
@@ -3160,6 +3278,76 @@ mod tests {
             (ecart_a_l_equerre(90.0 + (0.375f64 / 48.0).atan().to_degrees(), 48.0) - 0.375).abs()
                 < 1e-12
         );
+    }
+
+    #[test]
+    fn une_piece_sous_un_plafond_cathedrale() {
+        use crate::plafond::{FormeDePlafond, Plafond, Retombee};
+        // 12 × 10 pi, murs de 8 pi, faîte à 12 pi parallèle au premier côté.
+        let mut dessin = piece(&[
+            (Sens::Est, 120.0, "12'"),
+            (Sens::Sud, 100.0, "10'"),
+            (Sens::Ouest, 120.0, ""),
+            (Sens::Nord, 100.0, ""),
+        ]);
+        dessin.hauteur_des_murs = "8'".to_string();
+        dessin.epaisseur_des_murs = "0".to_string();
+        dessin.plafond = Plafond {
+            forme: FormeDePlafond::Cathedrale,
+            haut: "12'".to_string(),
+            cote: 0,
+        };
+        let solution = dessin.resoudre(Format::PiPo);
+        let (pi2, pi3) = (144.0, 1728.0);
+        assert!((solution.volume.unwrap() - 1200.0 * pi3).abs() < 1e-6);
+        assert!((solution.surface_du_plafond.unwrap() - 120.0 * pi2 * 1.64f64.sqrt()).abs() < 1e-6);
+        // Deux murs de 96 pi² et deux pignons de 100 pi² : 392 pi².
+        let murs = solution.murs().unwrap();
+        assert!(
+            (murs.brute - 392.0 * pi2).abs() < 1e-6,
+            "{}",
+            murs.brute / pi2
+        );
+        // Une retombée de 4 × 2 pi qui descend de 1 pi.
+        dessin.retombees.push(Retombee {
+            longueur: "4'".to_string(),
+            largeur: "2'".to_string(),
+            hauteur: "1'".to_string(),
+        });
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!((solution.volume.unwrap() - 1192.0 * pi3).abs() < 1e-6);
+        let attendue = 120.0 * pi2 * 1.64f64.sqrt() + 12.0 * pi2;
+        assert!((solution.surface_du_plafond.unwrap() - attendue).abs() < 1e-6);
+        // Le pignon monte au faîte dans la 3D.
+        let maquette = crate::maquette::maquette(&dessin, &solution).unwrap();
+        let plus_haut = maquette
+            .faces
+            .iter()
+            .filter(|face| face.genre == crate::maquette::GenreDeFace::Mur)
+            .flat_map(|face| face.sommets.iter().map(|s| s[1]))
+            .fold(0.0, f64::max);
+        assert!((plus_haut - 144.0).abs() < 1e-9, "{plus_haut}");
+        // Une retombée incomplète : ni volume ni plafond.
+        dessin.retombees[0].hauteur.clear();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!((solution.volume, solution.surface_du_plafond), (None, None));
+        assert!(solution.murs().is_some());
+        // Sans hauteur au faîte : le plafond reste plat pour la 3D, et rien
+        // ne se calcule.
+        dessin.retombees.clear();
+        dessin.plafond.haut.clear();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!(solution.plafond_incomplet && !solution.plafond_invalide);
+        assert_eq!(
+            solution.plafond.map(|p| p.forme),
+            Some(FormeDePlafond::Plat)
+        );
+        assert!(solution.murs().is_none() && solution.volume.is_none());
+        // Un plafond plat : comme avant, périmètre × hauteur.
+        dessin.plafond.forme = FormeDePlafond::Plat;
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!((solution.murs().unwrap().brute - 44.0 * 12.0 * 96.0).abs() < 1e-6);
+        assert!((solution.volume.unwrap() - 960.0 * pi3).abs() < 1e-6);
     }
 
     #[test]
