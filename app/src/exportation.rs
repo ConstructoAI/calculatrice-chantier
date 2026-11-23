@@ -1055,6 +1055,104 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     assembler_pdf(&pages, &textes::dessin_export_plan(pieces.len()))
 }
 
+// ------------------------------------------------------------ Rapport de calcul
+
+/// Ce qui ne s'écrit pas en WinAnsi, récrit pour le PDF : l'ohm, le prime et
+/// le double prime des angles, l'exposant 9.
+fn pour_le_pdf(texte: &str) -> String {
+    let mut sortie = String::with_capacity(texte.len());
+    for c in texte.chars() {
+        // Par leur code : ces signes ne s'affichent jamais à l'écran.
+        match u32::from(c) {
+            0x03A9 => sortie.push_str("ohms"),
+            0x2032 => sortie.push('\''),
+            0x2033 => sortie.push('"'),
+            0x2079 => sortie.push_str("^9"),
+            _ => sortie.push(c),
+        }
+    }
+    sortie
+}
+
+/// Coupe un texte en lignes d'au plus `largeur` points, entre les mots.
+fn couper_en_lignes(texte: &str, taille: f64, largeur: f64) -> Vec<String> {
+    let mut lignes = Vec::new();
+    for paragraphe in texte.split('\n') {
+        let mut ligne = String::new();
+        for mot in paragraphe.split_whitespace() {
+            let essai = if ligne.is_empty() {
+                mot.to_string()
+            } else {
+                format!("{ligne} {mot}")
+            };
+            if !ligne.is_empty() && largeur_du_texte(&essai, false) * taille / 1000.0 > largeur {
+                lignes.push(std::mem::replace(&mut ligne, mot.to_string()));
+            } else {
+                ligne = essai;
+            }
+        }
+        lignes.push(ligne);
+    }
+    lignes
+}
+
+/// Le rapport d'un calcul en PDF (section 22.18), format Lettre : le nom du
+/// calculateur, l'en-tête (projet et date), les données entrées, les
+/// résultats et la note du calculateur; « Constructo AI · constructoai.ca »
+/// au bas, comme les plans.
+pub fn pdf_d_un_calcul(
+    titre: &str,
+    entete: &str,
+    entrees: &[(&str, String)],
+    resultats: &[(&str, String)],
+    note: &str,
+) -> String {
+    let mut page = Page::default();
+    en_tete_de_page(&mut page, &pour_le_pdf(titre), &pour_le_pdf(entete));
+    let largeur = LARGEUR_PAGE - 2.0 * MARGE;
+    let droite = LARGEUR_PAGE - MARGE;
+    let mut y = 688.0;
+    for (section, lignes, gras) in [
+        (textes::RAPPORT_DONNEES.traduit(), entrees, false),
+        (textes::RESULTATS.traduit(), resultats, true),
+    ] {
+        if lignes.is_empty() {
+            continue;
+        }
+        page.texte((MARGE, y), 12.0, true, Alignement::Gauche, BLEU, section);
+        y -= 8.0;
+        page.trait_(&[(MARGE, y), (droite, y)], 0.6, FILET);
+        y -= 16.0;
+        for (libelle, valeur) in lignes {
+            let (libelle, valeur) = (pour_le_pdf(libelle), pour_le_pdf(valeur));
+            page.texte((MARGE, y), 10.0, false, Alignement::Gauche, GRIS, &libelle);
+            let place = (largeur_du_texte(&libelle, false) * 10.0
+                + largeur_du_texte(&valeur, gras) * 10.5)
+                / 1000.0
+                + 18.0;
+            if place > largeur {
+                // Trop long pour une ligne : la valeur passe dessous.
+                y -= 14.0;
+            }
+            page.texte((droite, y), 10.5, gras, Alignement::Droite, NOIR, &valeur);
+            y -= 7.0;
+            page.trait_(&[(MARGE, y), (droite, y)], 0.3, FILET);
+            y -= 14.0;
+        }
+        y -= 16.0;
+    }
+    // La note du calculateur : sa précision ou sa mise en garde.
+    for ligne in couper_en_lignes(&pour_le_pdf(note), 9.0, largeur) {
+        if y < 70.0 {
+            break;
+        }
+        page.texte((MARGE, y), 9.0, false, Alignement::Gauche, GRIS, &ligne);
+        y -= 12.0;
+    }
+    pied_de_page(&mut page, 1, 1);
+    assembler_pdf(&[page], &pour_le_pdf(titre))
+}
+
 // ------------------------------------------------------------ Photo cotée
 
 /// Une cote à dessiner sur la photo d'un PDF : ses bouts, en part de la photo
@@ -1664,6 +1762,57 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn le_rapport_d_un_calcul() {
+        let entrees = vec![
+            ("Longueur", "24 pi 0 po".to_string()),
+            ("Pertes", "10 %".to_string()),
+        ];
+        let resultats = vec![
+            ("Volume de beton", "5,93 vg³ (4,53 m³)".to_string()),
+            ("Resistance", "47 Ω".to_string()),
+        ];
+        let pdf = pdf_d_un_calcul(
+            "Dalle de beton",
+            "Agrandissement Tremblay · Rapport de calcul · 23 novembre 2026, 10 h 51",
+            &entrees,
+            &resultats,
+            "Une note assez longue pour passer a la ligne. "
+                .repeat(6)
+                .trim(),
+        );
+        assert!(pdf.starts_with("%PDF-1.4"));
+        assert!(pdf.trim_end().ends_with("%%EOF"));
+        assert!(pdf.contains("/Count 1"));
+        for attendu in [
+            "Dalle de beton",
+            "Agrandissement Tremblay",
+            "Longueur",
+            "24 pi 0 po",
+            "Volume de beton",
+            "47 ohms",
+            "constructoai.ca",
+        ] {
+            assert!(pdf.contains(attendu), "{attendu}");
+        }
+        // Le mètre cube s'écrit en WinAnsi, l'ohm en toutes lettres.
+        assert!(pdf.contains("m\\263"));
+        assert!(!pdf.contains('Ω'));
+    }
+
+    #[test]
+    fn couper_une_note_en_lignes() {
+        let lignes = couper_en_lignes("un deux trois quatre cinq six sept", 10.0, 60.0);
+        assert!(lignes.len() > 1);
+        assert_eq!(lignes.join(" "), "un deux trois quatre cinq six sept");
+        assert!(
+            lignes
+                .iter()
+                .all(|ligne| largeur_du_texte(ligne, false) * 10.0 / 1000.0 <= 60.0)
+        );
+        assert_eq!(couper_en_lignes("", 10.0, 60.0), [""]);
+    }
     use noyau::dessin::{Cote, Piece, Retrait, Sens};
 
     fn rectangle(longueur: &str, largeur: &str) -> Dessin {

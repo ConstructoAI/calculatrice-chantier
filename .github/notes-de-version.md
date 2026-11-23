@@ -42,6 +42,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   d'achat » du bloc-notes, une ligne à cocher par article, avec son format; les mêmes
   articles s'additionnent, et la liste se copie ou s'exporte.
 
+- **Rapport de calcul en PDF** : sous les résultats de chaque calculateur, **PDF** en fait
+  un rapport d'une page — la date, le projet, les données et les résultats, avec
+  « Constructo AI · constructoai.ca » au bas, comme les plans.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

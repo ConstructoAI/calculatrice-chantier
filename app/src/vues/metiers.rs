@@ -56,6 +56,8 @@ pub enum Action {
     Epingler(&'static str),
     /// Ajouter ces articles à la liste d'achat (section 22.17).
     ListeDAchat(Vec<Article>),
+    /// Exporter le rapport de ce calcul en PDF (section 22.18).
+    Rapport(&'static str),
 }
 
 /// Une carte cliquable : un titre, une ligne d'explication et, à droite, une mention.
@@ -367,6 +369,14 @@ fn formulaire(
                     .clicked()
             {
                 action = Some(Action::ListeDAchat(evaluation.achats.clone()));
+            }
+            // Le rapport du calcul : la date, le projet, les données et les résultats.
+            if ui
+                .add_enabled(pret, egui::Button::new(textes::BOUTON_PDF.traduit()))
+                .on_hover_text(textes::INFOBULLE_RAPPORT_PDF.traduit())
+                .clicked()
+            {
+                action = Some(Action::Rapport(c.id));
             }
             if ui
                 .button(textes::AU_CLAVIER.traduit())

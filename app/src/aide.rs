@@ -1283,6 +1283,24 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Rapport de calcul en PDF", "Calculation report as PDF"),
+        acces: t("onglet Métiers", "Trades tab"),
+        resume: t(
+            "Gardez la trace d'un calcul, ou joignez-la à une soumission :",
+            "Keep a record of a calculation, or attach it to a quote:",
+        ),
+        mode_emploi: t(
+            "`PDF`, sous les résultats d'un calculateur, en fait un rapport d'une page : le nom du calculateur, la date, le projet, les données entrées, les résultats et la note du calculateur, avec Constructo AI · constructoai.ca au bas, comme les plans. Le projet, facultatif, se tape au moment d'exporter; il reste proposé pour le rapport suivant. Sur un ordinateur, une boîte demande où enregistrer le fichier; dans un navigateur, il se télécharge.",
+            "`PDF`, below a calculator's results, makes a one-page report of it: the calculator's name, the date, the project, the inputs, the results and the calculator's note, with Constructo AI · constructoai.ca at the bottom, like the plans. The project, optional, is typed when exporting; it stays offered for the next report. On a computer, a box asks where to save the file; in a browser, it downloads.",
+        ),
+        exemple: None,
+        note: None,
+        mots_cles: "rapport pdf imprimer imprimé soumission dossier projet client document calcul report print printed quote file project client document calculation",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Liste d'achat", "Shopping list"),
         acces: t("onglet Métiers", "Trades tab"),
         resume: t(

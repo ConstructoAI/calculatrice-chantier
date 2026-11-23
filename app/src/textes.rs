@@ -302,6 +302,48 @@ pub const AUCUNE_NOTE_TROUVEE: Texte = t(
     "No note contains these words.",
 );
 
+// Le rapport d'un calcul en PDF (section 22.18)
+pub const BOUTON_PDF: Texte = tel("PDF");
+pub const INFOBULLE_RAPPORT_PDF: Texte = t(
+    "Un rapport de ce calcul en PDF : la date, le projet, les données et les résultats",
+    "A PDF report of this calculation: date, project, inputs and results",
+);
+pub const TITRE_RAPPORT_PDF: Texte = t("Rapport de calcul en PDF", "Calculation report as PDF");
+pub const PROJET_DU_RAPPORT: Texte = t("Projet (facultatif)", "Project (optional)");
+pub const PROJET_INDICE: Texte = t(
+    "ex. Agrandissement, 12 rue des Érables",
+    "e.g. Addition, 12 Maple Street",
+);
+pub const RAPPORT_EXPORTER: Texte = t("Exporter en PDF", "Export as PDF");
+pub const RAPPORT_DONNEES: Texte = t("Données", "Inputs");
+pub const AVIS_RAPPORT_EXPORTE: Texte = t("Rapport exporté.", "Report exported.");
+pub const AVIS_RAPPORT_EXPORT_ECHEC: Texte = t(
+    "Le rapport n'a pas pu être enregistré.",
+    "The report could not be saved.",
+);
+
+/// L'en-tête d'un rapport de calcul : « Agrandissement · Rapport de calcul ·
+/// 23 novembre 2026, 10 h 51 ».
+pub fn rapport_entete(date: &str, projet: &str) -> String {
+    let rapport = match langue::en_cours() {
+        Langue::Francais => format!("Rapport de calcul · {date}"),
+        Langue::Anglais => format!("Calculation report · {date}"),
+    };
+    if projet.trim().is_empty() {
+        rapport
+    } else {
+        format!("{} · {rapport}", projet.trim())
+    }
+}
+
+/// Le nom du fichier d'un rapport : « rapport-dalle-2026-11-23 ».
+pub fn nom_du_rapport(id: &str, jour: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("rapport-{id}-{jour}"),
+        Langue::Anglais => format!("report-{id}-{jour}"),
+    }
+}
+
 // La liste d'achat (section 26, point 10)
 pub const LISTE_D_ACHAT: Texte = t("Liste d'achat", "Shopping list");
 pub const AJOUTER_A_LA_LISTE_D_ACHAT: Texte =

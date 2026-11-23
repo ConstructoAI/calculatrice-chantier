@@ -168,6 +168,13 @@ enum Dialogue {
     ChoisirMetier,
     /// Mode d'emploi de l'outil branché sur le clavier : son identifiant.
     AideOutil(&'static str),
+    /// Le rapport d'un calcul en PDF (section 22.18) : le calculateur, et le
+    /// projet à y écrire.
+    RapportPdf {
+        id: &'static str,
+        projet: String,
+        nouveau: bool,
+    },
 }
 
 pub struct Application {
@@ -850,6 +857,50 @@ impl Application {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
             Export::Annule => {}
             Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
+        }
+    }
+
+    /// Exporte le rapport d'un calcul en PDF (section 22.18) : le formulaire
+    /// tel qu'il est rempli. Retourne le dialogue à montrer ensuite.
+    fn exporter_le_rapport(&mut self, ctx: &egui::Context, id: &'static str) -> Dialogue {
+        let Some(c) = noyau::metiers::calculateur(id) else {
+            return Dialogue::Aucun;
+        };
+        let prefs = self.moteur.preferences();
+        let saisies = self
+            .saisies_metiers
+            .get(id)
+            .cloned()
+            .unwrap_or_else(|| c.saisies_par_defaut());
+        let evaluation = c.evaluer(&saisies, prefs);
+        if evaluation.resultats.is_empty() {
+            return Dialogue::Aucun;
+        }
+        let (iso, date) = stockage::maintenant();
+        let contenu = crate::exportation::pdf_d_un_calcul(
+            c.nom.traduit(),
+            &textes::rapport_entete(&date, &prefs.projet),
+            &evaluation.entrees,
+            &evaluation.resultats,
+            c.note.traduit(),
+        );
+        let jour = iso.get(..10).unwrap_or_default();
+        let nom = stockage::nom_de_fichier_avec(&textes::nom_du_rapport(c.id, jour), "pdf");
+        let fichier = Fichier {
+            titre: textes::TITRE_RAPPORT_PDF.traduit(),
+            filtre: textes::FILTRE_PDF.traduit(),
+            extension: "pdf",
+            type_mime: "application/pdf",
+            nom: &nom,
+            contenu: contenu.as_bytes(),
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => {
+                self.annoncer(ctx, textes::AVIS_RAPPORT_EXPORTE);
+                Dialogue::Aucun
+            }
+            Export::Annule => Dialogue::Aucun,
+            Export::Echec => Dialogue::Avis(textes::AVIS_RAPPORT_EXPORT_ECHEC),
         }
     }
 
@@ -2234,6 +2285,13 @@ impl Application {
                     Some(vues::metiers::Action::ListeDAchat(articles)) => {
                         self.ajouter_a_la_liste_d_achat(ui.ctx(), &articles);
                     }
+                    Some(vues::metiers::Action::Rapport(id)) => {
+                        self.dialogue = Dialogue::RapportPdf {
+                            id,
+                            projet: self.moteur.preferences().projet.clone(),
+                            nouveau: true,
+                        };
+                    }
                     Some(vues::metiers::Action::Epingler(id)) => {
                         if self.favoris.basculer(id) {
                             self.saisies_a_sauvegarder = true;
@@ -2774,6 +2832,52 @@ impl Application {
                     _ => Dialogue::NommerDessin {
                         texte,
                         id,
+                        nouveau: false,
+                    },
+                }
+            }
+            Dialogue::RapportPdf {
+                id,
+                mut projet,
+                nouveau,
+            } => {
+                let (choix, fermee) = modale(ctx, 330.0, |ui| {
+                    ui.label(
+                        RichText::new(textes::TITRE_RAPPORT_PDF.traduit())
+                            .font(theme::police_grasse(17.0)),
+                    );
+                    ui.add_space(6.0);
+                    ui.label(textes::PROJET_DU_RAPPORT.traduit());
+                    let champ = ui.add(
+                        egui::TextEdit::singleline(&mut projet)
+                            .char_limit(80)
+                            .desired_width(f32::INFINITY)
+                            .hint_text(textes::PROJET_INDICE.traduit()),
+                    );
+                    vues::cadre_de_saisie(ui, p, &champ);
+                    if nouveau {
+                        champ.request_focus();
+                    }
+                    let entree = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    ui.add_space(10.0);
+                    boutons(ui, p, textes::RAPPORT_EXPORTER.traduit(), false)
+                        .or(entree.then_some(true))
+                });
+                match choix {
+                    Some(true) => {
+                        // Le projet est retenu pour le rapport suivant.
+                        let projet = projet.trim().to_string();
+                        if self.moteur.preferences().projet != projet {
+                            self.moteur.preferences_mut().projet = projet;
+                            self.a_sauvegarder = true;
+                        }
+                        self.exporter_le_rapport(ctx, id)
+                    }
+                    Some(false) => Dialogue::Aucun,
+                    _ if fermee => Dialogue::Aucun,
+                    _ => Dialogue::RapportPdf {
+                        id,
+                        projet,
                         nouveau: false,
                     },
                 }
