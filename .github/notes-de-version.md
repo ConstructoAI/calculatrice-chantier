@@ -9,6 +9,13 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.13
+
+- **Sauvegarde complète** : dans le menu ☰, **Exporter mes données** réunit tout ce que la
+  calculatrice garde — réglages, mémoires, rubans, dessins, notes et leurs photos — dans un
+  seul fichier. Gardez-le à l'abri, ou passez-le à un autre appareil : **Importer des données**
+  l'y relit et, après confirmation, remplace ses données.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

@@ -4,6 +4,8 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use chrono::{Datelike as _, Timelike as _};
+
 use eframe::egui::{self, Align2, Color32, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
 use noyau::analyse::analyser_collage;
 use noyau::langue::{Langue, Texte};
@@ -74,6 +76,10 @@ enum ChoixMenu {
     Manuel,
     /// Installer l'application sur l'appareil (version Web).
     Installer,
+    /// Réunir toutes les données en un fichier (section 17.4).
+    ExporterDonnees,
+    /// Remplacer les données par celles d'une sauvegarde.
+    ImporterDonnees,
     Quitter,
 }
 
@@ -89,6 +95,8 @@ enum Confirmation {
     RetirerPiece(u64),
     /// Supprimer un dessin de la bibliothèque.
     SupprimerDessin(u64),
+    /// Remplacer les données par celles de la sauvegarde choisie.
+    Restaurer,
     /// Limite de rubans atteinte : supprimer les plus anciens pour enregistrer celui-ci.
     TropDeRubans(String),
 }
@@ -104,6 +112,8 @@ enum Demande {
     Enregistrer(u64),
     /// La photo, pour l'exporter en PDF avec ses cotes.
     Pdf(u64),
+    /// Une pièce jointe, pour la sauvegarde complète.
+    Sauvegarde,
 }
 
 /// À quoi servent les fichiers que l'utilisateur est en train de choisir.
@@ -113,6 +123,15 @@ enum Destination {
     Note(u64),
     /// Les rouvrir comme des dessins.
     Dessins,
+    /// Importer une sauvegarde complète.
+    Sauvegarde,
+}
+
+/// Une sauvegarde complète qui attend ses pièces jointes, lues une à une.
+struct SauvegardeEnCours {
+    fichiers: std::collections::BTreeMap<String, serde_json::Value>,
+    pieces: std::collections::BTreeMap<String, Vec<u8>>,
+    attendues: usize,
 }
 
 /// Dialogue ouvert par-dessus l'écran.
@@ -211,6 +230,10 @@ pub struct Application {
     dessins_a_sauvegarder: bool,
     /// La liste des dessins est à l'écran, au lieu du dessin.
     liste_des_dessins: bool,
+    /// La sauvegarde complète en train de réunir ses pièces jointes, et celle
+    /// qui attend d'être confirmée pour remplacer les données.
+    sauvegarde_en_cours: Option<SauvegardeEnCours>,
+    sauvegarde_a_restaurer: Option<stockage::SauvegardeLue>,
 }
 
 impl Application {
@@ -220,6 +243,12 @@ impl Application {
         plateforme::retenir_le_contexte(&cc.egui_ctx);
         // L'échelle suit la taille de la fenêtre : pas de zoom au clavier.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
+        Self::charger(&cc.egui_ctx)
+    }
+
+    /// Lit toutes les données conservées : au démarrage, et après avoir
+    /// importé une sauvegarde complète.
+    fn charger(ctx: &egui::Context) -> Self {
         let depot = Depot::ouvrir();
         let mut chargement = stockage::charger_etat(&depot);
         // Au premier lancement, la langue est celle de l'appareil, si c'est le
@@ -315,8 +344,8 @@ impl Application {
             plein_ecran_applique: false,
             sombre_applique: None,
             langue_appliquee: None,
-            _rampe: theme::creer_la_rampe(&cc.egui_ctx),
-            marque: theme::creer_la_marque(&cc.egui_ctx),
+            _rampe: theme::creer_la_rampe(ctx),
+            marque: theme::creer_la_marque(ctx),
             plan,
             etat_du_dessin: vues::dessin::Etat::default(),
             // Le plan récrit dans la langue en cours, ou rattaché à son dessin.
@@ -334,6 +363,8 @@ impl Application {
             dessin_courant,
             dessins_a_sauvegarder,
             liste_des_dessins: false,
+            sauvegarde_en_cours: None,
+            sauvegarde_a_restaurer: None,
         }
     }
 
@@ -1225,6 +1256,7 @@ impl Application {
                 Arrivee::Choisis(fichiers) => match self.fichiers_pour.take() {
                     Some(Destination::Note(id)) => self.joindre(ctx, id, fichiers),
                     Some(Destination::Dessins) => self.importer_des_dessins(ctx, fichiers),
+                    Some(Destination::Sauvegarde) => self.lire_la_sauvegarde(fichiers),
                     None => {}
                 },
                 Arrivee::Lue { cle, octets } => {
@@ -1232,7 +1264,7 @@ impl Application {
                         continue;
                     };
                     for demande in attente {
-                        self.recevoir_une_piece(ctx, demande, octets.clone());
+                        self.recevoir_une_piece(ctx, &cle, demande, octets.clone());
                     }
                 }
             }
@@ -1242,6 +1274,7 @@ impl Application {
     fn recevoir_une_piece(
         &mut self,
         ctx: &egui::Context,
+        cle: &str,
         demande: Demande,
         octets: Option<Vec<u8>>,
     ) {
@@ -1269,6 +1302,7 @@ impl Application {
             }
             (Demande::Enregistrer(id), Some(octets)) => self.enregistrer_la_piece(ctx, id, &octets),
             (Demande::Pdf(id), Some(octets)) => self.exporter_la_photo_cotee(ctx, id, &octets),
+            (Demande::Sauvegarde, octets) => self.recevoir_pour_la_sauvegarde(ctx, cle, octets),
             (Demande::Enregistrer(_) | Demande::Pdf(_), None) => {
                 self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_ABSENTE);
             }
@@ -1449,6 +1483,126 @@ impl Application {
             Export::Annule => {}
             Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_PHOTO_EXPORT_ECHEC),
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Sauvegarde complète (section 17.4)
+    // ------------------------------------------------------------------
+
+    /// Réunit toutes les données en un fichier : d'abord tout ce qui reste à
+    /// enregistrer, puis les données, puis les pièces jointes, lues une à une.
+    fn exporter_les_donnees(&mut self, ctx: &egui::Context) {
+        if self.sauvegarde_en_cours.is_some() {
+            return;
+        }
+        self.synchroniser_le_dessin_courant();
+        self.dessins_a_sauvegarder = true;
+        self.sauvegarder(ctx);
+        let fichiers = stockage::donnees_a_sauvegarder(&self.depot);
+        let mut cles = Vec::new();
+        for piece in self.notes.iter().flat_map(|note| &note.pieces) {
+            cles.push(pieces::cle_des_octets(piece));
+            if piece.photo {
+                cles.push(pieces::cle_de_la_vignette(piece.id));
+            }
+        }
+        self.sauvegarde_en_cours = Some(SauvegardeEnCours {
+            fichiers,
+            pieces: std::collections::BTreeMap::new(),
+            attendues: cles.len(),
+        });
+        if cles.is_empty() {
+            self.terminer_la_sauvegarde(ctx);
+            return;
+        }
+        for cle in cles {
+            self.demander(cle, Demande::Sauvegarde);
+        }
+    }
+
+    /// Une pièce jointe lue pour la sauvegarde, sous sa clé; la dernière la
+    /// termine. Une pièce introuvable est laissée de côté.
+    fn recevoir_pour_la_sauvegarde(
+        &mut self,
+        ctx: &egui::Context,
+        cle: &str,
+        octets: Option<Vec<u8>>,
+    ) {
+        let Some(en_cours) = self.sauvegarde_en_cours.as_mut() else {
+            return;
+        };
+        en_cours.attendues = en_cours.attendues.saturating_sub(1);
+        if let Some(octets) = octets {
+            en_cours.pieces.insert(cle.to_string(), octets);
+        }
+        if en_cours.attendues == 0 {
+            self.terminer_la_sauvegarde(ctx);
+        }
+    }
+
+    /// Écrit le fichier de la sauvegarde complète. Bureau : boîte
+    /// « Enregistrer sous »; navigateur : téléchargement.
+    fn terminer_la_sauvegarde(&mut self, ctx: &egui::Context) {
+        let Some(en_cours) = self.sauvegarde_en_cours.take() else {
+            return;
+        };
+        let (date, _) = stockage::maintenant();
+        let contenu = stockage::fichier_de_sauvegarde(&date, en_cours.fichiers, &en_cours.pieces);
+        let jour = date.get(..10).unwrap_or_default();
+        let nom = stockage::nom_de_fichier_avec(&textes::nom_de_sauvegarde(jour), "json");
+        let fichier = Fichier {
+            titre: textes::TITRE_EXPORTER_DONNEES.traduit(),
+            filtre: textes::FILTRE_SAUVEGARDE.traduit(),
+            extension: "json",
+            type_mime: "application/json",
+            nom: &nom,
+            contenu: contenu.as_bytes(),
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_DONNEES_EXPORTEES),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_DONNEES_EXPORT_ECHEC),
+        }
+    }
+
+    /// Lit la sauvegarde choisie, puis demande confirmation avant de remplacer
+    /// les données.
+    fn lire_la_sauvegarde(&mut self, fichiers: Vec<FichierChoisi>) {
+        let lue = fichiers
+            .into_iter()
+            .next()
+            .and_then(|fichier| fichier.octets)
+            .and_then(|octets| stockage::lire_une_sauvegarde(&octets));
+        match lue {
+            Some(sauvegarde) => {
+                self.sauvegarde_a_restaurer = Some(sauvegarde);
+                self.dialogue = Dialogue::Confirmer(Confirmation::Restaurer);
+            }
+            None => self.dialogue = Dialogue::Avis(textes::AVIS_SAUVEGARDE_ILLISIBLE),
+        }
+    }
+
+    /// Remplace les données par celles de la sauvegarde confirmée, puis
+    /// recharge tout, comme au démarrage.
+    fn restaurer_la_sauvegarde(&mut self, ctx: &egui::Context) {
+        let Some(sauvegarde) = self.sauvegarde_a_restaurer.take() else {
+            return;
+        };
+        // Les pièces jointes d'aujourd'hui laissent la place à celles de la sauvegarde.
+        let anciennes: Vec<PieceJointe> = self
+            .notes
+            .iter()
+            .flat_map(|note| note.pieces.clone())
+            .collect();
+        for piece in &anciennes {
+            self.effacer_la_piece(piece);
+        }
+        if stockage::restaurer(&self.depot, &sauvegarde).is_err() {
+            self.dialogue = Dialogue::Avis(textes::AVIS_DONNEES_IMPORT_ECHEC);
+            return;
+        }
+        *self = Self::charger(ctx);
+        self.annoncer(ctx, textes::AVIS_DONNEES_IMPORTEES);
     }
 
     /// Efface les octets d'une pièce jointe (et sa vignette).
@@ -2149,6 +2303,14 @@ impl Application {
                 ChoixMenu::Aller(Vue::Preferences),
             ),
             (
+                textes::MENU_EXPORTER_DONNEES.traduit(),
+                ChoixMenu::ExporterDonnees,
+            ),
+            (
+                textes::MENU_IMPORTER_DONNEES.traduit(),
+                ChoixMenu::ImporterDonnees,
+            ),
+            (
                 textes::MENU_A_PROPOS.traduit(),
                 ChoixMenu::Aller(Vue::APropos),
             ),
@@ -2312,6 +2474,15 @@ impl Application {
             });
         match choix {
             Some(ChoixMenu::Aller(vue)) => self.aller(vue),
+            Some(ChoixMenu::ExporterDonnees) => {
+                self.tiroir_ouvert = false;
+                self.exporter_les_donnees(ctx);
+            }
+            Some(ChoixMenu::ImporterDonnees) => {
+                self.tiroir_ouvert = false;
+                self.fichiers_pour = Some(Destination::Sauvegarde);
+                plateforme::choisir_des_fichiers(ChoixDeFichiers::Sauvegarde);
+            }
             Some(ChoixMenu::Manuel) => {
                 self.tiroir_ouvert = false;
                 ctx.open_url(egui::OpenUrl::new_tab(plateforme::adresse_du_manuel(
@@ -2763,6 +2934,11 @@ impl Application {
                 textes::CONFIRMER_SUPPRIMER_DESSIN.traduit(),
                 textes::SUPPRIMER.traduit(),
             ),
+            Confirmation::Restaurer => (
+                textes::TITRE_RESTAURER.traduit(),
+                textes::CONFIRMER_RESTAURER.traduit(),
+                textes::REMPLACER.traduit(),
+            ),
             Confirmation::TropDeRubans(_) => (
                 textes::TITRE_ENREGISTRER_RUBAN.traduit(),
                 textes::TROP_DE_RUBANS.traduit(),
@@ -2773,6 +2949,25 @@ impl Application {
             ui.label(RichText::new(titre).font(theme::police_grasse(17.0)));
             ui.add_space(6.0);
             ui.label(message);
+            // La date de la sauvegarde à importer.
+            if matches!(question, Confirmation::Restaurer)
+                && let Some(date) = self
+                    .sauvegarde_a_restaurer
+                    .as_ref()
+                    .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s.date).ok())
+            {
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(textes::sauvegarde_du(&textes::date_en_clair(
+                        date.year(),
+                        date.month(),
+                        date.day(),
+                        date.hour(),
+                        date.minute(),
+                    )))
+                    .font(theme::police_grasse(14.0)),
+                );
+            }
             ui.add_space(12.0);
             boutons(ui, p, bouton, true)
         });
@@ -2821,6 +3016,11 @@ impl Application {
                             self.effacer_la_piece(&piece);
                         }
                         self.notes_a_sauvegarder = true;
+                    }
+                    Confirmation::Restaurer => {
+                        self.restaurer_la_sauvegarde(ctx);
+                        // L'application est rechargée : rien d'autre à faire.
+                        return Dialogue::Aucun;
                     }
                     Confirmation::SupprimerDessin(id) => {
                         self.dessins.retain(|d| d.id != id);

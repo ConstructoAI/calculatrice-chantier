@@ -296,7 +296,9 @@ pub fn choisir_des_fichiers(genre: ChoixDeFichiers) {
     champ.set_multiple(true);
     match genre {
         ChoixDeFichiers::Photos => champ.set_accept("image/*"),
-        ChoixDeFichiers::Dessins => champ.set_accept(".json,application/json"),
+        ChoixDeFichiers::Dessins | ChoixDeFichiers::Sauvegarde => {
+            champ.set_accept(".json,application/json")
+        }
         ChoixDeFichiers::Tous => {}
     }
     champ.set_id(ID_CHOIX_DE_FICHIERS);

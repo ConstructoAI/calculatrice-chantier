@@ -566,6 +566,191 @@ pub fn nom_de_fichier_avec(nom: &str, extension: &str) -> String {
     format!("{base}.{extension}")
 }
 
+// ----------------------------------------------------------------------
+// Sauvegarde complète (section 17.4, R-102) : un seul fichier qui réunit tout
+// ce que la calculatrice garde, pour le mettre à l'abri ou le passer à un
+// autre appareil.
+// ----------------------------------------------------------------------
+
+/// Les données que réunit une sauvegarde complète.
+const FICHIERS_SAUVEGARDES: [&str; 6] = [
+    FICHIER_ETAT,
+    FICHIER_RUBANS,
+    FICHIER_SAISIES,
+    FICHIER_DESSIN,
+    FICHIER_DESSINS,
+    FICHIER_NOTES,
+];
+const FORMAT_DE_SAUVEGARDE: &str = "constructo-ai-sauvegarde";
+const VERSION_DE_SAUVEGARDE: u32 = 1;
+
+#[derive(Serialize, Deserialize)]
+struct FichierDeSauvegarde {
+    format: String,
+    version: u32,
+    date: String,
+    /// La version de la calculatrice qui l'a faite.
+    application: String,
+    /// Chaque donnée, par son nom de fichier, telle qu'elle est gardée.
+    fichiers: BTreeMap<String, serde_json::Value>,
+    /// Les pièces jointes du bloc-notes, par clé, en base64.
+    #[serde(default)]
+    pieces: BTreeMap<String, String>,
+}
+
+/// Les données gardées sur l'appareil, telles quelles, par nom de fichier
+/// (celles qui sont absentes ou illisibles n'y sont pas).
+pub fn donnees_a_sauvegarder(depot: &Depot) -> BTreeMap<String, serde_json::Value> {
+    FICHIERS_SAUVEGARDES
+        .iter()
+        .filter_map(|nom| match depot.lire(nom) {
+            Lecture::Texte(texte) => serde_json::from_str(&texte)
+                .ok()
+                .map(|valeur| (nom.to_string(), valeur)),
+            Lecture::Absent | Lecture::Illisible => None,
+        })
+        .collect()
+}
+
+/// Le contenu d'une sauvegarde complète : les données, et les pièces jointes en base64.
+pub fn fichier_de_sauvegarde(
+    date: &str,
+    fichiers: BTreeMap<String, serde_json::Value>,
+    pieces: &BTreeMap<String, Vec<u8>>,
+) -> String {
+    let fichier = FichierDeSauvegarde {
+        format: FORMAT_DE_SAUVEGARDE.to_string(),
+        version: VERSION_DE_SAUVEGARDE,
+        date: date.to_string(),
+        application: textes::VERSION.to_string(),
+        fichiers,
+        pieces: pieces
+            .iter()
+            .map(|(cle, octets)| (cle.clone(), en_base64(octets)))
+            .collect(),
+    };
+    serde_json::to_string(&fichier).unwrap_or_default()
+}
+
+/// Une sauvegarde lue, prête à remplacer les données de l'appareil.
+#[derive(Debug)]
+pub struct SauvegardeLue {
+    /// Sa date (ISO 8601).
+    pub date: String,
+    /// Les données : (nom de fichier, JSON).
+    pub fichiers: Vec<(String, String)>,
+    /// Les pièces jointes : (clé, octets).
+    pub pieces: Vec<(String, Vec<u8>)>,
+}
+
+/// Vrai pour une clé de pièce jointe sûre : des lettres, des chiffres et des
+/// points, sans point au début (aucun chemin n'en sort).
+fn cle_de_piece_sure(cle: &str) -> bool {
+    !cle.is_empty()
+        && cle.len() <= 64
+        && !cle.starts_with('.')
+        && cle.chars().all(|c| c.is_ascii_alphanumeric() || c == '.')
+}
+
+/// Lit une sauvegarde complète; rien si ce n'en est pas une, ou si elle est
+/// abîmée. Seules les données connues sont reprises.
+pub fn lire_une_sauvegarde(octets: &[u8]) -> Option<SauvegardeLue> {
+    let texte = std::str::from_utf8(octets).ok()?;
+    let fichier: FichierDeSauvegarde =
+        serde_json::from_str(texte.trim_start_matches('\u{FEFF}')).ok()?;
+    if fichier.format != FORMAT_DE_SAUVEGARDE || fichier.version != VERSION_DE_SAUVEGARDE {
+        return None;
+    }
+    let mut fichiers = Vec::new();
+    for (nom, valeur) in fichier.fichiers {
+        if FICHIERS_SAUVEGARDES.contains(&nom.as_str()) {
+            fichiers.push((nom, serde_json::to_string(&valeur).ok()?));
+        }
+    }
+    let mut pieces = Vec::new();
+    for (cle, base64) in fichier.pieces {
+        if !cle_de_piece_sure(&cle) {
+            return None;
+        }
+        pieces.push((cle, de_base64(&base64)?));
+    }
+    Some(SauvegardeLue {
+        date: fichier.date,
+        fichiers,
+        pieces,
+    })
+}
+
+/// Écrit les données d'une sauvegarde à la place de celles de l'appareil; les
+/// données absentes de la sauvegarde restent telles quelles.
+pub fn restaurer(depot: &Depot, sauvegarde: &SauvegardeLue) -> io::Result<()> {
+    for (nom, texte) in &sauvegarde.fichiers {
+        depot.ecrire(nom, texte)?;
+    }
+    for (cle, octets) in &sauvegarde.pieces {
+        depot.ecrire_piece(cle, octets.clone());
+    }
+    Ok(())
+}
+
+const ALPHABET_BASE64: &[u8; 64] =
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/// Des octets en base64 (alphabet standard, avec remplissage).
+pub fn en_base64(octets: &[u8]) -> String {
+    let mut texte = String::with_capacity(octets.len().div_ceil(3) * 4);
+    for bloc in octets.chunks(3) {
+        let n = (u32::from(bloc[0]) << 16)
+            | (u32::from(bloc.get(1).copied().unwrap_or(0)) << 8)
+            | u32::from(bloc.get(2).copied().unwrap_or(0));
+        for k in 0..4 {
+            if k <= bloc.len() {
+                texte.push(char::from(
+                    ALPHABET_BASE64[((n >> (18 - 6 * k)) & 63) as usize],
+                ));
+            } else {
+                texte.push('=');
+            }
+        }
+    }
+    texte
+}
+
+/// Du base64 en octets; rien s'il est mal formé.
+pub fn de_base64(texte: &str) -> Option<Vec<u8>> {
+    let valeur = |c: u8| -> Option<u32> {
+        match c {
+            b'A'..=b'Z' => Some(u32::from(c - b'A')),
+            b'a'..=b'z' => Some(u32::from(c - b'a') + 26),
+            b'0'..=b'9' => Some(u32::from(c - b'0') + 52),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    };
+    let signes: Vec<u8> = texte.bytes().filter(|c| !c.is_ascii_whitespace()).collect();
+    if !signes.len().is_multiple_of(4) {
+        return None;
+    }
+    let blocs = signes.len() / 4;
+    let mut octets = Vec::with_capacity(blocs * 3);
+    for (rang, bloc) in signes.chunks(4).enumerate() {
+        let remplissage = bloc.iter().rev().take_while(|c| **c == b'=').count();
+        // Le remplissage n'est permis qu'à la toute fin.
+        if remplissage > 2 || (remplissage > 0 && rang + 1 < blocs) {
+            return None;
+        }
+        let mut n = 0u32;
+        for (k, &c) in bloc.iter().enumerate() {
+            let v = if k >= 4 - remplissage { 0 } else { valeur(c)? };
+            n = (n << 6) | v;
+        }
+        let trois = [(n >> 16) as u8, (n >> 8) as u8, n as u8];
+        octets.extend_from_slice(&trois[..3 - remplissage]);
+    }
+    Some(octets)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -726,6 +911,96 @@ mod tests {
         assert!(charger_rubans(&d.depot()).is_empty());
         assert!(d.0.join("rubans.corrompu.json").exists());
         assert!(!d.0.join("rubans.json").exists());
+    }
+
+    #[test]
+    fn le_base64_aller_retour() {
+        assert_eq!(en_base64(b"Man"), "TWFu");
+        assert_eq!(en_base64(b"Ma"), "TWE=");
+        assert_eq!(en_base64(b"M"), "TQ==");
+        assert_eq!(en_base64(b""), "");
+        for longueur in 0..40usize {
+            let octets: Vec<u8> = (0..longueur).map(|k| (k * 37 + 11) as u8).collect();
+            assert_eq!(
+                de_base64(&en_base64(&octets)).unwrap(),
+                octets,
+                "{longueur}"
+            );
+        }
+        assert!(de_base64("TQ=").is_none());
+        assert!(de_base64("T?==").is_none());
+        assert!(de_base64("TQ==TWFu").is_none());
+        assert_eq!(de_base64("TW\nFu").unwrap(), b"Man");
+    }
+
+    #[test]
+    fn une_sauvegarde_complete_aller_retour() {
+        let d = DossierTemporaire::nouveau("sauvegarde");
+        let note = NoteDuBloc {
+            id: 4,
+            titre: "Chantier".to_string(),
+            texte: "Commander le gypse".to_string(),
+            ..NoteDuBloc::default()
+        };
+        enregistrer_notes(&d.depot(), std::slice::from_ref(&note)).unwrap();
+        let maison = DessinEnregistre {
+            id: 9,
+            nom: "Maison".to_string(),
+            ..DessinEnregistre::default()
+        };
+        enregistrer_dessins(&d.depot(), std::slice::from_ref(&maison)).unwrap();
+        let fichiers = donnees_a_sauvegarder(&d.depot());
+        assert_eq!(
+            fichiers.keys().collect::<Vec<_>>(),
+            ["dessins.json", "notes.json"]
+        );
+        let mut pieces = BTreeMap::new();
+        pieces.insert("12.jpg".to_string(), vec![0xFF, 0xD8, 1, 2, 3]);
+        let contenu = fichier_de_sauvegarde("2026-11-23T15:00:00-05:00", fichiers, &pieces);
+        assert!(contenu.contains("\"format\":\"constructo-ai-sauvegarde\""));
+        // Un autre appareil : vide, il reçoit tout.
+        let autre = DossierTemporaire::nouveau("sauvegarde-autre");
+        let lue = lire_une_sauvegarde(contenu.as_bytes()).unwrap();
+        assert_eq!(lue.date, "2026-11-23T15:00:00-05:00");
+        restaurer(&autre.depot(), &lue).unwrap();
+        assert_eq!(charger_notes(&autre.depot()), vec![note]);
+        assert_eq!(charger_dessins(&autre.depot()), vec![maison]);
+        let _ = crate::plateforme::arrivees();
+        autre.depot().lire_piece("12.jpg");
+        assert!(matches!(
+            crate::plateforme::arrivees().as_slice(),
+            [crate::plateforme::Arrivee::Lue { octets: Some(o), .. }] if o == &[0xFF, 0xD8, 1, 2, 3]
+        ));
+    }
+
+    #[test]
+    fn une_sauvegarde_douteuse_est_refusee() {
+        assert!(lire_une_sauvegarde(b"pas du json").is_none());
+        assert!(lire_une_sauvegarde(b"{ \"format\": \"autre\", \"version\": 1, \"date\": \"\", \"application\": \"\", \"fichiers\": {} }").is_none());
+        let modele = |pieces: &str, fichiers: &str| {
+            format!(
+                "{{ \"format\": \"constructo-ai-sauvegarde\", \"version\": 1, \"date\": \"\", \"application\": \"0.13.0\", \"fichiers\": {fichiers}, \"pieces\": {pieces} }}"
+            )
+        };
+        // Une clé qui sortirait du dossier des pièces jointes.
+        assert!(
+            lire_une_sauvegarde(modele("{ \"../etat.json\": \"TQ==\" }", "{}").as_bytes())
+                .is_none()
+        );
+        assert!(lire_une_sauvegarde(modele("{ \".cache\": \"TQ==\" }", "{}").as_bytes()).is_none());
+        // Du base64 abîmé.
+        assert!(lire_une_sauvegarde(modele("{ \"3.jpg\": \"T?==\" }", "{}").as_bytes()).is_none());
+        // Une donnée inconnue est laissée de côté, pas refusée.
+        let lue = lire_une_sauvegarde(
+            modele(
+                "{}",
+                "{ \"autre.json\": {}, \"notes.json\": { \"version\": 1, \"notes\": [] } }",
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(lue.fichiers.len(), 1);
+        assert_eq!(lue.fichiers[0].0, "notes.json");
     }
 
     #[test]

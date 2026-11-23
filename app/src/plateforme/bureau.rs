@@ -92,6 +92,9 @@ pub fn choisir_des_fichiers(genre: ChoixDeFichiers) {
         ChoixDeFichiers::Dessins => boite
             .set_title(textes::TITRE_OUVRIR_DESSIN.traduit())
             .add_filter(textes::FILTRE_DESSIN.traduit(), &["json"]),
+        ChoixDeFichiers::Sauvegarde => boite
+            .set_title(textes::TITRE_IMPORTER_DONNEES.traduit())
+            .add_filter(textes::FILTRE_SAUVEGARDE.traduit(), &["json"]),
     };
     let Some(chemins) = boite.pick_files() else {
         return;

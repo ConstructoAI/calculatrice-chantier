@@ -377,6 +377,53 @@ pub const AVIS_PHOTO_EXPORT_ECHEC: Texte = t(
     "The photo could not be exported.",
 );
 
+// Sauvegarde complète (section 17.4)
+pub const MENU_EXPORTER_DONNEES: Texte = t("Exporter mes données", "Export my data");
+pub const MENU_IMPORTER_DONNEES: Texte = t("Importer des données", "Import data");
+pub const TITRE_EXPORTER_DONNEES: Texte = t("Exporter mes données", "Export my data");
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub const TITRE_IMPORTER_DONNEES: Texte = t("Importer des données", "Import data");
+pub const FILTRE_SAUVEGARDE: Texte = t(
+    "Sauvegarde de Constructo AI (JSON)",
+    "Constructo AI backup (JSON)",
+);
+pub const AVIS_DONNEES_EXPORTEES: Texte = t("Données exportées.", "Data exported.");
+pub const AVIS_DONNEES_EXPORT_ECHEC: Texte = t(
+    "Les données n'ont pas pu être exportées à cet endroit.",
+    "The data could not be exported there.",
+);
+pub const AVIS_SAUVEGARDE_ILLISIBLE: Texte = t(
+    "Ce fichier n'est pas une sauvegarde de Constructo AI, ou il est abîmé.",
+    "This file is not a Constructo AI backup, or it is damaged.",
+);
+pub const TITRE_RESTAURER: Texte = t("Importer des données", "Import data");
+pub const CONFIRMER_RESTAURER: Texte = t(
+    "Les données de la calculatrice — réglages, mémoires, rubans, dessins, notes et photos — seront remplacées par celles de la sauvegarde.",
+    "The calculator's data — settings, memories, tapes, drawings, notes and photos — will be replaced by those of the backup.",
+);
+pub const REMPLACER: Texte = t("Remplacer", "Replace");
+pub const AVIS_DONNEES_IMPORTEES: Texte = t("Données importées.", "Data imported.");
+pub const AVIS_DONNEES_IMPORT_ECHEC: Texte = t(
+    "Les données n'ont pas pu être importées : l'espace de l'appareil est peut-être plein.",
+    "The data could not be imported: the device may be out of space.",
+);
+
+/// « Sauvegarde du 23 novembre 2026, 15 h 00 », dans la confirmation d'une importation.
+pub fn sauvegarde_du(date: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Sauvegarde du {date}"),
+        Langue::Anglais => format!("Backup of {date}"),
+    }
+}
+
+/// Nom du fichier d'une sauvegarde complète : « constructo-ai-sauvegarde-2026-11-23 ».
+pub fn nom_de_sauvegarde(jour: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("constructo-ai-sauvegarde-{jour}"),
+        Langue::Anglais => format!("constructo-ai-backup-{jour}"),
+    }
+}
+
 // Mes dessins : la bibliothèque des dessins (section 25)
 pub const MES_DESSINS: Texte = t("Mes dessins", "My drawings");
 pub const NOUVEAU_DESSIN: Texte = t("+ Nouveau dessin", "+ New drawing");

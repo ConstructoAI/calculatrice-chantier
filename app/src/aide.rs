@@ -1283,6 +1283,27 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Sauvegarde complète", "Full backup"),
+        acces: t("menu", "menu"),
+        resume: t(
+            "Gardez toutes vos données dans un seul fichier, ou passez-les à un autre appareil :",
+            "Keep all your data in one file, or move it to another device:",
+        ),
+        mode_emploi: t(
+            "`Exporter mes données`, dans le menu, réunit tout ce que la calculatrice garde — réglages, mémoires, rubans, dessins, notes et leurs photos — dans un fichier. Gardez-le à l'abri, ou envoyez-le à un autre appareil (courriel, nuage, câble). Sur l'autre appareil, `Importer des données` le lit et, après confirmation, remplace ses données par celles du fichier.",
+            "`Export my data`, in the menu, gathers everything the calculator keeps — settings, memories, tapes, drawings, notes and their photos — into one file. Keep it safe, or send it to another device (email, cloud, cable). On the other device, `Import data` reads it and, after confirmation, replaces its data with the file's.",
+        ),
+        exemple: None,
+        note: Some(t(
+            "L'importation remplace les données de l'appareil : sauvegardez-les d'abord si vous voulez les garder.",
+            "Importing replaces the device's data: back it up first if you want to keep it.",
+        )),
+        mots_cles: "sauvegarde sauvegarder copie exporter importer transférer transfert téléphone ordinateur appareil données backup export import transfer phone computer device data",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Clavier adapté au métier", "Keypad adapted to your trade"),
         acces: t("barre des métiers", "trade bar"),
         resume: t(

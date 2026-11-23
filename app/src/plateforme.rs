@@ -70,6 +70,8 @@ pub enum ChoixDeFichiers {
     Tous,
     /// Des dessins enregistrés en fichier (JSON), à rouvrir.
     Dessins,
+    /// Une sauvegarde complète (JSON), à importer.
+    Sauvegarde,
 }
 
 /// Un fichier que l'utilisateur a choisi : à joindre à une note, ou un dessin à rouvrir.
