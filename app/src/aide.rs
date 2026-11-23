@@ -1283,6 +1283,30 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t(
+            "Calculateurs épinglés et récents",
+            "Pinned and recent calculators",
+        ),
+        acces: t("onglet Métiers", "Trades tab"),
+        resume: t(
+            "Gardez sous la main les calculateurs dont vous vous servez le plus :",
+            "Keep the calculators you use most within reach:",
+        ),
+        mode_emploi: t(
+            "`Épingler`, au bas du formulaire d'un calculateur, le met en tête de l'onglet Métiers et de la barre des métiers de l'accueil, marqué d'une étoile : un toucher sur sa pastille le branche sur le clavier. `Désépingler` l'en retire. Les derniers calculateurs ouverts se retrouvent sous Récents, en tête de l'onglet Métiers. Là où le système le permet, l'application installée offre aussi des raccourcis sur son icône : les métiers, le dessin, le bloc-notes et les rubans.",
+            "`Pin`, at the bottom of a calculator's form, puts it at the head of the Trades tab and of the home screen's trade bar, marked with a star: a tap on its chip plugs it into the keypad. `Unpin` removes it. The last calculators you opened are found under Recent, at the head of the Trades tab. Where the system allows it, the installed app also offers shortcuts on its icon: the trades, the drawing, the notepad and the tapes.",
+        ),
+        exemple: None,
+        note: Some(t(
+            "Douze calculateurs au plus peuvent être épinglés.",
+            "Up to twelve calculators can be pinned.",
+        )),
+        mots_cles: "épingler épinglé épinglés désépingler favori favoris étoile récent récents derniers raccourci raccourcis icône pin pinned unpin favourite favorite favorites star recent last shortcut shortcuts icon",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Mode chantier", "Job-site mode"),
         acces: t("menu, ou Préférences", "menu, or Preferences"),
         resume: t(

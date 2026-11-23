@@ -263,11 +263,72 @@ pub fn enregistrer_notes(depot: &Depot, notes: &[NoteDuBloc]) -> io::Result<()> 
 /// calculateur : ce que l'utilisateur a tapé la dernière fois.
 pub type Saisies = BTreeMap<String, Vec<String>>;
 
+/// Nombre de calculateurs qu'on peut épingler (section 22.16).
+pub const MAX_EPINGLES: usize = 12;
+
+/// Nombre de calculateurs récents retenus.
+pub const MAX_RECENTS: usize = 6;
+
+/// Les calculateurs épinglés et les derniers ouverts (section 22.16), par
+/// identifiant; gardés avec les saisies, dans `metiers.json`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Favoris {
+    /// Les calculateurs épinglés, dans l'ordre où ils l'ont été.
+    pub epingles: Vec<String>,
+    /// Les derniers calculateurs ouverts, du plus récent au plus ancien.
+    pub recents: Vec<String>,
+}
+
+impl Favoris {
+    pub fn est_epingle(&self, id: &str) -> bool {
+        self.epingles.iter().any(|e| e == id)
+    }
+
+    /// Épingle le calculateur, ou le désépingle s'il l'était. Faux si la
+    /// liste est pleine : il n'est alors pas épinglé.
+    pub fn basculer(&mut self, id: &str) -> bool {
+        if self.est_epingle(id) {
+            self.epingles.retain(|e| e != id);
+        } else if self.epingles.len() >= MAX_EPINGLES {
+            return false;
+        } else {
+            self.epingles.push(id.to_string());
+        }
+        true
+    }
+
+    /// Le calculateur vient d'être ouvert : il passe en tête des récents.
+    /// Vrai si la liste a changé.
+    pub fn utiliser(&mut self, id: &str) -> bool {
+        if self.recents.first().is_some_and(|r| r == id) {
+            return false;
+        }
+        self.recents.retain(|r| r != id);
+        self.recents.insert(0, id.to_string());
+        self.recents.truncate(MAX_RECENTS);
+        true
+    }
+
+    /// Oublie les calculateurs inconnus (d'une autre version), les doublons
+    /// et ce qui dépasse.
+    pub fn nettoyer(&mut self, connu: impl Fn(&str) -> bool) {
+        for liste in [&mut self.epingles, &mut self.recents] {
+            let mut vus = std::collections::BTreeSet::new();
+            liste.retain(|id| connu(id) && vus.insert(id.clone()));
+        }
+        self.epingles.truncate(MAX_EPINGLES);
+        self.recents.truncate(MAX_RECENTS);
+    }
+}
+
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 struct FichierSaisies {
     version: u32,
     saisies: Saisies,
+    /// Les calculateurs épinglés et récents (section 22.16).
+    favoris: Favoris,
     /// Identifiant du calculateur branché sur le clavier (section 23).
     outil: Option<String>,
     /// Langue dans laquelle les saisies sont écrites (section 24) : une
@@ -290,17 +351,33 @@ pub fn charger_saisies(depot: &Depot) -> (Saisies, Option<String>, Langue) {
     }
 }
 
-/// Enregistre les dernières saisies, l'outil branché sur le clavier et la
-/// langue dans laquelle les saisies sont écrites.
+/// Les calculateurs épinglés et récents; aucun si la donnée est absente,
+/// illisible ou d'une autre version.
+pub fn charger_favoris(depot: &Depot) -> Favoris {
+    match depot.lire(FICHIER_SAISIES) {
+        Lecture::Texte(texte) => serde_json::from_str::<FichierSaisies>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_SAISIES)
+            .map(|fichier| fichier.favoris)
+            .unwrap_or_default(),
+        Lecture::Absent | Lecture::Illisible => Favoris::default(),
+    }
+}
+
+/// Enregistre les dernières saisies, l'outil branché sur le clavier, la
+/// langue dans laquelle les saisies sont écrites, et les calculateurs
+/// épinglés et récents.
 pub fn enregistrer_saisies(
     depot: &Depot,
     saisies: &Saisies,
     outil: Option<&str>,
     langue: Langue,
+    favoris: &Favoris,
 ) -> io::Result<()> {
     let fichier = FichierSaisies {
         version: VERSION_SAISIES,
         saisies: saisies.clone(),
+        favoris: favoris.clone(),
         outil: outil.map(str::to_string),
         langue,
     };
@@ -1101,13 +1178,21 @@ mod tests {
             "dalle".to_string(),
             vec!["24".to_string(), "20".to_string(), "4".to_string()],
         );
-        enregistrer_saisies(&d.depot(), &saisies, Some("dalle"), Langue::Francais).unwrap();
+        let favoris = Favoris::default();
+        enregistrer_saisies(
+            &d.depot(),
+            &saisies,
+            Some("dalle"),
+            Langue::Francais,
+            &favoris,
+        )
+        .unwrap();
         assert_eq!(
             charger_saisies(&d.depot()),
             (saisies.clone(), Some("dalle".to_string()), Langue::Francais)
         );
         // La langue dans laquelle les saisies sont écrites est conservée avec elles.
-        enregistrer_saisies(&d.depot(), &saisies, None, Langue::Anglais).unwrap();
+        enregistrer_saisies(&d.depot(), &saisies, None, Langue::Anglais, &favoris).unwrap();
         assert_eq!(
             charger_saisies(&d.depot()),
             (saisies.clone(), None, Langue::Anglais)
@@ -1125,6 +1210,52 @@ mod tests {
         // Une donnée illisible est simplement ignorée.
         fs::write(d.0.join("metiers.json"), "pas du JSON").unwrap();
         assert_eq!(charger_saisies(&d.depot()), rien);
+        assert_eq!(charger_favoris(&d.depot()), Favoris::default());
+    }
+
+    #[test]
+    fn calculateurs_epingles_et_recents() {
+        let mut favoris = Favoris::default();
+        // Épingler, puis désépingler.
+        assert!(favoris.basculer("dalle") && favoris.est_epingle("dalle"));
+        assert!(favoris.basculer("dalle") && !favoris.est_epingle("dalle"));
+        // Douze au plus : le treizième est refusé.
+        for k in 0..MAX_EPINGLES {
+            assert!(favoris.basculer(&format!("outil-{k}")));
+        }
+        assert!(!favoris.basculer("dalle") && !favoris.est_epingle("dalle"));
+        assert_eq!(favoris.epingles.len(), MAX_EPINGLES);
+        // Les récents : le dernier ouvert en tête, sans doublon, six au plus.
+        let mut favoris = Favoris::default();
+        assert!(favoris.utiliser("dalle"));
+        assert!(!favoris.utiliser("dalle"));
+        assert!(favoris.utiliser("escalier"));
+        assert!(favoris.utiliser("dalle"));
+        assert_eq!(favoris.recents, ["dalle", "escalier"]);
+        for k in 0..10 {
+            favoris.utiliser(&format!("outil-{k}"));
+        }
+        assert_eq!(favoris.recents.len(), MAX_RECENTS);
+        assert_eq!(favoris.recents[0], "outil-9");
+        // Un calculateur inconnu et un doublon sont oubliés à la lecture.
+        let mut lus = Favoris {
+            epingles: vec!["dalle".into(), "disparu".into(), "dalle".into()],
+            recents: vec!["escalier".into(), "disparu".into()],
+        };
+        lus.nettoyer(|id| id != "disparu");
+        assert_eq!(lus.epingles, ["dalle"]);
+        assert_eq!(lus.recents, ["escalier"]);
+        // Ils sont gardés avec les saisies, et un fichier d'avant n'en a pas.
+        let d = DossierTemporaire::nouveau("favoris");
+        assert_eq!(charger_favoris(&d.depot()), Favoris::default());
+        enregistrer_saisies(&d.depot(), &Saisies::new(), None, Langue::Francais, &lus).unwrap();
+        assert_eq!(charger_favoris(&d.depot()), lus);
+        fs::write(
+            d.0.join("metiers.json"),
+            "{ \"version\": 1, \"saisies\": {}, \"outil\": null }",
+        )
+        .unwrap();
+        assert_eq!(charger_favoris(&d.depot()), Favoris::default());
     }
 
     /// Ce que `charger_dessin` a lu, pour comparer.

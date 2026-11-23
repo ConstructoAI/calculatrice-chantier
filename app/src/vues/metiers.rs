@@ -12,6 +12,7 @@ use noyau::metiers::{Calculateur, Metier, Nature, calculateur};
 use noyau::unites::Format;
 
 use super::{bouton_principal, cadre_de_saisie, carte, corps, en_tete, section};
+use crate::stockage::Favoris;
 use crate::textes;
 use crate::theme::{self, Palette};
 
@@ -51,6 +52,8 @@ pub enum Action {
     Clavier,
     /// Brancher ce calculateur sur le clavier (section 23).
     AuClavier(&'static str),
+    /// Épingler ce calculateur, ou le désépingler (section 22.16).
+    Epingler(&'static str),
 }
 
 /// Une carte cliquable : un titre, une ligne d'explication et, à droite, une mention.
@@ -110,13 +113,55 @@ fn titre(ui: &mut Ui, p: &Palette, texte: &str) {
     ui.separator();
 }
 
-fn liste_des_metiers(ui: &mut Ui, p: &Palette, position: &mut Position) -> Option<Action> {
+fn liste_des_metiers(
+    ui: &mut Ui,
+    p: &Palette,
+    position: &mut Position,
+    favoris: &Favoris,
+) -> Option<Action> {
     let mut action = None;
     titre(ui, p, textes::METIERS.traduit());
     corps(ui, "metiers", |ui| {
         ui.add_space(4.0);
         ui.label(RichText::new(textes::METIERS_INTRODUCTION.traduit()).color(p.texte_attenue));
         ui.add_space(6.0);
+        // Les calculateurs épinglés, puis les derniers ouverts (section 22.16) :
+        // un toucher ouvre le formulaire, et « Retour » revient ici.
+        let epingles: Vec<&'static Calculateur> = favoris
+            .epingles
+            .iter()
+            .filter_map(|id| calculateur(id))
+            .collect();
+        let recents: Vec<&'static Calculateur> = favoris
+            .recents
+            .iter()
+            .filter(|id| !favoris.est_epingle(id))
+            .filter_map(|id| calculateur(id))
+            .collect();
+        for (titre_de_section, liste, genre) in [
+            (textes::EPINGLES, &epingles, "epingle"),
+            (textes::RECENTS, &recents, "recent"),
+        ] {
+            if liste.is_empty() {
+                continue;
+            }
+            section(ui, p, titre_de_section.traduit());
+            for c in liste {
+                if carte_cliquable(
+                    ui,
+                    p,
+                    (genre, c.id),
+                    c.nom.traduit(),
+                    c.resume.traduit(),
+                    c.metier.nom_court(),
+                ) {
+                    position.calculateur = Some(c.id);
+                }
+            }
+        }
+        if !epingles.is_empty() || !recents.is_empty() {
+            section(ui, p, textes::TOUS_LES_METIERS.traduit());
+        }
         for metier in Metier::TOUS {
             let nombre = textes::nombre_de_calculateurs(metier.calculateurs().len());
             if carte_cliquable(
@@ -251,6 +296,7 @@ fn formulaire(
     c: &'static Calculateur,
     toutes_les_saisies: &mut Saisies,
     prefs: &Preferences,
+    favoris: &Favoris,
 ) -> Option<Action> {
     let mut action = None;
     if en_tete(ui, p, c.nom.traduit(), textes::RETOUR.traduit()) {
@@ -301,7 +347,7 @@ fn formulaire(
         }
 
         ui.add_space(10.0);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             let pret = !evaluation.resultats.is_empty();
             let ajouter = bouton_principal(p, textes::AJOUTER_AU_RUBAN.traduit(), 14.5);
             if ui.add_enabled(pret, ajouter).clicked() {
@@ -322,6 +368,19 @@ fn formulaire(
                 *saisies = c.saisies_par_defaut();
                 modifie = true;
             }
+            // En tête de cet écran et de la barre des métiers de l'accueil.
+            let libelle = if favoris.est_epingle(c.id) {
+                textes::DESEPINGLER
+            } else {
+                textes::EPINGLER
+            };
+            if ui
+                .button(libelle.traduit())
+                .on_hover_text(textes::INFOBULLE_EPINGLER.traduit())
+                .clicked()
+            {
+                action = Some(Action::Epingler(c.id));
+            }
         });
         ui.add_space(14.0);
         if modifie && action.is_none() {
@@ -338,15 +397,16 @@ pub fn afficher(
     position: &mut Position,
     saisies: &mut Saisies,
     prefs: &Preferences,
+    favoris: &Favoris,
 ) -> Option<Action> {
     if let Some(c) = position.calculateur.and_then(calculateur) {
-        return formulaire(ui, p, position, c, saisies, prefs);
+        return formulaire(ui, p, position, c, saisies, prefs, favoris);
     }
     match position.metier {
         Some(metier) => {
             liste_des_calculateurs(ui, p, position, metier);
             None
         }
-        None => liste_des_metiers(ui, p, position),
+        None => liste_des_metiers(ui, p, position, favoris),
     }
 }

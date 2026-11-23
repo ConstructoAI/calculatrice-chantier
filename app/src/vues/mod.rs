@@ -194,6 +194,49 @@ pub enum Pastille {
 
 /// Une pastille cliquable : un mot ou deux dans un cadre arrondi.
 pub fn pastille(ui: &mut Ui, p: &Palette, texte: &str, genre: Pastille) -> Response {
+    pastille_avec(ui, p, texte, genre, false)
+}
+
+/// La pastille d'un calculateur épinglé (section 22.16), marquée d'une étoile.
+pub fn pastille_epinglee(ui: &mut Ui, p: &Palette, texte: &str, active: bool) -> Response {
+    let genre = if active {
+        Pastille::Active
+    } else {
+        Pastille::Ordinaire
+    };
+    pastille_avec(ui, p, texte, genre, true)
+}
+
+/// Une étoile pleine à cinq branches, dessinée : les polices du Web n'en ont pas.
+pub fn etoile(painter: &egui::Painter, centre: Pos2, rayon: f32, couleur: egui::Color32) {
+    let pointes: Vec<Pos2> = (0..10)
+        .map(|k| {
+            let r = if k % 2 == 0 { rayon } else { rayon * 0.45 };
+            let angle = -std::f32::consts::FRAC_PI_2 + k as f32 * std::f32::consts::PI / 5.0;
+            centre + r * Vec2::angled(angle)
+        })
+        .collect();
+    // Un éventail de triangles depuis le centre, puis un trait fin et lissé
+    // qui en adoucit le bord.
+    let mut maille = egui::Mesh::default();
+    maille.colored_vertex(centre, couleur);
+    for &pointe in &pointes {
+        maille.colored_vertex(pointe, couleur);
+    }
+    for k in 0..10u32 {
+        maille.add_triangle(0, 1 + k, 1 + (k + 1) % 10);
+    }
+    painter.add(egui::Shape::mesh(maille));
+    painter.add(egui::Shape::closed_line(pointes, Stroke::new(0.8, couleur)));
+}
+
+fn pastille_avec(
+    ui: &mut Ui,
+    p: &Palette,
+    texte: &str,
+    genre: Pastille,
+    etoile_devant: bool,
+) -> Response {
     const HAUTEUR: f32 = 26.0;
     let (fond, bord, encre) = match genre {
         Pastille::Menu => (p.selection, p.selection, p.selection_texte),
@@ -210,10 +253,11 @@ pub fn pastille(ui: &mut Ui, p: &Palette, texte: &str, genre: Pastille) -> Respo
         theme::police_grasse(12.5)
     };
     let ecrit = ui.painter().layout_no_wrap(texte.to_owned(), police, encre);
-    // Place du chevron de la pastille de menu.
+    // Place du chevron de la pastille de menu, et de l'étoile d'un épinglé.
     let chevron = if genre == Pastille::Menu { 13.0 } else { 0.0 };
+    let devant = if etoile_devant { 14.0 } else { 0.0 };
     let (rect, reponse) = ui.allocate_exact_size(
-        Vec2::new(ecrit.size().x + 22.0 + chevron, HAUTEUR),
+        Vec2::new(ecrit.size().x + 22.0 + chevron + devant, HAUTEUR),
         Sense::click(),
     );
     reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, texte));
@@ -233,8 +277,19 @@ pub fn pastille(ui: &mut Ui, p: &Palette, texte: &str, genre: Pastille) -> Respo
             Stroke::new(if genre == Pastille::Active { 1.5 } else { 1.0 }, bord),
             StrokeKind::Inside,
         );
+        if etoile_devant {
+            etoile(
+                painter,
+                Pos2::new(rect.left() + 15.0, rect.center().y),
+                5.5,
+                p.accent_du_plan(),
+            );
+        }
         painter.galley(
-            Pos2::new(rect.left() + 11.0, rect.center().y - ecrit.size().y / 2.0),
+            Pos2::new(
+                rect.left() + 11.0 + devant,
+                rect.center().y - ecrit.size().y / 2.0,
+            ),
             ecrit,
             encre,
         );

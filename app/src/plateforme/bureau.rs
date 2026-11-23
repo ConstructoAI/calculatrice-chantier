@@ -236,6 +236,12 @@ pub fn adresse_du_manuel(depot: &Depot) -> String {
     }
 }
 
+/// L'écran qu'un raccourci demande d'ouvrir (section 22.16) : seule
+/// l'application installée depuis le navigateur en a.
+pub fn ecran_demande() -> Option<String> {
+    None
+}
+
 /// Langue du système, si c'est le français ou l'anglais : elle sert au premier
 /// lancement seulement (section 24). Les langues préférées sont examinées dans
 /// l'ordre.

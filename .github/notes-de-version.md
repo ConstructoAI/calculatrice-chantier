@@ -27,6 +27,11 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   grossissent et le clavier descend jusqu'au bas de l'écran, pour les gants et pour taper
   d'une main.
 
+- **Calculateurs épinglés et récents** : **Épingler**, au bas du formulaire d'un
+  calculateur, le met en tête de l'onglet Métiers et de la barre des métiers de l'accueil,
+  marqué d'une étoile; les derniers ouverts se retrouvent sous **Récents**. L'application
+  installée offre aussi des raccourcis sur son icône : métiers, dessin, bloc-notes, rubans.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

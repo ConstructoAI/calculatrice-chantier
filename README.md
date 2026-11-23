@@ -103,6 +103,8 @@ puis le volume à commander, pertes comprises. Le calcul complet s'inscrit au ru
 
 L'onglet *Métiers* offre les mêmes calculateurs en formulaires : tous les résultats d'un
 coup d'œil, et le bouton *Au clavier* pour brancher un calculateur sur les touches.
+*Épingler* met un calculateur en tête de l'onglet et de la barre des métiers de l'accueil,
+et les derniers ouverts se retrouvent sous *Récents*.
 
 | Métier | Outils |
 |---|---|

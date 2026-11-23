@@ -379,6 +379,20 @@ pub const AVIS_PHOTO_EXPORT_ECHEC: Texte = t(
 
 // Sauvegarde complète (section 17.4)
 pub const MENU_MODE_CHANTIER: Texte = t("Mode chantier", "Job-site mode");
+// Calculateurs épinglés et récents (section 22.16)
+pub const EPINGLER: Texte = t("Épingler", "Pin");
+pub const DESEPINGLER: Texte = t("Désépingler", "Unpin");
+pub const INFOBULLE_EPINGLER: Texte = t(
+    "En tête de l'onglet Métiers et de la barre des métiers de l'accueil",
+    "At the head of the Trades tab and of the home screen's trade bar",
+);
+pub const EPINGLES: Texte = t("Épinglés", "Pinned");
+pub const RECENTS: Texte = t("Récents", "Recent");
+pub const TOUS_LES_METIERS: Texte = t("Tous les métiers", "All trades");
+pub const AVIS_TROP_D_EPINGLES: Texte = t(
+    "Douze calculateurs au plus peuvent être épinglés : désépinglez-en un d'abord.",
+    "Up to twelve calculators can be pinned: unpin one first.",
+);
 pub const MENU_QUITTER_MODE_CHANTIER: Texte = t("Quitter le mode chantier", "Leave job-site mode");
 pub const MENU_EXPORTER_DONNEES: Texte = t("Exporter mes données", "Export my data");
 pub const MENU_IMPORTER_DONNEES: Texte = t("Importer des données", "Import data");

@@ -188,6 +188,8 @@ pub struct Application {
     saisies_a_sauvegarder: bool,
     /// Dernier outil branché de chaque métier, pour y revenir (section 23).
     derniers_outils: Vec<(Metier, &'static str)>,
+    /// Les calculateurs épinglés et récents (section 22.16).
+    favoris: stockage::Favoris,
     /// La pastille de l'outil branché doit être amenée en vue dans la barre.
     outil_a_montrer: bool,
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
@@ -246,7 +248,23 @@ impl Application {
         plateforme::retenir_le_contexte(&cc.egui_ctx);
         // L'échelle suit la taille de la fenêtre : pas de zoom au clavier.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
-        Self::charger(&cc.egui_ctx)
+        let mut application = Self::charger(&cc.egui_ctx);
+        // Un raccourci de l'application installée ouvre son écran (section
+        // 22.16); au premier lancement, la bienvenue passe d'abord.
+        let demande = plateforme::ecran_demande();
+        let vue = match demande.as_deref() {
+            Some("metiers") => Some(Vue::Metiers),
+            Some("dessin") => Some(Vue::Dessin),
+            Some("notes") => Some(Vue::Notes),
+            Some("rubans") => Some(Vue::Rubans),
+            _ => None,
+        };
+        if let Some(vue) = vue
+            && application.vue == Vue::Accueil
+        {
+            application.aller(vue);
+        }
+        application
     }
 
     /// Lit toutes les données conservées : au démarrage, et après avoir
@@ -267,6 +285,8 @@ impl Application {
         let rubans = stockage::charger_rubans(&depot);
         let notes = stockage::charger_notes(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
+        let mut favoris = stockage::charger_favoris(&depot);
+        favoris.nettoyer(|id| noyau::metiers::calculateur(id).is_some());
         let stockage::DessinCharge {
             mut plan,
             langue: langue_du_dessin,
@@ -338,6 +358,7 @@ impl Application {
             saisies_metiers,
             saisies_a_sauvegarder,
             derniers_outils: Vec::new(),
+            favoris,
             outil_a_montrer: true,
             fugace: None,
             a_sauvegarder: chargement.illisible,
@@ -417,11 +438,15 @@ impl Application {
             self.saisies_a_sauvegarder = true;
             self.outil_a_montrer = true;
         }
-        // On reviendra à cet outil en revenant à ce métier.
+        // On reviendra à cet outil en revenant à ce métier; il passe en tête
+        // des récents.
         if let Some(c) = apres {
             self.derniers_outils
                 .retain(|(metier, _)| *metier != c.metier);
             self.derniers_outils.push((c.metier, c.id));
+            if self.favoris.utiliser(c.id) {
+                self.saisies_a_sauvegarder = true;
+            }
         }
     }
 
@@ -502,6 +527,12 @@ impl Application {
         }
         let outil = self.moteur.outil();
         let montrer = std::mem::replace(&mut self.outil_a_montrer, false);
+        let epingles: Vec<&'static noyau::metiers::Calculateur> = self
+            .favoris
+            .epingles
+            .iter()
+            .filter_map(|id| noyau::metiers::calculateur(id))
+            .collect();
         let mut choix = None;
         ui.scope_builder(
             egui::UiBuilder::new()
@@ -528,38 +559,55 @@ impl Application {
                     })
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.horizontal_centered(|ui| match outil {
-                            // Un métier est choisi : ses outils, celui du clavier en évidence.
-                            Some(actif) => {
-                                for c in actif.metier.calculateurs() {
-                                    let genre = if c.id == actif.id {
-                                        vues::Pastille::Active
-                                    } else {
-                                        vues::Pastille::Ordinaire
-                                    };
-                                    let reponse = vues::pastille(ui, p, c.nom.traduit(), genre)
-                                        .on_hover_text(c.resume.traduit());
-                                    if c.id == actif.id && montrer {
-                                        reponse.scroll_to_me(Some(egui::Align::Center));
-                                    }
-                                    if reponse.clicked() && c.id != actif.id {
-                                        choix = Some(Choix::Outil(c.id));
-                                    }
+                        ui.horizontal_centered(|ui| {
+                            // Les calculateurs épinglés, en tête, marqués d'une
+                            // étoile (section 22.16) : un toucher les branche.
+                            for c in &epingles {
+                                let actif = outil.is_some_and(|a| a.id == c.id);
+                                if vues::pastille_epinglee(ui, p, c.nom.traduit(), actif)
+                                    .on_hover_text(c.resume.traduit())
+                                    .clicked()
+                                    && !actif
+                                {
+                                    choix = Some(Choix::Outil(c.id));
                                 }
                             }
-                            // Clavier de charpente : les autres métiers, à un toucher.
-                            None => {
-                                for metier in Metier::TOUS {
-                                    if vues::pastille(
-                                        ui,
-                                        p,
-                                        metier.nom_court(),
-                                        vues::Pastille::Ordinaire,
-                                    )
-                                    .on_hover_text(metier.resume())
-                                    .clicked()
-                                    {
-                                        choix = Some(Choix::Metier(metier));
+                            if !epingles.is_empty() {
+                                ui.separator();
+                            }
+                            match outil {
+                                // Un métier est choisi : ses outils, celui du clavier en évidence.
+                                Some(actif) => {
+                                    for c in actif.metier.calculateurs() {
+                                        let genre = if c.id == actif.id {
+                                            vues::Pastille::Active
+                                        } else {
+                                            vues::Pastille::Ordinaire
+                                        };
+                                        let reponse = vues::pastille(ui, p, c.nom.traduit(), genre)
+                                            .on_hover_text(c.resume.traduit());
+                                        if c.id == actif.id && montrer {
+                                            reponse.scroll_to_me(Some(egui::Align::Center));
+                                        }
+                                        if reponse.clicked() && c.id != actif.id {
+                                            choix = Some(Choix::Outil(c.id));
+                                        }
+                                    }
+                                }
+                                // Clavier de charpente : les autres métiers, à un toucher.
+                                None => {
+                                    for metier in Metier::TOUS {
+                                        if vues::pastille(
+                                            ui,
+                                            p,
+                                            metier.nom_court(),
+                                            vues::Pastille::Ordinaire,
+                                        )
+                                        .on_hover_text(metier.resume())
+                                        .clicked()
+                                        {
+                                            choix = Some(Choix::Metier(metier));
+                                        }
                                     }
                                 }
                             }
@@ -636,8 +684,14 @@ impl Application {
             self.saisies_a_sauvegarder = false;
             let outil = self.moteur.outil().map(|c| c.id);
             let langue = self.moteur.preferences().langue;
-            if stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil, langue)
-                .is_err()
+            if stockage::enregistrer_saisies(
+                &self.depot,
+                &self.saisies_metiers,
+                outil,
+                langue,
+                &self.favoris,
+            )
+            .is_err()
             {
                 self.signaler_l_echec_d_ecriture();
             }
@@ -2125,14 +2179,30 @@ impl Application {
                 }
             }
             Vue::Metiers => {
+                let avant = self.position_metiers.calculateur;
                 let action = vues::metiers::afficher(
                     ui,
                     p,
                     &mut self.position_metiers,
                     &mut self.saisies_metiers,
                     self.moteur.preferences(),
+                    &self.favoris,
                 );
+                // Un formulaire qui s'ouvre passe en tête des récents.
+                if let Some(id) = self.position_metiers.calculateur
+                    && avant != Some(id)
+                    && self.favoris.utiliser(id)
+                {
+                    self.saisies_a_sauvegarder = true;
+                }
                 match action {
+                    Some(vues::metiers::Action::Epingler(id)) => {
+                        if self.favoris.basculer(id) {
+                            self.saisies_a_sauvegarder = true;
+                        } else {
+                            self.dialogue = Dialogue::Avis(textes::AVIS_TROP_D_EPINGLES);
+                        }
+                    }
                     Some(vues::metiers::Action::Modifie) => self.saisies_a_sauvegarder = true,
                     Some(vues::metiers::Action::Consigner {
                         titre,
@@ -3184,8 +3254,13 @@ impl eframe::App for Application {
         if self.saisies_a_sauvegarder {
             let outil = self.moteur.outil().map(|c| c.id);
             let langue = self.moteur.preferences().langue;
-            let _ =
-                stockage::enregistrer_saisies(&self.depot, &self.saisies_metiers, outil, langue);
+            let _ = stockage::enregistrer_saisies(
+                &self.depot,
+                &self.saisies_metiers,
+                outil,
+                langue,
+                &self.favoris,
+            );
         }
         if self.dessin_a_sauvegarder {
             let langue = self.moteur.preferences().langue;

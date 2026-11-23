@@ -383,6 +383,17 @@ pub fn adresse_du_manuel(_depot: &Depot) -> String {
     textes::FICHIER_DU_MANUEL.traduit().to_string()
 }
 
+/// L'écran qu'un raccourci de l'application installée demande d'ouvrir
+/// (section 22.16) : le paramètre `ecran` de l'adresse de la page.
+pub fn ecran_demande() -> Option<String> {
+    let adresse = document()?.url().ok()?;
+    let requete = adresse.split_once('?')?.1.split('#').next()?;
+    requete
+        .split('&')
+        .find_map(|paire| paire.strip_prefix("ecran="))
+        .map(str::to_string)
+}
+
 /// Langue du navigateur, si c'est le français ou l'anglais : elle sert au
 /// premier lancement seulement (section 24). Les langues préférées sont
 /// examinées dans l'ordre.
