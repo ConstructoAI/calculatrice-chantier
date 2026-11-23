@@ -144,6 +144,9 @@ pub struct Etat {
     /// La famille d'objets dont la section montre les boutons (point 40) :
     /// le choix dure le temps de la séance, comme le pliage des sections.
     famille: Famille,
+    /// L'outil « Mesurer » (évolution 23) : `None` s'il est fermé, sinon ses
+    /// points (pouces, sur le plan), deux au plus.
+    mesure: Option<Vec<(f64, f64)>>,
     /// L'objet choisi : il paraît en couleur.
     objet_choisi: Option<usize>,
     /// L'objet que le doigt déplace : son rang, et l'écart (pouces) entre le
@@ -792,6 +795,135 @@ pub(crate) fn texte_a_cote(
         attache.0 + devant.0 * (etendue + ecart),
         attache.1 + devant.1 * (etendue + ecart),
     )
+}
+
+/// Où s'accroche un point de l'outil « Mesurer » (évolution 23) : au coin le
+/// plus proche (de la pièce, d'une cloison ou d'un objet) à 14 points au plus,
+/// sinon au point le plus proche d'une face de mur ou de cloison à 10 points
+/// au plus, sinon là où l'on touche, au pas du plan.
+fn point_a_mesurer(
+    position: Pos2,
+    echelle: &Echelle,
+    dessin: &Dessin,
+    solution: &Solution,
+) -> (f64, f64) {
+    let contour = dessin.contour_interieur(solution);
+    let morceaux: Vec<[(f64, f64); 4]> = solution
+        .cloisons
+        .iter()
+        .flatten()
+        .flat_map(|cloison| cloison.morceaux())
+        .map(|morceau| morceau.coins)
+        .collect();
+    let mut coins: Vec<(f64, f64)> = contour.clone().unwrap_or_default();
+    coins.extend(dessin.contour_exterieur(solution).unwrap_or_default());
+    coins.extend(morceaux.iter().flatten().copied());
+    coins.extend(
+        dessin
+            .objets
+            .iter()
+            .zip(&solution.objets)
+            .flat_map(|(objet, dimensions)| objet.coins(*dimensions)),
+    );
+    let ecart = |point: (f64, f64)| echelle.vers_l_ecran(point).distance(position);
+    if let Some(coin) = coins
+        .iter()
+        .copied()
+        .min_by(|a, b| ecart(*a).total_cmp(&ecart(*b)))
+        && ecart(coin) <= 14.0
+    {
+        return coin;
+    }
+    let (x, y) = echelle.vers_le_plan(position);
+    let sur_une_face = mobilier::faces_d_appui(contour.as_deref(), &morceaux)
+        .into_iter()
+        .filter_map(|(a, b)| {
+            let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+            let longueur2 = dx * dx + dy * dy;
+            if longueur2 < 1e-12 {
+                return None;
+            }
+            let t = (((x - a.0) * dx + (y - a.1) * dy) / longueur2).clamp(0.0, 1.0);
+            Some((a.0 + dx * t, a.1 + dy * t))
+        })
+        .min_by(|a, b| ecart(*a).total_cmp(&ecart(*b)));
+    if let Some(point) = sur_une_face
+        && ecart(point) <= 10.0
+    {
+        return point;
+    }
+    let pas = pas_des_objets(solution);
+    ((x / pas).round() * pas, (y / pas).round() * pas)
+}
+
+/// Ce que frappe un meuble qui avance (évolution 23) : les faces des murs et
+/// des cloisons, et les côtés des autres objets qui occupent le plancher.
+fn obstacles_des_degagements(
+    dessin: &Dessin,
+    solution: &Solution,
+    sauf: usize,
+) -> Vec<mobilier::Face> {
+    let contour = dessin.contour_interieur(solution);
+    let morceaux: Vec<[(f64, f64); 4]> = solution
+        .cloisons
+        .iter()
+        .flatten()
+        .flat_map(|cloison| cloison.morceaux())
+        .map(|morceau| morceau.coins)
+        .collect();
+    let mut obstacles = mobilier::faces_d_appui(contour.as_deref(), &morceaux);
+    for (rang, (objet, dimensions)) in dessin.objets.iter().zip(&solution.objets).enumerate() {
+        if rang != sauf && objet.genre.encombre() {
+            let coins = objet.coins(*dimensions);
+            obstacles.extend((0..4).map(|k| (coins[k], coins[(k + 1) % 4])));
+        }
+    }
+    obstacles
+}
+
+/// Une distance écrite sur le plan, entre `a` et `b` (à l'écran) : un trait
+/// fin terminé par deux petits traits, et sa longueur dans une pastille.
+fn distance_sur_le_plan(
+    painter: &egui::Painter,
+    p: &Palette,
+    (a, b): (Pos2, Pos2),
+    texte: String,
+    pointille: bool,
+) {
+    let longueur = a.distance(b);
+    if longueur < 1.0 {
+        return;
+    }
+    let couleur = p.accent_du_plan();
+    if pointille {
+        painter.extend(egui::Shape::dashed_line(
+            &[a, b],
+            Stroke::new(1.3, couleur),
+            4.0,
+            3.0,
+        ));
+    } else {
+        painter.line_segment([a, b], Stroke::new(2.0, couleur));
+    }
+    let unite = (b - a) / longueur;
+    let travers = Vec2::new(-unite.y, unite.x);
+    for bout in [a, b] {
+        painter.line_segment(
+            [bout - travers * 5.0, bout + travers * 5.0],
+            Stroke::new(1.3, couleur),
+        );
+    }
+    let ecrit = painter.layout_no_wrap(texte, theme::police_grasse(11.0), couleur);
+    let centre = a + (b - a) * 0.5 + travers * (ecrit.size().y * 0.5 + 6.0);
+    let cadre = Rect::from_center_size(centre, ecrit.size() + Vec2::new(8.0, 3.0));
+    painter.rect_filled(cadre, 5.0, p.carte);
+    painter.rect_stroke(
+        cadre,
+        5.0,
+        Stroke::new(1.0, couleur),
+        egui::StrokeKind::Inside,
+    );
+    painter.galley(centre - ecrit.size() / 2.0, ecrit, couleur);
 }
 
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
@@ -2128,6 +2260,19 @@ fn planche_et_gestes(
     } else if reponse.clicked() && etat.cloison_a_tracer {
         // Une cloison se trace en glissant : un simple toucher n'y fait rien.
     } else if reponse.clicked()
+        && complete
+        && etat.mesure.is_some()
+        && let Some(position) = reponse.interact_pointer_pos()
+    {
+        // L'outil « Mesurer » : chaque toucher pose un point, accroché à un
+        // coin ou à une face tout près; un troisième recommence (évolution 23).
+        let point = point_a_mesurer(position, &echelle, dessin, solution);
+        let points = etat.mesure.get_or_insert_with(Vec::new);
+        if points.len() >= 2 {
+            points.clear();
+        }
+        points.push(point);
+    } else if reponse.clicked()
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
         && etat.note_a_placer
@@ -2284,13 +2429,27 @@ fn planche_et_gestes(
             p.texte_attenue,
         );
     }
+    // Les conflits du plan (évolution 23) : un battant qui frappe un meuble,
+    // un meuble qui traverse un mur ou une cloison, deux meubles l'un sur
+    // l'autre; en rouge.
+    let conflits = if complete {
+        dessin.conflits(solution)
+    } else {
+        Vec::new()
+    };
     // Les objets : leur rectangle, plein, leur symbole et leur nom.
     if complete {
         for (rang, (objet, &dimensions)) in dessin.objets.iter().zip(&solution.objets).enumerate() {
             let choisi = etat.objet_choisi == Some(rang)
                 || etat.objet_tire.is_some_and(|(r, _)| r == rang)
                 || matches!(etat.autre_choisi, Some(AutreSaisie::Objet(r, _)) if r == rang);
-            let encre = if choisi {
+            let en_conflit = conflits.iter().any(|conflit| {
+                conflit.objet == rang
+                    || conflit.raison == noyau::dessin::RaisonDuConflit::Objet(rang)
+            });
+            let encre = if en_conflit {
+                p.erreur
+            } else if choisi {
                 p.accent_du_plan()
             } else {
                 p.texte_attenue
@@ -2797,6 +2956,62 @@ fn planche_et_gestes(
             etat.notes_a_l_ecran.push((rang, cadre));
         }
     }
+    // Le battant d'une porte qui frappe un meuble : son quart de disque en
+    // rouge (évolution 23).
+    if !conflits.is_empty() {
+        for (raison, polygone) in dessin.battants_des_portes(solution) {
+            if conflits.iter().any(|conflit| conflit.raison == raison) {
+                let points: Vec<Pos2> = polygone
+                    .iter()
+                    .map(|point| echelle.vers_l_ecran(*point))
+                    .collect();
+                painter.add(egui::Shape::convex_polygon(
+                    points.clone(),
+                    p.erreur.gamma_multiply(0.18),
+                    Stroke::NONE,
+                ));
+                painter.add(egui::Shape::closed_line(points, Stroke::new(1.6, p.erreur)));
+            }
+        }
+    }
+    // Les dégagements du meuble qu'on déplace ou qu'on a choisi : ses
+    // distances libres jusqu'aux murs, aux cloisons et aux autres meubles
+    // (évolution 23).
+    if complete
+        && let Some(rang) = etat.objet_tire.map(|(rang, _)| rang).or(etat.objet_choisi)
+        && let (Some(objet), Some(&dimensions)) =
+            (dessin.objets.get(rang), solution.objets.get(rang))
+        && objet.genre.encombre()
+    {
+        let obstacles = obstacles_des_degagements(dessin, solution, rang);
+        for degagement in mobilier::degagements(objet, dimensions, &obstacles, 600.0) {
+            distance_sur_le_plan(
+                &painter,
+                p,
+                (
+                    echelle.vers_l_ecran(degagement.de),
+                    echelle.vers_l_ecran(degagement.a),
+                ),
+                longueur_en_clair(degagement.distance, solution, prefs),
+                true,
+            );
+        }
+    }
+    // L'outil « Mesurer » : ses points, et leur distance.
+    if let Some(points) = &etat.mesure {
+        for point in points {
+            painter.circle_filled(echelle.vers_l_ecran(*point), 4.5, p.accent_du_plan());
+        }
+        if let [a, b] = points[..] {
+            distance_sur_le_plan(
+                &painter,
+                p,
+                (echelle.vers_l_ecran(a), echelle.vers_l_ecran(b)),
+                longueur_en_clair((b.0 - a.0).hypot(b.1 - a.1), solution, prefs),
+                false,
+            );
+        }
+    }
     // Le tracé en cours.
     if etat.trace.len() > 1 {
         painter.add(egui::Shape::line(
@@ -2848,20 +3063,35 @@ fn planche_et_gestes(
             p.accent_du_plan(),
         );
     }
+    // L'outil « Mesurer » attend ses deux points.
+    if etat.mesure.as_ref().is_some_and(|points| points.len() < 2) {
+        painter.text(
+            planche.left_top() + Vec2::new(12.0, 12.0),
+            Align2::LEFT_TOP,
+            textes::DESSIN_TOUCHER_DEUX_POINTS.traduit(),
+            theme::police_grasse(13.0),
+            p.accent_du_plan(),
+        );
+    }
     boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
     // Le meuble choisi pivote aussi d'ici : au 15°, dans un sens ou dans
     // l'autre, ou d'un quart de tour.
     if complete && let Some(rang) = etat.objet_choisi.filter(|rang| *rang < dessin.objets.len()) {
         let mut droite = planche.right() - 8.0;
+        // Sur une planche étroite, ils montent au-dessus de « 3D », « Cotes »
+        // et « Mesurer ».
+        let fin_des_boutons_de_gauche = planche.left() + 8.0 + 52.0 + 6.0 + 64.0 + 6.0 + 84.0 + 6.0;
+        let bas = if droite - 3.0 * 52.0 - 2.0 * 6.0 < fin_des_boutons_de_gauche {
+            planche.bottom() - 82.0
+        } else {
+            planche.bottom() - 42.0
+        };
         for (degres, texte) in [
             (90.0, textes::DESSIN_PLUS_90),
             (15.0, textes::DESSIN_PLUS_15),
             (-15.0, textes::DESSIN_MOINS_15),
         ] {
-            let zone = Rect::from_min_size(
-                Pos2::new(droite - 52.0, planche.bottom() - 42.0),
-                Vec2::new(52.0, 34.0),
-            );
+            let zone = Rect::from_min_size(Pos2::new(droite - 52.0, bas), Vec2::new(52.0, 34.0));
             droite -= 58.0;
             let nom = format!("{} {}", textes::DESSIN_PIVOTER.traduit(), texte.traduit());
             if bouton_de_planche(ui, &painter, zone, texte.traduit(), &nom, false, p) {
@@ -2910,6 +3140,34 @@ fn planche_et_gestes(
         etat.memoriser(dessin);
         dessin.lignes_de_cote = !dessin.lignes_de_cote;
         modifie = true;
+    }
+    // L'outil « Mesurer » (évolution 23) : ouvert, chaque toucher du plan pose
+    // un point.
+    let bouton_mesurer = Rect::from_min_size(
+        Pos2::new(planche.left() + 136.0, planche.bottom() - 42.0),
+        Vec2::new(84.0, 34.0),
+    );
+    if dessin.fermee
+        && matches!(solution.etat, EtatDeLaForme::Complete { .. })
+        && bouton_de_planche(
+            ui,
+            &painter,
+            bouton_mesurer,
+            textes::DESSIN_MESURER.traduit(),
+            textes::DESSIN_MESURER_UNE_DISTANCE.traduit(),
+            etat.mesure.is_some(),
+            p,
+        )
+    {
+        etat.mesure = if etat.mesure.is_some() {
+            None
+        } else {
+            Some(Vec::new())
+        };
+        etat.objet_a_placer = None;
+        etat.note_a_placer = false;
+        etat.cloison_a_tracer = false;
+        etat.ouverture_a_placer = None;
     }
     if !dessin.fermee && fleches(ui, p, &painter, planche, dessin, etat) {
         modifie = true;
@@ -5160,6 +5418,26 @@ pub(crate) fn resultats_de_la_piece(
     // métiers : combien de prises, de coudes, d'armoires. Le PDF les met dans
     // sa légende (point 40).
     if !detail {
+        let nom = |rang: usize| {
+            dessin
+                .objets
+                .get(rang)
+                .map_or("", |objet| textes::objet(objet.genre).traduit())
+        };
+        for conflit in dessin.conflits(solution) {
+            let autre = match conflit.raison {
+                noyau::dessin::RaisonDuConflit::Objet(autre) => autre,
+                _ => 0,
+            };
+            lignes.push((
+                textes::DESSIN_A_VERIFIER.traduit().to_string(),
+                textes::dessin_conflit(
+                    conflit.raison,
+                    (conflit.objet, nom(conflit.objet)),
+                    (autre, nom(autre)),
+                ),
+            ));
+        }
         for (genre, nombre) in comptes_des_symboles(dessin) {
             lignes.push((
                 textes::objet(genre).traduit().to_string(),
@@ -5240,16 +5518,24 @@ fn bilan(
             }
             carte(ui, p, |ui| {
                 for (libelle, valeur) in &resultats {
-                    ui.horizontal(|ui| {
+                    // Une ligne trop longue passe à la ligne; un conflit
+                    // s'écrit plus petit, en rouge (évolution 23).
+                    let conflit = libelle == textes::DESSIN_A_VERIFIER.traduit();
+                    ui.horizontal_wrapped(|ui| {
                         ui.label(
                             RichText::new(libelle)
                                 .font(theme::police_grasse(13.5))
                                 .color(p.titre),
                         );
+                        let (taille, couleur) = if conflit {
+                            (13.5, p.erreur)
+                        } else {
+                            (17.0, p.texte)
+                        };
                         ui.label(
                             RichText::new(valeur)
-                                .font(theme::police_grasse(17.0))
-                                .color(p.texte),
+                                .font(theme::police_grasse(taille))
+                                .color(couleur),
                         );
                     });
                 }

@@ -591,6 +591,188 @@ pub struct Piece {
     pub dessin: Dessin,
 }
 
+/// Ce qui gêne un objet de la pièce (évolution 23).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RaisonDuConflit {
+    /// Le battant de la porte de rang donné (parmi les ouvertures des murs).
+    PorteDuMur(usize),
+    /// Le battant d'une porte d'une cloison : la cloison, et l'ouverture.
+    PorteDeCloison(usize, usize),
+    /// L'objet traverse un mur, ou sort de la pièce.
+    Mur,
+    /// L'objet traverse la cloison de rang donné.
+    Cloison(usize),
+    /// L'objet en chevauche un autre, de rang plus grand.
+    Objet(usize),
+}
+
+/// Un conflit : l'objet gêné (son rang), et ce qui le gêne.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Conflit {
+    pub objet: usize,
+    pub raison: RaisonDuConflit,
+}
+
+impl Dessin {
+    /// Le battant de chaque porte, ouvert à angle droit (évolution 23) : la
+    /// porte et le quart de disque que balaie son battant (un polygone
+    /// convexe, sur le plan). Les portes des murs s'ouvrent vers l'intérieur,
+    /// depuis la face intérieure; celles des cloisons, du côté choisi.
+    pub fn battants_des_portes(
+        &self,
+        solution: &Solution,
+    ) -> Vec<(RaisonDuConflit, Vec<(f64, f64)>)> {
+        let quart = |charniere: (f64, f64), le_long: (f64, f64), dedans: (f64, f64), rayon: f64| {
+            let mut polygone = vec![charniere];
+            polygone.extend((0..=8).map(|i| {
+                let angle = std::f64::consts::FRAC_PI_2 * f64::from(i) / 8.0;
+                let (c, s) = (angle.cos(), angle.sin());
+                (
+                    charniere.0 + (le_long.0 * c + dedans.0 * s) * rayon,
+                    charniere.1 + (le_long.1 * c + dedans.1 * s) * rayon,
+                )
+            }));
+            polygone
+        };
+        let mut battants = Vec::new();
+        if let Some(sommets) = self.sommets_mesures(solution)
+            && sommets.len() > 2
+        {
+            let aire: f64 = sommets
+                .windows(2)
+                .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+                .sum();
+            for (rang, placement) in solution.placements.iter().enumerate() {
+                let Some(placement) = placement.filter(|p| p.porte) else {
+                    continue;
+                };
+                let (Some(&a), Some(&b)) = (
+                    sommets.get(placement.cote),
+                    sommets.get(placement.cote + 1).or(sommets.first()),
+                ) else {
+                    continue;
+                };
+                let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+                let rayon = placement.fin - placement.debut;
+                if longueur < 1e-9 || rayon < 1e-9 {
+                    continue;
+                }
+                let le_long = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+                let dedans = if aire > 0.0 {
+                    (-le_long.1, le_long.0)
+                } else {
+                    (le_long.1, -le_long.0)
+                };
+                // Mesurée à l'extérieur, la porte s'ouvre de la face intérieure.
+                let retrait = if self.mesures_exterieures {
+                    solution.epaisseur_des_murs
+                } else {
+                    0.0
+                };
+                let charniere = (
+                    a.0 + le_long.0 * placement.debut + dedans.0 * retrait,
+                    a.1 + le_long.1 * placement.debut + dedans.1 * retrait,
+                );
+                battants.push((
+                    RaisonDuConflit::PorteDuMur(rang),
+                    quart(charniere, le_long, dedans, rayon),
+                ));
+            }
+        }
+        for (rang, cloison) in solution.cloisons.iter().enumerate() {
+            let Some(cloison) = cloison else {
+                continue;
+            };
+            for (k, porte) in cloison.ouvertures.iter().enumerate() {
+                if porte.passage {
+                    continue;
+                }
+                let (q0, q1) = (
+                    cloison.point(porte.segment, porte.debut),
+                    cloison.point(porte.segment, porte.fin),
+                );
+                let rayon = (q1.0 - q0.0).hypot(q1.1 - q0.1);
+                if rayon < 1e-9 {
+                    continue;
+                }
+                let le_long = ((q1.0 - q0.0) / rayon, (q1.1 - q0.1) / rayon);
+                battants.push((
+                    RaisonDuConflit::PorteDeCloison(rang, k),
+                    quart(q0, le_long, cloison.cote_de_l_ouverture(porte), rayon),
+                ));
+            }
+        }
+        battants
+    }
+
+    /// Ce qui gêne les objets qui occupent le plancher (évolution 23) : le
+    /// battant d'une porte qui les frappe, un mur ou une cloison qu'ils
+    /// traversent, un autre objet qu'ils chevauchent. Un symbole (une prise,
+    /// une armoire du haut) ne gêne et n'est gêné par rien.
+    pub fn conflits(&self, solution: &Solution) -> Vec<Conflit> {
+        let mut conflits = Vec::new();
+        let contour = self.contour_interieur(solution);
+        let battants = self.battants_des_portes(solution);
+        let morceaux: Vec<Vec<[(f64, f64); 4]>> = solution
+            .cloisons
+            .iter()
+            .map(|cloison| {
+                cloison
+                    .as_ref()
+                    .map(|c| c.morceaux().into_iter().map(|m| m.coins).collect())
+                    .unwrap_or_default()
+            })
+            .collect();
+        let encombrants: Vec<(usize, [(f64, f64); 4])> = self
+            .objets
+            .iter()
+            .zip(&solution.objets)
+            .enumerate()
+            .filter(|(_, (objet, _))| objet.genre.encombre())
+            .map(|(rang, (objet, dimensions))| (rang, objet.coins(*dimensions)))
+            .collect();
+        for (i, &(rang, coins)) in encombrants.iter().enumerate() {
+            for (raison, polygone) in &battants {
+                if crate::mobilier::se_chevauchent(polygone, &coins) {
+                    conflits.push(Conflit {
+                        objet: rang,
+                        raison: *raison,
+                    });
+                }
+            }
+            let dans_la_piece = crate::mobilier::Encombrement {
+                obstacles: Vec::new(),
+                piece: contour.as_deref(),
+            };
+            if contour.is_some() && !dans_la_piece.libre(&coins) {
+                conflits.push(Conflit {
+                    objet: rang,
+                    raison: RaisonDuConflit::Mur,
+                });
+            }
+            for (c, pieces) in morceaux.iter().enumerate() {
+                if pieces
+                    .iter()
+                    .any(|piece| crate::mobilier::se_chevauchent(piece, &coins))
+                {
+                    conflits.push(Conflit {
+                        objet: rang,
+                        raison: RaisonDuConflit::Cloison(c),
+                    });
+                }
+            }
+            for &(autre, coins_de_l_autre) in &encombrants[i + 1..] {
+                if crate::mobilier::se_chevauchent(&coins, &coins_de_l_autre) {
+                    conflits.push(Conflit {
+                        objet: rang,
+                        raison: RaisonDuConflit::Objet(autre),
+                    });
+                }
+            }
+        }
+        conflits
+    }
+}
 /// Les pièces dessinées : toujours au moins une, dont celle qui est à l'écran.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -3817,5 +3999,69 @@ mod tests {
         dessin.effacer();
         assert!(dessin.est_vide());
         assert_eq!(dessin.resoudre(Format::PiPo).etat, Etat::Vide);
+    }
+    #[test]
+    fn une_porte_qui_frappe_un_lit_et_un_lit_qui_traverse_un_mur() {
+        // Une pièce de 12 pi × 10 pi, une porte de 32 po à 1 pi du coin, sur
+        // le mur du haut.
+        let mut dessin = Dessin::default();
+        for (sens, saisie) in [
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ] {
+            dessin.cotes.push(Cote {
+                sens,
+                croquis: 100.0,
+                saisie: saisie.to_string(),
+            });
+        }
+        dessin.fermee = true;
+        dessin.ouvertures.push(Ouverture {
+            largeur: "32 po".to_string(),
+            hauteur: "80 po".to_string(),
+            genre: Some(GenreDOuverture::Porte),
+            cote: Some(0),
+            position: "1".to_string(),
+            ..Ouverture::default()
+        });
+        // Un lit sous le battant, et une table bien à l'écart.
+        dessin.objets = vec![
+            crate::mobilier::Objet::nouveau(crate::mobilier::GenreDObjet::Lit, (40.0, 50.0)),
+            crate::mobilier::Objet::nouveau(crate::mobilier::GenreDObjet::Table, (110.0, 80.0)),
+        ];
+        let solution = dessin.resoudre(Format::PiPo);
+        let battants = dessin.battants_des_portes(&solution);
+        assert_eq!(battants.len(), 1);
+        // Le battant : la charnière à 12 po du coin, 32 po vers l'intérieur.
+        let (raison, polygone) = &battants[0];
+        assert_eq!(*raison, RaisonDuConflit::PorteDuMur(0));
+        assert!(
+            polygone
+                .iter()
+                .any(|p| (p.0 - 12.0).abs() < 1e-9 && (p.1 - 32.0).abs() < 1e-9)
+        );
+        assert_eq!(
+            dessin.conflits(&solution),
+            vec![Conflit {
+                objet: 0,
+                raison: RaisonDuConflit::PorteDuMur(0),
+            }]
+        );
+        // Le lit poussé à travers le mur de gauche, contre la table : deux
+        // conflits de plus.
+        dessin.objets[0].centre = (10.0, 90.0);
+        dessin.objets[1].centre = (40.0, 90.0);
+        let solution = dessin.resoudre(Format::PiPo);
+        let conflits = dessin.conflits(&solution);
+        assert!(conflits.contains(&Conflit {
+            objet: 0,
+            raison: RaisonDuConflit::Mur,
+        }));
+        assert!(conflits.contains(&Conflit {
+            objet: 0,
+            raison: RaisonDuConflit::Objet(1),
+        }));
     }
 }

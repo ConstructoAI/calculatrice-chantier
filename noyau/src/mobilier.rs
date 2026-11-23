@@ -1958,6 +1958,105 @@ pub fn position_libre_proche(
     None
 }
 
+/// Le dégagement d'un côté d'un objet (évolution 23) : la distance libre
+/// devant ce côté, jusqu'au premier mur, cloison ou objet qu'il frapperait en
+/// avançant tout droit; `de` est sur le côté, `a` sur l'obstacle (pouces).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Degagement {
+    pub de: (f64, f64),
+    pub a: (f64, f64),
+    pub distance: f64,
+}
+
+/// Les dégagements des quatre côtés d'un objet, jusqu'aux `obstacles` (des
+/// segments : les faces des murs et des cloisons, les côtés des autres objets)
+/// à `portee` pouces au plus; un côté collé à un obstacle, ou sans obstacle à
+/// portée, n'en a pas.
+pub fn degagements(
+    objet: &Objet,
+    dimensions: (f64, f64),
+    obstacles: &[Face],
+    portee: f64,
+) -> Vec<Degagement> {
+    let coins = objet.coins(dimensions);
+    let centre = objet.centre;
+    let mut resultat = Vec::new();
+    for k in 0..4 {
+        let (a, b) = (coins[k], coins[(k + 1) % 4]);
+        let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+        if longueur < 1e-9 {
+            continue;
+        }
+        let s = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+        // La normale qui s'éloigne du centre de l'objet.
+        let mut n = (-s.1, s.0);
+        if (a.0 - centre.0) * n.0 + (a.1 - centre.1) * n.1 < 0.0 {
+            n = (-n.0, -n.1);
+        }
+        // Chaque obstacle, ramené au repère du côté (le long, devant), et
+        // coupé à la bande que le côté balaie en avançant.
+        let local = |p: (f64, f64)| {
+            let (dx, dy) = (p.0 - a.0, p.1 - a.1);
+            (dx * s.0 + dy * s.1, dx * n.0 + dy * n.1)
+        };
+        let mut plus_pres: Option<(f64, f64)> = None;
+        for &(p, q) in obstacles {
+            let (p, q) = (local(p), local(q));
+            // La bande est un peu plus étroite que le côté : un mur qui ne
+            // touche que son coin (celui contre lequel l'objet est collé) ne
+            // compte pas.
+            let (bord, fin_de_bande) = (
+                0.01_f64.min(longueur / 4.0),
+                longueur - 0.01_f64.min(longueur / 4.0),
+            );
+            let (mut t0, mut t1) = (0.0_f64, 1.0_f64);
+            let d = (q.0 - p.0, q.1 - p.1);
+            if d.0.abs() < 1e-12 {
+                if p.0 < bord || p.0 > fin_de_bande {
+                    continue;
+                }
+            } else {
+                let (ta, tb) = ((bord - p.0) / d.0, (fin_de_bande - p.0) / d.0);
+                t0 = t0.max(ta.min(tb));
+                t1 = t1.min(ta.max(tb));
+                if t0 > t1 {
+                    continue;
+                }
+            }
+            let (e0, e1) = (
+                (p.0 + d.0 * t0, p.1 + d.1 * t0),
+                (p.0 + d.0 * t1, p.1 + d.1 * t1),
+            );
+            // Le point de l'obstacle le plus près, devant le côté; un obstacle
+            // qui traverse le côté n'en laisse aucun.
+            let candidat = if e0.1 < -1e-6 && e1.1 < -1e-6 {
+                continue;
+            } else if e0.1 < -1e-6 || e1.1 < -1e-6 {
+                (0.0, 0.0)
+            } else if e0.1 <= e1.1 {
+                (e0.0, e0.1)
+            } else {
+                (e1.0, e1.1)
+            };
+            if plus_pres.is_none_or(|(_, distance)| candidat.1 < distance) {
+                plus_pres = Some(candidat);
+            }
+        }
+        if let Some((le_long, distance)) = plus_pres
+            && distance > 0.25
+            && distance <= portee
+        {
+            let de = (a.0 + s.0 * le_long, a.1 + s.1 * le_long);
+            resultat.push(Degagement {
+                de,
+                a: (de.0 + n.0 * distance, de.1 + n.1 * distance),
+                distance,
+            });
+        }
+    }
+    resultat
+}
+
 /// Une face de mur ou de cloison : de `a` vers `b`, son côté libre à sa droite.
 pub type Face = ((f64, f64), (f64, f64));
 
@@ -2434,5 +2533,33 @@ mod tests {
         let mut prise = Objet::nouveau(GenreDObjet::Prise, (55.0, 30.0));
         assert!(contre_le_mur(&mut prise, (12.0, 12.0), &faces, 24.0, 1.0));
         assert_eq!((prise.angle_total(), prise.centre), (90.0, (51.5, 30.0)));
+    }
+
+    #[test]
+    fn les_degagements_d_une_table() {
+        // Une table de 36 × 60 au milieu de la salle de 144 × 120.
+        let faces = faces_d_appui(Some(&SALLE), &[]);
+        let table = Objet::nouveau(GenreDObjet::Table, (72.0, 60.0));
+        let mut distances: Vec<f64> = degagements(&table, (36.0, 60.0), &faces, 600.0)
+            .iter()
+            .map(|d| d.distance)
+            .collect();
+        distances.sort_by(f64::total_cmp);
+        // 30 po en haut et en bas, 54 po à gauche et à droite.
+        assert_eq!(distances, vec![30.0, 30.0, 54.0, 54.0]);
+        // Un lit à sa droite : le dégagement de ce côté s'arrête au lit.
+        let lit = Objet::nouveau(GenreDObjet::Lit, (120.0, 60.0));
+        let mut obstacles = faces.clone();
+        let coins = lit.coins((30.0, 80.0));
+        obstacles.extend((0..4).map(|k| (coins[k], coins[(k + 1) % 4])));
+        let a_droite = degagements(&table, (36.0, 60.0), &obstacles, 600.0)
+            .into_iter()
+            .find(|d| d.a.0 > d.de.0 + 1.0)
+            .unwrap();
+        assert!((a_droite.distance - (105.0 - 90.0)).abs() < 1e-9);
+        assert!((a_droite.de.0 - 90.0).abs() < 1e-9 && (a_droite.a.0 - 105.0).abs() < 1e-9);
+        // Collée au mur du haut : pas de dégagement de ce côté.
+        let collee = Objet::nouveau(GenreDObjet::Table, (72.0, 30.0));
+        assert_eq!(degagements(&collee, (36.0, 60.0), &faces, 600.0).len(), 3);
     }
 }

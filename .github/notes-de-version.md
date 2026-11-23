@@ -112,6 +112,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   volumes, liquides, masses, pressions et charges, forces, couples, températures, puissances,
   énergies, débits, vitesses, pentes, valeur R et RSI, éclairement, bois d'œuvre.
 
+- **Dégagements, conflits et outil « Mesurer »** : les distances libres d'un meuble qu'on
+  déplace, une porte qui frappe un meuble en rouge, et la distance entre deux points du plan.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

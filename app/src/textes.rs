@@ -1435,6 +1435,69 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// L'outil « Mesurer » de la planche (évolution 23).
+pub const DESSIN_MESURER: Texte = t("Mesurer", "Measure");
+pub const DESSIN_MESURER_UNE_DISTANCE: Texte = t(
+    "Mesurer une distance sur le plan",
+    "Measure a distance on the plan",
+);
+pub const DESSIN_TOUCHER_DEUX_POINTS: Texte = t(
+    "Touchez deux points pour mesurer",
+    "Tap two points to measure",
+);
+/// Le libellé des conflits du plan, au bilan.
+pub const DESSIN_A_VERIFIER: Texte = t("À vérifier", "Check");
+
+/// Un conflit du plan, en clair (évolution 23) : l'objet gêné (son rang et
+/// son nom) et, pour deux objets qui se chevauchent, l'autre.
+pub fn dessin_conflit(
+    raison: noyau::dessin::RaisonDuConflit,
+    (rang, nom): (usize, &str),
+    (autre, nom_de_l_autre): (usize, &str),
+) -> String {
+    use noyau::dessin::RaisonDuConflit;
+    let n = rang + 1;
+    match (langue::en_cours(), raison) {
+        (Langue::Francais, RaisonDuConflit::PorteDuMur(k)) => {
+            format!(
+                "Le battant de la porte {} frappe l'objet {n} ({nom})",
+                k + 1
+            )
+        }
+        (Langue::Francais, RaisonDuConflit::PorteDeCloison(c, k)) => format!(
+            "Le battant de la porte {} de la cloison {} frappe l'objet {n} ({nom})",
+            k + 1,
+            c + 1
+        ),
+        (Langue::Francais, RaisonDuConflit::Mur) => format!("L'objet {n} ({nom}) traverse un mur"),
+        (Langue::Francais, RaisonDuConflit::Cloison(c)) => {
+            format!("L'objet {n} ({nom}) traverse la cloison {}", c + 1)
+        }
+        (Langue::Francais, RaisonDuConflit::Objet(_)) => format!(
+            "Les objets {n} ({nom}) et {} ({nom_de_l_autre}) se chevauchent",
+            autre + 1
+        ),
+        (Langue::Anglais, RaisonDuConflit::PorteDuMur(k)) => {
+            format!("The swing of door {} hits item {n} ({nom})", k + 1)
+        }
+        (Langue::Anglais, RaisonDuConflit::PorteDeCloison(c, k)) => format!(
+            "The swing of door {} of partition {} hits item {n} ({nom})",
+            k + 1,
+            c + 1
+        ),
+        (Langue::Anglais, RaisonDuConflit::Mur) => format!("Item {n} ({nom}) crosses a wall"),
+        (Langue::Anglais, RaisonDuConflit::Cloison(c)) => {
+            format!("Item {n} ({nom}) crosses partition {}", c + 1)
+        }
+        (Langue::Anglais, RaisonDuConflit::Objet(_)) => {
+            format!(
+                "Items {n} ({nom}) and {} ({nom_de_l_autre}) overlap",
+                autre + 1
+            )
+        }
+    }
+}
+
 /// Le titre de la page de légende d'une pièce, au PDF (point 40).
 pub fn dessin_export_legende(piece: &str) -> String {
     match langue::en_cours() {
