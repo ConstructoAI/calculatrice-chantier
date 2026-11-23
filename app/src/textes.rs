@@ -644,6 +644,38 @@ pub const DESSIN_PLUS_90: Texte = tel("+90°");
 pub const DESSIN_PROFONDEUR: Texte = t("profondeur", "depth");
 
 /// Le nom d'un objet de la pièce.
+/// Le nom d'une forme d'escalier (point 30).
+pub fn forme_d_escalier(forme: noyau::mobilier::FormeDEscalier) -> Texte {
+    use noyau::mobilier::FormeDEscalier;
+    match forme {
+        FormeDEscalier::Droit => t("Droit", "Straight"),
+        FormeDEscalier::EnL => t("En L", "L-shaped"),
+        FormeDEscalier::EnU => t("En U", "U-shaped"),
+        FormeDEscalier::Tournant => t("Quart tournant", "Quarter-turn"),
+        FormeDEscalier::Colimacon => t("Colimaçon", "Spiral"),
+    }
+}
+
+pub const DESSIN_HAUTEUR_A_MONTER: Texte = t("Hauteur à monter", "Rise");
+pub const DESSIN_CONTREMARCHES: Texte = t("Nombre de contremarches", "Number of risers");
+pub const DESSIN_HAUTEUR_COURT: Texte = t("Hauteur", "Rise");
+
+/// « 13 contremarches de 7 3/8 po », sous un escalier.
+pub fn contremarches_en_clair(nombre: usize, contremarche: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{nombre} contremarches de {contremarche}"),
+        Langue::Anglais => format!("{nombre} risers of {contremarche}"),
+    }
+}
+
+/// « giron 10 po », le giron d'un escalier droit.
+pub fn giron_en_clair(giron: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("giron {giron}"),
+        Langue::Anglais => format!("tread {giron}"),
+    }
+}
+
 pub fn objet(genre: noyau::mobilier::GenreDObjet) -> Texte {
     use noyau::mobilier::GenreDObjet;
     match genre {

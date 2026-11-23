@@ -32,6 +32,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **0.12.5** : les **mesures des cloisons** se modifient comme celles des murs — touchez une
   cloison sur le plan : le pavé s'ouvre sur la longueur du segment touché, et **Suivant** passe
   au segment suivant.
+- **0.12.6** : **plusieurs formes d'escalier** — droit, en L, en U, quart tournant ou en
+  colimaçon, avec sa hauteur à monter : ses contremarches se calculent (« 13 contremarches de
+  7 3/8 po ») et le giron d'un escalier droit en découle; le plan, le PDF, le DXF et la 3D
+  suivent sa forme.
 
 ## Nouveautés de la version 0.11
 

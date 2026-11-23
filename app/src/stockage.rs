@@ -980,6 +980,26 @@ mod tests {
         assert_eq!(lu(&d).0, Plan::default());
         fs::write(d.0.join("dessin.json"), "pas du json").unwrap();
         assert_eq!(lu(&d).0, Plan::default());
+        // Un escalier d'avant les formes (version 0.12.5) se lit comme un
+        // escalier droit, à la hauteur des murs.
+        let mut avec_escalier = un_rectangle();
+        avec_escalier.objets.push(noyau::mobilier::Objet::nouveau(
+            noyau::mobilier::GenreDObjet::Escalier,
+            (30.0, 40.0),
+        ));
+        let texte = serde_json::to_string(&avec_escalier).unwrap().replace(
+            ",\"forme\":\"Droit\",\"hauteur\":\"\",\"contremarches\":\"\"",
+            "",
+        );
+        assert!(!texte.contains("forme"), "{texte}");
+        fs::write(
+            d.0.join("dessin.json"),
+            format!("{{ \"version\": 1, \"dessin\": {texte} }}"),
+        )
+        .unwrap();
+        let escalier = &lu(&d).0.pieces[0].dessin.objets[0];
+        assert_eq!(escalier.forme, noyau::mobilier::FormeDEscalier::Droit);
+        assert!(escalier.hauteur.is_empty() && escalier.contremarches.is_empty());
     }
 
     #[test]

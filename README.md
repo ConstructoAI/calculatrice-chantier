@@ -142,6 +142,8 @@ pièce **en 3D** (bouton **3D**; glissez pour tourner), puis inscrivez le tout a
 outil (dalle, pavés, excavation…), qui s'ouvre avec ses mesures. Les boutons `+` et `−`
 zooment; **Exporter en PDF** et **Exporter en DXF** enregistrent le plan (le DXF s'ouvre
 dans AutoCAD, LibreCAD ou QCAD, à l'échelle réelle). Les meubles ne se superposent pas.
+L'escalier se choisit droit, en L, en U, quart tournant ou en colimaçon, avec sa hauteur à
+monter : ses contremarches et son giron se calculent.
 **Mes dessins** garde plusieurs dessins, chacun avec ses pièces; **Enregistrer le fichier** en
 fait un fichier que **Ouvrir un fichier…** rouvre sur un autre appareil, du téléphone à
 l'ordinateur ou l'inverse.

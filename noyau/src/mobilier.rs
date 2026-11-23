@@ -332,6 +332,16 @@ pub struct Objet {
     /// (par pas de 15°).
     #[serde(default)]
     pub angle: f64,
+    /// La forme d'un escalier (point 30); sans objet pour un meuble.
+    #[serde(default)]
+    pub forme: FormeDEscalier,
+    /// La hauteur à monter d'un escalier, telle qu'inscrite; vide : celle des murs.
+    #[serde(default)]
+    pub hauteur: String,
+    /// Le nombre de contremarches d'un escalier, tel qu'inscrit; vide : calculé
+    /// pour des contremarches d'au plus 7 1/2 po.
+    #[serde(default)]
+    pub contremarches: String,
 }
 
 impl Objet {
@@ -344,6 +354,20 @@ impl Objet {
             profondeur: String::new(),
             rotation: 0,
             angle: 0.0,
+            forme: FormeDEscalier::Droit,
+            hauteur: String::new(),
+            contremarches: String::new(),
+        }
+    }
+
+    /// Sa largeur et sa profondeur de départ, en pouces : celles de son genre,
+    /// ou, pour un escalier, celles de sa forme.
+    pub fn dimensions_de_depart(&self) -> (f64, f64) {
+        if self.genre == GenreDObjet::Escalier {
+            self.forme.dimensions()
+        } else {
+            let (largeur, profondeur, _) = self.genre.dimensions();
+            (largeur, profondeur)
         }
     }
 
@@ -388,14 +412,33 @@ impl Objet {
             .map(|coin| self.vers_le_plan(coin, dimensions))
     }
 
-    /// Son contour et son symbole, sur le plan.
-    pub fn traits_sur_le_plan(&self, dimensions: (f64, f64)) -> Vec<TraitSurLePlan> {
+    /// Son contour et son symbole, sur le plan. `contremarches` : celles d'un
+    /// escalier calculé (sinon, une marche par 10 po de profondeur).
+    pub fn traits_sur_le_plan(
+        &self,
+        dimensions: (f64, f64),
+        contremarches: Option<usize>,
+    ) -> Vec<TraitSurLePlan> {
         let coins = self.coins(dimensions);
-        let mut traits: Vec<TraitSurLePlan> = (0..4)
-            .map(|k| TraitSurLePlan::Ligne(coins[k], coins[(k + 1) % 4]))
-            .collect();
+        let escalier = self.genre == GenreDObjet::Escalier;
+        // Un colimaçon n'a pas de contour carré : son cercle en tient lieu.
+        let mut traits: Vec<TraitSurLePlan> = if escalier && self.forme == FormeDEscalier::Colimacon
+        {
+            Vec::new()
+        } else {
+            (0..4)
+                .map(|k| TraitSurLePlan::Ligne(coins[k], coins[(k + 1) % 4]))
+                .collect()
+        };
         let plus_petit = dimensions.0.min(dimensions.1);
-        for trait_ in self.genre.symbole(dimensions.1) {
+        let symbole = if escalier {
+            let marches =
+                contremarches.unwrap_or(((dimensions.1 / 10.0).round().clamp(3.0, 20.0)) as usize);
+            symbole_d_escalier(self.forme, dimensions, marches)
+        } else {
+            self.genre.symbole(dimensions.1)
+        };
+        for trait_ in symbole {
             match trait_ {
                 Trait::Ligne(a, b) => traits.push(TraitSurLePlan::Ligne(
                     self.vers_le_plan(a, dimensions),
@@ -427,6 +470,361 @@ impl Objet {
             })
             .collect();
         signes.iter().all(|s| *s >= 0.0) || signes.iter().all(|s| *s <= 0.0)
+    }
+}
+
+// ----------------------------------------------------------------------
+// Escaliers (point 30, R-101) : forme, calcul des contremarches, symbole et
+// marches en 3D, dans le rectangle de l'escalier (u, v de 0 à 1; le bas en
+// v = 1, la montée vers v = 0).
+// ----------------------------------------------------------------------
+
+/// La forme d'un escalier.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum FormeDEscalier {
+    #[default]
+    Droit,
+    /// En L : deux volées et un palier dans le coin.
+    EnL,
+    /// En U : deux volées côte à côte et un palier qui les relie.
+    EnU,
+    /// Quart tournant : deux volées et deux marches dansantes dans le coin.
+    Tournant,
+    /// Colimaçon : des marches en éventail autour d'un poteau.
+    Colimacon,
+}
+
+impl FormeDEscalier {
+    /// Toutes les formes, dans l'ordre du choix.
+    pub const TOUTES: [FormeDEscalier; 5] = [
+        FormeDEscalier::Droit,
+        FormeDEscalier::EnL,
+        FormeDEscalier::EnU,
+        FormeDEscalier::Tournant,
+        FormeDEscalier::Colimacon,
+    ];
+
+    /// Largeur et profondeur de départ de son emprise, en pouces.
+    pub fn dimensions(self) -> (f64, f64) {
+        match self {
+            FormeDEscalier::Droit => (36.0, 120.0),
+            FormeDEscalier::EnL | FormeDEscalier::Tournant => (72.0, 96.0),
+            FormeDEscalier::EnU => (84.0, 84.0),
+            FormeDEscalier::Colimacon => (60.0, 60.0),
+        }
+    }
+}
+
+/// Contremarche visée d'un escalier du dessin, en pouces : la valeur de départ
+/// du calcul d'escalier (section 13.4). Ce n'est pas une norme.
+pub const CONTREMARCHE_VISEE: f64 = 7.5;
+/// Largeur d'une volée d'un escalier en L, en U ou tournant, en pouces.
+pub const LARGEUR_DE_VOLEE: f64 = 36.0;
+/// Nombre de contremarches permis.
+const CONTREMARCHES_PERMISES: std::ops::RangeInclusive<usize> = 3..=40;
+
+/// Un escalier calculé.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EscalierCalcule {
+    /// La hauteur à monter, en pouces.
+    pub hauteur: f64,
+    pub contremarches: usize,
+    /// La hauteur d'une contremarche, en pouces.
+    pub contremarche: f64,
+    /// Le giron d'un escalier droit : sa profondeur partagée entre ses marches.
+    pub giron: Option<f64>,
+}
+
+/// Calcule un escalier : `contremarches` inscrites, ou le plus petit nombre
+/// qui donne des contremarches d'au plus 7 1/2 po. Rien si la hauteur n'en
+/// est pas une.
+pub fn calculer_l_escalier(
+    forme: FormeDEscalier,
+    (_, profondeur): (f64, f64),
+    hauteur: f64,
+    contremarches: Option<usize>,
+) -> Option<EscalierCalcule> {
+    if !(hauteur.is_finite() && hauteur > 0.0) {
+        return None;
+    }
+    let calcule = (hauteur / CONTREMARCHE_VISEE - 1e-9).ceil() as usize;
+    let n = contremarches
+        .filter(|n| CONTREMARCHES_PERMISES.contains(n))
+        .unwrap_or(calcule.clamp(
+            *CONTREMARCHES_PERMISES.start(),
+            *CONTREMARCHES_PERMISES.end(),
+        ));
+    Some(EscalierCalcule {
+        hauteur,
+        contremarches: n,
+        contremarche: hauteur / n as f64,
+        // Un escalier droit a n − 1 marches sur sa profondeur.
+        giron: (forme == FormeDEscalier::Droit).then(|| profondeur / (n - 1) as f64),
+    })
+}
+
+/// La largeur d'une volée, en part de la largeur et de la profondeur de
+/// l'escalier (`volees` côte à côte dans la largeur).
+fn parts_de_volee((largeur, profondeur): (f64, f64), volees: f64) -> (f64, f64) {
+    let volee = LARGEUR_DE_VOLEE
+        .min(largeur / volees)
+        .min(profondeur)
+        .max(1.0);
+    (volee / largeur.max(1.0), volee / profondeur.max(1.0))
+}
+
+/// Le nombre de marches de chaque volée : (première, seconde), sur `marches`
+/// marches au total.
+fn partager(marches: usize) -> (usize, usize) {
+    let premiere = marches.div_ceil(2);
+    (premiere, marches - premiere)
+}
+
+/// Un point d'un colimaçon : à `r` (part du rayon) et `angle` (radians) du centre.
+fn point_du_colimacon((largeur, profondeur): (f64, f64), r: f64, angle: f64) -> (f64, f64) {
+    let rayon = largeur.min(profondeur) / 2.0;
+    (
+        0.5 + r * rayon / largeur.max(1.0) * angle.cos(),
+        0.5 + r * rayon / profondeur.max(1.0) * angle.sin(),
+    )
+}
+
+/// L'angle de la k-ième marche d'un colimaçon de `marches` marches : elles
+/// font 330° en tout, à partir du bas du cercle, dans le sens horaire.
+fn angle_du_colimacon(k: usize, marches: usize) -> f64 {
+    (90.0 - 330.0 * k as f64 / marches.max(1) as f64).to_radians()
+}
+
+/// Le symbole d'un escalier de `contremarches` contremarches : ses marches,
+/// ses paliers et la flèche qui monte.
+pub fn symbole_d_escalier(
+    forme: FormeDEscalier,
+    dimensions: (f64, f64),
+    contremarches: usize,
+) -> Vec<Trait> {
+    use Trait::Ligne;
+    let n = contremarches.max(2);
+    let fleche = |traits: &mut Vec<Trait>, points: &[(f64, f64)]| {
+        for paire in points.windows(2) {
+            traits.push(Ligne(paire[0], paire[1]));
+        }
+        // La pointe, dans le sens du dernier trait.
+        if let [.., a, b] = points {
+            let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+            let longueur = dx.hypot(dy).max(1e-9);
+            let (ux, uy) = (dx / longueur * 0.07, dy / longueur * 0.07);
+            traits.push(Ligne(*b, (b.0 - ux - uy * 0.8, b.1 - uy + ux * 0.8)));
+            traits.push(Ligne(*b, (b.0 - ux + uy * 0.8, b.1 - uy - ux * 0.8)));
+        }
+    };
+    let mut traits = Vec::new();
+    match forme {
+        FormeDEscalier::Droit => {
+            for k in 1..n {
+                let v = k as f64 / n as f64;
+                traits.push(Ligne((0.0, v), (1.0, v)));
+            }
+            fleche(&mut traits, &[(0.5, 0.94), (0.5, 0.06)]);
+        }
+        FormeDEscalier::EnL | FormeDEscalier::Tournant => {
+            let (su, sv) = parts_de_volee(dimensions, 1.0);
+            let dansantes = if forme == FormeDEscalier::Tournant {
+                2
+            } else {
+                1
+            };
+            let (t1, t2) = partager(n.saturating_sub(1 + dansantes).max(2));
+            for k in 1..t1 {
+                let v = 1.0 - (1.0 - sv) * k as f64 / t1 as f64;
+                traits.push(Ligne((0.0, v), (su, v)));
+            }
+            for k in 1..t2 {
+                let u = su + (1.0 - su) * k as f64 / t2 as f64;
+                traits.push(Ligne((u, 0.0), (u, sv)));
+            }
+            // Le coin : un palier, ou deux marches dansantes.
+            traits.push(Ligne((0.0, sv), (su, sv)));
+            traits.push(Ligne((su, 0.0), (su, sv)));
+            if forme == FormeDEscalier::Tournant {
+                traits.push(Ligne((0.0, 0.0), (su, sv)));
+            }
+            traits.push(Ligne((su, sv), (su, 1.0)));
+            traits.push(Ligne((su, sv), (1.0, sv)));
+            fleche(
+                &mut traits,
+                &[(su / 2.0, 0.95), (su / 2.0, sv / 2.0), (0.96, sv / 2.0)],
+            );
+        }
+        FormeDEscalier::EnU => {
+            let (su, sv) = parts_de_volee(dimensions, 2.0);
+            let (t1, t2) = partager(n.saturating_sub(2).max(2));
+            for k in 1..t1 {
+                let v = 1.0 - (1.0 - sv) * k as f64 / t1 as f64;
+                traits.push(Ligne((0.0, v), (su, v)));
+            }
+            for k in 1..t2 {
+                let v = sv + (1.0 - sv) * k as f64 / t2 as f64;
+                traits.push(Ligne((1.0 - su, v), (1.0, v)));
+            }
+            traits.push(Ligne((0.0, sv), (su, sv)));
+            traits.push(Ligne((1.0 - su, sv), (1.0, sv)));
+            traits.push(Ligne((su, sv), (su, 1.0)));
+            traits.push(Ligne((1.0 - su, sv), (1.0 - su, 1.0)));
+            fleche(
+                &mut traits,
+                &[
+                    (su / 2.0, 0.95),
+                    (su / 2.0, sv / 2.0),
+                    (1.0 - su / 2.0, sv / 2.0),
+                    (1.0 - su / 2.0, 0.95),
+                ],
+            );
+        }
+        FormeDEscalier::Colimacon => {
+            let marches = n - 1;
+            traits.push(Trait::Cercle((0.5, 0.5), 0.5));
+            traits.push(Trait::Cercle((0.5, 0.5), 0.08));
+            for k in 0..=marches {
+                let angle = angle_du_colimacon(k, marches);
+                traits.push(Ligne(
+                    point_du_colimacon(dimensions, 0.16, angle),
+                    point_du_colimacon(dimensions, 1.0, angle),
+                ));
+            }
+            // La flèche suit le cercle, à mi-rayon.
+            let arc: Vec<(f64, f64)> = (0..=10)
+                .map(|k| {
+                    let angle = angle_du_colimacon(k * marches / 10, marches);
+                    point_du_colimacon(dimensions, 0.58, angle)
+                })
+                .collect();
+            fleche(&mut traits, &arc);
+        }
+    }
+    traits
+}
+
+/// Une marche (ou un palier) en 3D : ses quatre coins sur le plan, son bas et
+/// son haut (pouces), et vrai si sa face avant est cachée par la suivante.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MarcheEn3d {
+    pub coins: [(f64, f64); 4],
+    pub bas: f64,
+    pub haut: f64,
+    pub sans_l_avant: bool,
+}
+
+impl Objet {
+    /// Les marches et les paliers d'un escalier, en blocs, du bas vers le haut.
+    pub fn marches_en_3d(
+        &self,
+        dimensions: (f64, f64),
+        calcul: &EscalierCalcule,
+    ) -> Vec<MarcheEn3d> {
+        let n = calcul.contremarches.max(2);
+        let r = calcul.hauteur / n as f64;
+        let rectangle = |(u0, u1): (f64, f64), (v0, v1): (f64, f64)| {
+            [(u0, v0), (u1, v0), (u1, v1), (u0, v1)].map(|c| self.vers_le_plan(c, dimensions))
+        };
+        let quad = |points: [(f64, f64); 4]| points.map(|c| self.vers_le_plan(c, dimensions));
+        let marche = |coins, niveau: usize, sans_l_avant| MarcheEn3d {
+            coins,
+            bas: 0.0,
+            haut: r * niveau as f64,
+            sans_l_avant,
+        };
+        let mut marches = Vec::new();
+        match self.forme {
+            FormeDEscalier::Droit => {
+                for k in 0..n {
+                    let v0 = 1.0 - (k + 1) as f64 / n as f64;
+                    let v1 = 1.0 - k as f64 / n as f64;
+                    marches.push(marche(rectangle((0.0, 1.0), (v0, v1)), k + 1, k + 1 < n));
+                }
+            }
+            FormeDEscalier::EnL | FormeDEscalier::Tournant => {
+                let (su, sv) = parts_de_volee(dimensions, 1.0);
+                let tournant = self.forme == FormeDEscalier::Tournant;
+                let dansantes = if tournant { 2 } else { 1 };
+                let (t1, t2) = partager(n.saturating_sub(1 + dansantes).max(2));
+                for k in 0..t1 {
+                    let v0 = 1.0 - (1.0 - sv) * (k + 1) as f64 / t1 as f64;
+                    let v1 = 1.0 - (1.0 - sv) * k as f64 / t1 as f64;
+                    marches.push(marche(rectangle((0.0, su), (v0, v1)), k + 1, false));
+                }
+                if tournant {
+                    // Deux marches dansantes, de part et d'autre de la diagonale du
+                    // coin (un triangle, avec un quatrième point sur la diagonale).
+                    let milieu = (su / 2.0, sv / 2.0);
+                    marches.push(marche(
+                        quad([(0.0, sv), (0.0, 0.0), milieu, (su, sv)]),
+                        t1 + 1,
+                        false,
+                    ));
+                    marches.push(marche(
+                        quad([(0.0, 0.0), (su, 0.0), (su, sv), milieu]),
+                        t1 + 2,
+                        false,
+                    ));
+                } else {
+                    marches.push(marche(rectangle((0.0, su), (0.0, sv)), t1 + 1, false));
+                }
+                for k in 0..t2 {
+                    let u0 = su + (1.0 - su) * k as f64 / t2 as f64;
+                    let u1 = su + (1.0 - su) * (k + 1) as f64 / t2 as f64;
+                    marches.push(marche(
+                        rectangle((u0, u1), (0.0, sv)),
+                        t1 + dansantes + k + 1,
+                        false,
+                    ));
+                }
+            }
+            FormeDEscalier::EnU => {
+                let (su, sv) = parts_de_volee(dimensions, 2.0);
+                let (t1, t2) = partager(n.saturating_sub(2).max(2));
+                for k in 0..t1 {
+                    let v0 = 1.0 - (1.0 - sv) * (k + 1) as f64 / t1 as f64;
+                    let v1 = 1.0 - (1.0 - sv) * k as f64 / t1 as f64;
+                    marches.push(marche(rectangle((0.0, su), (v0, v1)), k + 1, false));
+                }
+                marches.push(marche(rectangle((0.0, 1.0), (0.0, sv)), t1 + 1, false));
+                for k in 0..t2 {
+                    let v0 = sv + (1.0 - sv) * k as f64 / t2 as f64;
+                    let v1 = sv + (1.0 - sv) * (k + 1) as f64 / t2 as f64;
+                    marches.push(marche(
+                        rectangle((1.0 - su, 1.0), (v0, v1)),
+                        t1 + 2 + k,
+                        false,
+                    ));
+                }
+            }
+            FormeDEscalier::Colimacon => {
+                let tours = n - 1;
+                for k in 0..tours {
+                    let (a0, a1) = (
+                        angle_du_colimacon(k, tours),
+                        angle_du_colimacon(k + 1, tours),
+                    );
+                    let coins = quad([
+                        point_du_colimacon(dimensions, 0.08, a0),
+                        point_du_colimacon(dimensions, 1.0, a0),
+                        point_du_colimacon(dimensions, 1.0, a1),
+                        point_du_colimacon(dimensions, 0.08, a1),
+                    ]);
+                    marches.push(marche(coins, k + 1, false));
+                }
+                // Le poteau, jusqu'en haut.
+                let (pu, pv) = parts_de_volee(dimensions, 1.0);
+                let poteau = (pu.min(pv) * 0.12).max(0.01);
+                marches.push(MarcheEn3d {
+                    coins: rectangle((0.5 - poteau, 0.5 + poteau), (0.5 - poteau, 0.5 + poteau)),
+                    bas: 0.0,
+                    haut: calcul.hauteur,
+                    sans_l_avant: false,
+                });
+            }
+        }
+        marches
     }
 }
 
@@ -722,7 +1120,10 @@ mod tests {
         assert_eq!(traits.len(), 11 + 3);
         let escalier = Objet::nouveau(GenreDObjet::Escalier, (0.0, 0.0));
         // Le contour (4 traits) et le symbole.
-        assert_eq!(escalier.traits_sur_le_plan((36.0, 120.0)).len(), 4 + 14);
+        assert_eq!(
+            escalier.traits_sur_le_plan((36.0, 120.0), None).len(),
+            4 + 14
+        );
         // Chaque genre a des dimensions et un symbole.
         for genre in GenreDObjet::TOUS {
             let (largeur, profondeur, hauteur) = genre.dimensions();
@@ -852,5 +1253,67 @@ mod tests {
         );
         // Sans place assez proche : rien.
         assert!(position_libre_proche(&table, dimensions, &encombrement, 1.0, 3.0).is_none());
+    }
+
+    #[test]
+    fn le_calcul_d_un_escalier() {
+        // 8 pi 10 po à monter : 15 contremarches de 7 1/15 po (106 / 15).
+        let droit = calculer_l_escalier(FormeDEscalier::Droit, (36.0, 140.0), 106.0, None).unwrap();
+        assert_eq!(droit.contremarches, 15);
+        assert!((droit.contremarche - 106.0 / 15.0).abs() < 1e-9);
+        // 14 marches sur 140 po : un giron de 10 po.
+        assert!((droit.giron.unwrap() - 10.0).abs() < 1e-9);
+        // Une hauteur juste divisible ne prend pas de contremarche de trop.
+        let juste = calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 90.0, None).unwrap();
+        assert_eq!(juste.contremarches, 12);
+        // Le nombre inscrit l'emporte; un nombre déraisonnable est ignoré.
+        let inscrit =
+            calculer_l_escalier(FormeDEscalier::EnL, (72.0, 96.0), 96.0, Some(14)).unwrap();
+        assert_eq!((inscrit.contremarches, inscrit.giron), (14, None));
+        let ignore =
+            calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 96.0, Some(500)).unwrap();
+        assert_eq!(ignore.contremarches, 13);
+        assert!(calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 0.0, None).is_none());
+    }
+
+    #[test]
+    fn chaque_forme_d_escalier_a_son_symbole_et_ses_marches() {
+        for forme in FormeDEscalier::TOUTES {
+            let mut escalier = Objet::nouveau(GenreDObjet::Escalier, (100.0, 100.0));
+            escalier.forme = forme;
+            let dimensions = escalier.dimensions_de_depart();
+            assert_eq!(dimensions, forme.dimensions());
+            let calcul = calculer_l_escalier(forme, dimensions, 96.0, None).unwrap();
+            let traits = escalier.traits_sur_le_plan(dimensions, Some(calcul.contremarches));
+            assert!(traits.len() >= 8, "{forme:?} : {} traits", traits.len());
+            let marches = escalier.marches_en_3d(dimensions, &calcul);
+            // Chaque bloc a des côtés de longueur non nulle, et le plus haut
+            // atteint presque la hauteur à monter.
+            for marche in &marches {
+                for k in 0..4 {
+                    let (a, b) = (marche.coins[k], marche.coins[(k + 1) % 4]);
+                    assert!((a.0 - b.0).hypot(a.1 - b.1) > 1e-6, "{forme:?}");
+                }
+            }
+            let plus_haut = marches.iter().map(|m| m.haut).fold(0.0, f64::max);
+            assert!(
+                plus_haut >= 96.0 * 12.0 / 13.0 - 1e-9,
+                "{forme:?} : {plus_haut}"
+            );
+            // Les marches restent dans l'emprise de l'escalier.
+            for marche in &marches {
+                for (x, y) in marche.coins {
+                    assert!((x - 100.0).abs() <= dimensions.0 / 2.0 + 1e-6, "{forme:?}");
+                    assert!((y - 100.0).abs() <= dimensions.1 / 2.0 + 1e-6, "{forme:?}");
+                }
+            }
+        }
+        // Le droit : une marche par contremarche; le colimaçon : son poteau en plus.
+        let droit = Objet::nouveau(GenreDObjet::Escalier, (0.0, 0.0));
+        let calcul = calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 96.0, None).unwrap();
+        assert_eq!(droit.marches_en_3d((36.0, 120.0), &calcul).len(), 13);
+        let mut colimacon = droit.clone();
+        colimacon.forme = FormeDEscalier::Colimacon;
+        assert_eq!(colimacon.marches_en_3d((60.0, 60.0), &calcul).len(), 12 + 1);
     }
 }

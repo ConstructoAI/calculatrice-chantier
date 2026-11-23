@@ -201,29 +201,29 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
     // Les objets : chacun en ses parties; l'escalier, une marche par bloc, de
     // la flèche jusqu'au haut des murs.
     let mut blocs = Vec::new();
-    for (objet, &dimensions) in dessin.objets.iter().zip(&solution.objets) {
+    for (rang, (objet, &dimensions)) in dessin.objets.iter().zip(&solution.objets).enumerate() {
         let coins = |u: (f64, f64), v: (f64, f64)| {
             [(u.0, v.0), (u.1, v.0), (u.1, v.1), (u.0, v.1)]
                 .map(|coin| objet.vers_le_plan(coin, dimensions))
         };
         if objet.genre == GenreDObjet::Escalier {
+            // Ses marches et ses paliers, selon sa forme et son calcul (R-101).
             let genre = GenreDeFace::Meuble(Matiere::Bois);
-            let marches = (dimensions.1 / 10.0).round().clamp(3.0, 20.0) as usize;
-            for k in 0..marches {
-                let v0 = 1.0 - (k + 1) as f64 / marches as f64;
-                let v1 = 1.0 - k as f64 / marches as f64;
-                let haut = hauteur * (k + 1) as f64 / marches as f64;
-                // Le devant d'une marche est caché par la suivante, plus haute.
-                let cache = k + 1 < marches;
-                let coins = coins((0.0, 1.0), (v0, v1));
+            let calcul = solution.escaliers.get(rang).copied().flatten().or_else(|| {
+                crate::mobilier::calculer_l_escalier(objet.forme, dimensions, hauteur, None)
+            });
+            for marche in calcul
+                .map(|calcul| objet.marches_en_3d(dimensions, &calcul))
+                .unwrap_or_default()
+            {
                 bloc(
                     &mut faces,
                     &mut aretes,
                     &mut blocs,
-                    coins,
-                    (0.0, haut),
+                    marche.coins,
+                    (marche.bas, marche.haut),
                     genre,
-                    cache,
+                    marche.sans_l_avant,
                 );
             }
         } else {
@@ -585,8 +585,13 @@ mod tests {
         ];
         let solution = dessin.resoudre(Format::PiPo);
         let maquette = maquette(&dessin, &solution).unwrap();
-        // Le lit en ses parties, et l'escalier de 10 pi en 12 marches.
-        assert_eq!(maquette.blocs.len(), GenreDObjet::Lit.volumes().len() + 12);
+        // Le lit en ses parties, et l'escalier : 8 pi à monter (la hauteur par
+        // défaut des murs), soit 13 contremarches de 7 3/8 po.
+        assert_eq!(maquette.blocs.len(), GenreDObjet::Lit.volumes().len() + 13);
+        let calcul = solution.escaliers[1].unwrap();
+        assert_eq!(calcul.contremarches, 13);
+        assert!((calcul.contremarche - 96.0 / 13.0).abs() < 1e-9);
+        assert!(maquette.blocs.iter().any(|b| (b.haut - 96.0).abs() < 1e-9));
         let faces = &maquette.faces;
         let dessus = |matiere: Matiere| -> Vec<&Face> {
             faces
@@ -611,7 +616,7 @@ mod tests {
         assert!((tete - 40.0).abs() < 1e-9);
         // Les marches montent jusqu'au haut des murs (8 pi).
         let marches = dessus(Matiere::Bois);
-        assert_eq!(marches.len(), 12);
+        assert_eq!(marches.len(), 13);
         let plus_haut = marches
             .iter()
             .flat_map(|f| f.sommets.iter().map(|s| s[1]))

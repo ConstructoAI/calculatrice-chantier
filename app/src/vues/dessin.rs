@@ -12,7 +12,7 @@ use noyau::dessin::{
 };
 use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, MorceauDeMur};
 use noyau::metiers::Quantite;
-use noyau::mobilier::{self, Encombrement, GenreDObjet, Objet, TraitSurLePlan};
+use noyau::mobilier::{self, Encombrement, FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan};
 use noyau::prefs::Preferences;
 use noyau::unites::Format;
 
@@ -194,14 +194,24 @@ enum AutreSaisie {
     Hauteur,
     /// Une mesure d'une ouverture : son rang, et laquelle.
     Ouverture(usize, ChampDOuverture),
-    /// Une dimension d'un objet : son rang, et vrai pour sa profondeur.
-    Objet(usize, bool),
+    /// Une mesure d'un objet : son rang, et laquelle.
+    Objet(usize, ChampDObjet),
     /// Une mesure d'une cloison ou de sa porte : son rang, et laquelle.
     Cloison(usize, ChampDeCloison),
     /// L'épaisseur des murs extérieurs de la pièce.
     EpaisseurDesMurs,
     /// L'épaisseur des cloisons de la pièce.
     EpaisseurDesCloisons,
+}
+
+/// Une mesure d'un objet : ses dimensions, et pour un escalier sa hauteur à
+/// monter et son nombre de contremarches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChampDObjet {
+    Largeur,
+    Profondeur,
+    Hauteur,
+    Contremarches,
 }
 
 /// Une mesure d'une porte ou d'une fenêtre.
@@ -589,6 +599,24 @@ fn encombrement<'a>(
     Encombrement {
         obstacles,
         piece: contour,
+    }
+}
+
+/// Met l'objet de rang `rang` à la place libre la plus proche (à 10 pi au plus);
+/// s'il n'y en a pas, au moins dans la pièce, même contre un autre objet (R-98).
+fn placer_au_mieux(dessin: &mut Dessin, solution: &Solution, rang: usize, dimensions: (f64, f64)) {
+    let contour = dessin.contour_interieur(solution);
+    let pas = pas_des_objets(solution);
+    let encombre = encombrement(dessin, solution, rang, contour.as_deref());
+    let dans_la_piece = Encombrement {
+        obstacles: Vec::new(),
+        piece: contour.as_deref(),
+    };
+    let objet = &dessin.objets[rang];
+    let place = mobilier::position_libre_proche(objet, dimensions, &encombre, pas, 120.0)
+        .or_else(|| mobilier::position_libre_proche(objet, dimensions, &dans_la_piece, pas, 240.0));
+    if let Some(place) = place {
+        dessin.objets[rang].centre = place;
     }
 }
 
@@ -1716,18 +1744,8 @@ fn planche_et_gestes(
             .objets
             .push(Objet::nouveau(genre, (x.round(), y.round())));
         let rang = dessin.objets.len() - 1;
-        let (largeur, profondeur, _) = genre.dimensions();
-        let contour = dessin.contour_interieur(solution);
-        let encombre = encombrement(dessin, solution, rang, contour.as_deref());
-        if let Some(place) = mobilier::position_libre_proche(
-            &dessin.objets[rang],
-            (largeur, profondeur),
-            &encombre,
-            pas_des_objets(solution),
-            120.0,
-        ) {
-            dessin.objets[rang].centre = place;
-        }
+        let dimensions = dessin.objets[rang].dimensions_de_depart();
+        placer_au_mieux(dessin, solution, rang, dimensions);
         etat.objet_a_placer = None;
         etat.objet_choisi = Some(rang);
         modifie = true;
@@ -1857,7 +1875,13 @@ fn planche_et_gestes(
                 theme::melanger(p.carte, p.texte, 0.06),
                 Stroke::NONE,
             ));
-            for trait_ in objet.traits_sur_le_plan(dimensions) {
+            let contremarches = solution
+                .escaliers
+                .get(rang)
+                .copied()
+                .flatten()
+                .map(|calcul| calcul.contremarches);
+            for trait_ in objet.traits_sur_le_plan(dimensions, contremarches) {
                 match trait_ {
                     TraitSurLePlan::Ligne(a, b) => {
                         painter.line_segment(
@@ -2700,24 +2724,53 @@ fn autre_mesure(
                 ensuite.map(|champ| AutreSaisie::Ouverture(rang, champ)),
             )
         }
-        AutreSaisie::Objet(rang, en_profondeur) => {
+        AutreSaisie::Objet(rang, champ) => {
+            // Les indices : la dimension de départ, la hauteur des murs, le
+            // nombre de contremarches calculé.
+            let calcul = dessin.resoudre(FORMAT_PAR_DEFAUT);
+            let escalier = calcul.escaliers.get(rang).copied().flatten();
+            let des_murs = calcul
+                .hauteur
+                .unwrap_or(noyau::maquette::HAUTEUR_PAR_DEFAUT);
             let Some(objet) = dessin.objets.get_mut(rang) else {
                 return false;
             };
             let nom = textes::objet(objet.genre).traduit();
-            let (largeur, profondeur, _) = objet.genre.dimensions();
-            let (saisie, dimension, depart) = if en_profondeur {
-                (&mut objet.profondeur, textes::DESSIN_PROFONDEUR, profondeur)
-            } else {
-                (&mut objet.largeur, textes::DESSIN_LARGEUR, largeur)
+            let est_un_escalier = objet.genre == GenreDObjet::Escalier;
+            let (largeur, profondeur) = objet.dimensions_de_depart();
+            let en_clair =
+                |pouces: f64| sans_insecables(&Quantite::Longueur(pouces).en_clair(None, prefs));
+            let (saisie, dimension, indice, ensuite) = match champ {
+                ChampDObjet::Largeur => (
+                    &mut objet.largeur,
+                    textes::DESSIN_LARGEUR,
+                    en_clair(largeur),
+                    Some(AutreSaisie::Objet(rang, ChampDObjet::Profondeur)),
+                ),
+                ChampDObjet::Profondeur => (
+                    &mut objet.profondeur,
+                    textes::DESSIN_PROFONDEUR,
+                    en_clair(profondeur),
+                    est_un_escalier.then_some(AutreSaisie::Objet(rang, ChampDObjet::Hauteur)),
+                ),
+                ChampDObjet::Hauteur => (
+                    &mut objet.hauteur,
+                    textes::DESSIN_HAUTEUR_A_MONTER,
+                    en_clair(des_murs),
+                    Some(AutreSaisie::Objet(rang, ChampDObjet::Contremarches)),
+                ),
+                ChampDObjet::Contremarches => (
+                    &mut objet.contremarches,
+                    textes::DESSIN_CONTREMARCHES,
+                    escalier.map_or(String::new(), |e| e.contremarches.to_string()),
+                    None,
+                ),
             };
-            // L'indice : la dimension de départ, en pieds et pouces.
-            let indice = sans_insecables(&Quantite::Longueur(depart).en_clair(None, prefs));
             (
                 saisie,
                 format!("{nom} : {}", dimension.traduit()),
                 indice,
-                (!en_profondeur).then_some(AutreSaisie::Objet(rang, true)),
+                ensuite,
             )
         }
         AutreSaisie::Cloison(rang, champ) => {
@@ -3292,6 +3345,7 @@ fn objets(
             .color(p.titre),
     );
     let (mut a_pivoter, mut a_enlever) = (None, None);
+    let mut a_changer_de_forme = None;
     for rang in 0..dessin.objets.len() {
         ui.horizontal_wrapped(|ui| {
             let objet = &dessin.objets[rang];
@@ -3322,7 +3376,12 @@ fn objets(
                 } else {
                     mesure_du_bouton(saisie, "", prefs)
                 };
-                let cible = AutreSaisie::Objet(rang, en_profondeur);
+                let champ = if en_profondeur {
+                    ChampDObjet::Profondeur
+                } else {
+                    ChampDObjet::Largeur
+                };
+                let cible = AutreSaisie::Objet(rang, champ);
                 if ui
                     .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
                     .clicked()
@@ -3332,6 +3391,57 @@ fn objets(
                 }
                 if !en_profondeur {
                     ui.label("×");
+                }
+            }
+            if objet.genre == GenreDObjet::Escalier {
+                let mut forme = objet.forme;
+                egui::ComboBox::from_id_salt(("forme-d-escalier", rang))
+                    .selected_text(textes::forme_d_escalier(forme).traduit())
+                    .show_ui(ui, |ui| {
+                        for autre in FormeDEscalier::TOUTES {
+                            ui.selectable_value(
+                                &mut forme,
+                                autre,
+                                textes::forme_d_escalier(autre).traduit(),
+                            );
+                        }
+                    });
+                if forme != objet.forme {
+                    a_changer_de_forme = Some((rang, forme));
+                }
+                if let Some(calcul) = solution.escaliers.get(rang).copied().flatten() {
+                    let hauteur = if objet.hauteur.trim().is_empty() {
+                        longueur_en_clair(calcul.hauteur, solution, prefs)
+                    } else {
+                        mesure_du_bouton(&objet.hauteur, "", prefs)
+                    };
+                    let contremarche = longueur_en_clair(calcul.contremarche, solution, prefs);
+                    for (champ, texte) in [
+                        (
+                            ChampDObjet::Hauteur,
+                            format!("{} {hauteur}", textes::DESSIN_HAUTEUR_COURT.traduit()),
+                        ),
+                        (
+                            ChampDObjet::Contremarches,
+                            textes::contremarches_en_clair(calcul.contremarches, &contremarche),
+                        ),
+                    ] {
+                        let cible = AutreSaisie::Objet(rang, champ);
+                        if ui
+                            .add(
+                                egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)),
+                            )
+                            .clicked()
+                        {
+                            etat.choisir_autre(Some(cible));
+                            etat.objet_choisi = Some(rang);
+                        }
+                    }
+                    if let Some(giron) = calcul.giron {
+                        ui.label(textes::giron_en_clair(&longueur_en_clair(
+                            giron, solution, prefs,
+                        )));
+                    }
                 }
             }
             for (degres, texte) in [
@@ -3358,6 +3468,18 @@ fn objets(
         etat.memoriser(dessin);
         pivoter_sans_chevaucher(dessin, solution, rang, degres);
         etat.objet_choisi = Some(rang);
+        modifie = true;
+    }
+    if let Some((rang, forme)) = a_changer_de_forme {
+        // La nouvelle forme reprend ses propres dimensions de départ, et va à
+        // la place libre la plus proche où elle tient (R-98).
+        etat.memoriser(dessin);
+        let objet = &mut dessin.objets[rang];
+        objet.forme = forme;
+        objet.largeur.clear();
+        objet.profondeur.clear();
+        let dimensions = dessin.objets[rang].dimensions_de_depart();
+        placer_au_mieux(dessin, solution, rang, dimensions);
         modifie = true;
     }
     if let Some(rang) = a_enlever {

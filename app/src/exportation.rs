@@ -134,11 +134,18 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
             .objets
             .iter()
             .zip(&solution.objets)
-            .map(|(objet, &dimensions)| {
+            .enumerate()
+            .map(|(rang, (objet, &dimensions))| {
+                let contremarches = solution
+                    .escaliers
+                    .get(rang)
+                    .copied()
+                    .flatten()
+                    .map(|calcul| calcul.contremarches);
                 (
                     textes::objet(objet.genre).traduit().to_string(),
                     objet.centre,
-                    objet.traits_sur_le_plan(dimensions),
+                    objet.traits_sur_le_plan(dimensions, contremarches),
                 )
             })
             .collect()

@@ -535,6 +535,9 @@ pub struct Solution {
     /// La largeur et la profondeur de chaque objet, en pouces (celles de
     /// départ si elles ne sont pas lisibles).
     pub objets: Vec<(f64, f64)>,
+    /// Pour chaque objet qui est un escalier : son calcul (contremarches,
+    /// giron), d'après sa hauteur à monter, ou celle des murs (point 30).
+    pub escaliers: Vec<Option<crate::mobilier::EscalierCalcule>>,
     /// Chaque cloison à ses mesures; `None` si sa longueur est illisible.
     pub cloisons: Vec<Option<crate::cloison::CloisonMesuree>>,
     /// L'épaisseur des murs extérieurs (pouces); zéro : pas de mur dessiné.
@@ -1333,11 +1336,28 @@ impl Dessin {
             .objets
             .iter()
             .map(|objet| {
-                let (largeur, profondeur, _) = objet.genre.dimensions();
+                let (largeur, profondeur) = objet.dimensions_de_depart();
                 (
                     lire(&objet.largeur).unwrap_or(largeur),
                     lire(&objet.profondeur).unwrap_or(profondeur),
                 )
+            })
+            .collect::<Vec<_>>();
+        // Les escaliers : leur hauteur à monter, celle des murs s'ils n'en ont
+        // pas d'inscrite (8 pi sans murs), et leurs contremarches.
+        let escaliers = self
+            .objets
+            .iter()
+            .zip(&objets)
+            .map(|(objet, &dimensions)| {
+                if objet.genre != crate::mobilier::GenreDObjet::Escalier {
+                    return None;
+                }
+                let a_monter = lire(&objet.hauteur)
+                    .or(hauteur)
+                    .unwrap_or(crate::maquette::HAUTEUR_PAR_DEFAUT);
+                let voulues = objet.contremarches.trim().parse::<usize>().ok();
+                crate::mobilier::calculer_l_escalier(objet.forme, dimensions, a_monter, voulues)
             })
             .collect();
         // Une épaisseur sans unité se lit en pouces (en millimètres si les
@@ -1440,6 +1460,7 @@ impl Dessin {
             ouvertures,
             placements,
             objets,
+            escaliers,
             cloisons,
             epaisseur_des_murs,
             epaisseur_des_cloisons,
