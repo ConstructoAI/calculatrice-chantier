@@ -151,7 +151,9 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
         <li><a href="#memoires">Memories</a></li>
         <li><a href="#charpente">The framing keypad</a></li>
         <li><a href="#metier">The keypad of your trade</a></li>
+        <li><a href="#dessin">The room sketch</a></li>
         <li><a href="#ruban">The calculation tape</a></li>
+        <li><a href="#bloc-notes">The notepad</a></li>
         <li><a href="#preferences">Preferences</a></li>
         <li><a href="#raccourcis">Keyboard shortcuts</a></li>
         <li><a href="#trucs">Pro tips</a></li>
@@ -169,13 +171,15 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <main>
 
 <h2 id="presentation">1. Overview</h2>
-<p>The Constructo AI calculator works the way people talk on a jobsite: in feet, inches and fractions, as well as in metres and millimetres. It brings three things together.</p>
+<p>The Constructo AI calculator works the way people talk on a jobsite: in feet, inches and fractions, as well as in metres and millimetres. It brings five things together.</p>
 <ul>
     <li><strong>The framer's keypad</strong>: pitches and rafters, hips, valleys and jack rafters, stairs, rake walls and arched walls, arcs and circles, compound mitres, material quantities, conversions and costs.</li>
     <li><strong>The keypad of your trade</strong>: [[NOMBRE_D_OUTILS]] tools for [[NOMBRE_DE_METIERS]] other trades. Tap your trade above the keypad, and the top keys become those of its tools.</li>
     <li><strong>The calculation tape</strong>, which keeps a record of everything that was entered and calculated, so you can review it, save it or share it.</li>
+    <li><strong>The room sketch</strong>: a room's plan drawn with your finger, its measurements in feet, inches and fractions, its area and that of its walls, its doors, windows, partitions and furniture, in 3D, as a PDF and as a DXF.</li>
+    <li><strong>The notepad</strong>, for your jobsite notes, with their photos and attached files.</li>
 </ul>
-<p>The calculator is free, with no ads and no account. Nothing is sent over the Internet: your settings, memories and tapes stay on your device.</p>
+<p>The calculator is free, with no ads and no account. Nothing is sent over the Internet: your settings, memories, tapes, plans, notes and their photos stay on your device.</p>
 <div class="avis">
     <p><strong>Disclaimer.</strong> This calculator is a calculation aid. It does not replace the drawings, the judgment of a qualified person, or the requirements of the building code in force where you work (in Québec, the Construction Code) and of municipal regulations. Always check your results before cutting or ordering.</p>
     <p>The trade tools do geometry, physics and arithmetic. They do not reproduce any code table (ampacities, minimum wire sizes, minimum slopes, permitted fill) and contain no prices: you enter your own costs and rates.</p>
@@ -198,12 +202,13 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <div class="table"><table>
     <thead><tr><th></th><th>Web version</th><th>Windows version</th></tr></thead>
     <tbody>
-        <tr><td>Settings, memories, tapes</td><td>in the browser, on the device</td><td>in the <code>%APPDATA%\CalculatriceChantier\</code> folder</td></tr>
-        <tr><td>Exporting a tape</td><td>a <code>.txt</code> file is downloaded</td><td>"Save as" dialog</td></tr>
+        <tr><td>Settings, memories, tapes, plan, notes</td><td>in the browser, on the device</td><td>in the <code>%APPDATA%\CalculatriceChantier\</code> folder</td></tr>
+        <tr><td>Photos and files attached to notes</td><td>in the browser's database, on the device</td><td>in its <code>pieces-jointes</code> subfolder</td></tr>
+        <tr><td>Exports: tape, note, plan, attachment</td><td>a file is downloaded</td><td>"Save as" dialog</td></tr>
         <tr><td>Full screen</td><td>button in the top bar, where the browser allows it</td><td>button, preference or <kbd>F11</kbd></td></tr>
     </tbody>
 </table></div>
-<p class="note">In the Web version, clearing the site's browsing data also erases your settings and your saved tapes.</p>
+<p class="note">In the Web version, clearing the site's browsing data also erases your settings, your saved tapes, your plan, your notes and their photos. Nothing moves from one device to another: export what matters.</p>
 
 <h2 id="ecran">3. The screen at a glance <a class="haut" href="#sommaire">Contents</a></h2>
 <div class="table"><table>
@@ -213,10 +218,10 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
         <tr><td><strong>Quick fractions</strong></td><td>A strip of keys <kbd>1/8</kbd>, <kbd>1/4</kbd>, <kbd>3/8</kbd>… that you turn on in preferences.</td></tr>
         <tr><td><strong>Trade bar</strong></td><td>The trade you chose, then its tools. See <a href="#metier">The keypad of your trade</a>.</td></tr>
         <tr><td><strong>Keypad</strong></td><td>The keys. In small type above each one: its second function, reached with <kbd>Conv</kbd>.</td></tr>
-        <tr><td><strong>Bottom bar</strong></td><td>Four tabs: <em>Home</em> (the calculator), <em>Trades</em> (the tools as forms), <em>Tapes</em> and <em>Help</em>.</td></tr>
+        <tr><td><strong>Bottom bar</strong></td><td>Six tabs: <em>Home</em> (the calculator), <em>Trades</em> (the tools as forms), <em>Sketch</em> (a room's plan), <em>Tapes</em>, <em>Notes</em> (the notepad) and <em>Help</em>.</td></tr>
     </tbody>
 </table></div>
-<p>The <kbd>☰</kbd> menu leads to the trade calculators, the saved tapes, the help, this manual, the welcome screen, the pro tips, the preferences and the <em>About</em> screen. At the bottom of the menu: the email and website of Constructo AI, and the calculator's version.</p>
+<p>The <kbd>☰</kbd> menu leads to the trade calculators, the room sketch, the saved tapes, the notepad, the help, this manual, the welcome screen, the pro tips, the preferences and the <em>About</em> screen. At the bottom of the menu: the email and website of Constructo AI, and the calculator's version.</p>
 <p><strong>Help on a key:</strong> press and hold it, or right-click it. Its help topic opens, with an example. The <em>Help</em> tab gathers all the topics and lets you search them for a word.</p>
 
 <h2 id="calculer">4. Entering a measurement and calculating <a class="haut" href="#sommaire">Contents</a></h2>
@@ -301,7 +306,42 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <p>Results follow the system of the first length you entered: in feet-inches or in metric for lengths, in both systems for areas, volumes and weights. Quantities to buy (bags, boxes, sheets) are rounded up to the next whole unit.</p>
 <p>All the tools are described, with an example, in the <a href="#outils">directory of tools by trade</a>.</p>
 
-<h2 id="ruban">8. The calculation tape <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="dessin">8. The room sketch <a class="haut" href="#sommaire">Contents</a></h2>
+<p>The <em>Sketch</em> tab makes the plan of a room: draw its outline with your finger or the mouse, enter the measurement of each side, and the calculator gives its area, its perimeter and the area of its walls. The drawing is a sketch: it does not need to be to scale.</p>
+<h3>Drawing the room</h3>
+<ul>
+    <li><strong>With your finger or the mouse</strong>, in one stroke or one side at a time: each stroke straightens to horizontal, vertical or 45°. The shape closes on its own when the drawing comes back to its start; <em>Close the shape</em> adds the missing side.</li>
+    <li><strong>With the arrows</strong> at the bottom of the board: each one adds a side in its direction; the <em>45°</em> button turns them diagonal.</li>
+    <li><strong>Zooming:</strong> the <kbd>+</kbd> and <kbd>−</kbd> buttons on the board, two fingers or the mouse wheel; <em>Fit</em> reframes. A closed shape pans with one finger.</li>
+    <li><em>Undo</em> goes back up to 40 steps; <em>Clear all</em> starts the room over.</li>
+</ul>
+<h3>Entering the measurements</h3>
+<p>Tap a side: the keypad opens below the drawing, with <kbd>Feet</kbd>, <kbd>Inches</kbd>, fractions of an inch and <kbd>m</kbd>. A number alone is in feet; <em>Next</em> moves to the next side without a measurement. As soon as only one side is missing in a direction, it is worked out from the others and shown in grey. Once everything is known, the shape is redrawn to scale and the screen gives the area and the perimeter, and, for a rectangle, the squaring diagonal to check on site.</p>
+<p class="exemple"><span class="mot">Example</span> A rectangle: <kbd>12</kbd> <kbd>Feet</kbd> on top, <kbd>10</kbd> <kbd>Feet</kbd> <kbd>6</kbd> <kbd>Inches</kbd> on the right → <span class="ecran">126 ft² (11.7 m²)</span>, perimeter <span class="ecran">45 ft 0 in</span>, diagonal <span class="ecran">15 ft 11 5/16 in</span></p>
+<h3>Several rooms and deductions</h3>
+<p><em>+ Room</em> adds a room (30 at most); <em>Rename</em>, or a tap on the chosen room, changes its name. <strong>Deductions</strong> — island, stairwell, column — are rectangles taken off the area: the screen then gives the net area, then the total of the rooms.</p>
+<h3>Walls, doors and windows</h3>
+<ul>
+    <li><strong>The wall height</strong>, entered in the <em>Walls</em> section, gives the wall area, less that of the doors and windows.</li>
+    <li><em>+ Door</em> (2 ft 8 in × 6 ft 8 in) and <em>+ Window</em> (3 ft × 4 ft): then tap their wall to place them, and drag them along the wall. Their size, their sill and their distance from the corner are set with the keypad.</li>
+    <li><strong>Thickness</strong>: 9 in for exterior walls and 5 in for partitions, to start with. The <em>Measurements: Interior | Exterior</em> button tells which side of the walls your measurements are on.</li>
+    <li><strong>Stretching a wall</strong>: drag the handle at its middle; its neighbours lengthen or shorten, and the measurements are rewritten.</li>
+</ul>
+<h3>Partitions, stairs, furniture and notes</h3>
+<ul>
+    <li><em>+ Partition</em>: drag on the plan from one end to the other, turning corners as needed, for an L- or U-shaped partition. Its ends reach the nearby walls; each segment has its length on the keypad, and the <em>+ Door</em> on its row gives it a door.</li>
+    <li><strong>Stairs and furniture</strong> — bed, table, sofa, counter, toilet, bathtub, shower, washer, fridge, range: tap its button, then the room to set it down, and drag it. <em>+15°</em> and <em>+90°</em> turn it; its size is set with the keypad.</li>
+    <li><em>+ Note</em>: tap the spot on the plan, then type the note.</li>
+</ul>
+<h3>3D, the tape, the tools and the exports</h3>
+<ul>
+    <li>The <em>3D</em> button shows the room in 3D, with its openings, partitions and furniture: drag to turn around it; <em>2D</em> goes back to the plan.</li>
+    <li><em>Add to tape</em> records the measurements and results on it. <em>Send to a tool…</em> opens a trade tool (slab, pavers, excavation…) with a rectangle of the same area and the same perimeter as the room.</li>
+    <li><em>Export as PDF</em> makes a Letter-size document, one page per room; <em>Export as DXF</em>, a full-scale drawing for AutoCAD, LibreCAD or QCAD.</li>
+</ul>
+<p class="note">The plan stays on the device and is there the next time you open the calculator. Walls are drawn square or at 45°; other angles are not supported yet.</p>
+
+<h2 id="ruban">9. The calculation tape <a class="haut" href="#sommaire">Contents</a></h2>
 <p>The tape keeps a record of your calculations: the operations and their totals, the values given to functions and their results, the conversions, and the details of each trade tool calculation, under its title.</p>
 <ul>
     <li><strong>Viewing it:</strong> the <em>Tapes</em> tab, or <kbd>Conv</kbd> <kbd>=</kbd>. In a wide window, it stays on screen to the right of the calculator.</li>
@@ -312,7 +352,17 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 </ul>
 <p class="note">The current tape keeps the last 500 lines. <kbd>Clear</kbd> twice draws a separator line on it; <em>Clear all</em> empties it.</p>
 
-<h2 id="preferences">9. Preferences <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="bloc-notes">10. The notepad <a class="haut" href="#sommaire">Contents</a></h2>
+<p>The <em>Notes</em> tab keeps your jobsite notes on the device, from the most recent to the oldest.</p>
+<ul>
+    <li><strong>Writing:</strong> <em>+ New note</em> opens one. Its title and text save on their own; <em>Back</em> returns to the list, where a note left empty disappears.</li>
+    <li><strong>Copying, exporting, deleting:</strong> <em>Copy</em> puts the note on the clipboard, <em>Export</em> makes a text file of it, <em>Delete</em> erases it with its attachments, after confirmation.</li>
+</ul>
+<h3>Attached photos and files</h3>
+<p>Below a note's text, <em>+ Photo</em> attaches photos — on a phone, the camera or the gallery — and <em>+ File</em> attaches a file: a PDF, a plan, a quote. Photos appear as thumbnails, the right way up; tap one to see it full size. <em>Save</em> keeps a copy elsewhere (a download, in the browser), <em>Remove</em> erases it. On a computer, <em>Open</em> opens an attached file in its program.</p>
+<p class="note">The notepad keeps up to 500 notes, and each note up to 50 attachments. A photo larger than 2048 pixels is reduced to 2048 pixels to save space on the device; an attached file cannot exceed 25 MB. Photos are read in JPEG and PNG: any other image is attached as a file.</p>
+
+<h2 id="preferences">11. Preferences <a class="haut" href="#sommaire">Contents</a></h2>
 <p>The gear wheel, or <kbd>Conv</kbd> <kbd>Store</kbd>, opens the preferences. Changes apply right away and are kept.</p>
 <div class="table"><table>
     <thead><tr><th>Preference</th><th>Choices (in bold: the default)</th></tr></thead>
@@ -361,7 +411,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <p class="avis">These starting values, like those of the trade tools (waste, yields, spacings), are starting points that you can change. They are not a statement of code compliance.</p>
 <p>The <em>Reset data and preferences</em> button restores everything to new, after confirmation. The language stays the one you chose.</p>
 
-<h2 id="raccourcis">10. Keyboard shortcuts <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="raccourcis">12. Keyboard shortcuts <a class="haut" href="#sommaire">Contents</a></h2>
 <p>On a computer, the calculator responds to the keyboard. The shortcuts are the same in both languages.</p>
 <div class="table"><table>
     <thead><tr><th>Keyboard key</th><th>Action</th><th>Keyboard key</th><th>Action</th></tr></thead>
@@ -384,12 +434,12 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 </table></div>
 <p class="note">In the Web version, <kbd>F11</kbd> and <kbd>Ctrl</kbd>+<kbd>R</kbd> remain the browser's. With a trade tool on the keypad, the shortcuts of the framing keys (from <kbd>P</kbd> to <kbd>J</kbd>, and <kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd>) have no effect.</p>
 
-<h2 id="trucs">11. Pro tips <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="trucs">13. Pro tips <a class="haut" href="#sommaire">Contents</a></h2>
 <ol>
 [[TRUCS]]
 </ol>
 
-<h2 id="depannage">12. Messages and troubleshooting <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="depannage">14. Messages and troubleshooting <a class="haut" href="#sommaire">Contents</a></h2>
 <div class="table"><table>
     <thead><tr><th>The display shows</th><th>What it means</th></tr></thead>
     <tbody>
@@ -409,18 +459,20 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <li><strong>The framing keys have disappeared.</strong> A trade tool is on the keypad: tap the trade chip, then <em>Framing, roofing and stairs</em>.</li>
     <li><strong>The calculator is in the wrong language.</strong> Tap <kbd>FR</kbd> or <kbd>EN</kbd> in the top bar.</li>
     <li><strong>The installed calculator does not have the latest version.</strong> Open it once with a network connection, close it, then open it again. The version is shown at the bottom of the <kbd>☰</kbd> menu.</li>
-    <li><strong>My tapes have disappeared (Web version).</strong> They are kept in the browser: they are erased along with the site's browsing data, and do not follow you from one device to another. Export the ones that matter.</li>
+    <li><strong>My tapes, plan or notes have disappeared (Web version).</strong> They are kept in the browser, with the notes' photos: they are erased along with the site's browsing data, and do not follow you from one device to another. Export what matters.</li>
+    <li><strong>The plan stays a sketch, or the PDF says so.</strong> Measurements are missing: enter the one for each side (only one side per direction can be missing: it is worked out). If the measurements in one direction do not agree, the screen gives the difference to correct.</li>
+    <li><strong>A photo is attached as a file.</strong> The calculator reads JPEG and PNG photos. An iPhone HEIC photo copied to a computer, for example, is attached as a file: attach it from the phone instead, which gives it as a JPEG.</li>
 </ul>
 
-<h2 id="fonctions">13. Directory of keys and functions <a class="haut" href="#sommaire">Contents</a></h2>
-<p>These are the topics of the <em>Help</em> tab: one for each key and each second function of the framing keypad, with a worked example.</p>
+<h2 id="fonctions">15. Directory of keys and functions <a class="haut" href="#sommaire">Contents</a></h2>
+<p>These are the topics of the <em>Help</em> tab: one for each key and each second function of the framing keypad, with a worked example, and those of the room sketch, the notepad and the keypad adapted to your trade.</p>
 [[FONCTIONS]]
 
-<h2 id="outils">14. Directory of tools by trade <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="outils">16. Directory of tools by trade <a class="haut" href="#sommaire">Contents</a></h2>
 <p>For each tool: its fields — which are also its keys —, the unit of a number typed without a unit, the default value, and an example calculated by the calculator. When the key carries a shorter label than the field, it is given in parentheses.</p>
 [[OUTILS]]
 
-<h2 id="licence">15. Disclaimer, licence and contact <a class="haut" href="#sommaire">Contents</a></h2>
+<h2 id="licence">17. Disclaimer, licence and contact <a class="haut" href="#sommaire">Contents</a></h2>
 <p>This calculator is a calculation aid. It does not replace the drawings, the judgment of a qualified person, or the requirements of the building code in force where you work (in Québec, the Construction Code) and of municipal regulations. Always check your results before cutting or ordering.</p>
 <p>The Constructo AI calculator is free software, distributed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>. Its source code is public: <a href="https://github.com/ConstructoAI/calculatrice-chantier">github.com/ConstructoAI/calculatrice-chantier</a>. The software is provided "as is", without warranty of any kind.</p>
 <p>A question, an error to report, a tool missing for your trade? Write to <a href="mailto:info@constructoai.ca">info@constructoai.ca</a>, or visit <a href="https://constructoai.ca/">constructoai.ca</a>.</p>

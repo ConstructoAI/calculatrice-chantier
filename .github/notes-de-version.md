@@ -16,6 +16,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   fichier (PDF, plan, soumission). Les photos s'affichent en vignettes, dans le bon sens, et
   s'ouvrent en grand d'un toucher; **Enregistrer** en garde une copie ailleurs, **Retirer**
   l'efface. Une photo de plus de 2048 pixels est réduite pour ménager l'espace de l'appareil.
+- **0.12.1** : le **manuel d'utilisation** revu — deux chapitres nouveaux, *Le dessin d'une
+  pièce* et *Le bloc-notes*; la présentation, les six onglets, l'emplacement des données et le
+  dépannage mis à jour.
 
 ## Nouveautés de la version 0.11
 

@@ -136,7 +136,9 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
         <li><a href="#memoires">Les mémoires</a></li>
         <li><a href="#charpente">Le clavier de charpente</a></li>
         <li><a href="#metier">Le clavier de votre métier</a></li>
+        <li><a href="#dessin">Le dessin d'une pièce</a></li>
         <li><a href="#ruban">Le ruban de calcul</a></li>
+        <li><a href="#bloc-notes">Le bloc-notes</a></li>
         <li><a href="#preferences">Les préférences</a></li>
         <li><a href="#raccourcis">Les raccourcis clavier</a></li>
         <li><a href="#trucs">Trucs de pro</a></li>
@@ -164,13 +166,15 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <main>
 
 <h2 id="presentation">1. Présentation</h2>
-<p>La calculatrice Constructo AI calcule comme on parle sur un chantier : en pieds, en pouces et en fractions, mais aussi en mètres et en millimètres. Elle réunit trois choses.</p>
+<p>La calculatrice Constructo AI calcule comme on parle sur un chantier : en pieds, en pouces et en fractions, mais aussi en mètres et en millimètres. Elle réunit cinq choses.</p>
 <ul>
     <li><strong>Le clavier du charpentier</strong> : pentes et chevrons, arêtiers, noues et empannons, escaliers, murs en pente et murs cintrés, arcs et cercles, onglets composés, quantités de matériaux, conversions et coûts.</li>
     <li><strong>Le clavier de votre métier</strong> : 76 outils pour 11 autres corps de métier. On touche son métier au-dessus du clavier, et les touches du haut deviennent celles de ses outils.</li>
     <li><strong>Le ruban de calcul</strong>, qui garde la trace de tout ce qui a été saisi et calculé, pour le relire, l'enregistrer ou le partager.</li>
+    <li><strong>Le dessin d'une pièce</strong> : son plan tracé au doigt, ses mesures en pieds, pouces et fractions, sa surface et celle de ses murs, ses portes, ses fenêtres, ses cloisons et son mobilier, en 3D, en PDF et en DXF.</li>
+    <li><strong>Le bloc-notes</strong>, pour vos notes de chantier, avec leurs photos et leurs fichiers joints.</li>
 </ul>
-<p>La calculatrice est gratuite, sans publicité et sans compte. Rien n'est envoyé sur Internet : vos réglages, vos mémoires et vos rubans restent sur votre appareil.</p>
+<p>La calculatrice est gratuite, sans publicité et sans compte. Rien n'est envoyé sur Internet : vos réglages, vos mémoires, vos rubans, vos plans, vos notes et leurs photos restent sur votre appareil.</p>
 <div class="avis">
     <p><strong>Avertissement.</strong> Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.</p>
     <p>Les outils par métier font de la géométrie, de la physique et de l'arithmétique. Ils ne reproduisent aucune table de code (intensités admissibles, calibres minimaux, pentes minimales, remplissage permis) et ne contiennent aucun prix : chacun saisit ses coûts et ses taux.</p>
@@ -193,12 +197,13 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <div class="table"><table>
     <thead><tr><th></th><th>Version Web</th><th>Version Windows</th></tr></thead>
     <tbody>
-        <tr><td>Réglages, mémoires, rubans</td><td>dans le navigateur, sur l'appareil</td><td>dans le dossier <code>%APPDATA%\CalculatriceChantier\</code></td></tr>
-        <tr><td>Export d'un ruban</td><td>téléchargement d'un fichier <code>.txt</code></td><td>boîte « Enregistrer sous »</td></tr>
+        <tr><td>Réglages, mémoires, rubans, plan, notes</td><td>dans le navigateur, sur l'appareil</td><td>dans le dossier <code>%APPDATA%\CalculatriceChantier\</code></td></tr>
+        <tr><td>Photos et fichiers joints aux notes</td><td>dans la base de données du navigateur, sur l'appareil</td><td>dans son sous-dossier <code>pieces-jointes</code></td></tr>
+        <tr><td>Exports : ruban, note, plan, pièce jointe</td><td>téléchargement d'un fichier</td><td>boîte « Enregistrer sous »</td></tr>
         <tr><td>Plein écran</td><td>bouton de la barre supérieure, là où le navigateur le permet</td><td>bouton, préférence ou <kbd>F11</kbd></td></tr>
     </tbody>
 </table></div>
-<p class="note">Dans la version Web, effacer les données de navigation du site efface aussi vos réglages et vos rubans enregistrés.</p>
+<p class="note">Dans la version Web, effacer les données de navigation du site efface aussi vos réglages, vos rubans enregistrés, votre plan, vos notes et leurs photos. Rien ne passe d'un appareil à l'autre : exportez ce qui compte.</p>
 
 <h2 id="ecran">3. L'écran en un coup d'œil <a class="haut" href="#sommaire">Sommaire</a></h2>
 <div class="table"><table>
@@ -208,10 +213,10 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
         <tr><td><strong>Fractions rapides</strong></td><td>Une bande de touches <kbd>1/8</kbd>, <kbd>1/4</kbd>, <kbd>3/8</kbd>… qui s'active dans les préférences.</td></tr>
         <tr><td><strong>Barre des métiers</strong></td><td>Le métier choisi, puis ses outils. Voir <a href="#metier">Le clavier de votre métier</a>.</td></tr>
         <tr><td><strong>Clavier</strong></td><td>Les touches. En petit, au-dessus de chacune : sa seconde fonction, obtenue avec <kbd>Conv</kbd>.</td></tr>
-        <tr><td><strong>Barre inférieure</strong></td><td>Quatre onglets : <em>Accueil</em> (la calculatrice), <em>Métiers</em> (les outils en formulaires), <em>Rubans</em> et <em>Aide</em>.</td></tr>
+        <tr><td><strong>Barre inférieure</strong></td><td>Six onglets : <em>Accueil</em> (la calculatrice), <em>Métiers</em> (les outils en formulaires), <em>Dessin</em> (le plan d'une pièce), <em>Rubans</em>, <em>Notes</em> (le bloc-notes) et <em>Aide</em>.</td></tr>
     </tbody>
 </table></div>
-<p>Le menu <kbd>☰</kbd> mène aux calculateurs par métier, aux rubans enregistrés, à l'aide, à ce manuel, à l'écran de bienvenue, aux trucs de pro, aux préférences et à l'écran <em>À propos</em>. Au bas du menu : le courriel et le site de Constructo AI, et la version de la calculatrice.</p>
+<p>Le menu <kbd>☰</kbd> mène aux calculateurs par métier, au dessin, aux rubans enregistrés, au bloc-notes, à l'aide, à ce manuel, à l'écran de bienvenue, aux trucs de pro, aux préférences et à l'écran <em>À propos</em>. Au bas du menu : le courriel et le site de Constructo AI, et la version de la calculatrice.</p>
 <p><strong>De l'aide sur une touche :</strong> maintenez-la enfoncée, ou faites un clic droit. Sa fiche s'ouvre, avec un exemple. L'onglet <em>Aide</em> réunit toutes les fiches et permet d'y chercher un mot.</p>
 
 <h2 id="calculer">4. Taper une mesure et calculer <a class="haut" href="#sommaire">Sommaire</a></h2>
@@ -296,7 +301,42 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <p>Les résultats suivent le système de la première longueur saisie : en pieds-pouces ou en métrique pour les longueurs, dans les deux systèmes pour les aires, les volumes et les masses. Les quantités à acheter (sacs, boîtes, panneaux) sont arrondies à l'unité supérieure.</p>
 <p>Tous les outils sont décrits, avec un exemple, dans le <a href="#outils">répertoire des outils par métier</a>.</p>
 
-<h2 id="ruban">8. Le ruban de calcul <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="dessin">8. Le dessin d'une pièce <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>L'onglet <em>Dessin</em> fait le plan d'une pièce : tracez son contour au doigt ou à la souris, inscrivez la mesure de chaque côté, et la calculatrice donne sa surface, son périmètre et la surface de ses murs. Le tracé est un croquis : il n'a pas besoin d'être à l'échelle.</p>
+<h3>Tracer la pièce</h3>
+<ul>
+    <li><strong>Au doigt ou à la souris</strong>, d'un seul geste ou un côté à la fois : chaque trait se redresse à l'horizontale, à la verticale ou à 45°. La forme se ferme d'elle-même quand le tracé revient à son départ; <em>Fermer la forme</em> ajoute le côté qui manque.</li>
+    <li><strong>Avec les flèches</strong> du bas de la planche : chacune ajoute un côté dans sa direction; le bouton <em>45°</em> les fait passer en biais.</li>
+    <li><strong>Zoomer :</strong> les boutons <kbd>+</kbd> et <kbd>−</kbd> de la planche, deux doigts ou la molette; <em>Ajuster</em> recadre. Une forme fermée se déplace au doigt.</li>
+    <li><em>Annuler</em> remonte jusqu'à 40 étapes; <em>Tout effacer</em> recommence la pièce.</li>
+</ul>
+<h3>Inscrire les mesures</h3>
+<p>Touchez un côté : le pavé s'ouvre sous le dessin, avec <kbd>Pieds</kbd>, <kbd>Pouces</kbd>, les fractions de pouce et <kbd>m</kbd>. Un nombre seul est en pieds; <em>Suivant</em> passe au prochain côté sans mesure. Dès qu'il ne manque qu'un côté dans un sens, il est déduit des autres et s'écrit en gris. Quand tout est connu, la forme se redessine à l'échelle et l'écran donne la surface et le périmètre, et, pour un rectangle, la diagonale d'équerre à vérifier sur place.</p>
+<p class="exemple"><span class="mot">Exemple</span> Un rectangle : <kbd>12</kbd> <kbd>Pieds</kbd> en haut, <kbd>10</kbd> <kbd>Pieds</kbd> <kbd>6</kbd> <kbd>Pouces</kbd> à droite → <span class="ecran">126 pi² (11,7 m²)</span>, périmètre <span class="ecran">45 pi 0 po</span>, diagonale <span class="ecran">15 pi 11 5/16 po</span></p>
+<h3>Plusieurs pièces et retraits</h3>
+<p><em>+ Pièce</em> ajoute une pièce (30 au plus); <em>Renommer</em>, ou un toucher sur la pièce choisie, change son nom. Les <strong>retraits</strong> — îlot, trémie, colonne — sont des rectangles à retirer de la surface : l'écran donne alors la surface nette, puis le total des pièces.</p>
+<h3>Murs, portes et fenêtres</h3>
+<ul>
+    <li><strong>La hauteur des murs</strong>, inscrite dans la section <em>Murs</em>, donne la surface des murs, moins celle des portes et des fenêtres.</li>
+    <li><em>+ Porte</em> (2 pi 8 po × 6 pi 8 po) et <em>+ Fenêtre</em> (3 pi × 4 pi) : touchez ensuite leur mur pour les placer, puis faites-les glisser le long du mur. Leurs dimensions, leur allège et leur distance au coin se règlent au pavé.</li>
+    <li><strong>L'épaisseur</strong> : 9 po pour les murs extérieurs et 5 po pour les cloisons, au départ. Le bouton <em>Mesures : Intérieur | Extérieur</em> dit de quel côté des murs sont vos mesures.</li>
+    <li><strong>Étirer un mur</strong> : glissez la poignée de son milieu; ses voisins s'allongent ou raccourcissent, et les mesures se récrivent.</li>
+</ul>
+<h3>Cloisons, escalier, mobilier et notes</h3>
+<ul>
+    <li><em>+ Cloison</em> : glissez sur le plan d'un bout à l'autre, en tournant les coins au besoin, pour une cloison en L ou en U. Ses bouts vont jusqu'aux murs voisins; chaque segment a sa longueur au pavé, et le <em>+ Porte</em> de sa ligne lui donne une porte.</li>
+    <li><strong>L'escalier et le mobilier</strong> — lit, table, sofa, comptoir, toilette, bain, douche, laveuse, réfrigérateur, cuisinière : touchez son bouton, puis la pièce pour le poser, et faites-le glisser. <em>+15°</em> et <em>+90°</em> le tournent; ses dimensions se règlent au pavé.</li>
+    <li><em>+ Note</em> : touchez l'endroit du plan, puis écrivez la note.</li>
+</ul>
+<h3>La 3D, le ruban, les outils et les exports</h3>
+<ul>
+    <li>Le bouton <em>3D</em> montre la pièce en 3D, avec ses ouvertures, ses cloisons et son mobilier : glissez pour tourner autour; <em>2D</em> revient au plan.</li>
+    <li><em>Ajouter au ruban</em> y inscrit les mesures et les résultats. <em>Envoyer vers un outil…</em> ouvre un outil de métier (dalle, pavés, excavation…) avec un rectangle de même surface et de même périmètre que la pièce.</li>
+    <li><em>Exporter en PDF</em> fait un document au format Lettre, une page par pièce; <em>Exporter en DXF</em>, un dessin à l'échelle réelle pour AutoCAD, LibreCAD ou QCAD.</li>
+</ul>
+<p class="note">Le plan reste sur l'appareil et se retrouve à la prochaine ouverture. Les murs se tracent d'équerre ou à 45°; les autres angles ne sont pas encore pris en charge.</p>
+
+<h2 id="ruban">9. Le ruban de calcul <a class="haut" href="#sommaire">Sommaire</a></h2>
 <p>Le ruban garde la trace des calculs : les opérations et leurs totaux, les valeurs données aux fonctions et leurs résultats, les conversions, et le détail de chaque calcul d'un outil de métier, sous son titre.</p>
 <ul>
     <li><strong>Le consulter :</strong> onglet <em>Rubans</em>, ou <kbd>Conv</kbd> <kbd>=</kbd>. Dans une fenêtre large, il reste affiché à droite de la calculatrice.</li>
@@ -307,7 +347,17 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 </ul>
 <p class="note">Le ruban courant garde les 500 dernières lignes. <kbd>Effacer</kbd> deux fois y trace un filet de séparation; <em>Effacer tout</em> le vide.</p>
 
-<h2 id="preferences">9. Les préférences <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="bloc-notes">10. Le bloc-notes <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>L'onglet <em>Notes</em> garde vos notes de chantier sur l'appareil, de la plus récente à la plus ancienne.</p>
+<ul>
+    <li><strong>Écrire :</strong> <em>+ Nouvelle note</em> en ouvre une. Son titre et son texte s'enregistrent d'eux-mêmes; <em>Retour</em> revient à la liste, où une note laissée vide disparaît.</li>
+    <li><strong>Copier, exporter, supprimer :</strong> <em>Copier</em> met la note dans le presse-papiers, <em>Exporter</em> en fait un fichier texte, <em>Supprimer</em> l'efface avec ses pièces jointes, après confirmation.</li>
+</ul>
+<h3>Photos et fichiers joints</h3>
+<p>Sous le texte d'une note, <em>+ Photo</em> joint des photos — sur un téléphone, l'appareil photo ou la galerie — et <em>+ Fichier</em> joint un fichier : un PDF, un plan, une soumission. Les photos s'affichent en vignettes, dans le bon sens; touchez-en une pour la voir en grand. <em>Enregistrer</em> en garde une copie ailleurs (un téléchargement, dans le navigateur), <em>Retirer</em> l'efface. Sur l'ordinateur, <em>Ouvrir</em> ouvre un fichier joint dans son programme.</p>
+<p class="note">Le bloc-notes garde jusqu'à 500 notes, et chaque note jusqu'à 50 pièces jointes. Une photo de plus de 2048 pixels est réduite à 2048 pixels pour ménager l'espace de l'appareil; un fichier joint ne dépasse pas 25 Mo. Les photos se lisent en JPEG et en PNG : une autre image est jointe comme un fichier.</p>
+
+<h2 id="preferences">11. Les préférences <a class="haut" href="#sommaire">Sommaire</a></h2>
 <p>La roue dentée, ou <kbd>Conv</kbd> <kbd>Stocker</kbd>, ouvre les préférences. Les changements s'appliquent aussitôt et sont conservés.</p>
 <div class="table"><table>
     <thead><tr><th>Préférence</th><th>Choix (en gras : au départ)</th></tr></thead>
@@ -356,7 +406,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <p class="avis">Ces valeurs de départ, comme celles des outils par métier (pertes, rendements, espacements), sont des points de départ modifiables. Elles ne constituent pas un avis de conformité au Code.</p>
 <p>Le bouton <em>Réinitialiser les données et les préférences</em> remet tout à neuf, après confirmation. La langue reste celle que vous avez choisie.</p>
 
-<h2 id="raccourcis">10. Les raccourcis clavier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="raccourcis">12. Les raccourcis clavier <a class="haut" href="#sommaire">Sommaire</a></h2>
 <p>Sur un ordinateur, la calculatrice répond au clavier. Les raccourcis sont les mêmes dans les deux langues.</p>
 <div class="table"><table>
     <thead><tr><th>Touche du clavier</th><th>Action</th><th>Touche du clavier</th><th>Action</th></tr></thead>
@@ -379,7 +429,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 </table></div>
 <p class="note">Dans la version Web, <kbd>F11</kbd> et <kbd>Ctrl</kbd>+<kbd>R</kbd> restent ceux du navigateur. Avec un outil de métier au clavier, les raccourcis des touches de charpente (de <kbd>P</kbd> à <kbd>J</kbd>, et <kbd>L</kbd> <kbd>G</kbd> <kbd>H</kbd>) sont sans effet.</p>
 
-<h2 id="trucs">11. Trucs de pro <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="trucs">13. Trucs de pro <a class="haut" href="#sommaire">Sommaire</a></h2>
 <ol>
     <li><strong>Faites défiler les résultats.</strong> Appuyez de nouveau sur une touche de fonction pour voir tous ses résultats : Diag donne la longueur, puis la coupe d'aplomb, puis la coupe de niveau.</li>
     <li><strong>La pente reste en mémoire.</strong> Inutile de la retaper pour le chevron suivant.</li>
@@ -398,7 +448,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <li><strong>En français ou en anglais.</strong> Le bouton FR | EN, en haut de l'écran, change la langue sur-le-champ : les nombres et les unités suivent (1 234,5 pi² devient 1,234.5 ft²), et vos valeurs restent les mêmes.</li>
 </ol>
 
-<h2 id="depannage">12. Messages et dépannage <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="depannage">14. Messages et dépannage <a class="haut" href="#sommaire">Sommaire</a></h2>
 <div class="table"><table>
     <thead><tr><th>L'afficheur indique</th><th>Ce que cela veut dire</th></tr></thead>
     <tbody>
@@ -418,11 +468,13 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <li><strong>Les touches de charpente ont disparu.</strong> Un outil de métier est au clavier : touchez la pastille du métier, puis <em>Charpente, toiture et escaliers</em>.</li>
     <li><strong>La calculatrice n'est pas dans la bonne langue.</strong> Touchez <kbd>FR</kbd> ou <kbd>EN</kbd> dans la barre supérieure.</li>
     <li><strong>La calculatrice installée n'a pas la dernière version.</strong> Ouvrez-la une fois avec du réseau, fermez-la, puis rouvrez-la. La version se lit au bas du menu <kbd>☰</kbd>.</li>
-    <li><strong>Mes rubans ont disparu (version Web).</strong> Ils sont conservés dans le navigateur : ils s'effacent avec les données de navigation du site, et ne suivent pas d'un appareil à l'autre. Exportez ceux qui comptent.</li>
+    <li><strong>Mes rubans, mon plan ou mes notes ont disparu (version Web).</strong> Ils sont conservés dans le navigateur, avec les photos des notes : ils s'effacent avec les données de navigation du site, et ne suivent pas d'un appareil à l'autre. Exportez ce qui compte.</li>
+    <li><strong>Le plan reste un croquis, ou le PDF le dit.</strong> Il manque des mesures : inscrivez celle de chaque côté (un seul côté par sens peut manquer : il est déduit). Si les mesures d'un sens ne s'accordent pas, l'écran donne l'écart à corriger.</li>
+    <li><strong>Une photo est jointe comme un fichier.</strong> La calculatrice lit les photos JPEG et PNG. Une photo HEIC d'iPhone copiée sur un ordinateur, par exemple, est jointe comme un fichier : joignez-la plutôt depuis le téléphone, qui la donne en JPEG.</li>
 </ul>
 
-<h2 id="fonctions">13. Répertoire des touches et des fonctions <a class="haut" href="#sommaire">Sommaire</a></h2>
-<p>Ce sont les fiches de l'onglet <em>Aide</em> : une par touche et par seconde fonction du clavier de charpente, avec un exemple chiffré.</p>
+<h2 id="fonctions">15. Répertoire des touches et des fonctions <a class="haut" href="#sommaire">Sommaire</a></h2>
+<p>Ce sont les fiches de l'onglet <em>Aide</em> : une par touche et par seconde fonction du clavier de charpente, avec un exemple chiffré, et celles du dessin, du bloc-notes et du clavier adapté au métier.</p>
 <h3>Les touches principales</h3>
 <article>
     <h4>Pente</h4>
@@ -737,7 +789,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <p class="note">L'onglet Métiers offre les mêmes calculateurs en formulaires à remplir.</p>
 </article>
 
-<h2 id="outils">14. Répertoire des outils par métier <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="outils">16. Répertoire des outils par métier <a class="haut" href="#sommaire">Sommaire</a></h2>
 <p>Pour chaque outil : ses champs — qui sont aussi ses touches —, l'unité d'un nombre tapé sans unité, la valeur de départ, et un exemple calculé par la calculatrice. Quand la touche porte un libellé plus court que le champ, il est donné entre parenthèses.</p>
 <h3 id="metier-estimation">Estimation et soumission</h3>
 <p class="note">Soumission, budget au pied carré, main-d'œuvre, taxes, facture d'étape.</p>
@@ -1902,7 +1954,7 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <p class="note">Cordon à face plane et à côtés égaux, en acier. Le rendement de dépôt dépend du procédé : environ 60 à 65 % à l'électrode enrobée, plus de 90 % au fil plein. Prévoyez un surplus pour le bombé du cordon.</p>
 </article>
 
-<h2 id="licence">15. Avertissement, licence et contact <a class="haut" href="#sommaire">Sommaire</a></h2>
+<h2 id="licence">17. Avertissement, licence et contact <a class="haut" href="#sommaire">Sommaire</a></h2>
 <p>Cette calculatrice est un outil d'aide au calcul. Elle ne remplace ni les plans, ni le jugement d'une personne compétente, ni les exigences du Code de construction du Québec et de la réglementation municipale. Vérifiez toujours vos résultats avant de couper ou de commander.</p>
 <p>La calculatrice Constructo AI est un logiciel libre, distribué sous la <a href="https://www.apache.org/licenses/LICENSE-2.0">licence Apache, version 2.0</a>. Son code source est public : <a href="https://github.com/ConstructoAI/calculatrice-chantier">github.com/ConstructoAI/calculatrice-chantier</a>. Le logiciel est fourni « tel quel », sans garantie d'aucune sorte.</p>
 <p>Une question, une erreur à signaler, un outil qui manque à votre métier? Écrivez à <a href="mailto:info@constructoai.ca">info@constructoai.ca</a>, ou visitez <a href="https://constructoai.ca/">constructoai.ca</a>.</p>
