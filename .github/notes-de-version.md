@@ -46,6 +46,11 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   un rapport d'une page — la date, le projet, les données et les résultats, avec
   « Constructo AI · constructoai.ca » au bas, comme les plans.
 
+- **Liste de coupe optimisée** : dans l'onglet Métiers, les morceaux à couper et les
+  longueurs offertes en magasin donnent les pièces à acheter et le plan de coupe de chacune,
+  trait de scie compris, avec la chute; pour le bois, les moulures, les conduits et les
+  tuyaux.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

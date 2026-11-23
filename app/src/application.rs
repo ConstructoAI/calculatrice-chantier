@@ -3129,6 +3129,7 @@ impl Application {
                         self.position_metiers = vues::metiers::Position {
                             metier: Some(c.metier),
                             calculateur: Some(c.id),
+                            liste_de_coupe: false,
                         };
                         self.aller(Vue::Metiers);
                         Dialogue::Aucun
@@ -3459,6 +3460,8 @@ fn transposer_les_saisies(
     for (id, textes) in saisies.iter_mut() {
         if let Some(c) = noyau::metiers::calculateur(id) {
             c.transposer_les_saisies(textes, de, vers, prefs);
+        } else if id == vues::coupe::IDENTIFIANT {
+            vues::coupe::transposer(textes, de, vers, prefs);
         }
     }
 }

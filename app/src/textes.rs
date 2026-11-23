@@ -302,6 +302,113 @@ pub const AUCUNE_NOTE_TROUVEE: Texte = t(
     "No note contains these words.",
 );
 
+// La liste de coupe (section 22.19)
+pub const LISTE_DE_COUPE: Texte = t("Liste de coupe", "Cut list");
+pub const LISTE_DE_COUPE_MENTION: Texte = t("Optimisée", "Optimized");
+pub const LISTE_DE_COUPE_RESUME_COURT: Texte = t(
+    "Bois, moulures, conduits, tuyaux : les pièces à acheter et leur plan de coupe",
+    "Lumber, mouldings, conduit, pipe: the lengths to buy and how to cut them",
+);
+pub const LISTE_DE_COUPE_RESUME: Texte = t(
+    "Inscrivez les morceaux à couper et les longueurs offertes : la calculatrice donne les pièces à acheter et le plan de coupe de chacune, trait de scie compris, avec la chute.",
+    "Enter the pieces to cut and the stock lengths: the calculator gives the lengths to buy and how to cut each one, saw kerf included, with the offcut.",
+);
+pub const COUPE_MORCEAUX: Texte = t("Morceaux à couper", "Pieces to cut");
+pub const COUPE_PLUS_MORCEAU: Texte = t("+ Morceau", "+ Piece");
+pub const COUPE_INDICE_LONGUEUR: Texte = t("ex. 4 pi 6 po ou 1,2 m", "e.g. 4 ft 6 in or 1.2 m");
+pub const COUPE_STOCK: Texte = t("Stock", "Stock");
+pub const COUPE_OFFERTES: Texte = t("Longueurs offertes", "Stock lengths");
+pub const COUPE_OFFERTES_INDICE: Texte = t("ex. 8; 10; 12; 16", "e.g. 8; 10; 12; 16");
+pub const COUPE_OFFERTES_AIDE: Texte = t(
+    "Un nombre seul est en pieds; séparez les longueurs par des points-virgules.",
+    "A number alone is in feet; separate the lengths with semicolons.",
+);
+pub const COUPE_TRAIT: Texte = t("Trait de scie", "Saw kerf");
+pub const COUPE_TRAIT_INDICE: Texte = t("ex. 1/8 po", "e.g. 1/8 in");
+pub const COUPE_MATERIAU: Texte = t("Matériau (facultatif)", "Material (optional)");
+pub const COUPE_MATERIAU_INDICE: Texte = t("ex. 2 × 4 SPF", "e.g. 2 × 4 SPF");
+pub const COUPE_PLAN: Texte = t("Plan de coupe", "Cutting plan");
+pub const COUPE_A_ACHETER: Texte = t("À acheter", "To buy");
+pub const COUPE_LONGUEUR_ACHETEE: Texte = t("Longueur achetée", "Length bought");
+pub const COUPE_CHUTE: Texte = t("Chute", "Offcut");
+pub const COUPE_PIECE: Texte = t("Pièce", "Length");
+pub const COUPE_PIECES_DE_STOCK: Texte = t("Pièces de stock", "Stock lengths");
+pub const COUPE_AUCUNE_OFFERTE: Texte = t(
+    "Inscrivez au moins une longueur offerte.",
+    "Enter at least one stock length.",
+);
+pub const COUPE_TRAIT_ILLISIBLE: Texte = t(
+    "Le trait de scie ne se lit pas.",
+    "The saw kerf cannot be read.",
+);
+
+/// « La longueur offerte 2 ne se lit pas. »
+pub fn coupe_offerte_illisible(rang: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("La longueur offerte {rang} ne se lit pas."),
+        Langue::Anglais => format!("Stock length {rang} cannot be read."),
+    }
+}
+
+/// « Ligne 3 : la longueur ne se lit pas. »
+pub fn coupe_longueur_illisible(ligne: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Ligne {ligne} : la longueur ne se lit pas."),
+        Langue::Anglais => format!("Line {ligne}: the length cannot be read."),
+    }
+}
+
+/// « Ligne 3 : la quantité doit être un nombre entier de 1 à 999. »
+pub fn coupe_quantite_illisible(ligne: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => {
+            format!("Ligne {ligne} : la quantité doit être un nombre entier de 1 à 999.")
+        }
+        Langue::Anglais => {
+            format!("Line {ligne}: the quantity must be a whole number from 1 to 999.")
+        }
+    }
+}
+
+/// « Il y a plus de 2000 morceaux. »
+pub fn coupe_trop_de_morceaux(maximum: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Pas plus de {maximum} morceaux, en tout."),
+        Langue::Anglais => format!("No more than {maximum} pieces in all."),
+    }
+}
+
+/// Les morceaux qu'aucune longueur offerte ne peut donner.
+pub fn coupe_trop_longs(liste: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => {
+            format!("Plus longs que toutes les longueurs offertes, donc hors du plan : {liste}.")
+        }
+        Langue::Anglais => {
+            format!("Longer than every stock length, so left out of the plan: {liste}.")
+        }
+    }
+}
+
+/// « 4 pi 3 po (7 %) » : la chute et sa part de la longueur achetée.
+pub fn coupe_chute(longueur: &str, pourcent: f64) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{longueur} ({pourcent:.0}\u{a0}%)"),
+        Langue::Anglais => format!("{longueur} ({pourcent:.0}%)"),
+    }
+}
+
+/// Les coupes d'une pièce, puis sa chute s'il en reste une.
+pub fn coupe_detail(coupes: &str, chute: &str, avec_chute: bool) -> String {
+    if !avec_chute {
+        return coupes.to_string();
+    }
+    match langue::en_cours() {
+        Langue::Francais => format!("{coupes} · chute {chute}"),
+        Langue::Anglais => format!("{coupes} · offcut {chute}"),
+    }
+}
+
 // Le rapport d'un calcul en PDF (section 22.18)
 pub const BOUTON_PDF: Texte = tel("PDF");
 pub const INFOBULLE_RAPPORT_PDF: Texte = t(

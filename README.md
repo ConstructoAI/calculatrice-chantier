@@ -107,6 +107,8 @@ coup d'œil, et le bouton *Au clavier* pour brancher un calculateur sur les touc
 dans la liste d'achat du bloc-notes, où les mêmes articles s'additionnent.
 *Épingler* met un calculateur en tête de l'onglet et de la barre des métiers de l'accueil,
 et les derniers ouverts se retrouvent sous *Récents*.
+La carte *Liste de coupe* range des morceaux dans les longueurs offertes en magasin : les
+pièces à acheter et le plan de coupe de chacune, trait de scie compris.
 *PDF* en fait un rapport d'une page — date, projet, données et résultats — à joindre à une
 soumission.
 

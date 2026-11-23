@@ -3,6 +3,7 @@
 pub mod a_propos;
 pub mod aide;
 pub mod bienvenue;
+pub mod coupe;
 pub mod dessin;
 pub mod dessins;
 pub mod maquette;

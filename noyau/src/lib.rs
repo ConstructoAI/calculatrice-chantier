@@ -7,6 +7,7 @@
 pub mod analyse;
 pub mod cloison;
 pub mod conversions;
+pub mod coupe;
 pub mod dessin;
 pub mod erreurs;
 pub mod etiquettes;

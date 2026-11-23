@@ -306,6 +306,10 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
 <p><em>PDF</em>, sous les résultats, fait un rapport du calcul d'une page — la date, le projet, les données et les résultats, avec la note de l'outil — à joindre à une soumission ou à garder au dossier. Le projet, facultatif, se tape au moment d'exporter et reste proposé pour le rapport suivant.</p>
 <p>Tous les outils sont décrits, avec un exemple, dans le <a href="#outils">répertoire des outils par métier</a>.</p>
 
+<h3>La liste de coupe</h3>
+<p>La carte <em>Liste de coupe</em>, dans l'onglet <em>Métiers</em>, range des morceaux dans les longueurs offertes en magasin : inscrivez chaque morceau, sa quantité et sa longueur (<em>+ Morceau</em> en ajoute une ligne), les longueurs offertes (<code>8; 10; 12; 16</code> pieds au départ) et le trait de scie (1/8 po). Elle donne les pièces à acheter, la longueur achetée et la chute, puis le plan de coupe de chaque pièce, dessiné à l'échelle : le plan qui achète le moins de longueur. Pour le bois, les moulures, les conduits et les tuyaux.</p>
+<p class="exemple"><span class="mot">Exemple</span> 4 morceaux de 4 pi et 2 de 6 pi 6 po, en 8, 10, 12 ou 16 pi → <span class="ecran">2 × 16 pi 0 po</span>, chacune coupée en 6 pi 6 po + 4 pi + 4 pi, chute <span class="ecran">1 pi 5 5/8 po</span></p>
+
 <h2 id="dessin">8. Le dessin d'une pièce <a class="haut" href="#sommaire">Sommaire</a></h2>
 <p>L'onglet <em>Dessin</em> fait le plan d'une pièce : tracez son contour au doigt ou à la souris, inscrivez la mesure de chaque côté, et la calculatrice donne sa surface, son périmètre et la surface de ses murs. Le tracé est un croquis : il n'a pas besoin d'être à l'échelle.</p>
 <h3>Tracer la pièce</h3>
@@ -797,6 +801,12 @@ footer { margin-top: 48px; padding-top: 16px; padding-bottom: 40px; border-top: 
     <h4>Bloc-notes <span class="acces">onglet Notes</span></h4>
     <p><strong>Gardez vos notes de chantier dans la calculatrice :</strong> <kbd>+ Nouvelle note</kbd> en ouvre une : écrivez son titre et son texte, ils s'enregistrent d'eux-mêmes. Chaque note garde la date de sa dernière modification; <kbd>Copier</kbd> la met dans le presse-papiers, <kbd>Exporter</kbd> en fait un fichier texte, <kbd>Supprimer</kbd> la retire avec ses pièces jointes. Une note laissée vide disparaît en revenant à la liste. Une ligne qui commence par [ ] s'affiche en case à cocher, au-dessus du texte : un toucher la coche ou la décoche, et <kbd>+ Case</kbd> en ajoute une. Le champ de recherche, en tête de la liste, ne garde que les notes qui contiennent les mots cherchés. Sous le texte, <kbd>+ Photo</kbd> joint des photos (sur un téléphone : l'appareil photo ou la galerie) et <kbd>+ Fichier</kbd> joint un fichier (PDF, plan, soumission). Touchez une vignette pour voir la photo en grand; <kbd>Enregistrer</kbd> en garde une copie ailleurs, <kbd>Retirer</kbd> l'efface. Sur la photo en grand, <kbd>+ Cote</kbd> puis un glissé trace une cote : inscrivez la mesure prise au ruban; une cote laissée vide est estimée d'après la cote de référence (marquée ~). <kbd>Exporter en PDF</kbd> fait un PDF de la photo cotée.</p>
     <p class="note">Le bloc-notes garde jusqu'à 500 notes, sur l'appareil, et chaque note jusqu'à 50 pièces jointes. Une photo de plus de 2048 pixels est réduite à 2048 pixels; un fichier joint ne dépasse pas 25 Mo.</p>
+</article>
+<article>
+    <h4>Liste de coupe <span class="acces">onglet Métiers</span></h4>
+    <p><strong>Combien de pièces acheter, et comment les couper :</strong> Dans l'onglet Métiers, la carte Liste de coupe : inscrivez chaque morceau à couper, sa quantité et sa longueur (<kbd>+ Morceau</kbd> en ajoute une ligne), puis les longueurs offertes en magasin (8; 10; 12; 16 pi au départ) et le trait de scie (1/8 po). La calculatrice donne les pièces à acheter, la longueur achetée et la chute, puis le plan de coupe de chaque pièce, dessiné à l'échelle : le plan qui achète le moins de longueur. <kbd>Ajouter à la liste d'achat</kbd> y inscrit les pièces, sous le nom du matériau s'il est donné.</p>
+    <p class="exemple"><span class="mot">Exemple</span> 4 morceaux de <kbd>4</kbd> pi et 2 de <kbd>6</kbd> pi <kbd>6</kbd> po, en 8, 10, 12 ou 16 pi → <strong>2 × 16 pi : 6 pi 6 po + 4 pi + 4 pi chacune, chute 1 pi 5 5/8 po</strong></p>
+    <p class="note">Un nombre seul est en pieds. Un morceau plus long que toutes les longueurs offertes est signalé et laissé hors du plan.</p>
 </article>
 <article>
     <h4>Rapport de calcul en PDF <span class="acces">onglet Métiers</span></h4>

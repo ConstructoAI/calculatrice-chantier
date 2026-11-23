@@ -1283,6 +1283,36 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Liste de coupe", "Cut list"),
+        acces: t("onglet Métiers", "Trades tab"),
+        resume: t(
+            "Combien de pièces acheter, et comment les couper :",
+            "How many lengths to buy, and how to cut them:",
+        ),
+        mode_emploi: t(
+            "Dans l'onglet Métiers, la carte Liste de coupe : inscrivez chaque morceau à couper, sa quantité et sa longueur (`+ Morceau` en ajoute une ligne), puis les longueurs offertes en magasin (8; 10; 12; 16 pi au départ) et le trait de scie (1/8 po). La calculatrice donne les pièces à acheter, la longueur achetée et la chute, puis le plan de coupe de chaque pièce, dessiné à l'échelle : le plan qui achète le moins de longueur. `Ajouter à la liste d'achat` y inscrit les pièces, sous le nom du matériau s'il est donné.",
+            "In the Trades tab, the Cut list card: enter each piece to cut, its quantity and its length (`+ Piece` adds a line), then the stock lengths sold in stores (8; 10; 12; 16 ft to start with) and the saw kerf (1/8 in). The calculator gives the lengths to buy, the length bought and the offcut, then the cutting plan of each length, drawn to scale: the plan that buys the least length. `Add to shopping list` writes the lengths there, under the material's name if one is given.",
+        ),
+        exemple: Some((
+            t(
+                "4 morceaux de `4` pi et 2 de `6` pi `6` po, en 8, 10, 12 ou 16 pi",
+                "4 pieces of `4` ft and 2 of `6` ft `6` in, from 8, 10, 12 or 16 ft",
+            ),
+            t(
+                "2 × 16 pi : 6 pi 6 po + 4 pi + 4 pi chacune, chute 1 pi 5 5/8 po",
+                "2 × 16 ft: 6 ft 6 in + 4 ft + 4 ft each, offcut 1 ft 5 5/8 in",
+            ),
+        )),
+        note: Some(t(
+            "Un nombre seul est en pieds. Un morceau plus long que toutes les longueurs offertes est signalé et laissé hors du plan.",
+            "A number alone is in feet. A piece longer than every stock length is flagged and left out of the plan.",
+        )),
+        mots_cles: "coupe couper liste optimisée optimiser morceaux longueurs stock chute retailles trait scie bois moulures conduits tuyaux madriers cut list optimize pieces lengths stock offcut waste kerf saw lumber mouldings conduit pipe",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Rapport de calcul en PDF", "Calculation report as PDF"),
         acces: t("onglet Métiers", "Trades tab"),
         resume: t(

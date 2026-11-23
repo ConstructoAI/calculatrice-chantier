@@ -25,11 +25,16 @@ pub struct Position {
     pub metier: Option<Metier>,
     /// Identifiant du calculateur ouvert.
     pub calculateur: Option<&'static str>,
+    /// La liste de coupe est ouverte (section 22.19).
+    pub liste_de_coupe: bool,
 }
 
 impl Position {
     /// Remonte d'un niveau. Retourne faux si l'on était déjà à la liste des métiers.
     pub fn remonter(&mut self) -> bool {
+        if std::mem::take(&mut self.liste_de_coupe) {
+            return true;
+        }
         if self.calculateur.take().is_some() {
             true
         } else {
@@ -178,6 +183,17 @@ fn liste_des_metiers(
             ) {
                 position.metier = Some(metier);
             }
+        }
+        // La liste de coupe : des morceaux dans des longueurs offertes (section 22.19).
+        if carte_cliquable(
+            ui,
+            p,
+            "liste-de-coupe",
+            textes::LISTE_DE_COUPE.traduit(),
+            textes::LISTE_DE_COUPE_RESUME_COURT.traduit(),
+            textes::LISTE_DE_COUPE_MENTION.traduit(),
+        ) {
+            position.liste_de_coupe = true;
         }
         // La charpente, la toiture et les escaliers se calculent au clavier principal.
         if carte_cliquable(
@@ -420,6 +436,12 @@ pub fn afficher(
     prefs: &Preferences,
     favoris: &Favoris,
 ) -> Option<Action> {
+    if position.liste_de_coupe {
+        let saisies = saisies
+            .entry(super::coupe::IDENTIFIANT.to_string())
+            .or_insert_with(super::coupe::saisies_de_depart);
+        return super::coupe::afficher(ui, p, position, saisies, prefs);
+    }
     if let Some(c) = position.calculateur.and_then(calculateur) {
         return formulaire(ui, p, position, c, saisies, prefs, favoris);
     }
