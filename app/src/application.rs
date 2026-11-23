@@ -215,7 +215,7 @@ pub struct Application {
     /// texte qui doit prendre le clavier, et ce qui reste à enregistrer.
     notes: Vec<NoteDuBloc>,
     note_ouverte: Option<u64>,
-    viser_la_note: bool,
+    etat_des_notes: notes::EtatDesNotes,
     notes_a_sauvegarder: bool,
     /// Les vignettes des photos de la note ouverte, par numéro de pièce
     /// (rien : introuvable); la photo vue en grand et sa texture une fois lue.
@@ -376,7 +376,7 @@ impl Application {
             dessin_a_sauvegarder: langue_du_dessin != langue || dessins_a_sauvegarder,
             notes,
             note_ouverte: None,
-            viser_la_note: false,
+            etat_des_notes: notes::EtatDesNotes::default(),
             notes_a_sauvegarder: false,
             vignettes: HashMap::new(),
             photo_vue: None,
@@ -918,7 +918,7 @@ impl Application {
                 );
                 self.oublier_les_images();
                 self.note_ouverte = Some(id);
-                self.viser_la_note = true;
+                self.etat_des_notes.viser = true;
                 self.notes_a_sauvegarder = true;
             }
             notes::Action::Ouvrir(id) => {
@@ -2161,7 +2161,7 @@ impl Application {
                     p,
                     &mut self.notes,
                     self.note_ouverte,
-                    &mut self.viser_la_note,
+                    &mut self.etat_des_notes,
                     &images,
                     &mut self.etat_de_la_photo,
                 );

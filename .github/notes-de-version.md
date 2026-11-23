@@ -32,6 +32,11 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   marqué d'une étoile; les derniers ouverts se retrouvent sous **Récents**. L'application
   installée offre aussi des raccourcis sur son icône : métiers, dessin, bloc-notes, rubans.
 
+- **Listes à cocher et recherche dans le bloc-notes** : une ligne qui commence par « [ ] »
+  devient une case à cocher, qu'un toucher coche ou décoche, et **+ Case** en ajoute une; un
+  champ de recherche, en tête de la liste, retrouve une note par ses mots, sans égard aux
+  majuscules ni aux accents.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

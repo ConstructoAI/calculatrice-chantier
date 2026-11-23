@@ -55,6 +55,119 @@ pub struct EtatDeLaPhoto {
     pub poignee: Option<(usize, bool)>,
 }
 
+/// Ce que l'écran des notes retient d'une image à l'autre.
+#[derive(Clone, Debug, Default)]
+pub struct EtatDesNotes {
+    /// Le texte de la note ouverte doit prendre le clavier (une note neuve).
+    pub viser: bool,
+    /// Le curseur doit aller au bout du texte, sur la case neuve (« + Case »).
+    pub curseur_au_bout: bool,
+    /// Les mots cherchés dans la liste (section 26, point 9).
+    pub recherche: String,
+}
+
+/// Une case à cocher d'une note (section 26, point 9) : une ligne qui commence,
+/// après d'éventuelles espaces, par « [ ] » ou « [x] ».
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Case<'a> {
+    /// Son rang parmi les lignes du texte (à partir de 0).
+    pub ligne: usize,
+    pub cochee: bool,
+    /// Ce qui suit la case, sans les espaces des bouts.
+    pub libelle: &'a str,
+}
+
+/// La case d'une ligne, si elle en est une : (cochée, libellé).
+fn case_de_la_ligne(ligne: &str) -> Option<(bool, &str)> {
+    let reste = ligne.trim_start();
+    let cochee = if reste.starts_with("[ ]") {
+        false
+    } else if reste.starts_with("[x]") || reste.starts_with("[X]") {
+        true
+    } else {
+        return None;
+    };
+    Some((cochee, reste[3..].trim()))
+}
+
+/// Les cases à cocher du texte d'une note, dans l'ordre.
+pub fn cases_du_texte(texte: &str) -> Vec<Case<'_>> {
+    texte
+        .split('\n')
+        .enumerate()
+        .filter_map(|(ligne, contenu)| {
+            let (cochee, libelle) = case_de_la_ligne(contenu)?;
+            Some(Case {
+                ligne,
+                cochee,
+                libelle,
+            })
+        })
+        .collect()
+}
+
+/// Coche la case de cette ligne, ou la décoche : seuls ses crochets changent.
+/// Une ligne qui n'est pas une case reste telle quelle.
+pub fn basculer_la_case(texte: &mut String, ligne: usize) {
+    let mut debut = 0;
+    let mut cible = None;
+    for (rang, contenu) in texte.split('\n').enumerate() {
+        if rang == ligne {
+            cible = case_de_la_ligne(contenu)
+                .map(|(cochee, _)| (debut + contenu.len() - contenu.trim_start().len(), cochee));
+            break;
+        }
+        debut += contenu.len() + 1;
+    }
+    if let Some((case, cochee)) = cible {
+        texte.replace_range(case..case + 3, if cochee { "[ ]" } else { "[x]" });
+    }
+}
+
+/// Ajoute une case vide au bout du texte, sur une ligne à elle.
+pub fn ajouter_une_case(texte: &mut String) {
+    if !texte.is_empty() && !texte.ends_with('\n') {
+        texte.push('\n');
+    }
+    texte.push_str("[ ] ");
+}
+
+/// Le texte en minuscules et sans accents, pour chercher sans s'en soucier.
+fn replier(texte: &str) -> String {
+    texte
+        .chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| match c {
+            'à' | 'â' | 'ä' => 'a',
+            'ç' => 'c',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'î' | 'ï' => 'i',
+            'ô' | 'ö' => 'o',
+            'ù' | 'û' | 'ü' => 'u',
+            'ÿ' => 'y',
+            autre => autre,
+        })
+        .collect::<String>()
+        .replace('œ', "oe")
+        .replace('æ', "ae")
+}
+
+/// Les mots cherchés, repliés.
+pub fn mots_cherches(recherche: &str) -> Vec<String> {
+    recherche.split_whitespace().map(replier).collect()
+}
+
+/// Vrai si le titre ou le texte de la note contient chacun des mots; sans
+/// mot, toutes les notes conviennent.
+pub fn correspond(note: &NoteDuBloc, mots: &[String]) -> bool {
+    if mots.is_empty() {
+        return true;
+    }
+    let (titre, texte) = (replier(&note.titre), replier(&note.texte));
+    mots.iter()
+        .all(|mot| titre.contains(mot.as_str()) || texte.contains(mot.as_str()))
+}
+
 /// Le texte d'une cote, sur la photo comme dans le PDF : « Réf. 32 po » pour la
 /// référence, « ~ 2 pi 0 po » pour une mesure estimée, « ? » sans mesure.
 pub fn texte_d_une_cote(
@@ -106,7 +219,7 @@ pub fn afficher(
     p: &Palette,
     notes: &mut [NoteDuBloc],
     ouverte: Option<u64>,
-    viser: &mut bool,
+    etat: &mut EtatDesNotes,
     images: &Images<'_>,
     etat_de_la_photo: &mut EtatDeLaPhoto,
 ) -> Option<Action> {
@@ -141,18 +254,66 @@ pub fn afficher(
                 action = Some(Action::Modifiee);
             }
             ui.add_space(6.0);
-            let texte = egui::TextEdit::multiline(&mut note.texte)
+            // La liste à cocher : les lignes « [ ] » et « [x] » du texte, qu'un
+            // toucher coche ou décoche (section 26, point 9).
+            let cases: Vec<(usize, bool, String)> = cases_du_texte(&note.texte)
+                .into_iter()
+                .map(|case| (case.ligne, case.cochee, case.libelle.to_string()))
+                .collect();
+            if !cases.is_empty() {
+                let mut a_basculer = None;
+                carte(ui, p, |ui| {
+                    for (ligne, cochee, libelle) in &cases {
+                        let mut coche = *cochee;
+                        let libelle = if libelle.is_empty() { "…" } else { libelle };
+                        let mut texte = RichText::new(libelle).size(15.0);
+                        if *cochee {
+                            texte = texte.strikethrough().color(p.texte_attenue);
+                        }
+                        if ui.checkbox(&mut coche, texte).changed() {
+                            a_basculer = Some(*ligne);
+                        }
+                    }
+                });
+                if let Some(ligne) = a_basculer {
+                    basculer_la_case(&mut note.texte, ligne);
+                    action = Some(Action::Modifiee);
+                }
+                ui.add_space(6.0);
+            }
+            let sortie = egui::TextEdit::multiline(&mut note.texte)
                 .desired_width(f32::INFINITY)
                 .desired_rows(14)
                 .char_limit(20_000)
                 .font(theme::police(15.0))
-                .hint_text(textes::NOTE_TEXTE_INDICE.traduit());
-            let reponse = ui.add(texte);
+                .hint_text(textes::NOTE_TEXTE_INDICE.traduit())
+                .show(ui);
+            let reponse = sortie.response.response;
             cadre_de_saisie(ui, p, &reponse);
-            if std::mem::take(viser) {
+            if std::mem::take(&mut etat.viser) {
+                reponse.request_focus();
+            }
+            // « + Case » : le curseur va au bout du texte, sur la case neuve.
+            if std::mem::take(&mut etat.curseur_au_bout) {
+                let mut memoire = sortie.state;
+                let bout = egui::text::CCursor::new(note.texte.chars().count());
+                memoire
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::one(bout)));
+                memoire.store(ui.ctx(), reponse.id);
                 reponse.request_focus();
             }
             if reponse.changed() {
+                action = Some(Action::Modifiee);
+            }
+            ui.add_space(4.0);
+            if ui
+                .button(textes::PLUS_CASE.traduit())
+                .on_hover_text(textes::INFOBULLE_CASE.traduit())
+                .clicked()
+            {
+                ajouter_une_case(&mut note.texte);
+                etat.curseur_au_bout = true;
                 action = Some(Action::Modifiee);
             }
             ui.add_space(10.0);
@@ -199,14 +360,39 @@ pub fn afficher(
         ui.add_space(8.0);
         if notes.is_empty() {
             ui.label(RichText::new(textes::AUCUNE_NOTE.traduit()).color(p.texte_attenue));
+        } else {
+            // La recherche (section 26, point 9) : ne garde que les notes dont le titre
+            // ou le texte contient chacun des mots cherchés.
+            let champ = egui::TextEdit::singleline(&mut etat.recherche)
+                .desired_width(f32::INFINITY)
+                .char_limit(80)
+                .hint_text(textes::RECHERCHER_DANS_LES_NOTES.traduit());
+            let reponse = ui.add(champ);
+            cadre_de_saisie(ui, p, &reponse);
+            ui.add_space(8.0);
         }
-        for note in notes.iter() {
+        let mots = mots_cherches(&etat.recherche);
+        let trouvees: Vec<&NoteDuBloc> = notes
+            .iter()
+            .filter(|note| correspond(note, &mots))
+            .collect();
+        if !notes.is_empty() && trouvees.is_empty() {
+            ui.label(RichText::new(textes::AUCUNE_NOTE_TROUVEE.traduit()).color(p.texte_attenue));
+        }
+        for note in trouvees {
             carte(ui, p, |ui| {
                 ui.label(RichText::new(titre_de(note)).font(theme::police_grasse(15.0)));
                 let mut date = note.date_en_clair();
                 if !note.pieces.is_empty() {
                     date.push_str(" · ");
                     date.push_str(&textes::nombre_de_pieces(note.pieces.len()));
+                }
+                // Une liste à cocher : où elle en est.
+                let cases = cases_du_texte(&note.texte);
+                if !cases.is_empty() {
+                    let cochees = cases.iter().filter(|case| case.cochee).count();
+                    date.push_str(" · ");
+                    date.push_str(&textes::cases_cochees(cochees, cases.len()));
                 }
                 ui.label(RichText::new(date).size(12.5).color(p.texte_attenue));
                 // Le début du texte.
@@ -612,4 +798,79 @@ fn peindre_le_texte_d_une_cote(peintre: &egui::Painter, milieu: Pos2, texte: &st
     let fond = Rect::from_center_size(milieu, galee.size() + Vec2::new(10.0, 4.0));
     peintre.rect_filled(fond, 4.0, Color32::from_white_alpha(235));
     peintre.galley(fond.center() - galee.size() / 2.0, galee, LISERE_DES_COTES);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cases_a_cocher_dans_le_texte() {
+        let mut texte = String::from(
+            "Salle de bain\n[ ] Gypse\n  [x] Électricien\n[X] Plombier\n[] pas une case\nfin [ ] non plus",
+        );
+        let cases = cases_du_texte(&texte);
+        assert_eq!(cases.len(), 3);
+        assert_eq!(
+            cases[0],
+            Case {
+                ligne: 1,
+                cochee: false,
+                libelle: "Gypse"
+            }
+        );
+        assert_eq!(
+            cases[1],
+            Case {
+                ligne: 2,
+                cochee: true,
+                libelle: "Électricien"
+            }
+        );
+        assert!(cases[2].cochee);
+        // Cocher et décocher ne change que les crochets.
+        basculer_la_case(&mut texte, 1);
+        basculer_la_case(&mut texte, 2);
+        assert_eq!(
+            texte,
+            "Salle de bain\n[x] Gypse\n  [ ] Électricien\n[X] Plombier\n[] pas une case\nfin [ ] non plus"
+        );
+        // Une ligne qui n'est pas une case, ou qui n'existe pas, ne change rien.
+        let avant = texte.clone();
+        basculer_la_case(&mut texte, 0);
+        basculer_la_case(&mut texte, 5);
+        basculer_la_case(&mut texte, 99);
+        assert_eq!(texte, avant);
+        // « + Case » : une ligne à elle, au bout du texte.
+        let mut neuf = String::new();
+        ajouter_une_case(&mut neuf);
+        assert_eq!(neuf, "[ ] ");
+        let mut suite = String::from("Liste");
+        ajouter_une_case(&mut suite);
+        assert_eq!(suite, "Liste\n[ ] ");
+        assert_eq!(
+            cases_du_texte(&suite),
+            [Case {
+                ligne: 1,
+                cochee: false,
+                libelle: ""
+            }]
+        );
+    }
+
+    #[test]
+    fn recherche_dans_les_notes() {
+        let note = NoteDuBloc {
+            titre: "Chantier Tremblay".into(),
+            texte: "Appeler l'électricien\nLe cœur de la poutre".into(),
+            ..NoteDuBloc::default()
+        };
+        let cherche = |recherche: &str| correspond(&note, &mots_cherches(recherche));
+        assert!(cherche(""));
+        assert!(cherche("tremblay"));
+        assert!(cherche("ELECTRICIEN  tremblay"));
+        assert!(cherche("coeur"));
+        assert!(!cherche("plombier"));
+        assert!(!cherche("tremblay plombier"));
+    }
 }

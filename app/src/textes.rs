@@ -290,6 +290,28 @@ pub const ONGLET_NOTES: Texte = t("Notes", "Notes");
 pub const MENU_NOTES: Texte = t("Bloc-notes", "Notepad");
 pub const NOUVELLE_NOTE: Texte = t("+ Nouvelle note", "+ New note");
 pub const AUCUNE_NOTE: Texte = t("Aucune note pour l'instant.", "No notes yet.");
+// Listes à cocher et recherche (section 26, point 9)
+pub const PLUS_CASE: Texte = t("+ Case", "+ Checkbox");
+pub const INFOBULLE_CASE: Texte = t(
+    "Une ligne à cocher, au bout du texte",
+    "A line to tick, at the end of the text",
+);
+pub const RECHERCHER_DANS_LES_NOTES: Texte = t("Rechercher dans les notes", "Search the notes");
+pub const AUCUNE_NOTE_TROUVEE: Texte = t(
+    "Aucune note ne contient ces mots.",
+    "No note contains these words.",
+);
+
+/// « 3 cochées sur 5 », sous le titre d'une note qui a des cases à cocher.
+pub fn cases_cochees(cochees: usize, total: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => {
+            let mot = if cochees > 1 { "cochées" } else { "cochée" };
+            format!("{cochees} {mot} sur {total}")
+        }
+        Langue::Anglais => format!("{cochees} of {total} ticked"),
+    }
+}
 pub const NOTE_SANS_TITRE: Texte = t("Note sans titre", "Untitled note");
 pub const NOTE_TITRE_INDICE: Texte = t("Titre", "Title");
 pub const NOTE_TEXTE_INDICE: Texte = t("Écrivez votre note…", "Write your note…");
