@@ -526,6 +526,9 @@ pub struct Ouverture {
     /// La hauteur du bas d'une fenêtre (son allège), telle qu'elle a été
     /// inscrite; vide : 3 pi. Une porte part du plancher.
     pub allege: String,
+    /// Vrai si sa charnière (ou le côté où glisse son panneau) est au bout
+    /// opposé, celui de sa fin (évolution 24).
+    pub inversee: bool,
 }
 
 /// L'allège d'une fenêtre quand elle n'est pas inscrite : 3 pi.
@@ -534,21 +537,380 @@ pub const ALLEGE_PAR_DEFAUT: f64 = 36.0;
 const HAUTEUR_DE_PORTE_PAR_DEFAUT: f64 = 80.0;
 const HAUTEUR_DE_FENETRE_PAR_DEFAUT: f64 = 48.0;
 
-/// Le genre d'une ouverture, pour la dessiner.
+/// Le genre d'une ouverture, pour la dessiner (évolution 24 : dix genres).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GenreDOuverture {
+    /// Une porte battante, à une charnière.
     Porte,
     Fenetre,
+    /// Deux vantaux battants, qui se rejoignent au milieu.
+    PorteDouble,
+    /// Deux panneaux qui glissent l'un devant l'autre, dans le mur.
+    PorteCoulissante,
+    /// Un panneau qui glisse sur un rail, devant le mur.
+    PorteDeGrange,
+    /// Des panneaux qui se plient en accordéon.
+    PortePliante,
+    /// Une porte-fenêtre (une porte-patio) : deux panneaux vitrés qui glissent.
+    PorteFenetre,
+    /// Une porte de garage, qui monte sous le plafond.
+    PorteDeGarage,
+    /// Une baie libre : une ouverture sans porte.
+    BaieLibre,
+    /// Une fenêtre en baie, qui avance hors du mur.
+    FenetreEnBaie,
+}
+
+/// Ce qui remplit une ouverture en 3D.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Remplissage {
+    Porte,
+    Vitre,
+    Rien,
+}
+
+impl GenreDOuverture {
+    /// Tous les genres, dans l'ordre de la liste : les portes, la baie libre,
+    /// puis les fenêtres.
+    pub const TOUS: [GenreDOuverture; 10] = [
+        GenreDOuverture::Porte,
+        GenreDOuverture::PorteDouble,
+        GenreDOuverture::PorteCoulissante,
+        GenreDOuverture::PorteDeGrange,
+        GenreDOuverture::PortePliante,
+        GenreDOuverture::PorteFenetre,
+        GenreDOuverture::PorteDeGarage,
+        GenreDOuverture::BaieLibre,
+        GenreDOuverture::Fenetre,
+        GenreDOuverture::FenetreEnBaie,
+    ];
+
+    /// Vrai pour ce qui part du plancher, sans allège : les portes et la baie
+    /// libre (un P au bordereau); faux pour les fenêtres (un F).
+    pub fn est_une_porte(self) -> bool {
+        !matches!(
+            self,
+            GenreDOuverture::Fenetre | GenreDOuverture::FenetreEnBaie
+        )
+    }
+
+    /// Vrai pour une porte qui tourne sur ses charnières : son battant balaie
+    /// un quart de disque (évolution 23).
+    pub fn battante(self) -> bool {
+        matches!(self, GenreDOuverture::Porte | GenreDOuverture::PorteDouble)
+    }
+
+    /// Vrai si « Inverser » la change : la charnière d'une porte, le côté où
+    /// glisse un panneau.
+    pub fn a_un_sens(self) -> bool {
+        matches!(
+            self,
+            GenreDOuverture::Porte
+                | GenreDOuverture::PorteCoulissante
+                | GenreDOuverture::PorteDeGrange
+                | GenreDOuverture::PorteFenetre
+        )
+    }
+
+    /// Ce qui la remplit en 3D : du verre, une porte, ou rien.
+    pub fn remplissage(self) -> Remplissage {
+        match self {
+            GenreDOuverture::Fenetre
+            | GenreDOuverture::FenetreEnBaie
+            | GenreDOuverture::PorteFenetre => Remplissage::Vitre,
+            GenreDOuverture::BaieLibre => Remplissage::Rien,
+            _ => Remplissage::Porte,
+        }
+    }
+
+    /// Ses formats courants (largeur, hauteur, en pouces), le premier de la
+    /// liste étant celui de départ.
+    pub fn formats(self) -> &'static [(f64, f64)] {
+        match self {
+            GenreDOuverture::Porte => &[
+                (32.0, 80.0),
+                (24.0, 80.0),
+                (28.0, 80.0),
+                (30.0, 80.0),
+                (34.0, 80.0),
+                (36.0, 80.0),
+            ],
+            GenreDOuverture::PorteDouble => &[(60.0, 80.0), (48.0, 80.0), (72.0, 80.0)],
+            GenreDOuverture::PorteCoulissante => {
+                &[(60.0, 80.0), (48.0, 80.0), (72.0, 80.0), (96.0, 80.0)]
+            }
+            GenreDOuverture::PorteDeGrange => &[(36.0, 84.0), (30.0, 84.0), (42.0, 84.0)],
+            GenreDOuverture::PortePliante => &[
+                (36.0, 80.0),
+                (24.0, 80.0),
+                (30.0, 80.0),
+                (48.0, 80.0),
+                (60.0, 80.0),
+                (72.0, 80.0),
+            ],
+            GenreDOuverture::PorteFenetre => &[(72.0, 80.0), (60.0, 80.0), (96.0, 80.0)],
+            GenreDOuverture::PorteDeGarage => {
+                &[(108.0, 84.0), (96.0, 84.0), (192.0, 84.0), (216.0, 84.0)]
+            }
+            GenreDOuverture::BaieLibre => &[(36.0, 84.0), (30.0, 80.0), (48.0, 84.0), (60.0, 84.0)],
+            GenreDOuverture::Fenetre => &[
+                (36.0, 48.0),
+                (24.0, 36.0),
+                (30.0, 48.0),
+                (48.0, 48.0),
+                (60.0, 48.0),
+                (72.0, 48.0),
+            ],
+            GenreDOuverture::FenetreEnBaie => &[(72.0, 54.0), (84.0, 54.0), (96.0, 60.0)],
+        }
+    }
+}
+
+/// Le style d'un trait du symbole d'une ouverture.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StyleDOuverture {
+    /// Épais : un battant, un panneau fermé.
+    Panneau,
+    /// Fin : l'arc d'un battant, le contour d'un panneau.
+    Fin,
+    /// En tirets : un rail, une porte de garage levée, une baie libre.
+    Tirets,
+    /// Le vitrage d'une fenêtre ou d'une porte-fenêtre.
+    Vitrage,
+}
+
+/// Un trait du symbole d'une ouverture : une ligne brisée, et son style.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TraitDOuverture {
+    pub points: Vec<(f64, f64)>,
+    pub style: StyleDOuverture,
+}
+
+/// Le symbole des nouveaux genres d'ouverture (évolution 24), dans les unités
+/// de l'appelant (pouces, points de l'écran ou de la page) : `q0` et `q1`,
+/// ses bords sur la ligne des mesures; `dedans`, unitaire, vers la pièce;
+/// `epaisseur`, celle du mur, négative s'il est vers l'intérieur (des mesures
+/// prises à l'extérieur); `course`, la profondeur que prend une porte de
+/// garage levée; `pouce`, la longueur d'un pouce dans ces unités. La porte
+/// battante et la fenêtre ont leur dessin à part.
+pub fn symbole_d_ouverture(
+    genre: GenreDOuverture,
+    inversee: bool,
+    (q0, q1): ((f64, f64), (f64, f64)),
+    dedans: (f64, f64),
+    epaisseur: f64,
+    (course, pouce): (f64, f64),
+) -> Vec<TraitDOuverture> {
+    let largeur = (q1.0 - q0.0).hypot(q1.1 - q0.1);
+    if largeur < 1e-9 {
+        return Vec::new();
+    }
+    let u = ((q1.0 - q0.0) / largeur, (q1.1 - q0.1) / largeur);
+    let n = dedans;
+    // Les faces du mur, comptées le long de `dedans` depuis la ligne des mesures.
+    let interieure = (-epaisseur).max(0.0);
+    let exterieure = interieure - epaisseur.abs();
+    let mince = epaisseur.abs() < 1e-9;
+    let point = |le_long: f64, vers_dedans: f64| {
+        (
+            q0.0 + u.0 * le_long + n.0 * vers_dedans,
+            q0.1 + u.1 * le_long + n.1 * vers_dedans,
+        )
+    };
+    let trait_ = |points: Vec<(f64, f64)>, style| TraitDOuverture { points, style };
+    // Un panneau mince entre deux points le long du mur, à une profondeur.
+    let panneau = |de: f64, a: f64, milieu: f64, demi: f64| {
+        vec![
+            point(de, milieu - demi),
+            point(a, milieu - demi),
+            point(a, milieu + demi),
+            point(de, milieu + demi),
+            point(de, milieu - demi),
+        ]
+    };
+    // L'épaisseur d'un panneau, à l'échelle de l'ouverture.
+    let demi = (largeur * 0.02).max(epaisseur.abs() * 0.08);
+    let mut traits = Vec::new();
+    match genre {
+        GenreDOuverture::PorteDouble => {
+            // Deux battants, chacun de la moitié de la largeur, et leurs arcs.
+            for (charniere, sens) in [(0.0, 1.0), (largeur, -1.0)] {
+                let base = point(charniere, interieure);
+                let rayon = largeur / 2.0;
+                traits.push(trait_(
+                    vec![base, (base.0 + n.0 * rayon, base.1 + n.1 * rayon)],
+                    StyleDOuverture::Panneau,
+                ));
+                traits.push(trait_(
+                    (0..=12)
+                        .map(|i| {
+                            let angle = std::f64::consts::FRAC_PI_2 * f64::from(i) / 12.0;
+                            let (c, s) = (angle.cos(), angle.sin());
+                            (
+                                base.0 + (u.0 * sens * c + n.0 * s) * rayon,
+                                base.1 + (u.1 * sens * c + n.1 * s) * rayon,
+                            )
+                        })
+                        .collect(),
+                    StyleDOuverture::Fin,
+                ));
+            }
+        }
+        GenreDOuverture::PorteCoulissante | GenreDOuverture::PorteFenetre => {
+            // Deux panneaux qui se chevauchent, dans l'épaisseur du mur.
+            let (a, b) = if mince {
+                (-demi * 1.6, demi * 1.6)
+            } else {
+                (
+                    exterieure + epaisseur.abs() / 3.0,
+                    exterieure + 2.0 * epaisseur.abs() / 3.0,
+                )
+            };
+            let (devant, derriere) = if inversee { (b, a) } else { (a, b) };
+            for (de, fin, milieu) in [
+                (0.0, largeur * 0.55, devant),
+                (largeur * 0.45, largeur, derriere),
+            ] {
+                traits.push(trait_(panneau(de, fin, milieu, demi), StyleDOuverture::Fin));
+                if genre == GenreDOuverture::PorteFenetre {
+                    traits.push(trait_(
+                        vec![point(de, milieu), point(fin, milieu)],
+                        StyleDOuverture::Vitrage,
+                    ));
+                }
+            }
+        }
+        GenreDOuverture::PorteDeGrange => {
+            // Le panneau, devant la face intérieure, et son rail, qui file du
+            // côté où il glisse.
+            let milieu = interieure + demi * 2.0;
+            traits.push(trait_(
+                panneau(-largeur * 0.04, largeur * 1.04, milieu, demi),
+                StyleDOuverture::Panneau,
+            ));
+            let rail = if inversee {
+                vec![
+                    point(-largeur * 1.04, milieu + demi * 2.5),
+                    point(largeur * 1.04, milieu + demi * 2.5),
+                ]
+            } else {
+                vec![
+                    point(-largeur * 0.04, milieu + demi * 2.5),
+                    point(largeur * 2.04, milieu + demi * 2.5),
+                ]
+            };
+            traits.push(trait_(rail, StyleDOuverture::Tirets));
+        }
+        GenreDOuverture::PortePliante => {
+            // Les panneaux en accordéon : un V, ou deux pour une large porte.
+            // Une porte de 4 pi ou plus se plie des deux côtés.
+            if largeur >= 47.9 * pouce {
+                let creux = largeur / 4.0 * 0.8;
+                traits.push(trait_(
+                    vec![
+                        point(0.0, interieure),
+                        point(largeur / 4.0, interieure + creux),
+                        point(largeur / 2.0, interieure),
+                    ],
+                    StyleDOuverture::Panneau,
+                ));
+                traits.push(trait_(
+                    vec![
+                        point(largeur / 2.0, interieure),
+                        point(largeur * 0.75, interieure + creux),
+                        point(largeur, interieure),
+                    ],
+                    StyleDOuverture::Panneau,
+                ));
+            } else {
+                let creux = largeur / 2.0 * 0.6;
+                traits.push(trait_(
+                    vec![
+                        point(0.0, interieure),
+                        point(largeur / 2.0, interieure + creux),
+                        point(largeur, interieure),
+                    ],
+                    StyleDOuverture::Panneau,
+                ));
+            }
+        }
+        GenreDOuverture::PorteDeGarage => {
+            // La porte fermée, à la face intérieure, et levée, en tirets sous
+            // le plafond.
+            traits.push(trait_(
+                vec![point(0.0, interieure), point(largeur, interieure)],
+                StyleDOuverture::Panneau,
+            ));
+            let fond = interieure + course;
+            traits.push(trait_(
+                vec![
+                    point(0.0, interieure),
+                    point(0.0, fond),
+                    point(largeur, fond),
+                    point(largeur, interieure),
+                ],
+                StyleDOuverture::Tirets,
+            ));
+        }
+        GenreDOuverture::BaieLibre => {
+            traits.push(trait_(
+                vec![point(0.0, interieure), point(largeur, interieure)],
+                StyleDOuverture::Tirets,
+            ));
+        }
+        GenreDOuverture::FenetreEnBaie => {
+            // Le vitrage dans le mur, et la baie qui avance au dehors, ses
+            // côtés à 45°.
+            traits.push(trait_(
+                vec![point(0.0, exterieure), point(largeur, exterieure)],
+                StyleDOuverture::Fin,
+            ));
+            // La baie avance du quart de sa largeur.
+            let avance = largeur / 4.0;
+            let baie = vec![
+                point(0.0, exterieure),
+                point(avance, exterieure - avance),
+                point(largeur - avance, exterieure - avance),
+                point(largeur, exterieure),
+            ];
+            traits.push(trait_(baie, StyleDOuverture::Fin));
+            traits.push(trait_(
+                vec![
+                    point(avance, exterieure - avance * 0.85),
+                    point(largeur - avance, exterieure - avance * 0.85),
+                ],
+                StyleDOuverture::Vitrage,
+            ));
+        }
+        GenreDOuverture::Porte | GenreDOuverture::Fenetre => {}
+    }
+    // Sans épaisseur, des montants marquent les bords d'une ouverture.
+    if mince && genre != GenreDOuverture::FenetreEnBaie {
+        for bout in [0.0, largeur] {
+            traits.push(trait_(
+                vec![point(bout, -demi * 2.5), point(bout, demi * 2.5)],
+                StyleDOuverture::Fin,
+            ));
+        }
+    }
+    traits
 }
 
 impl Ouverture {
     /// Vrai pour une porte. Sans genre, une ouverture de 6 pi (72 po) ou plus
     /// de haut en est une; `hauteur` est sa hauteur en pouces, si elle est lisible.
     pub fn est_une_porte(&self, hauteur: Option<f64>) -> bool {
-        match self.genre {
-            Some(genre) => genre == GenreDOuverture::Porte,
-            None => hauteur.is_some_and(|h| h >= 72.0),
-        }
+        self.genre_ou_deduit(hauteur).est_une_porte()
+    }
+
+    /// Son genre; sans genre (un dessin de la version 0.8), une porte si elle
+    /// a 6 pi (72 po) ou plus de haut, une fenêtre sinon.
+    pub fn genre_ou_deduit(&self, hauteur: Option<f64>) -> GenreDOuverture {
+        self.genre.unwrap_or(if hauteur.is_some_and(|h| h >= 72.0) {
+            GenreDOuverture::Porte
+        } else {
+            GenreDOuverture::Fenetre
+        })
     }
 }
 
@@ -559,7 +921,10 @@ pub struct Placement {
     pub cote: usize,
     pub debut: f64,
     pub fin: f64,
+    /// Vrai pour ce qui part du plancher (une porte, une baie libre).
     pub porte: bool,
+    pub genre: GenreDOuverture,
+    pub inversee: bool,
     /// Le bas et le haut de l'ouverture, en pouces depuis le plancher.
     pub bas: f64,
     pub haut: f64,
@@ -665,6 +1030,132 @@ pub fn simplifier_le_trait(points: &[(f64, f64)], tolerance: f64) -> Vec<(f64, f
         .collect()
 }
 
+/// Une ligne du bordereau des portes et des fenêtres (évolution 24).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LigneDuBordereau {
+    /// Son repère : P1, P2… pour les portes et les baies, F1… pour les fenêtres.
+    pub repere: String,
+    pub genre: GenreDOuverture,
+    /// Sa largeur et sa hauteur (pouces), si elles se lisent.
+    pub largeur: Option<f64>,
+    pub hauteur: Option<f64>,
+    /// Pour une porte battante placée sur son mur : vrai si elle est poussant
+    /// gauche (vu du dehors de la pièce, en la poussant, la charnière à
+    /// gauche), faux si elle est poussant droite.
+    pub poussant_gauche: Option<bool>,
+    /// Le nom de sa pièce, et le rang de la pièce et de l'ouverture.
+    pub piece: String,
+    pub rang_de_la_piece: usize,
+    pub rang: usize,
+}
+
+impl Plan {
+    /// Le repère de chaque ouverture de chaque pièce (évolution 24) : les
+    /// portes et les baies libres P1, P2…, les fenêtres F1, F2…, numérotées à
+    /// la suite d'une pièce à l'autre.
+    pub fn reperes_des_ouvertures(&self) -> Vec<Vec<String>> {
+        let (mut portes, mut fenetres) = (0, 0);
+        self.pieces
+            .iter()
+            .map(|piece| {
+                piece
+                    .dessin
+                    .ouvertures
+                    .iter()
+                    .map(|ouverture| {
+                        let hauteur = crate::analyse::analyser_longueur(
+                            ouverture.hauteur.trim(),
+                            Format::PiPo,
+                        )
+                        .ok()
+                        .filter(|v| v.est_longueur())
+                        .map(|v| v.base);
+                        if ouverture.est_une_porte(hauteur) {
+                            portes += 1;
+                            format!("P{portes}")
+                        } else {
+                            fenetres += 1;
+                            format!("F{fenetres}")
+                        }
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Le bordereau des portes et des fenêtres de tout le plan (évolution
+    /// 24), dans l'ordre des pièces : les portes d'abord, puis les fenêtres.
+    pub fn bordereau(&self, format: Format) -> Vec<LigneDuBordereau> {
+        let reperes = self.reperes_des_ouvertures();
+        let mut lignes = Vec::new();
+        for (rang_de_la_piece, piece) in self.pieces.iter().enumerate() {
+            let dessin = &piece.dessin;
+            let solution = dessin.resoudre(format);
+            let sommets = dessin.sommets_mesures(&solution);
+            let aire: f64 = sommets
+                .as_ref()
+                .map(|s| {
+                    s.windows(2)
+                        .map(|p| p[0].0 * p[1].1 - p[1].0 * p[0].1)
+                        .sum()
+                })
+                .unwrap_or(0.0);
+            for (rang, ouverture) in dessin.ouvertures.iter().enumerate() {
+                let lire = |texte: &str| {
+                    crate::analyse::analyser_longueur(texte.trim(), format)
+                        .ok()
+                        .filter(|v| v.est_longueur() && v.base > 0.0)
+                        .map(|v| v.base)
+                };
+                let placement = solution.placements.get(rang).copied().flatten();
+                let hauteur = lire(&ouverture.hauteur);
+                let genre = ouverture.genre_ou_deduit(hauteur);
+                // Le côté de la charnière, vu du dehors : à gauche de qui
+                // regarde vers la pièce.
+                let poussant_gauche = match (placement, &sommets) {
+                    (Some(p), Some(sommets)) if genre == GenreDOuverture::Porte => {
+                        let a = sommets.get(p.cote).copied();
+                        let b = sommets.get(p.cote + 1).or(sommets.first()).copied();
+                        a.zip(b).and_then(|(a, b)| {
+                            let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+                            (longueur > 1e-9).then(|| {
+                                let u = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+                                let dedans = if aire > 0.0 { (-u.1, u.0) } else { (u.1, -u.0) };
+                                let gauche = (dedans.1, -dedans.0);
+                                let charniere = if p.inversee { p.fin } else { p.debut };
+                                let decalage = charniere - (p.debut + p.fin) / 2.0;
+                                (u.0 * gauche.0 + u.1 * gauche.1) * decalage > 0.0
+                            })
+                        })
+                    }
+                    _ => None,
+                };
+                lignes.push(LigneDuBordereau {
+                    repere: reperes[rang_de_la_piece][rang].clone(),
+                    genre,
+                    largeur: placement
+                        .map(|p| p.fin - p.debut)
+                        .or(lire(&ouverture.largeur)),
+                    hauteur: placement.map(|p| p.haut - p.bas).or(hauteur),
+                    poussant_gauche,
+                    piece: piece.nom.clone(),
+                    rang_de_la_piece,
+                    rang,
+                });
+            }
+        }
+        // Les portes, puis les fenêtres, chacune dans l'ordre de son numéro.
+        let numero = |ligne: &LigneDuBordereau| {
+            (
+                !ligne.repere.starts_with('P'),
+                ligne.repere[1..].parse::<usize>().unwrap_or(0),
+            )
+        };
+        lignes.sort_by_key(numero);
+        lignes
+    }
+}
+
 /// Ce qui gêne un objet de la pièce (évolution 23).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RaisonDuConflit {
@@ -717,7 +1208,7 @@ impl Dessin {
                 .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
                 .sum();
             for (rang, placement) in solution.placements.iter().enumerate() {
-                let Some(placement) = placement.filter(|p| p.porte) else {
+                let Some(placement) = placement.filter(|p| p.genre.battante()) else {
                     continue;
                 };
                 let (Some(&a), Some(&b)) = (
@@ -743,14 +1234,35 @@ impl Dessin {
                 } else {
                     0.0
                 };
-                let charniere = (
-                    a.0 + le_long.0 * placement.debut + dedans.0 * retrait,
-                    a.1 + le_long.1 * placement.debut + dedans.1 * retrait,
-                );
-                battants.push((
-                    RaisonDuConflit::PorteDuMur(rang),
-                    quart(charniere, le_long, dedans, rayon),
-                ));
+                let charniere = |t: f64| {
+                    (
+                        a.0 + le_long.0 * t + dedans.0 * retrait,
+                        a.1 + le_long.1 * t + dedans.1 * retrait,
+                    )
+                };
+                let a_rebours = (-le_long.0, -le_long.1);
+                let raison = RaisonDuConflit::PorteDuMur(rang);
+                if placement.genre == GenreDOuverture::PorteDouble {
+                    // Deux vantaux de la moitié de la largeur.
+                    battants.push((
+                        raison,
+                        quart(charniere(placement.debut), le_long, dedans, rayon / 2.0),
+                    ));
+                    battants.push((
+                        raison,
+                        quart(charniere(placement.fin), a_rebours, dedans, rayon / 2.0),
+                    ));
+                } else if placement.inversee {
+                    battants.push((
+                        raison,
+                        quart(charniere(placement.fin), a_rebours, dedans, rayon),
+                    ));
+                } else {
+                    battants.push((
+                        raison,
+                        quart(charniere(placement.debut), le_long, dedans, rayon),
+                    ));
+                }
             }
         }
         for (rang, cloison) in solution.cloisons.iter().enumerate() {
@@ -2220,7 +2732,8 @@ impl Dessin {
                     lire_ou_zero(&ouverture.position)?.min(libre)
                 };
                 let hauteur = lire(&ouverture.hauteur);
-                let porte = ouverture.est_une_porte(hauteur);
+                let genre = ouverture.genre_ou_deduit(hauteur);
+                let porte = genre.est_une_porte();
                 let bas = if porte {
                     0.0
                 } else if ouverture.allege.trim().is_empty() {
@@ -2238,6 +2751,8 @@ impl Dessin {
                     debut,
                     fin: debut + largeur,
                     porte,
+                    genre,
+                    inversee: ouverture.inversee,
                     bas,
                     haut: bas + hauteur,
                 })
@@ -3308,6 +3823,7 @@ mod tests {
             cote: Some(2),
             position: "1".into(),
             allege: String::new(),
+            inversee: false,
         }];
         let solution = dessin.resoudre(Format::PiPo);
         // 9 po par défaut, hors des mesures.
@@ -3454,6 +3970,7 @@ mod tests {
             cote: Some(2),
             position: "2".into(),
             allege: String::new(),
+            inversee: false,
         }];
         let solution = dessin.resoudre(Format::PiPo);
         let ecrire = |pouces: f64| format!("{pouces} po");
@@ -4009,6 +4526,7 @@ mod tests {
                 cote,
                 position: position.into(),
                 allege: String::new(),
+                inversee: false,
             };
         dessin.ouvertures = vec![
             // Une porte centrée sur le premier mur : (144 − 32) / 2 = 56 po.
@@ -4031,6 +4549,8 @@ mod tests {
                 debut: 56.0,
                 fin: 88.0,
                 porte: true,
+                genre: GenreDOuverture::Porte,
+                inversee: false,
                 bas: 0.0,
                 haut: 80.0
             })
@@ -4042,6 +4562,8 @@ mod tests {
                 debut: 24.0,
                 fin: 60.0,
                 porte: false,
+                genre: GenreDOuverture::Fenetre,
+                inversee: false,
                 bas: 36.0,
                 haut: 84.0
             })
@@ -4173,5 +4695,99 @@ mod tests {
         });
         dessin.miroir();
         assert_eq!(dessin.croquis[0].points, vec![(-10.0, 5.0), (-30.0, 5.0)]);
+    }
+    #[test]
+    fn les_genres_d_ouverture_et_le_bordereau() {
+        // Les genres : ce qui part du plancher, ce qui bat, ce qui a un sens.
+        assert!(GenreDOuverture::BaieLibre.est_une_porte());
+        assert!(!GenreDOuverture::FenetreEnBaie.est_une_porte());
+        assert!(GenreDOuverture::PorteDouble.battante());
+        assert!(!GenreDOuverture::PorteCoulissante.battante());
+        assert_eq!(GenreDOuverture::BaieLibre.remplissage(), Remplissage::Rien);
+        assert_eq!(
+            GenreDOuverture::PorteFenetre.remplissage(),
+            Remplissage::Vitre
+        );
+        for genre in GenreDOuverture::TOUS {
+            assert!(!genre.formats().is_empty());
+        }
+        // Une pièce de 12 pi × 10 pi : une porte sur le mur du haut, une
+        // porte double et une fenêtre.
+        let mut dessin = Dessin::default();
+        for (sens, saisie) in [
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ] {
+            dessin.cotes.push(Cote {
+                sens,
+                croquis: 100.0,
+                saisie: saisie.to_string(),
+            });
+        }
+        dessin.fermee = true;
+        let ouverture = |genre, largeur: &str, cote, position: &str, inversee| Ouverture {
+            largeur: largeur.to_string(),
+            hauteur: "6 pi 8 po".to_string(),
+            genre: Some(genre),
+            cote: Some(cote),
+            position: position.to_string(),
+            inversee,
+            ..Ouverture::default()
+        };
+        dessin.ouvertures = vec![
+            ouverture(GenreDOuverture::Fenetre, "3", 1, "", false),
+            ouverture(GenreDOuverture::Porte, "32 po", 0, "1", false),
+            ouverture(GenreDOuverture::PorteDouble, "5", 2, "", false),
+        ];
+        dessin.ouvertures[0].hauteur = "4".to_string();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!(
+            solution.placements[2].unwrap().genre,
+            GenreDOuverture::PorteDouble
+        );
+        // Deux battants pour la porte double, un pour la porte.
+        assert_eq!(dessin.battants_des_portes(&solution).len(), 3);
+        let plan = Plan::d_une_piece(dessin.clone());
+        assert_eq!(plan.reperes_des_ouvertures(), vec![vec!["F1", "P1", "P2"]]);
+        let bordereau = plan.bordereau(Format::PiPo);
+        let reperes: Vec<&str> = bordereau.iter().map(|l| l.repere.as_str()).collect();
+        assert_eq!(reperes, vec!["P1", "P2", "F1"]);
+        // La porte du mur du haut, sa charnière à l'ouest : vu du nord, en la
+        // poussant, la charnière est à droite.
+        assert_eq!(bordereau[0].poussant_gauche, Some(false));
+        assert_eq!(bordereau[0].largeur, Some(32.0));
+        assert_eq!(bordereau[2].hauteur, Some(48.0));
+        assert_eq!(bordereau[1].poussant_gauche, None);
+        // Inversée, elle devient poussant gauche, et son battant part de l'autre bout.
+        let mut inversee = dessin.clone();
+        inversee.ouvertures[1].inversee = true;
+        let plan = Plan::d_une_piece(inversee.clone());
+        assert_eq!(plan.bordereau(Format::PiPo)[0].poussant_gauche, Some(true));
+        let solution = inversee.resoudre(Format::PiPo);
+        let (_, battant) = &inversee.battants_des_portes(&solution)[0];
+        assert!(battant[0].0 > 40.0);
+        // Le symbole d'une porte coulissante dans un mur de 9 po : deux
+        // panneaux; d'une baie libre : un trait de tirets.
+        let coulissante = symbole_d_ouverture(
+            GenreDOuverture::PorteCoulissante,
+            false,
+            ((0.0, 0.0), (60.0, 0.0)),
+            (0.0, 1.0),
+            9.0,
+            (0.0, 1.0),
+        );
+        assert_eq!(coulissante.len(), 2);
+        let baie = symbole_d_ouverture(
+            GenreDOuverture::BaieLibre,
+            false,
+            ((0.0, 0.0), (36.0, 0.0)),
+            (0.0, 1.0),
+            9.0,
+            (0.0, 1.0),
+        );
+        assert_eq!(baie.len(), 1);
+        assert_eq!(baie[0].style, StyleDOuverture::Tirets);
     }
 }

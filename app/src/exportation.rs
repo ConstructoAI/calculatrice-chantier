@@ -21,6 +21,20 @@ use crate::vues::dessin::{
 /// symbole, la direction du devant de celui-ci.
 type SigleAPoser = (String, (f64, f64), Option<(f64, f64)>);
 
+/// Une porte ou une fenêtre sur son mur (évolution 24) : son mur, ses bords
+/// en part de la longueur du mur (de 0 à 1), son genre, son sens, sa hauteur
+/// (pouces) et son repère au bordereau.
+#[derive(Clone, Debug)]
+struct OuvertureExportee {
+    cote: usize,
+    t0: f64,
+    t1: f64,
+    genre: noyau::dessin::GenreDOuverture,
+    inversee: bool,
+    hauteur: f64,
+    repere: String,
+}
+
 /// Un symbole de la légende d'une pièce (point 40) : son dessin, son nom et
 /// combien la pièce en compte.
 struct SymboleDeLaLegende {
@@ -70,7 +84,7 @@ struct PieceExportee {
     modele: Option<Format>,
     /// Les portes et les fenêtres : leur mur, leurs bords en part de la
     /// longueur du mur (de 0 à 1), et vrai pour une porte.
-    ouvertures: Vec<(usize, f64, f64, bool)>,
+    ouvertures: Vec<OuvertureExportee>,
     /// Les objets d'une pièce complète, sur le plan (pouces).
     objets: Vec<ObjetExporte>,
     /// Les symboles des métiers de la pièce, pour sa page de légende.
@@ -118,11 +132,19 @@ fn sans_insecables(texte: &str) -> String {
 
 /// Les pièces dessinées du plan; une pièce vide n'est pas exportée.
 fn preparer(plan: &Plan, prefs: &Preferences) -> Vec<PieceExportee> {
+    let reperes = plan.reperes_des_ouvertures();
     plan.pieces
         .iter()
         .enumerate()
         .filter(|(_, piece)| !piece.dessin.est_vide())
-        .map(|(rang, piece)| preparer_la_piece(&piece.dessin, &nom_de_la_piece(plan, rang), prefs))
+        .map(|(rang, piece)| {
+            preparer_la_piece(
+                &piece.dessin,
+                &nom_de_la_piece(plan, rang),
+                &reperes[rang],
+                prefs,
+            )
+        })
         .collect()
 }
 
@@ -149,7 +171,12 @@ fn legende_des_symboles(dessin: &Dessin) -> Vec<SymboleDeLaLegende> {
         .collect()
 }
 
-fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceExportee {
+fn preparer_la_piece(
+    dessin: &Dessin,
+    nom: &str,
+    reperes: &[String],
+    prefs: &Preferences,
+) -> PieceExportee {
     let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
     let complete = matches!(solution.etat, EtatDeLaForme::Complete { .. });
     let sommets = if complete {
@@ -184,16 +211,18 @@ fn preparer_la_piece(dessin: &Dessin, nom: &str, prefs: &Preferences) -> PieceEx
     let ouvertures = solution
         .placements
         .iter()
-        .flatten()
-        .filter_map(|placement| {
+        .enumerate()
+        .filter_map(|(rang, placement)| {
+            let placement = placement.as_ref()?;
             let longueur = solution.mesures.get(placement.cote)?.pouces()?;
-            (longueur > 0.0).then(|| {
-                (
-                    placement.cote,
-                    placement.debut / longueur,
-                    placement.fin / longueur,
-                    placement.porte,
-                )
+            (longueur > 0.0).then(|| OuvertureExportee {
+                cote: placement.cote,
+                t0: placement.debut / longueur,
+                t1: placement.fin / longueur,
+                genre: placement.genre,
+                inversee: placement.inversee,
+                hauteur: placement.haut - placement.bas,
+                repere: reperes.get(rang).cloned().unwrap_or_default(),
             })
         })
         .collect();
@@ -549,18 +578,20 @@ fn arc_de_porte(q0: (f64, f64), u: (f64, f64), dedans: (f64, f64), rayon: f64) -
 fn ouvertures_sur_la_page(
     page: &mut Page,
     points: &[(f64, f64)],
-    ouvertures: &[(usize, f64, f64, bool)],
+    ouvertures: &[OuvertureExportee],
     epaisseur: f64,
+    echelle: f64,
 ) {
+    use noyau::dessin::{GenreDOuverture, StyleDOuverture};
     let sens = aire_signee(points);
-    for &(cote, t0, t1, porte) in ouvertures {
+    for ouverture in ouvertures {
         let Some(Geometrie {
             q0,
             q1,
             u,
             dedans,
             largeur,
-        }) = geometrie_d_une_ouverture(points, sens, (cote, t0, t1))
+        }) = geometrie_d_une_ouverture(points, sens, (ouverture.cote, ouverture.t0, ouverture.t1))
         else {
             continue;
         };
@@ -569,6 +600,53 @@ fn ouvertures_sur_la_page(
         if epaisseur.abs() <= 1e-9 {
             page.trait_(&[q0, q1], 4.2, BLANC);
         }
+        // Son repère au bordereau, en dedans, contre la face intérieure
+        // (évolution 24).
+        if !ouverture.repere.is_empty() {
+            let au_dedans = (-epaisseur).max(0.0) + 7.0;
+            let milieu = (
+                (q0.0 + q1.0) / 2.0 + dedans.0 * au_dedans,
+                (q0.1 + q1.1) / 2.0 + dedans.1 * au_dedans,
+            );
+            page.texte(
+                (milieu.0, milieu.1 - 2.3),
+                6.5,
+                true,
+                Alignement::Centre,
+                GRIS,
+                &ouverture.repere,
+            );
+        }
+        let porte = ouverture.genre == GenreDOuverture::Porte;
+        if !porte && ouverture.genre != GenreDOuverture::Fenetre {
+            // Les autres genres : leur symbole, commun à l'écran et au DXF.
+            for trait_ in noyau::dessin::symbole_d_ouverture(
+                ouverture.genre,
+                ouverture.inversee,
+                (q0, q1),
+                dedans,
+                epaisseur,
+                (ouverture.hauteur * echelle, echelle),
+            ) {
+                match trait_.style {
+                    StyleDOuverture::Panneau => page.trait_(&trait_.points, 1.2, NOIR),
+                    StyleDOuverture::Fin => page.trait_(&trait_.points, 0.6, GRIS),
+                    StyleDOuverture::Vitrage => page.trait_(&trait_.points, 0.8, BLEU),
+                    StyleDOuverture::Tirets => {
+                        for (a, b) in morceaux_en_tirets(&trait_.points, 3.0, 2.0) {
+                            page.trait_(&[a, b], 0.6, GRIS);
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        // Une porte dont la charnière est au bout opposé : vue depuis lui.
+        let (q0, u) = if ouverture.inversee && porte {
+            (q1, (-u.0, -u.1))
+        } else {
+            (q0, u)
+        };
         if porte {
             // Un mur vers l'intérieur : la porte s'ouvre de sa face intérieure.
             let q0 = if epaisseur < 0.0 {
@@ -606,6 +684,41 @@ fn ouvertures_sur_la_page(
             page.trait_(&[q0, q1], 0.4, BLEU);
         }
     }
+}
+
+/// Une ligne brisée coupée en tirets de `tiret`, à `ecart` l'un de l'autre
+/// (évolution 24) : les morceaux à tracer.
+fn morceaux_en_tirets(
+    points: &[(f64, f64)],
+    tiret: f64,
+    ecart: f64,
+) -> Vec<((f64, f64), (f64, f64))> {
+    let mut morceaux = Vec::new();
+    let (mut trace, mut reste) = (true, tiret);
+    for paire in points.windows(2) {
+        let (a, b) = (paire[0], paire[1]);
+        let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+        let point = |t: f64| {
+            (
+                a.0 + (b.0 - a.0) * t / longueur,
+                a.1 + (b.1 - a.1) * t / longueur,
+            )
+        };
+        let mut fait = 0.0;
+        while fait < longueur - 1e-9 {
+            let pas = reste.min(longueur - fait);
+            if trace {
+                morceaux.push((point(fait), point(fait + pas)));
+            }
+            fait += pas;
+            reste -= pas;
+            if reste <= 1e-9 {
+                trace = !trace;
+                reste = if trace { tiret } else { ecart };
+            }
+        }
+    }
+    morceaux
 }
 
 /// Alignement d'un texte par rapport à son point d'ancrage.
@@ -1011,6 +1124,50 @@ fn ligne_de_base_du_sigle(
     (ou.0, ou.1 - taille * 0.35)
 }
 
+/// Le nombre de lignes du bordereau sur une page.
+const LIGNES_DU_BORDEREAU_PAR_PAGE: usize = 36;
+
+/// Une page du bordereau des portes et des fenêtres (évolution 24) : un
+/// tableau, une ligne par ouverture.
+fn page_du_bordereau(lignes: &[[String; 5]], entete: &str, numero: usize, total: usize) -> Page {
+    const COLONNES: [f64; 5] = [0.0, 46.0, 168.0, 300.0, 398.0];
+    const LARGEURS: [f64; 5] = [42.0, 118.0, 128.0, 94.0, 106.0];
+    let mut page = Page::default();
+    en_tete_de_page(&mut page, textes::DESSIN_BORDEREAU.traduit(), entete);
+    let mut y = HAUTEUR_PAGE - 112.0;
+    for (k, titre) in textes::DESSIN_BORDEREAU_COLONNES.iter().enumerate() {
+        page.texte(
+            (MARGE + COLONNES[k], y),
+            9.5,
+            true,
+            Alignement::Gauche,
+            NOIR,
+            &tronquer(titre.traduit(), 9.5, LARGEURS[k]),
+        );
+    }
+    page.trait_(
+        &[(MARGE, y - 5.0), (LARGEUR_PAGE - MARGE, y - 5.0)],
+        0.8,
+        FILET,
+    );
+    y -= 20.0;
+    for ligne in lignes {
+        for (k, texte) in ligne.iter().enumerate() {
+            page.texte(
+                (MARGE + COLONNES[k], y),
+                9.5,
+                k == 0,
+                Alignement::Gauche,
+                NOIR,
+                &tronquer(texte, 9.5, LARGEURS[k]),
+            );
+        }
+        y -= 16.5;
+    }
+    pied_de_page(&mut page, numero, total);
+    page
+}
+
 /// La page de légende d'une pièce (point 40) : par famille, chaque symbole
 /// dessiné, son nom et combien la pièce en compte, sur deux colonnes.
 fn page_de_legende(piece: &PieceExportee, entete: &str, numero: usize, total: usize) -> Page {
@@ -1184,7 +1341,13 @@ fn dessiner_le_plan(
             }
         }
     }
-    ouvertures_sur_la_page(page, &points, &piece.ouvertures, epaisseur_des_murs);
+    ouvertures_sur_la_page(
+        page,
+        &points,
+        &piece.ouvertures,
+        epaisseur_des_murs,
+        echelle,
+    );
     // Les objets, à la même échelle que la forme.
     for objet in &piece.objets {
         for trait_ in &objet.traits {
@@ -1449,7 +1612,7 @@ pub fn avis_de_l_echelle(
     prefs: &Preferences,
 ) -> Option<String> {
     let points_par_pouce = echelle.points_par_pouce()?;
-    let piece = preparer_la_piece(dessin, "", prefs);
+    let piece = preparer_la_piece(dessin, "", &[], prefs);
     if !piece.a_l_echelle {
         return None;
     }
@@ -1859,7 +2022,19 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
         .iter()
         .filter(|piece| !piece.legende.is_empty())
         .count();
-    let total = pieces.len() + usize::from(resume) + legendes;
+    // Le bordereau des portes et des fenêtres, sur ses pages, à la fin
+    // (évolution 24).
+    let modele = plan
+        .pieces
+        .iter()
+        .find_map(|piece| piece.dessin.resoudre(FORMAT_PAR_DEFAUT).modele);
+    let bordereau: Vec<[String; 5]> = plan
+        .bordereau(FORMAT_PAR_DEFAUT)
+        .iter()
+        .map(|ligne| crate::vues::dessin::ligne_du_bordereau(ligne, plan, modele, prefs))
+        .collect();
+    let pages_du_bordereau = bordereau.len().div_ceil(LIGNES_DU_BORDEREAU_PAR_PAGE);
+    let total = pieces.len() + usize::from(resume) + legendes + pages_du_bordereau;
     let mut pages = Vec::with_capacity(total);
     if resume {
         pages.push(page_du_plan(&pieces, prefs, &entete, 1, total));
@@ -1890,6 +2065,10 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
             let numero = pages.len() + 1;
             pages.push(page_de_legende(piece, &entete, numero, total));
         }
+    }
+    for morceau in bordereau.chunks(LIGNES_DU_BORDEREAU_PAR_PAGE) {
+        let numero = pages.len() + 1;
+        pages.push(page_du_bordereau(morceau, &entete, numero, total));
     }
     assembler_pdf(&pages, &textes::dessin_export_plan(pieces.len()))
 }
@@ -2221,21 +2400,67 @@ fn arc_dxf(dxf: &mut String, calque: &str, centre: (f64, f64), rayon: f64, angle
 fn ouvertures_dans_le_dxf(
     dxf: &mut String,
     points: &[(f64, f64)],
-    ouvertures: &[(usize, f64, f64, bool)],
+    ouvertures: &[OuvertureExportee],
     facteur: f64,
     epaisseur: f64,
 ) {
+    use noyau::dessin::GenreDOuverture;
     let sens = aire_signee(points);
-    for &(cote, t0, t1, porte) in ouvertures {
+    for ouverture in ouvertures {
         let Some(Geometrie {
             q0,
             q1,
             u,
             dedans,
             largeur,
-        }) = geometrie_d_une_ouverture(points, sens, (cote, t0, t1))
+        }) = geometrie_d_une_ouverture(points, sens, (ouverture.cote, ouverture.t0, ouverture.t1))
         else {
             continue;
+        };
+        // Son repère au bordereau, en dedans, contre la face intérieure
+        // (évolution 24).
+        if !ouverture.repere.is_empty() {
+            let au_dedans = (-epaisseur).max(0.0) + 7.0 * facteur;
+            texte_dans_le_dxf(
+                dxf,
+                "OUVERTURES",
+                (
+                    (q0.0 + q1.0) / 2.0 + dedans.0 * au_dedans,
+                    (q0.1 + q1.1) / 2.0 + dedans.1 * au_dedans,
+                ),
+                4.0 * facteur,
+                Alignement::Centre,
+                &ouverture.repere,
+            );
+        }
+        let porte = ouverture.genre == GenreDOuverture::Porte;
+        if !porte && ouverture.genre != GenreDOuverture::Fenetre {
+            // Les autres genres : leur symbole, commun à l'écran et au PDF.
+            for trait_ in noyau::dessin::symbole_d_ouverture(
+                ouverture.genre,
+                ouverture.inversee,
+                (q0, q1),
+                dedans,
+                epaisseur,
+                (ouverture.hauteur * facteur, facteur),
+            ) {
+                if trait_.style == noyau::dessin::StyleDOuverture::Tirets {
+                    for (a, b) in morceaux_en_tirets(&trait_.points, 3.0 * facteur, 2.0 * facteur) {
+                        ligne_dxf(dxf, "OUVERTURES", a, b);
+                    }
+                } else {
+                    for paire in trait_.points.windows(2) {
+                        ligne_dxf(dxf, "OUVERTURES", paire[0], paire[1]);
+                    }
+                }
+            }
+            continue;
+        }
+        // Une porte dont la charnière est au bout opposé : vue depuis lui.
+        let (q0, u) = if ouverture.inversee && porte {
+            (q1, (-u.0, -u.1))
+        } else {
+            (q0, u)
         };
         if porte {
             // Un mur vers l'intérieur : la porte s'ouvre de sa face intérieure.
@@ -2375,8 +2600,8 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             let mut coupures: Vec<(f64, f64)> = piece
                 .ouvertures
                 .iter()
-                .filter(|ouverture| ouverture.0 == cote)
-                .map(|ouverture| (ouverture.1, ouverture.2))
+                .filter(|ouverture| ouverture.cote == cote)
+                .map(|ouverture| (ouverture.t0, ouverture.t1))
                 .collect();
             coupures.sort_by(|a, b| a.0.total_cmp(&b.0));
             let mut depuis = 0.0_f64;
@@ -2911,6 +3136,7 @@ mod tests {
                 cote: Some(0),
                 position: String::new(),
                 allege: String::new(),
+                inversee: false,
             },
             noyau::dessin::Ouverture {
                 largeur: "3".into(),
@@ -2919,6 +3145,7 @@ mod tests {
                 cote: Some(1),
                 position: "2".into(),
                 allege: String::new(),
+                inversee: false,
             },
         ];
         let plan = Plan::d_une_piece(chambre);
@@ -2976,6 +3203,36 @@ mod tests {
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("0.860 0.150 0.150 RG"));
         assert!(pdf.contains("1.000 0.920 0.450 RG"));
+    }
+
+    #[test]
+    fn les_genres_d_ouverture_et_le_bordereau_au_pdf() {
+        use noyau::dessin::GenreDOuverture;
+        let mut piece = rectangle("12", "10");
+        let ouverture = |genre, largeur: &str, cote| noyau::dessin::Ouverture {
+            largeur: largeur.into(),
+            hauteur: "6 pi 8 po".into(),
+            genre: Some(genre),
+            cote: Some(cote),
+            ..noyau::dessin::Ouverture::default()
+        };
+        piece.ouvertures = vec![
+            ouverture(GenreDOuverture::Porte, "32 po", 0),
+            ouverture(GenreDOuverture::BaieLibre, "3", 1),
+            ouverture(GenreDOuverture::Fenetre, "3", 2),
+        ];
+        piece.ouvertures[2].hauteur = "4".into();
+        let plan = Plan::d_une_piece(piece);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Les repères, et la baie libre : un trait de tirets (des morceaux).
+        assert!(
+            dxf.contains("\r\nP1\r\n") && dxf.contains("\r\nP2\r\n") && dxf.contains("\r\nF1\r\n")
+        );
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(P1)") && pdf.contains("(F1)"));
+        // Une page de bordereau, à la suite de la pièce.
+        assert!(pdf.contains("Page 2 de 2"));
+        assert!(pdf.contains("(Baie libre)") && pdf.contains("(poussant droite)"));
     }
 
     #[test]
@@ -3182,6 +3439,7 @@ mod tests {
             cote: Some(0),
             position: String::new(),
             allege: String::new(),
+            inversee: false,
         }];
         let plan = Plan::d_une_piece(chambre);
         let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();

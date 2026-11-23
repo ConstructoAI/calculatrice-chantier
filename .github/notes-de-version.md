@@ -118,6 +118,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Croquis à main levée** : le crayon trace au doigt par-dessus le plan, en couleur ou au
   surligneur; les traits restent avec le plan et vont au PDF et au DXF.
 
+- **Portes et fenêtres : types et bordereau** : dix genres (double, coulissante, de grange,
+  pliante, porte-fenêtre, garage, baie libre, fenêtre en baie…) avec leurs formats courants, des
+  repères P1, F1… sur le plan, et un bordereau à l'écran et au PDF.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

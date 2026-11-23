@@ -230,15 +230,19 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
                 for k in 0..4 {
                     aretes.push([cadre[k], cadre[(k + 1) % 4]]);
                 }
-                faces.push(Face {
-                    genre: if placement.porte {
-                        GenreDeFace::Porte
-                    } else {
-                        GenreDeFace::Vitre
-                    },
-                    sommets: rectangle(placement.debut, placement.fin, bas, haut),
-                    normale: dedans,
-                });
+                // Une baie libre reste ouverte (évolution 24).
+                let genre = match placement.genre.remplissage() {
+                    crate::dessin::Remplissage::Porte => Some(GenreDeFace::Porte),
+                    crate::dessin::Remplissage::Vitre => Some(GenreDeFace::Vitre),
+                    crate::dessin::Remplissage::Rien => None,
+                };
+                if let Some(genre) = genre {
+                    faces.push(Face {
+                        genre,
+                        sommets: rectangle(placement.debut, placement.fin, bas, haut),
+                        normale: dedans,
+                    });
+                }
             }
         }
     }

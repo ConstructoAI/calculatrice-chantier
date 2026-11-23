@@ -154,6 +154,9 @@ pub struct Etat {
     crayon: noyau::dessin::Crayon,
     /// Le trait que le doigt trace (pouces, sur le plan).
     trait_en_cours: Option<Vec<(f64, f64)>>,
+    /// Le repère de chaque ouverture de la pièce au bordereau : P1, F1…
+    /// (évolution 24), recalculé à chaque image d'après le plan.
+    reperes_des_ouvertures: Vec<String>,
     /// L'objet choisi : il paraît en couleur.
     objet_choisi: Option<usize>,
     /// L'objet que le doigt déplace : son rang, et l'écart (pouces) entre le
@@ -218,6 +221,7 @@ enum Section {
     Objets,
     Notes,
     Exporter,
+    Bordereau,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -618,7 +622,15 @@ fn dessiner_une_cloison(
         } else {
             let (nx, ny) = cloison.cote_de_l_ouverture(porte);
             let cote = Vec2::new(nx as f32, ny as f32);
-            dessiner_ouverture(painter, (q0, q1), cote, true, encre, encre, 0.0);
+            dessiner_ouverture(
+                painter,
+                (q0, q1),
+                cote,
+                (GenreDOuverture::Porte, false, 0.0, 1.0),
+                encre,
+                encre,
+                0.0,
+            );
         }
     }
     // La longueur de chaque segment s'écrit au-dessus d'un segment horizontal,
@@ -961,6 +973,34 @@ fn trait_a_main_levee(
     ));
 }
 
+/// Une ligne du bordereau en clair (évolution 24) : son repère, son genre,
+/// sa largeur × sa hauteur, le sens d'une porte battante (« — » sinon) et sa
+/// pièce.
+pub(crate) fn ligne_du_bordereau(
+    ligne: &noyau::dessin::LigneDuBordereau,
+    plan: &Plan,
+    modele: Option<Format>,
+    prefs: &Preferences,
+) -> [String; 5] {
+    let en_clair = |pouces: Option<f64>| {
+        pouces.map_or("?".to_string(), |pouces| {
+            sans_insecables(&Quantite::Longueur(pouces).en_clair(modele, prefs))
+        })
+    };
+    let sens = match ligne.poussant_gauche {
+        Some(true) => textes::DESSIN_POUSSANT_GAUCHE.traduit().to_string(),
+        Some(false) => textes::DESSIN_POUSSANT_DROITE.traduit().to_string(),
+        None => "—".to_string(),
+    };
+    [
+        ligne.repere.clone(),
+        textes::genre_d_ouverture(ligne.genre).traduit().to_string(),
+        format!("{} × {}", en_clair(ligne.largeur), en_clair(ligne.hauteur)),
+        sens,
+        nom_de_la_piece(plan, ligne.rang_de_la_piece),
+    ]
+}
+
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
 /// son centre, s'il en est un assez près (point 40). Retourne vrai s'il s'y
 /// est posé.
@@ -1145,6 +1185,11 @@ pub fn afficher(
         action = Some(Action::Modifie);
     }
     let courante = plan.courante;
+    etat.reperes_des_ouvertures = plan
+        .reperes_des_ouvertures()
+        .into_iter()
+        .nth(courante)
+        .unwrap_or_default();
     let titre = textes::avec_tiret(
         textes::DESSIN_TITRE.traduit(),
         &nom_de_la_piece(plan, courante),
@@ -1445,6 +1490,40 @@ fn la_piece_et_le_total(
                     .color(p.texte),
             );
         });
+    }
+    // Le bordereau des portes et des fenêtres de tout le plan (évolution 24).
+    let bordereau = plan.bordereau(FORMAT_PAR_DEFAUT);
+    if !bordereau.is_empty() {
+        ui.add_space(10.0);
+        if titre_de_section(
+            ui,
+            p,
+            etat,
+            Section::Bordereau,
+            textes::DESSIN_BORDEREAU.traduit(),
+        ) {
+            let modele = plan
+                .pieces
+                .iter()
+                .find_map(|piece| piece.dessin.resoudre(FORMAT_PAR_DEFAUT).modele);
+            carte(ui, p, |ui| {
+                for ligne in &bordereau {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(
+                            RichText::new(&ligne.repere)
+                                .font(theme::police_grasse(14.0))
+                                .color(p.titre),
+                        );
+                        for texte in ligne_du_bordereau(ligne, plan, modele, prefs)
+                            .into_iter()
+                            .skip(1)
+                        {
+                            ui.label(RichText::new(texte).size(13.5));
+                        }
+                    });
+                }
+            });
+        }
     }
     // L'export du plan, toutes pièces comprises.
     let mut export = None;
@@ -2769,7 +2848,12 @@ fn planche_et_gestes(
                 &painter,
                 (q0, q1),
                 dedans,
-                placement.porte,
+                (
+                    placement.genre,
+                    placement.inversee,
+                    (placement.haut - placement.bas) as f32 * echelle.facteur,
+                    echelle.facteur,
+                ),
                 encre,
                 p.primaire,
                 // Un mur vers l'intérieur : une épaisseur négative.
@@ -2779,6 +2863,22 @@ fn planche_et_gestes(
                     epaisseur_des_murs_a_l_ecran
                 },
             );
+            // Son repère au bordereau, en dedans, contre la face intérieure :
+            // au dehors, il gênerait la longueur du mur (évolution 24).
+            if let Some(repere) = etat.reperes_des_ouvertures.get(rang) {
+                let au_dedans = if dessin.mesures_exterieures {
+                    epaisseur_des_murs_a_l_ecran + 10.0
+                } else {
+                    10.0
+                };
+                painter.text(
+                    q0 + (q1 - q0) * 0.5 + dedans * au_dedans,
+                    Align2::CENTER_CENTER,
+                    repere,
+                    theme::police_grasse(10.5),
+                    p.texte_attenue,
+                );
+            }
         }
     }
 
@@ -4463,7 +4563,7 @@ fn dessiner_ouverture(
     painter: &egui::Painter,
     (q0, q1): (Pos2, Pos2),
     dedans: Vec2,
-    porte: bool,
+    (genre, inversee, course, pouce): (GenreDOuverture, bool, f32, f32),
     encre: Color32,
     mur: Color32,
     epaisseur: f32,
@@ -4472,6 +4572,51 @@ fn dessiner_ouverture(
     if largeur < 1.0 {
         return;
     }
+    // Les autres genres (évolution 24) : leur symbole, le même qu'au PDF et
+    // au DXF.
+    if !matches!(genre, GenreDOuverture::Porte | GenreDOuverture::Fenetre) {
+        let vers = |q: Pos2| (f64::from(q.x), f64::from(q.y));
+        for trait_ in noyau::dessin::symbole_d_ouverture(
+            genre,
+            inversee,
+            (vers(q0), vers(q1)),
+            (f64::from(dedans.x), f64::from(dedans.y)),
+            f64::from(epaisseur),
+            (f64::from(course), f64::from(pouce)),
+        ) {
+            let points: Vec<Pos2> = trait_
+                .points
+                .iter()
+                .map(|&(x, y)| Pos2::new(x as f32, y as f32))
+                .collect();
+            let largeur_du_trait = match trait_.style {
+                noyau::dessin::StyleDOuverture::Panneau => 2.2,
+                noyau::dessin::StyleDOuverture::Vitrage => 1.6,
+                _ => 1.2,
+            };
+            if trait_.style == noyau::dessin::StyleDOuverture::Tirets {
+                painter.extend(egui::Shape::dashed_line(
+                    &points,
+                    Stroke::new(largeur_du_trait, encre),
+                    5.0,
+                    3.0,
+                ));
+            } else {
+                painter.add(egui::Shape::line(
+                    points,
+                    Stroke::new(largeur_du_trait, encre),
+                ));
+            }
+        }
+        return;
+    }
+    // Une porte dont la charnière est au bout opposé : vue depuis lui.
+    let (q0, q1) = if inversee && genre == GenreDOuverture::Porte {
+        (q1, q0)
+    } else {
+        (q0, q1)
+    };
+    let porte = genre == GenreDOuverture::Porte;
     let unite = (q1 - q0) / largeur;
     let a_l_epaisseur = epaisseur.abs() >= 2.0;
     if porte {
@@ -4726,18 +4871,37 @@ fn murs(
         );
     }
     let mut a_enlever = None;
+    let mut nouveau_genre = None;
+    let mut nouveau_format = None;
+    let mut a_inverser = None;
     for rang in 0..dessin.ouvertures.len() {
         ui.horizontal_wrapped(|ui| {
+            // Son numéro, son repère au bordereau et son genre (évolution 24).
             let ouverture = &dessin.ouvertures[rang];
-            let nom = if ouverture.est_une_porte(pouces_de(&ouverture.hauteur)) {
-                textes::DESSIN_PORTE
-            } else {
-                textes::DESSIN_FENETRE
-            };
+            let genre = ouverture.genre_ou_deduit(pouces_de(&ouverture.hauteur));
+            let repere = etat
+                .reperes_des_ouvertures
+                .get(rang)
+                .cloned()
+                .unwrap_or_default();
             ui.label(
-                RichText::new(format!("{}. {}", rang + 1, nom.traduit()))
-                    .font(theme::police_grasse(13.5)),
+                RichText::new(format!("{}. {repere}", rang + 1)).font(theme::police_grasse(13.5)),
             );
+            let mut choisi = genre;
+            egui::ComboBox::from_id_salt(("genre-d-ouverture", rang))
+                .selected_text(textes::genre_d_ouverture(genre).traduit())
+                .show_ui(ui, |ui| {
+                    for autre in GenreDOuverture::TOUS {
+                        ui.selectable_value(
+                            &mut choisi,
+                            autre,
+                            textes::genre_d_ouverture(autre).traduit(),
+                        );
+                    }
+                });
+            if choisi != genre {
+                nouveau_genre = Some((rang, choisi));
+            }
             // Son mur, et le bouton pour la placer sur un mur en le touchant.
             let (ou, couleur) = match ouverture.cote {
                 Some(cote) => (textes::dessin_sur_le_cote(cote + 1), p.texte_attenue),
@@ -4774,6 +4938,31 @@ fn murs(
                 if champ == ChampDOuverture::Largeur {
                     ui.label("×");
                 }
+            }
+            // Ses formats courants, et son sens.
+            egui::ComboBox::from_id_salt(("format-d-ouverture", rang))
+                .selected_text(textes::DESSIN_FORMAT.traduit())
+                .show_ui(ui, |ui| {
+                    for &(largeur, hauteur) in genre.formats() {
+                        let texte = format!(
+                            "{} × {}",
+                            longueur_en_clair(largeur, solution, prefs),
+                            longueur_en_clair(hauteur, solution, prefs)
+                        );
+                        if ui.selectable_label(false, texte).clicked() {
+                            nouveau_format = Some((rang, (largeur, hauteur)));
+                        }
+                    }
+                });
+            if genre.a_un_sens()
+                && ui
+                    .add(
+                        egui::Button::new(textes::DESSIN_INVERSER.traduit())
+                            .selected(dessin.ouvertures[rang].inversee),
+                    )
+                    .clicked()
+            {
+                a_inverser = Some(rang);
             }
             // L'allège d'une fenêtre : la hauteur de son bas.
             let ouverture = &dessin.ouvertures[rang];
@@ -4831,6 +5020,34 @@ fn murs(
         etat.ouverture_a_placer = None;
         modifie = true;
     }
+    // Un autre genre prend son format de départ; un format, sa largeur et sa
+    // hauteur (évolution 24).
+    let format_de = |genre: GenreDOuverture| genre.formats()[0];
+    let changement = nouveau_genre
+        .map(|(rang, genre)| (rang, Some(genre), format_de(genre)))
+        .or(nouveau_format.map(|(rang, format)| (rang, None, format)));
+    if let Some((rang, genre, (largeur, hauteur))) = changement
+        && rang < dessin.ouvertures.len()
+    {
+        etat.memoriser(dessin);
+        let ouverture = &mut dessin.ouvertures[rang];
+        if let Some(genre) = genre {
+            ouverture.genre = Some(genre);
+        }
+        let en_clair = |pouces: f64| {
+            sans_insecables(&Quantite::Longueur(pouces).en_clair(solution.modele, prefs))
+        };
+        ouverture.largeur = en_clair(largeur);
+        ouverture.hauteur = en_clair(hauteur);
+        modifie = true;
+    }
+    if let Some(rang) = a_inverser
+        && rang < dessin.ouvertures.len()
+    {
+        etat.memoriser(dessin);
+        dessin.ouvertures[rang].inversee = !dessin.ouvertures[rang].inversee;
+        modifie = true;
+    }
     // Ce qui empêche de calculer la surface des murs.
     if solution.hauteur.is_some() && matches!(solution.etat, EtatDeLaForme::Complete { .. }) {
         let message = match (solution.aire_des_ouvertures(), solution.murs()) {
@@ -4873,6 +5090,7 @@ fn murs(
                     cote,
                     position: String::new(),
                     allege: String::new(),
+                    inversee: false,
                 });
                 let rang = dessin.ouvertures.len() - 1;
                 etat.choisir_autre(Some(AutreSaisie::Ouverture(rang, ChampDOuverture::Largeur)));

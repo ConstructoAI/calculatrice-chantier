@@ -1062,7 +1062,6 @@ pub fn dessin_ouverture(rang: usize, dimension: &str) -> String {
 }
 
 pub const DESSIN_PORTE: Texte = t("Porte", "Door");
-pub const DESSIN_FENETRE: Texte = t("Fenêtre", "Window");
 pub const DESSIN_PLACER: Texte = t("Placer", "Place");
 pub const DESSIN_PAS_PLACEE: Texte = t("pas placée", "not placed");
 pub const DESSIN_CENTREE: Texte = t("centrée", "centred");
@@ -1435,6 +1434,40 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// Le nom d'un genre de porte ou de fenêtre (évolution 24).
+pub fn genre_d_ouverture(genre: noyau::dessin::GenreDOuverture) -> Texte {
+    use noyau::dessin::GenreDOuverture;
+    match genre {
+        GenreDOuverture::Porte => t("Porte battante", "Hinged door"),
+        GenreDOuverture::PorteDouble => t("Porte double", "Double door"),
+        GenreDOuverture::PorteCoulissante => t("Porte coulissante", "Sliding door"),
+        GenreDOuverture::PorteDeGrange => t("Porte de grange", "Barn door"),
+        GenreDOuverture::PortePliante => t("Porte pliante", "Bifold door"),
+        GenreDOuverture::PorteFenetre => t("Porte-fenêtre", "Patio door"),
+        GenreDOuverture::PorteDeGarage => t("Porte de garage", "Garage door"),
+        GenreDOuverture::BaieLibre => t("Baie libre", "Open passage"),
+        GenreDOuverture::Fenetre => t("Fenêtre", "Window"),
+        GenreDOuverture::FenetreEnBaie => t("Fenêtre en baie", "Bay window"),
+    }
+}
+
+/// Le bordereau des portes et des fenêtres (évolution 24).
+pub const DESSIN_BORDEREAU: Texte = t(
+    "Bordereau des portes et fenêtres",
+    "Door and window schedule",
+);
+pub const DESSIN_FORMAT: Texte = t("Format", "Size");
+pub const DESSIN_POUSSANT_GAUCHE: Texte = t("poussant gauche", "left-hand");
+pub const DESSIN_POUSSANT_DROITE: Texte = t("poussant droite", "right-hand");
+/// Les colonnes du bordereau, au PDF.
+pub const DESSIN_BORDEREAU_COLONNES: [Texte; 5] = [
+    t("Repère", "Mark"),
+    t("Type", "Type"),
+    t("Largeur × hauteur", "Width × height"),
+    t("Sens d'ouverture", "Swing"),
+    t("Pièce", "Room"),
+];
+
 /// Le crayon du croquis à main levée (évolution 30).
 pub const DESSIN_CRAYON: Texte = t("Crayon", "Pen");
 pub const DESSIN_DESSINER_A_MAIN_LEVEE: Texte = t(
