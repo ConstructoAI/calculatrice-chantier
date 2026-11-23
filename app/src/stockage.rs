@@ -263,6 +263,72 @@ pub fn enregistrer_notes(depot: &Depot, notes: &[NoteDuBloc]) -> io::Result<()> 
     depot.ecrire(FICHIER_NOTES, &en_json(&fichier)?)
 }
 
+const FICHIER_NIVELLEMENT: &str = "nivellement.json";
+const FICHIER_NIVELLEMENT_CORROMPU: &str = "nivellement.corrompu.json";
+/// Version du format de `nivellement.json`.
+const VERSION_NIVELLEMENT: u32 = 1;
+/// Nombre maximal de points du carnet de nivellement.
+pub const MAX_POINTS: usize = 200;
+
+/// Le carnet de nivellement (section 22.21), chaque valeur telle qu'elle a
+/// été tapée.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Carnet {
+    pub titre: String,
+    /// L'élévation du repère, et la lecture faite sur lui.
+    pub repere: String,
+    pub lecture_repere: String,
+    /// L'élévation visée des points qui n'ont pas la leur.
+    pub visee: String,
+    pub points: Vec<PointDuCarnet>,
+}
+
+/// Un point du carnet : son nom, sa lecture au niveau, son élévation visée
+/// (vide : celle du carnet).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PointDuCarnet {
+    pub nom: String,
+    pub lecture: String,
+    pub visee: String,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+struct FichierCarnet {
+    version: u32,
+    carnet: Carnet,
+}
+
+/// Lit le carnet de nivellement; vide s'il n'y en a pas. Un carnet illisible
+/// ou d'une version inconnue est mis de côté.
+pub fn charger_carnet(depot: &Depot) -> Carnet {
+    let lu = match depot.lire(FICHIER_NIVELLEMENT) {
+        Lecture::Absent => return Carnet::default(),
+        Lecture::Illisible => None,
+        Lecture::Texte(texte) => serde_json::from_str::<FichierCarnet>(&texte)
+            .ok()
+            .filter(|fichier| fichier.version == VERSION_NIVELLEMENT),
+    };
+    match lu {
+        Some(fichier) => fichier.carnet,
+        None => {
+            depot.mettre_de_cote(FICHIER_NIVELLEMENT, FICHIER_NIVELLEMENT_CORROMPU);
+            Carnet::default()
+        }
+    }
+}
+
+/// Enregistre le carnet de nivellement.
+pub fn enregistrer_carnet(depot: &Depot, carnet: &Carnet) -> io::Result<()> {
+    let fichier = FichierCarnet {
+        version: VERSION_NIVELLEMENT,
+        carnet: carnet.clone(),
+    };
+    depot.ecrire(FICHIER_NIVELLEMENT, &en_json(&fichier)?)
+}
+
 /// Saisies des calculateurs par métier (section 22), par identifiant de
 /// calculateur : ce que l'utilisateur a tapé la dernière fois.
 pub type Saisies = BTreeMap<String, Vec<String>>;
@@ -654,13 +720,14 @@ pub fn nom_de_fichier_avec(nom: &str, extension: &str) -> String {
 // ----------------------------------------------------------------------
 
 /// Les données que réunit une sauvegarde complète.
-const FICHIERS_SAUVEGARDES: [&str; 6] = [
+const FICHIERS_SAUVEGARDES: [&str; 7] = [
     FICHIER_ETAT,
     FICHIER_RUBANS,
     FICHIER_SAISIES,
     FICHIER_DESSIN,
     FICHIER_DESSINS,
     FICHIER_NOTES,
+    FICHIER_NIVELLEMENT,
 ];
 const FORMAT_DE_SAUVEGARDE: &str = "constructo-ai-sauvegarde";
 const VERSION_DE_SAUVEGARDE: u32 = 1;
@@ -1030,10 +1097,21 @@ mod tests {
             ..DessinEnregistre::default()
         };
         enregistrer_dessins(&d.depot(), std::slice::from_ref(&maison)).unwrap();
+        let carnet = Carnet {
+            titre: "Entrée".to_string(),
+            repere: "100".to_string(),
+            points: vec![PointDuCarnet {
+                nom: "P1".to_string(),
+                lecture: "4 pi 6 po".to_string(),
+                visee: String::new(),
+            }],
+            ..Carnet::default()
+        };
+        enregistrer_carnet(&d.depot(), &carnet).unwrap();
         let fichiers = donnees_a_sauvegarder(&d.depot());
         assert_eq!(
             fichiers.keys().collect::<Vec<_>>(),
-            ["dessins.json", "notes.json"]
+            ["dessins.json", "nivellement.json", "notes.json"]
         );
         let mut pieces = BTreeMap::new();
         pieces.insert("12.jpg".to_string(), vec![0xFF, 0xD8, 1, 2, 3]);
@@ -1046,12 +1124,30 @@ mod tests {
         restaurer(&autre.depot(), &lue).unwrap();
         assert_eq!(charger_notes(&autre.depot()), vec![note]);
         assert_eq!(charger_dessins(&autre.depot()), vec![maison]);
+        assert_eq!(charger_carnet(&autre.depot()), carnet);
         let _ = crate::plateforme::arrivees();
         autre.depot().lire_piece("12.jpg");
         assert!(matches!(
             crate::plateforme::arrivees().as_slice(),
             [crate::plateforme::Arrivee::Lue { octets: Some(o), .. }] if o == &[0xFF, 0xD8, 1, 2, 3]
         ));
+    }
+
+    #[test]
+    fn aller_retour_du_carnet_de_nivellement() {
+        let d = DossierTemporaire::nouveau("nivellement");
+        assert_eq!(charger_carnet(&d.depot()), Carnet::default());
+        let carnet = Carnet {
+            repere: "100".to_string(),
+            lecture_repere: "5".to_string(),
+            ..Carnet::default()
+        };
+        enregistrer_carnet(&d.depot(), &carnet).unwrap();
+        assert_eq!(charger_carnet(&d.depot()), carnet);
+        // Un carnet illisible est mis de côté.
+        fs::write(d.0.join("nivellement.json"), "pas du JSON").unwrap();
+        assert_eq!(charger_carnet(&d.depot()), Carnet::default());
+        assert!(d.0.join("nivellement.corrompu.json").exists());
     }
 
     #[test]

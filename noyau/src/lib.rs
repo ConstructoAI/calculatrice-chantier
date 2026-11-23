@@ -20,6 +20,7 @@ pub mod memoire;
 pub mod metiers;
 pub mod mobilier;
 pub mod moteur;
+pub mod nivellement;
 pub mod persistance;
 pub mod prefs;
 pub mod ruban;

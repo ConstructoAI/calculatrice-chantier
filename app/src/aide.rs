@@ -1283,6 +1283,36 @@ pub static FICHES: &[Fiche] = &[
         trigo: false,
     },
     Fiche {
+        titre: t("Carnet de nivellement", "Levelling book"),
+        acces: t("onglet Métiers", "Trades tab"),
+        resume: t(
+            "Au niveau laser, les élévations et ce qu'il faut creuser ou remblayer :",
+            "With a laser level, the elevations and what to cut or fill:",
+        ),
+        mode_emploi: t(
+            "Dans l'onglet Métiers, la carte Carnet de nivellement : inscrivez l'élévation du repère (100, en pieds, par exemple) et la lecture faite sur lui; la calculatrice en tire la hauteur de l'instrument. Pour chaque point, inscrivez son nom et sa lecture (`+ Point` en ajoute un) : elle donne son élévation et, par rapport à l'élévation visée — celle du carnet ou celle de la ligne —, ce qu'il faut creuser ou remblayer. Le carnet se garde sur l'appareil; `Exporter (CSV)` en fait un fichier pour un tableur.",
+            "In the Trades tab, the Levelling book card: enter the benchmark elevation (100, in feet, for example) and the reading taken on it; the calculator works out the height of instrument. For each point, enter its name and its reading (`+ Point` adds one): it gives the point's elevation and, against the target elevation — the book's or the line's own —, what to cut or fill. The book is kept on the device; `Export (CSV)` makes a file of it for a spreadsheet.",
+        ),
+        exemple: Some((
+            t(
+                "Repère `100`, lu à `5`; un point lu à `6` pi `3` po, visée `99`",
+                "Benchmark `100`, read at `5`; a point read at `6` ft `3` in, target `99`",
+            ),
+            t(
+                "Élévation 98 pi 9 po · Remblayer 3 po",
+                "Elevation 98 ft 9 in · Fill 3 in",
+            ),
+        )),
+        note: Some(t(
+            "Un nombre seul est en pieds; le mètre s'écrit 1,25 m. Une élévation peut être négative.",
+            "A number alone is in feet; metres are written 1.25 m. An elevation can be negative.",
+        )),
+        mots_cles: "nivellement niveau laser repère lecture élévation visée creuser remblayer déblai remblai terrassement carnet arpentage levelling level laser benchmark reading elevation target cut fill grading book survey",
+        touches: &[],
+        secondaire: false,
+        trigo: false,
+    },
+    Fiche {
         titre: t("Calcul d'heures", "Hours calculation"),
         acces: t("barre des métiers : Heures", "trade bar: Hours"),
         resume: t(

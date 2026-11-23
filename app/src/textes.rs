@@ -306,6 +306,109 @@ pub const AUCUNE_NOTE_TROUVEE: Texte = t(
     "No note contains these words.",
 );
 
+// Le carnet de nivellement (section 22.21)
+pub const CARNET_DE_NIVELLEMENT: Texte = t("Carnet de nivellement", "Levelling book");
+pub const NIVELLEMENT_MENTION: Texte = t("Laser", "Laser");
+pub const NIVELLEMENT_RESUME_COURT: Texte = t(
+    "Le repère et les lectures au niveau : les élévations, et ce qu'il faut creuser ou remblayer",
+    "The benchmark and the level readings: the elevations, and what to cut or fill",
+);
+pub const NIVELLEMENT_RESUME: Texte = t(
+    "Inscrivez l'élévation du repère et la lecture faite sur lui, puis la lecture de chaque point : la calculatrice donne son élévation et ce qu'il faut creuser ou remblayer pour atteindre l'élévation visée.",
+    "Enter the benchmark elevation and the reading taken on it, then each point's reading: the calculator gives its elevation and what to cut or fill to reach the target elevation.",
+);
+pub const NIVELLEMENT_TITRE: Texte = t("Titre (facultatif)", "Title (optional)");
+pub const NIVELLEMENT_TITRE_INDICE: Texte = t("ex. Entrée du garage", "e.g. Garage driveway");
+pub const NIVELLEMENT_REPERE: Texte = t("Repère", "Benchmark");
+pub const NIVELLEMENT_ELEVATION_DU_REPERE: Texte = t("Élévation du repère", "Benchmark elevation");
+pub const NIVELLEMENT_LECTURE_SUR_LE_REPERE: Texte =
+    t("Lecture sur le repère", "Reading on the benchmark");
+pub const NIVELLEMENT_VISEE: Texte = t("Élévation visée", "Target elevation");
+pub const NIVELLEMENT_INDICE_LECTURE: Texte = t("ex. 4 pi 6 1/4 po", "e.g. 4 ft 6 1/4 in");
+pub const NIVELLEMENT_INDICE_VISEE: Texte = t("ex. 99 pi 6 po", "e.g. 99 ft 6 in");
+pub const NIVELLEMENT_AIDE: Texte = t(
+    "Un nombre seul est en pieds; le mètre s'écrit 1,25 m. Une ligne peut avoir sa propre élévation visée.",
+    "A number alone is in feet; metres are written 1.25 m. A line can have its own target elevation.",
+);
+pub const NIVELLEMENT_HAUTEUR: Texte = t("Hauteur de l'instrument", "Height of instrument");
+pub const NIVELLEMENT_POINTS: Texte = t("Points", "Points");
+pub const NIVELLEMENT_PLUS_POINT: Texte = t("+ Point", "+ Point");
+pub const NIVELLEMENT_COLONNE_POINT: Texte = t("Point", "Point");
+pub const NIVELLEMENT_COLONNE_LECTURE: Texte = t("Lecture", "Reading");
+pub const NIVELLEMENT_COLONNE_VISEE: Texte = t("Visée", "Target");
+pub const NIVELLEMENT_COLONNE_ELEVATION: Texte = t("Élévation", "Elevation");
+pub const NIVELLEMENT_COLONNE_CREUSER: Texte = t("Creuser", "Cut");
+pub const NIVELLEMENT_COLONNE_REMBLAYER: Texte = t("Remblayer", "Fill");
+pub const NIVELLEMENT_AU_NIVEAU: Texte = t("Au niveau", "On grade");
+pub const NIVELLEMENT_POINT_ILLISIBLE: Texte = t(
+    "La lecture ou la visée de ce point ne se lit pas.",
+    "This point's reading or target cannot be read.",
+);
+pub const NIVELLEMENT_REPERE_ILLISIBLE: Texte = t(
+    "L'élévation du repère ne se lit pas.",
+    "The benchmark elevation cannot be read.",
+);
+pub const NIVELLEMENT_LECTURE_ILLISIBLE: Texte = t(
+    "La lecture sur le repère ne se lit pas.",
+    "The reading on the benchmark cannot be read.",
+);
+pub const NIVELLEMENT_VISEE_ILLISIBLE: Texte = t(
+    "L'élévation visée ne se lit pas.",
+    "The target elevation cannot be read.",
+);
+pub const NIVELLEMENT_EXPORTER: Texte = t("Exporter (CSV)", "Export (CSV)");
+pub const INFOBULLE_NIVELLEMENT_EXPORTER: Texte = t(
+    "Le carnet dans un fichier pour un tableur",
+    "The book in a file for a spreadsheet",
+);
+pub const NIVELLEMENT_VIDER: Texte = t("Vider le carnet", "Clear the book");
+pub const FILTRE_CSV: Texte = t("Tableur CSV", "CSV spreadsheet");
+pub const AVIS_CARNET_EXPORTE: Texte = t("Carnet exporté.", "Book exported.");
+pub const AVIS_CARNET_EXPORT_ECHEC: Texte = t(
+    "Le carnet n'a pas pu être enregistré.",
+    "The book could not be saved.",
+);
+
+/// « Hauteur de l'instrument : 105 pi 0 po ».
+pub fn nivellement_hauteur(hauteur: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Hauteur de l'instrument : {hauteur}"),
+        Langue::Anglais => format!("Height of instrument: {hauteur}"),
+    }
+}
+
+/// « Élévation 98 pi 9 po ».
+pub fn nivellement_elevation(elevation: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Élévation {elevation}"),
+        Langue::Anglais => format!("Elevation {elevation}"),
+    }
+}
+
+/// « Creuser 2 pi 0 po ».
+pub fn nivellement_creuser(ecart: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Creuser {ecart}"),
+        Langue::Anglais => format!("Cut {ecart}"),
+    }
+}
+
+/// « Remblayer 3 po ».
+pub fn nivellement_remblayer(ecart: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Remblayer {ecart}"),
+        Langue::Anglais => format!("Fill {ecart}"),
+    }
+}
+
+/// Le nom du fichier du carnet : « nivellement-2026-11-23 ».
+pub fn nom_du_carnet(jour: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("nivellement-{jour}"),
+        Langue::Anglais => format!("levelling-{jour}"),
+    }
+}
+
 // Le calcul d'heures et la feuille de temps (section 22.20)
 pub const HEURES: Texte = t("Heures", "Hours");
 pub const HEURES_RESUME: Texte = t(

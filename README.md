@@ -111,6 +111,8 @@ La carte *Liste de coupe* range des morceaux dans les longueurs offertes en maga
 pièces à acheter et le plan de coupe de chacune, trait de scie compris.
 Le clavier *Heures* additionne des heures et des minutes comme des pieds et des pouces, et la
 *Feuille de temps* compte les heures de la semaine.
+Le *Carnet de nivellement* donne, au niveau laser, l'élévation de chaque point et ce qu'il
+faut creuser ou remblayer.
 *PDF* en fait un rapport d'une page — date, projet, données et résultats — à joindre à une
 soumission.
 

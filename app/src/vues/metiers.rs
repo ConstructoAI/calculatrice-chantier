@@ -12,7 +12,7 @@ use noyau::metiers::{Article, Calculateur, Metier, Nature, calculateur};
 use noyau::unites::Format;
 
 use super::{bouton_principal, cadre_de_saisie, carte, corps, en_tete, section};
-use crate::stockage::Favoris;
+use crate::stockage::{Carnet, Favoris};
 use crate::textes;
 use crate::theme::{self, Palette};
 
@@ -29,12 +29,17 @@ pub struct Position {
     pub liste_de_coupe: bool,
     /// La feuille de temps est ouverte (section 22.20).
     pub feuille_de_temps: bool,
+    /// Le carnet de nivellement est ouvert (section 22.21).
+    pub carnet: bool,
 }
 
 impl Position {
     /// Remonte d'un niveau. Retourne faux si l'on était déjà à la liste des métiers.
     pub fn remonter(&mut self) -> bool {
-        if std::mem::take(&mut self.liste_de_coupe) || std::mem::take(&mut self.feuille_de_temps) {
+        if std::mem::take(&mut self.liste_de_coupe)
+            || std::mem::take(&mut self.feuille_de_temps)
+            || std::mem::take(&mut self.carnet)
+        {
             return true;
         }
         if self.calculateur.take().is_some() {
@@ -65,6 +70,10 @@ pub enum Action {
     ListeDAchat(Vec<Article>),
     /// Exporter le rapport de ce calcul en PDF (section 22.18).
     Rapport(&'static str),
+    /// Le carnet de nivellement a changé : il est à conserver (section 22.21).
+    CarnetModifie,
+    /// Exporter le carnet de nivellement en CSV.
+    ExporterCarnet,
 }
 
 /// Une carte cliquable : un titre, une ligne d'explication et, à droite, une mention.
@@ -207,6 +216,17 @@ fn liste_des_metiers(
             textes::FEUILLE_DE_TEMPS_MENTION.traduit(),
         ) {
             position.feuille_de_temps = true;
+        }
+        // Le carnet de nivellement (section 22.21).
+        if carte_cliquable(
+            ui,
+            p,
+            "carnet-de-nivellement",
+            textes::CARNET_DE_NIVELLEMENT.traduit(),
+            textes::NIVELLEMENT_RESUME_COURT.traduit(),
+            textes::NIVELLEMENT_MENTION.traduit(),
+        ) {
+            position.carnet = true;
         }
         // La charpente, la toiture et les escaliers se calculent au clavier principal.
         if carte_cliquable(
@@ -448,7 +468,11 @@ pub fn afficher(
     saisies: &mut Saisies,
     prefs: &Preferences,
     favoris: &Favoris,
+    carnet: &mut Carnet,
 ) -> Option<Action> {
+    if position.carnet {
+        return super::nivellement::afficher(ui, p, position, carnet, prefs);
+    }
     if position.feuille_de_temps {
         let saisies = saisies
             .entry(super::heures::IDENTIFIANT.to_string())

@@ -55,6 +55,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   minutes comme des pieds et des pouces — 7 h 45 + 8 h 30 = 16 h 15, ou 16,25 h —, et la
   **feuille de temps** compte les heures de la semaine (arrivée, départ, dîner).
 
+- **Carnet de nivellement** : dans l'onglet Métiers, le repère et les lectures au niveau
+  laser donnent l'élévation de chaque point et ce qu'il faut creuser ou remblayer par rapport
+  à l'élévation visée; le carnet se garde et s'exporte en CSV.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

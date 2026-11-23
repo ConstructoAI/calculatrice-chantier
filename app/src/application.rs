@@ -203,6 +203,9 @@ pub struct Application {
     favoris: stockage::Favoris,
     /// Le clavier des heures est à l'écran (section 22.20).
     clavier_d_heures: bool,
+    /// Le carnet de nivellement (section 22.21), et s'il reste à enregistrer.
+    carnet: stockage::Carnet,
+    carnet_a_sauvegarder: bool,
     /// La pastille de l'outil branché doit être amenée en vue dans la barre.
     outil_a_montrer: bool,
     /// Confirmation discrète (« Copié », « Ruban enregistré ») et son échéance.
@@ -299,6 +302,7 @@ impl Application {
         let notes = stockage::charger_notes(&depot);
         let (mut saisies_metiers, outil, langue_des_saisies) = stockage::charger_saisies(&depot);
         let clavier_d_heures = outil.as_deref() == Some(CLAVIER_D_HEURES);
+        let carnet = stockage::charger_carnet(&depot);
         let mut favoris = stockage::charger_favoris(&depot);
         favoris.nettoyer(|id| noyau::metiers::calculateur(id).is_some());
         let stockage::DessinCharge {
@@ -374,6 +378,8 @@ impl Application {
             derniers_outils: Vec::new(),
             favoris,
             clavier_d_heures,
+            carnet,
+            carnet_a_sauvegarder: false,
             outil_a_montrer: true,
             fugace: None,
             a_sauvegarder: chargement.illisible,
@@ -826,6 +832,12 @@ impl Application {
                 self.signaler_l_echec_d_ecriture();
             }
         }
+        if self.carnet_a_sauvegarder {
+            self.carnet_a_sauvegarder = false;
+            if stockage::enregistrer_carnet(&self.depot, &self.carnet).is_err() {
+                self.signaler_l_echec_d_ecriture();
+            }
+        }
     }
 
     /// Sur le bureau, au plus une écriture par seconde (R-45); dans un
@@ -836,6 +848,7 @@ impl Application {
             && !self.dessin_a_sauvegarder
             && !self.dessins_a_sauvegarder
             && !self.notes_a_sauvegarder
+            && !self.carnet_a_sauvegarder
         {
             return;
         }
@@ -924,6 +937,28 @@ impl Application {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
             Export::Annule => {}
             Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
+        }
+    }
+
+    /// Exporte le carnet de nivellement en CSV (section 22.21), pour un
+    /// tableur. Bureau : boîte « Enregistrer sous »; navigateur : téléchargement.
+    fn exporter_le_carnet(&mut self, ctx: &egui::Context) {
+        let contenu = vues::nivellement::en_csv(&self.carnet, self.moteur.preferences());
+        let (iso, _) = stockage::maintenant();
+        let jour = iso.get(..10).unwrap_or_default();
+        let nom = stockage::nom_de_fichier_avec(&textes::nom_du_carnet(jour), "csv");
+        let fichier = Fichier {
+            titre: textes::CARNET_DE_NIVELLEMENT.traduit(),
+            filtre: textes::FILTRE_CSV.traduit(),
+            extension: "csv",
+            type_mime: "text/csv",
+            nom: &nom,
+            contenu: contenu.as_bytes(),
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_CARNET_EXPORTE),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_CARNET_EXPORT_ECHEC),
         }
     }
 
@@ -2341,6 +2376,7 @@ impl Application {
                     &mut self.saisies_metiers,
                     self.moteur.preferences(),
                     &self.favoris,
+                    &mut self.carnet,
                 );
                 // Un formulaire qui s'ouvre passe en tête des récents.
                 if let Some(id) = self.position_metiers.calculateur
@@ -2352,6 +2388,12 @@ impl Application {
                 match action {
                     Some(vues::metiers::Action::ListeDAchat(articles)) => {
                         self.ajouter_a_la_liste_d_achat(ui.ctx(), &articles);
+                    }
+                    Some(vues::metiers::Action::CarnetModifie) => {
+                        self.carnet_a_sauvegarder = true;
+                    }
+                    Some(vues::metiers::Action::ExporterCarnet) => {
+                        self.exporter_le_carnet(ui.ctx());
                     }
                     Some(vues::metiers::Action::Rapport(id)) => {
                         self.dialogue = Dialogue::RapportPdf {
@@ -3501,6 +3543,9 @@ impl eframe::App for Application {
         let _ = stockage::enregistrer_dessins(&self.depot, &self.dessins);
         if self.notes_a_sauvegarder {
             let _ = stockage::enregistrer_notes(&self.depot, &self.notes);
+        }
+        if self.carnet_a_sauvegarder {
+            let _ = stockage::enregistrer_carnet(&self.depot, &self.carnet);
         }
     }
 

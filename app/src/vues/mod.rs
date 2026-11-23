@@ -9,6 +9,7 @@ pub mod dessins;
 pub mod heures;
 pub mod maquette;
 pub mod metiers;
+pub mod nivellement;
 pub mod notes;
 pub mod preferences;
 pub mod rubans;
