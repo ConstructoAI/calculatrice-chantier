@@ -2597,54 +2597,77 @@ impl Application {
         let mut fermer = false;
         // Lien touché au pied du menu : (adresse, dans un nouvel onglet).
         let mut lien: Option<(&str, bool)> = None;
-        // Les entrées du menu dépendent de la plateforme : on ne « quitte » pas
-        // une page Web (on ferme son onglet), et seul un navigateur peut
+        // Le menu en sections : les outils, les réglages, les données, l'aide;
+        // l'application en dernier, là où elle a lieu d'être — on ne « quitte »
+        // pas une page Web (on ferme son onglet), et seul un navigateur peut
         // installer l'application sur l'appareil.
-        let mut elements: Vec<(&str, ChoixMenu)> = vec![
+        let mode_chantier = if self.moteur.preferences().mode_chantier {
+            textes::MENU_QUITTER_MODE_CHANTIER.traduit()
+        } else {
+            textes::MENU_MODE_CHANTIER.traduit()
+        };
+        let mut sections: Vec<(&str, Vec<(&str, ChoixMenu)>)> = vec![
             (
-                textes::MENU_METIERS.traduit(),
-                ChoixMenu::Aller(Vue::Metiers),
-            ),
-            (textes::MENU_DESSIN.traduit(), ChoixMenu::Aller(Vue::Dessin)),
-            (textes::MENU_RUBANS.traduit(), ChoixMenu::Aller(Vue::Rubans)),
-            (textes::MENU_NOTES.traduit(), ChoixMenu::Aller(Vue::Notes)),
-            (textes::MENU_AIDE.traduit(), ChoixMenu::Aller(Vue::Aide)),
-            (textes::MENU_MANUEL.traduit(), ChoixMenu::Manuel),
-            (
-                textes::MENU_BIENVENUE.traduit(),
-                ChoixMenu::Aller(Vue::Bienvenue),
-            ),
-            (textes::MENU_TRUCS.traduit(), ChoixMenu::Aller(Vue::Trucs)),
-            (
-                textes::MENU_PREFERENCES.traduit(),
-                ChoixMenu::Aller(Vue::Preferences),
-            ),
-            (
-                if self.moteur.preferences().mode_chantier {
-                    textes::MENU_QUITTER_MODE_CHANTIER.traduit()
-                } else {
-                    textes::MENU_MODE_CHANTIER.traduit()
-                },
-                ChoixMenu::ModeChantier,
+                textes::MENU_SECTION_OUTILS.traduit(),
+                vec![
+                    (
+                        textes::MENU_METIERS.traduit(),
+                        ChoixMenu::Aller(Vue::Metiers),
+                    ),
+                    (textes::MENU_DESSIN.traduit(), ChoixMenu::Aller(Vue::Dessin)),
+                    (textes::MENU_RUBANS.traduit(), ChoixMenu::Aller(Vue::Rubans)),
+                    (textes::MENU_NOTES.traduit(), ChoixMenu::Aller(Vue::Notes)),
+                ],
             ),
             (
-                textes::MENU_EXPORTER_DONNEES.traduit(),
-                ChoixMenu::ExporterDonnees,
+                textes::MENU_SECTION_REGLAGES.traduit(),
+                vec![
+                    (
+                        textes::MENU_PREFERENCES.traduit(),
+                        ChoixMenu::Aller(Vue::Preferences),
+                    ),
+                    (mode_chantier, ChoixMenu::ModeChantier),
+                ],
             ),
             (
-                textes::MENU_IMPORTER_DONNEES.traduit(),
-                ChoixMenu::ImporterDonnees,
+                textes::MENU_SECTION_DONNEES.traduit(),
+                vec![
+                    (
+                        textes::MENU_EXPORTER_DONNEES.traduit(),
+                        ChoixMenu::ExporterDonnees,
+                    ),
+                    (
+                        textes::MENU_IMPORTER_DONNEES.traduit(),
+                        ChoixMenu::ImporterDonnees,
+                    ),
+                ],
             ),
             (
-                textes::MENU_A_PROPOS.traduit(),
-                ChoixMenu::Aller(Vue::APropos),
+                textes::MENU_SECTION_AIDE.traduit(),
+                vec![
+                    (textes::MENU_AIDE.traduit(), ChoixMenu::Aller(Vue::Aide)),
+                    (textes::MENU_MANUEL.traduit(), ChoixMenu::Manuel),
+                    (textes::MENU_TRUCS.traduit(), ChoixMenu::Aller(Vue::Trucs)),
+                    (
+                        textes::MENU_BIENVENUE.traduit(),
+                        ChoixMenu::Aller(Vue::Bienvenue),
+                    ),
+                    (
+                        textes::MENU_A_PROPOS.traduit(),
+                        ChoixMenu::Aller(Vue::APropos),
+                    ),
+                ],
             ),
         ];
+        let mut application = Vec::new();
         if !matches!(plateforme::installation(), Installation::Aucune) {
-            elements.push((textes::MENU_INSTALLER.traduit(), ChoixMenu::Installer));
+            application.push((textes::MENU_INSTALLER.traduit(), ChoixMenu::Installer));
         }
         if !plateforme::NAVIGATEUR {
-            elements.push((textes::MENU_QUITTER.traduit(), ChoixMenu::Quitter));
+            application.push((textes::MENU_QUITTER.traduit(), ChoixMenu::Quitter));
+        }
+        if !application.is_empty() {
+            sections.push((textes::MENU_SECTION_APPLICATION.traduit(), application));
         }
         egui::Area::new(egui::Id::unique("tiroir"))
             .order(egui::Order::Foreground)
@@ -2655,7 +2678,6 @@ impl Application {
                 ui.painter().rect_filled(ecran, 0, p.voile);
                 let largeur = 280.0f32.min(ecran.width() * 0.82);
                 let panneau = Rect::from_min_size(ecran.min, Vec2::new(largeur, ecran.height()));
-                let mut fin_des_entrees = panneau.top();
                 // Le fond du panneau absorbe les clics.
                 ui.interact(panneau, egui::Id::unique("tiroir-fond"), Sense::CLICK);
                 theme::ombre_portee(ui.painter(), panneau, 0, p.ombre, (24, 0));
@@ -2666,6 +2688,53 @@ impl Application {
                 );
                 ui.painter()
                     .rect_filled(bord, 0, Color32::from_white_alpha(24));
+                // Au pied du menu, de haut en bas : la mention de l'auteur, le
+                // courriel et le site de Constructo AI, la version du programme.
+                let attenue = theme::melanger(p.barre_texte, p.pied_fond, 0.30);
+                let version = ui.painter().layout_no_wrap(
+                    textes::version_et_revision(),
+                    theme::police(11.5),
+                    attenue,
+                );
+                let mention = ui.painter().layout(
+                    textes::GRACIEUSETE.traduit().to_owned(),
+                    theme::police(12.0),
+                    attenue,
+                    panneau.width() - 48.0,
+                );
+                const HAUTEUR_DE_LIEN: f32 = 26.0;
+                let liens = [
+                    (
+                        textes::COURRIEL_CONSTRUCTO,
+                        textes::LIEN_COURRIEL_CONSTRUCTO,
+                        textes::INFOBULLE_COURRIEL.traduit(),
+                        false,
+                    ),
+                    (
+                        textes::SITE_CONSTRUCTO,
+                        textes::LIEN_SITE_CONSTRUCTO,
+                        textes::INFOBULLE_SITE.traduit(),
+                        true,
+                    ),
+                ];
+                let hauteur_du_pied = mention.size().y
+                    + 4.0
+                    + HAUTEUR_DE_LIEN * liens.len() as f32
+                    + 4.0
+                    + version.size().y;
+                // Chaque section a son titre; un filet sépare deux sections. Les
+                // entrées prennent la hauteur que l'écran leur laisse, entre ce
+                // qui se touche encore bien du doigt et la hauteur d'un grand
+                // écran : sur un téléphone, tout le menu tient d'un coup d'œil.
+                const TITRE_DE_SECTION: f32 = 22.0;
+                const FILET_DE_SECTION: f32 = 7.0;
+                const ENTREE_MIN: f32 = 36.0;
+                const ENTREE_MAX: f32 = 42.0;
+                let nombre_d_entrees: usize =
+                    sections.iter().map(|(_, entrees)| entrees.len()).sum();
+                let hauteur_des_titres = TITRE_DE_SECTION * sections.len() as f32
+                    + FILET_DE_SECTION * sections.len().saturating_sub(1) as f32;
+                let couleur_des_titres = theme::melanger(p.barre_texte, p.pied_fond, 0.42);
                 ui.scope_builder(
                     egui::UiBuilder::new().max_rect(panneau.shrink2(Vec2::new(12.0, 14.0))),
                     |ui| {
@@ -2681,118 +2750,155 @@ impl Application {
                         );
                         ui.painter().rect_filled(filet, 1, p.barre_accent);
                         ui.add_space(6.0);
-                        for (libelle, element) in elements {
-                            // Texte blanc; le fond s'éclaire au survol.
-                            let (zone, reponse) = ui.allocate_exact_size(
-                                Vec2::new(ui.available_width(), 42.0),
-                                Sense::click(),
-                            );
-                            reponse.widget_info(|| {
-                                egui::WidgetInfo::labeled(egui::Role::Button, true, libelle)
+                        // Les sections, puis le pied au bas du panneau. Si l'écran
+                        // est trop bas pour tout montrer, même avec des entrées
+                        // serrées, le menu défile : les entrées d'abord, le pied à
+                        // leur suite.
+                        let place = (panneau.bottom() - 14.0 - ui.cursor().top()).max(0.0);
+                        let entree = ((place - hauteur_des_titres - 6.0 - hauteur_du_pied)
+                            / nombre_d_entrees.max(1) as f32)
+                            .clamp(ENTREE_MIN, ENTREE_MAX);
+                        egui::ScrollArea::vertical()
+                            .id_salt("menu-lateral")
+                            .max_height(place)
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                ui.spacing_mut().item_spacing.y = 0.0;
+                                let debut = ui.cursor().top();
+                                let largeur = ui.available_width();
+                                for (rang, (titre, entrees)) in sections.into_iter().enumerate() {
+                                    if rang > 0 {
+                                        let (zone, _) = ui.allocate_exact_size(
+                                            Vec2::new(largeur, FILET_DE_SECTION),
+                                            Sense::hover(),
+                                        );
+                                        let filet = Rect::from_min_size(
+                                            Pos2::new(zone.left(), zone.center().y.round()),
+                                            Vec2::new(zone.width(), 1.0),
+                                        );
+                                        ui.painter().rect_filled(
+                                            filet,
+                                            0,
+                                            Color32::from_white_alpha(32),
+                                        );
+                                    }
+                                    let (zone, _) = ui.allocate_exact_size(
+                                        Vec2::new(largeur, TITRE_DE_SECTION),
+                                        Sense::hover(),
+                                    );
+                                    ui.painter().text(
+                                        Pos2::new(zone.left() + 12.0, zone.center().y),
+                                        Align2::LEFT_CENTER,
+                                        titre,
+                                        theme::police_grasse(12.0),
+                                        couleur_des_titres,
+                                    );
+                                    for (libelle, element) in entrees {
+                                        // Texte blanc; le fond s'éclaire au survol.
+                                        let (zone, reponse) = ui.allocate_exact_size(
+                                            Vec2::new(largeur, entree),
+                                            Sense::click(),
+                                        );
+                                        reponse.widget_info(|| {
+                                            egui::WidgetInfo::labeled(
+                                                egui::Role::Button,
+                                                true,
+                                                libelle,
+                                            )
+                                        });
+                                        let actif = element == ChoixMenu::Aller(self.vue);
+                                        if reponse.hovered() || actif {
+                                            let voile = if actif { 30 } else { 18 };
+                                            ui.painter().rect_filled(
+                                                zone,
+                                                6,
+                                                Color32::from_white_alpha(voile),
+                                            );
+                                        }
+                                        ui.painter().text(
+                                            Pos2::new(zone.left() + 12.0, zone.center().y),
+                                            Align2::LEFT_CENTER,
+                                            libelle,
+                                            theme::police(15.5),
+                                            p.barre_texte,
+                                        );
+                                        if reponse.clicked() {
+                                            choix = Some(element);
+                                        }
+                                    }
+                                }
+                                // Le pied : au bas du panneau s'il y a la place, sinon
+                                // à la suite des entrées.
+                                let reste =
+                                    place - (ui.cursor().top() - debut) - hauteur_du_pied - 0.5;
+                                ui.add_space(reste.max(6.0));
+                                let gauche = ui.max_rect().left() + 12.0;
+                                let (zone, _) = ui.allocate_exact_size(
+                                    Vec2::new(largeur, mention.size().y),
+                                    Sense::hover(),
+                                );
+                                ui.painter().galley(
+                                    Pos2::new(gauche, zone.top()),
+                                    mention,
+                                    attenue,
+                                );
+                                ui.add_space(4.0);
+                                for (texte, adresse, infobulle, nouvel_onglet) in liens {
+                                    let ecrit = ui.painter().layout_no_wrap(
+                                        texte.to_owned(),
+                                        theme::police(13.0),
+                                        p.barre_texte,
+                                    );
+                                    let (rangee, _) = ui.allocate_exact_size(
+                                        Vec2::new(largeur, HAUTEUR_DE_LIEN),
+                                        Sense::hover(),
+                                    );
+                                    let zone = Rect::from_min_size(
+                                        Pos2::new(gauche - 6.0, rangee.top()),
+                                        Vec2::new(ecrit.size().x + 12.0, HAUTEUR_DE_LIEN),
+                                    );
+                                    let reponse = ui
+                                        .interact(
+                                            zone,
+                                            egui::Id::unique(("lien-du-menu", adresse)),
+                                            Sense::CLICK,
+                                        )
+                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                        .on_hover_text(infobulle);
+                                    reponse.widget_info(|| {
+                                        egui::WidgetInfo::labeled(egui::Role::Link, true, texte)
+                                    });
+                                    let position =
+                                        Pos2::new(gauche, zone.center().y - ecrit.size().y / 2.0);
+                                    // Un filet sous le texte : c'est un lien; il
+                                    // s'affirme au survol.
+                                    let filet = if reponse.hovered() { 200 } else { 90 };
+                                    let sous = position.y + ecrit.size().y + 0.5;
+                                    ui.painter().line_segment(
+                                        [
+                                            Pos2::new(position.x, sous),
+                                            Pos2::new(position.x + ecrit.size().x, sous),
+                                        ],
+                                        Stroke::new(1.0, Color32::from_white_alpha(filet)),
+                                    );
+                                    ui.painter().galley(position, ecrit, p.barre_texte);
+                                    if reponse.clicked() {
+                                        lien = Some((adresse, nouvel_onglet));
+                                    }
+                                }
+                                ui.add_space(4.0);
+                                let (zone, _) = ui.allocate_exact_size(
+                                    Vec2::new(largeur, version.size().y),
+                                    Sense::hover(),
+                                );
+                                ui.painter().galley(
+                                    Pos2::new(gauche, zone.top()),
+                                    version,
+                                    attenue,
+                                );
                             });
-                            let actif = element == ChoixMenu::Aller(self.vue);
-                            if reponse.hovered() || actif {
-                                let voile = if actif { 30 } else { 18 };
-                                ui.painter()
-                                    .rect_filled(zone, 6, Color32::from_white_alpha(voile));
-                            }
-                            ui.painter().text(
-                                Pos2::new(zone.left() + 12.0, zone.center().y),
-                                Align2::LEFT_CENTER,
-                                libelle,
-                                theme::police(15.5),
-                                p.barre_texte,
-                            );
-                            if reponse.clicked() {
-                                choix = Some(element);
-                            }
-                        }
-                        fin_des_entrees = ui.min_rect().bottom();
                     },
                 );
-                // Au pied du menu, de bas en haut : la version du programme, le
-                // site et le courriel de Constructo AI, la mention de l'auteur.
-                let attenue = theme::melanger(p.barre_texte, p.pied_fond, 0.30);
-                let gauche = panneau.left() + 24.0;
-                let version = ui.painter().layout_no_wrap(
-                    textes::version_et_revision(),
-                    theme::police(11.5),
-                    attenue,
-                );
-                let mention = ui.painter().layout(
-                    textes::GRACIEUSETE.traduit().to_owned(),
-                    theme::police(12.0),
-                    attenue,
-                    panneau.width() - 48.0,
-                );
-                const HAUTEUR_DE_LIEN: f32 = 26.0;
-                let liens = [
-                    (
-                        textes::SITE_CONSTRUCTO,
-                        textes::LIEN_SITE_CONSTRUCTO,
-                        textes::INFOBULLE_SITE.traduit(),
-                        true,
-                    ),
-                    (
-                        textes::COURRIEL_CONSTRUCTO,
-                        textes::LIEN_COURRIEL_CONSTRUCTO,
-                        textes::INFOBULLE_COURRIEL.traduit(),
-                        false,
-                    ),
-                ];
-                let hauteur_du_pied = 14.0
-                    + version.size().y
-                    + 4.0
-                    + HAUTEUR_DE_LIEN * liens.len() as f32
-                    + 4.0
-                    + mention.size().y;
-                // Dans une fenêtre trop basse, les entrées du menu passent d'abord.
-                if panneau.bottom() - hauteur_du_pied >= fin_des_entrees + 6.0 {
-                    let mut y = panneau.bottom() - 14.0 - version.size().y;
-                    ui.painter().galley(Pos2::new(gauche, y), version, attenue);
-                    y -= 4.0;
-                    for (texte, adresse, infobulle, nouvel_onglet) in liens {
-                        let ecrit = ui.painter().layout_no_wrap(
-                            texte.to_owned(),
-                            theme::police(13.0),
-                            p.barre_texte,
-                        );
-                        let zone = Rect::from_min_size(
-                            Pos2::new(gauche - 6.0, y - HAUTEUR_DE_LIEN),
-                            Vec2::new(ecrit.size().x + 12.0, HAUTEUR_DE_LIEN),
-                        );
-                        let reponse = ui
-                            .interact(
-                                zone,
-                                egui::Id::unique(("lien-du-menu", adresse)),
-                                Sense::CLICK,
-                            )
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .on_hover_text(infobulle);
-                        reponse.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::Link, true, texte)
-                        });
-                        let position = Pos2::new(gauche, zone.center().y - ecrit.size().y / 2.0);
-                        // Un filet sous le texte : c'est un lien; il s'affirme au survol.
-                        let filet = if reponse.hovered() { 200 } else { 90 };
-                        let sous = position.y + ecrit.size().y + 0.5;
-                        ui.painter().line_segment(
-                            [
-                                Pos2::new(position.x, sous),
-                                Pos2::new(position.x + ecrit.size().x, sous),
-                            ],
-                            Stroke::new(1.0, Color32::from_white_alpha(filet)),
-                        );
-                        ui.painter().galley(position, ecrit, p.barre_texte);
-                        if reponse.clicked() {
-                            lien = Some((adresse, nouvel_onglet));
-                        }
-                        y -= HAUTEUR_DE_LIEN;
-                    }
-                    y -= 4.0;
-                    let position = Pos2::new(gauche, y - mention.size().y);
-                    ui.painter().galley(position, mention, attenue);
-                }
                 if voile.clicked() {
                     fermer = true;
                 }

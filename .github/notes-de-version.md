@@ -67,6 +67,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   **Calculs**. Une application déjà installée prend ce nom à sa prochaine mise à jour (sur
   iPhone et iPad, en la réinstallant).
 
+- **Un menu ☰ en ordre** : ses entrées sont rangées en sections — Outils, Réglages, Mes
+  données, Aide et informations — et tout le menu tient d'un coup d'œil sur un téléphone.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

@@ -786,6 +786,12 @@ pub const AVIS_PHOTO_EXPORT_ECHEC: Texte = t(
 
 // Sauvegarde complète (section 17.4)
 pub const MENU_MODE_CHANTIER: Texte = t("Mode chantier", "Job-site mode");
+// Les sections du menu latéral
+pub const MENU_SECTION_OUTILS: Texte = t("Outils", "Tools");
+pub const MENU_SECTION_REGLAGES: Texte = t("Réglages", "Settings");
+pub const MENU_SECTION_DONNEES: Texte = t("Mes données", "My data");
+pub const MENU_SECTION_AIDE: Texte = t("Aide et informations", "Help and information");
+pub const MENU_SECTION_APPLICATION: Texte = t("Application", "App");
 // Calculateurs épinglés et récents (section 22.16)
 pub const EPINGLER: Texte = t("Épingler", "Pin");
 pub const DESEPINGLER: Texte = t("Désépingler", "Unpin");
