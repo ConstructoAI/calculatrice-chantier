@@ -1,14 +1,15 @@
 //! Version de bureau : fichiers dans le dossier de données de l'utilisateur,
 //! boîte « Enregistrer sous » du système, plein écran appliqué à la fenêtre.
 
+use std::cell::RefCell;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use noyau::langue::Langue;
 
-use super::{Export, Fichier, Installation, Lecture};
-use crate::textes;
+use super::{Arrivee, Export, Fichier, FichierChoisi, Installation, Lecture};
+use crate::{pieces, textes};
 
 /// L'application tourne-t-elle dans un navigateur?
 pub const NAVIGATEUR: bool = false;
@@ -43,7 +44,7 @@ fn dossier_de_donnees() -> PathBuf {
 }
 
 /// Écriture atomique : dans un fichier temporaire, puis renommage (R-44).
-fn ecrire_atomique(chemin: &Path, contenu: &str) -> io::Result<()> {
+fn ecrire_atomique(chemin: &Path, contenu: &[u8]) -> io::Result<()> {
     if let Some(parent) = chemin.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -52,10 +53,69 @@ fn ecrire_atomique(chemin: &Path, contenu: &str) -> io::Result<()> {
     let temporaire = PathBuf::from(nom_temporaire);
     {
         let mut fichier = fs::File::create(&temporaire)?;
-        fichier.write_all(contenu.as_bytes())?;
+        fichier.write_all(contenu)?;
         fichier.sync_all()?;
     }
     fs::rename(&temporaire, chemin)
+}
+
+/// Sous-dossier des pièces jointes du bloc-notes, dans le dossier de données (R-95).
+const DOSSIER_DES_PIECES: &str = "pieces-jointes";
+
+thread_local! {
+    /// Ce qui attend d'être relevé par l'application (`arrivees`).
+    static ARRIVEES: RefCell<Vec<Arrivee>> = const { RefCell::new(Vec::new()) };
+}
+
+fn deposer(arrivee: Arrivee) {
+    ARRIVEES.with(|a| a.borrow_mut().push(arrivee));
+}
+
+/// Relève ce qui est arrivé depuis la dernière fois : pièces jointes lues,
+/// fichiers choisis, échecs d'écriture.
+pub fn arrivees() -> Vec<Arrivee> {
+    ARRIVEES.with(|a| std::mem::take(&mut *a.borrow_mut()))
+}
+
+/// Sans objet sur le bureau : tout y répond tout de suite.
+pub fn retenir_le_contexte(_ctx: &eframe::egui::Context) {}
+
+/// Ouvre la boîte « Ouvrir » du système pour choisir un ou plusieurs fichiers
+/// (des photos seulement, si `photos`). Le résultat arrive par `arrivees`.
+pub fn choisir_des_fichiers(photos: bool) {
+    let titre = if photos {
+        textes::TITRE_CHOISIR_PHOTOS.traduit()
+    } else {
+        textes::TITRE_CHOISIR_FICHIERS.traduit()
+    };
+    let mut boite = rfd::FileDialog::new().set_title(titre);
+    if photos {
+        boite = boite.add_filter(textes::FILTRE_PHOTOS.traduit(), &["jpg", "jpeg", "png"]);
+    }
+    let Some(chemins) = boite.pick_files() else {
+        return;
+    };
+    let fichiers = chemins
+        .into_iter()
+        .map(|chemin| {
+            let nom = chemin
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let taille = fs::metadata(&chemin).map(|m| m.len()).unwrap_or(u64::MAX);
+            let octets = if taille > pieces::TAILLE_MAX_LECTURE {
+                None
+            } else {
+                fs::read(&chemin).ok()
+            };
+            FichierChoisi {
+                nom,
+                type_mime: String::new(),
+                octets,
+            }
+        })
+        .collect();
+    deposer(Arrivee::Choisis(fichiers));
 }
 
 /// Là où sont conservées les données : un dossier de fichiers.
@@ -93,12 +153,59 @@ impl Depot {
     }
 
     pub fn ecrire(&self, nom: &str, contenu: &str) -> io::Result<()> {
-        ecrire_atomique(&self.dossier.join(nom), contenu)
+        ecrire_atomique(&self.dossier.join(nom), contenu.as_bytes())
     }
 
     /// Renomme une donnée illisible pour ne pas l'écraser (R-46).
     pub fn mettre_de_cote(&self, nom: &str, nouveau_nom: &str) {
         let _ = fs::rename(self.dossier.join(nom), self.dossier.join(nouveau_nom));
+    }
+
+    fn chemin_de_piece(&self, cle: &str) -> PathBuf {
+        self.dossier.join(DOSSIER_DES_PIECES).join(cle)
+    }
+
+    /// Garde une pièce jointe sous sa clé; un échec arrive par `arrivees`.
+    pub fn ecrire_piece(&self, cle: &str, octets: Vec<u8>) {
+        if ecrire_atomique(&self.chemin_de_piece(cle), &octets).is_err() {
+            deposer(Arrivee::EchecEcriture);
+        }
+    }
+
+    /// Lit une pièce jointe; elle arrive par `arrivees`.
+    pub fn lire_piece(&self, cle: &str) {
+        let octets = fs::read(self.chemin_de_piece(cle)).ok();
+        deposer(Arrivee::Lue {
+            cle: cle.to_string(),
+            octets,
+        });
+    }
+
+    /// Efface une pièce jointe (rien si elle n'existe pas).
+    pub fn supprimer_piece(&self, cle: &str) {
+        let _ = fs::remove_file(self.chemin_de_piece(cle));
+    }
+
+    /// Ouvre une pièce jointe dans le programme que le poste associe à son
+    /// type (le lecteur de PDF, par exemple). Faux si c'est impossible.
+    pub fn ouvrir_piece(&self, cle: &str) -> bool {
+        let chemin = self.chemin_de_piece(cle);
+        if !chemin.is_file() {
+            return false;
+        }
+        // L'explorateur reçoit le chemin tel quel : aucun interpréteur de
+        // commandes ne le relit.
+        let programme = if cfg!(windows) {
+            "explorer"
+        } else if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+        std::process::Command::new(programme)
+            .arg(&chemin)
+            .spawn()
+            .is_ok()
     }
 }
 
@@ -205,6 +312,21 @@ mod tests {
         // Le dossier est créé à la première écriture.
         depot.ecrire("essai.json", "{ \"a\": 1 }").unwrap();
         assert!(!dossier.join("essai.json.tmp").exists());
+        // Une pièce jointe : écrite, relue par `arrivees`, puis effacée.
+        let _ = arrivees();
+        depot.ecrire_piece("7.pdf", vec![1, 2, 3]);
+        assert!(dossier.join("pieces-jointes").join("7.pdf").is_file());
+        depot.lire_piece("7.pdf");
+        depot.supprimer_piece("7.pdf");
+        depot.lire_piece("7.pdf");
+        let recues = arrivees();
+        assert!(matches!(
+            recues.as_slice(),
+            [
+                Arrivee::Lue { cle: a, octets: Some(o) },
+                Arrivee::Lue { cle: b, octets: None },
+            ] if a == "7.pdf" && o == &[1, 2, 3] && b == "7.pdf"
+        ));
         assert!(matches!(depot.lire("essai.json"), Lecture::Texte(t) if t == "{ \"a\": 1 }"));
         depot.mettre_de_cote("essai.json", "essai.corrompu.json");
         assert!(matches!(depot.lire("essai.json"), Lecture::Absent));

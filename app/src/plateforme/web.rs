@@ -4,14 +4,16 @@
 //! La page qui héberge l'application est `app/index.html` : les identifiants
 //! ci-dessous sont ceux de ses éléments.
 
+use std::cell::RefCell;
 use std::io;
 
 use noyau::langue::Langue;
 use wasm_bindgen::JsCast as _;
+use wasm_bindgen::JsValue;
 use wasm_bindgen::closure::Closure;
 
-use super::{Export, Fichier, Installation, Lecture};
-use crate::textes;
+use super::{Arrivee, Export, Fichier, FichierChoisi, Installation, Lecture};
+use crate::{pieces, textes};
 
 /// L'application tourne-t-elle dans un navigateur?
 pub const NAVIGATEUR: bool = true;
@@ -87,6 +89,254 @@ impl Depot {
         }
         let _ = stockage.remove_item(&cle(nom));
     }
+
+    /// Garde une pièce jointe sous sa clé, dans la base du site (le stockage
+    /// local, limité à environ 5 Mo, ne suffirait pas). Un échec arrive par
+    /// `arrivees`.
+    pub fn ecrire_piece(&self, cle: &str, octets: Vec<u8>) {
+        let cle = cle.to_string();
+        wasm_bindgen_futures::spawn_local(async move {
+            let reussi = match base().await {
+                Some(base) => ecrire_dans(&base, &cle, &octets).await,
+                None => false,
+            };
+            if !reussi {
+                deposer(Arrivee::EchecEcriture);
+            }
+        });
+    }
+
+    /// Lit une pièce jointe; elle arrive par `arrivees`.
+    pub fn lire_piece(&self, cle: &str) {
+        let cle = cle.to_string();
+        wasm_bindgen_futures::spawn_local(async move {
+            let octets = match base().await {
+                Some(base) => lire_dans(&base, &cle).await,
+                None => None,
+            };
+            deposer(Arrivee::Lue { cle, octets });
+        });
+    }
+
+    /// Efface une pièce jointe (rien si elle n'existe pas).
+    pub fn supprimer_piece(&self, cle: &str) {
+        let cle = cle.to_string();
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Some(base) = base().await
+                && let Ok(transaction) = base
+                    .transaction_with_str_and_mode(MAGASIN, web_sys::IdbTransactionMode::Readwrite)
+                && let Ok(magasin) = transaction.object_store(MAGASIN)
+            {
+                let _ = magasin.delete(&JsValue::from_str(&cle));
+                let _ = terminer(&transaction).await;
+            }
+        });
+    }
+
+    /// Sans objet dans un navigateur : une pièce jointe s'y enregistre
+    /// (téléchargement) au lieu de s'ouvrir dans un programme du poste.
+    pub fn ouvrir_piece(&self, _cle: &str) -> bool {
+        false
+    }
+}
+
+/// La base IndexedDB du site, et son magasin des pièces jointes (R-95).
+const NOM_DE_LA_BASE: &str = textes::APP_ID;
+const VERSION_DE_LA_BASE: u32 = 1;
+const MAGASIN: &str = "pieces-jointes";
+/// Le champ de fichier caché qui ouvre le choix de fichiers du navigateur.
+const ID_CHOIX_DE_FICHIERS: &str = "choix-de-fichiers";
+
+thread_local! {
+    /// Ce qui attend d'être relevé par l'application (`arrivees`).
+    static ARRIVEES: RefCell<Vec<Arrivee>> = const { RefCell::new(Vec::new()) };
+    /// Le contexte d'egui, pour redessiner quand quelque chose arrive.
+    static CONTEXTE: RefCell<Option<eframe::egui::Context>> = const { RefCell::new(None) };
+    /// La base, ouverte une fois pour toutes.
+    static BASE: RefCell<Option<web_sys::IdbDatabase>> = const { RefCell::new(None) };
+}
+
+fn deposer(arrivee: Arrivee) {
+    ARRIVEES.with(|a| a.borrow_mut().push(arrivee));
+    CONTEXTE.with(|c| {
+        if let Some(ctx) = c.borrow().as_ref() {
+            ctx.request_repaint();
+        }
+    });
+}
+
+/// Relève ce qui est arrivé depuis la dernière fois : pièces jointes lues,
+/// fichiers choisis, échecs d'écriture.
+pub fn arrivees() -> Vec<Arrivee> {
+    ARRIVEES.with(|a| std::mem::take(&mut *a.borrow_mut()))
+}
+
+/// Retient le contexte d'egui : ce qui arrive plus tard fait redessiner.
+pub fn retenir_le_contexte(ctx: &eframe::egui::Context) {
+    CONTEXTE.with(|c| *c.borrow_mut() = Some(ctx.clone()));
+}
+
+/// Attend la réponse d'une demande à la base : son résultat, ou rien en cas d'échec.
+async fn attendre(demande: &web_sys::IdbRequest) -> Option<JsValue> {
+    let suivie = demande.clone();
+    let promesse = js_sys::Promise::new(&mut |resoudre, rejeter| {
+        let lue = suivie.clone();
+        let succes = Closure::once_into_js(move || {
+            let resultat = lue.result().unwrap_or(JsValue::UNDEFINED);
+            let _ = resoudre.call1(&JsValue::NULL, &resultat);
+        });
+        let echec = Closure::once_into_js(move || {
+            let _ = rejeter.call0(&JsValue::NULL);
+        });
+        suivie.set_onsuccess(Some(succes.unchecked_ref()));
+        suivie.set_onerror(Some(echec.unchecked_ref()));
+    });
+    wasm_bindgen_futures::JsFuture::from(promesse).await.ok()
+}
+
+/// Attend la fin d'une transaction : vrai si elle est enregistrée (un quota
+/// dépassé l'annule).
+async fn terminer(transaction: &web_sys::IdbTransaction) -> bool {
+    let suivie = transaction.clone();
+    let promesse = js_sys::Promise::new(&mut |resoudre, rejeter| {
+        let rejeter_aussi = rejeter.clone();
+        let fin = Closure::once_into_js(move || {
+            let _ = resoudre.call0(&JsValue::NULL);
+        });
+        let echec = Closure::once_into_js(move || {
+            let _ = rejeter.call0(&JsValue::NULL);
+        });
+        let abandon = Closure::once_into_js(move || {
+            let _ = rejeter_aussi.call0(&JsValue::NULL);
+        });
+        suivie.set_oncomplete(Some(fin.unchecked_ref()));
+        suivie.set_onerror(Some(echec.unchecked_ref()));
+        suivie.set_onabort(Some(abandon.unchecked_ref()));
+    });
+    wasm_bindgen_futures::JsFuture::from(promesse).await.is_ok()
+}
+
+/// Ouvre la base du site, et crée son magasin à la première ouverture.
+async fn base() -> Option<web_sys::IdbDatabase> {
+    if let Some(base) = BASE.with(|b| b.borrow().clone()) {
+        return Some(base);
+    }
+    let fabrique = web_sys::window()?.indexed_db().ok()??;
+    let demande = fabrique
+        .open_with_u32(NOM_DE_LA_BASE, VERSION_DE_LA_BASE)
+        .ok()?;
+    let creer = Closure::once_into_js(move |evenement: web_sys::Event| {
+        let base = evenement
+            .target()
+            .and_then(|cible| cible.dyn_into::<web_sys::IdbOpenDbRequest>().ok())
+            .and_then(|demande| demande.result().ok())
+            .and_then(|resultat| resultat.dyn_into::<web_sys::IdbDatabase>().ok());
+        if let Some(base) = base {
+            let _ = base.create_object_store(MAGASIN);
+        }
+    });
+    demande.set_onupgradeneeded(Some(creer.unchecked_ref()));
+    let base = attendre(&demande)
+        .await?
+        .dyn_into::<web_sys::IdbDatabase>()
+        .ok()?;
+    BASE.with(|b| *b.borrow_mut() = Some(base.clone()));
+    Some(base)
+}
+
+async fn ecrire_dans(base: &web_sys::IdbDatabase, cle: &str, octets: &[u8]) -> bool {
+    let Ok(transaction) =
+        base.transaction_with_str_and_mode(MAGASIN, web_sys::IdbTransactionMode::Readwrite)
+    else {
+        return false;
+    };
+    let Ok(magasin) = transaction.object_store(MAGASIN) else {
+        return false;
+    };
+    let tableau = js_sys::Uint8Array::from(octets);
+    if magasin
+        .put_with_key(&tableau, &JsValue::from_str(cle))
+        .is_err()
+    {
+        return false;
+    }
+    terminer(&transaction).await
+}
+
+async fn lire_dans(base: &web_sys::IdbDatabase, cle: &str) -> Option<Vec<u8>> {
+    let transaction = base.transaction_with_str(MAGASIN).ok()?;
+    let magasin = transaction.object_store(MAGASIN).ok()?;
+    let demande = magasin.get(&JsValue::from_str(cle)).ok()?;
+    let valeur = attendre(&demande).await?;
+    valeur
+        .dyn_into::<js_sys::Uint8Array>()
+        .ok()
+        .map(|tableau| tableau.to_vec())
+}
+
+/// Ouvre le choix de fichiers du navigateur (des photos seulement, si
+/// `photos` : sur un téléphone, l'appareil photo ou la galerie). Le résultat
+/// arrive par `arrivees`.
+pub fn choisir_des_fichiers(photos: bool) {
+    let Some(document) = document() else {
+        return;
+    };
+    // Un champ resté d'un choix annulé est retiré d'abord.
+    if let Some(ancien) = document.get_element_by_id(ID_CHOIX_DE_FICHIERS) {
+        ancien.remove();
+    }
+    let Some(champ) = document
+        .create_element("input")
+        .ok()
+        .and_then(|e| e.dyn_into::<web_sys::HtmlInputElement>().ok())
+    else {
+        return;
+    };
+    champ.set_type("file");
+    champ.set_multiple(true);
+    if photos {
+        champ.set_accept("image/*");
+    }
+    champ.set_id(ID_CHOIX_DE_FICHIERS);
+    champ.set_hidden(true);
+    let lu = champ.clone();
+    let choisis = Closure::once_into_js(move || {
+        let liste = lu.files();
+        lu.remove();
+        let fichiers: Vec<web_sys::File> = liste
+            .map(|l| (0..l.length()).filter_map(|i| l.get(i)).collect())
+            .unwrap_or_default();
+        if fichiers.is_empty() {
+            return;
+        }
+        wasm_bindgen_futures::spawn_local(async move {
+            let mut recus = Vec::with_capacity(fichiers.len());
+            for fichier in fichiers {
+                let octets = if fichier.size() > pieces::TAILLE_MAX_LECTURE as f64 {
+                    None
+                } else {
+                    wasm_bindgen_futures::JsFuture::from(fichier.array_buffer())
+                        .await
+                        .ok()
+                        .map(|tampon| js_sys::Uint8Array::new(&tampon).to_vec())
+                };
+                recus.push(FichierChoisi {
+                    nom: fichier.name(),
+                    type_mime: fichier.type_(),
+                    octets,
+                });
+            }
+            deposer(Arrivee::Choisis(recus));
+        });
+    });
+    let _ = champ.add_event_listener_with_callback("change", choisis.unchecked_ref());
+    let retire = champ.clone();
+    let annule = Closure::once_into_js(move || retire.remove());
+    let _ = champ.add_event_listener_with_callback("cancel", annule.unchecked_ref());
+    if let Some(corps) = document.body() {
+        let _ = corps.append_child(&champ);
+    }
+    champ.click();
 }
 
 /// Fait télécharger le fichier par le navigateur, sous le nom proposé.
@@ -97,12 +347,13 @@ pub fn exporter(fichier: &Fichier<'_>) -> Export {
     }
 }
 
-fn telecharger(nom: &str, contenu: &str, type_mime: &str) -> Option<()> {
+fn telecharger(nom: &str, contenu: &[u8], type_mime: &str) -> Option<()> {
     let document = document()?;
-    let morceaux = js_sys::Array::of1(&wasm_bindgen::JsValue::from_str(contenu));
+    let tableau = js_sys::Uint8Array::from(contenu);
+    let morceaux = js_sys::Array::of1(&tableau);
     let options = web_sys::BlobPropertyBag::new();
     options.set_type(type_mime);
-    let blob = web_sys::Blob::new_with_str_sequence_and_options(&morceaux, &options).ok()?;
+    let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&morceaux, &options).ok()?;
     // L'adresse temporaire n'est pas révoquée : le navigateur peut encore en
     // avoir besoin après le clic, et elle disparaît avec la page.
     let adresse = web_sys::Url::create_object_url_with_blob(&blob).ok()?;

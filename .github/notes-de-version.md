@@ -9,6 +9,14 @@ Gracieuseté de Sylvain Leduc de Constructo AI.
 *English: Constructo AI is a free construction calculator in feet-inches-fractions and
 metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 
+## Nouveautés de la version 0.12
+
+- **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
+  des photos (sur un téléphone : l'appareil photo ou la galerie) et **+ Fichier** joint un
+  fichier (PDF, plan, soumission). Les photos s'affichent en vignettes, dans le bon sens, et
+  s'ouvrent en grand d'un toucher; **Enregistrer** en garde une copie ailleurs, **Retirer**
+  l'efface. Une photo de plus de 2048 pixels est réduite pour ménager l'espace de l'appareil.
+
 ## Nouveautés de la version 0.11
 
 - **Bloc-notes** : un nouvel onglet **Notes** — vos notes de chantier, chacune avec son titre et

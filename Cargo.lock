@@ -511,11 +511,12 @@ checksum = "776dfebd015e2d8732c684a2c71003674ccb49457b539b9e82151ba38e96dd7c"
 
 [[package]]
 name = "calculatrice-chantier"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "calculatrice-noyau",
  "chrono",
  "eframe",
+ "image",
  "js-sys",
  "rfd",
  "serde",
@@ -528,7 +529,7 @@ dependencies = [
 
 [[package]]
 name = "calculatrice-noyau"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "serde",
 ]
@@ -1621,6 +1622,8 @@ dependencies = [
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

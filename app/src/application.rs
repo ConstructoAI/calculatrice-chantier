@@ -1,6 +1,7 @@
 //! L'application : fenêtre, navigation, dialogues, clavier d'ordinateur et
 //! sauvegarde. Aucune formule ici (R-49) : tout le calcul est dans le noyau.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use eframe::egui::{self, Align2, Color32, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2};
@@ -14,9 +15,10 @@ use noyau::{Effet, Moteur, Prefixe, Touche};
 use crate::afficheur::{self, ActionAfficheur};
 use crate::aide;
 use crate::clavier::{self, ActionClavier, Contexte, EtatClavier};
-use crate::plateforme::{self, Depot, Export, Fichier, Installation};
+use crate::pieces;
+use crate::plateforme::{self, Arrivee, Depot, Export, Fichier, FichierChoisi, Installation};
 use crate::raccourcis::{self, Action};
-use crate::stockage::{self, MAX_NOTES, MAX_RUBANS, NoteDuBloc, RubanEnregistre};
+use crate::stockage::{self, MAX_NOTES, MAX_RUBANS, NoteDuBloc, PieceJointe, RubanEnregistre};
 use crate::textes;
 use crate::theme::{self, Palette};
 use crate::vues::preferences::Memorisee;
@@ -78,8 +80,21 @@ enum Confirmation {
     ViderRuban,
     SupprimerRuban(u64),
     SupprimerNote(u64),
+    /// Retirer une pièce jointe de la note ouverte : son numéro.
+    RetirerPiece(u64),
     /// Limite de rubans atteinte : supprimer les plus anciens pour enregistrer celui-ci.
     TropDeRubans(String),
+}
+
+/// Pourquoi une pièce jointe a été demandée à la plateforme.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Demande {
+    /// La vignette d'une photo, pour la note ouverte.
+    Vignette(u64),
+    /// La photo, pour la voir en grand.
+    Grande(u64),
+    /// Les octets, pour les enregistrer ailleurs.
+    Enregistrer(u64),
 }
 
 /// Dialogue ouvert par-dessus l'écran.
@@ -154,11 +169,21 @@ pub struct Application {
     note_ouverte: Option<u64>,
     viser_la_note: bool,
     notes_a_sauvegarder: bool,
+    /// Les vignettes des photos de la note ouverte, par numéro de pièce
+    /// (rien : introuvable); la photo vue en grand et sa texture une fois lue.
+    vignettes: HashMap<u64, Option<egui::TextureHandle>>,
+    photo_vue: Option<(u64, Option<egui::TextureHandle>)>,
+    /// Pièces jointes demandées à la plateforme, par clé, et pourquoi.
+    demandes: HashMap<String, Vec<Demande>>,
+    /// La note qui recevra les fichiers que l'utilisateur est en train de choisir.
+    note_qui_recoit: Option<u64>,
 }
 
 impl Application {
     pub fn nouvelle(cc: &eframe::CreationContext<'_>) -> Self {
         theme::installer_les_polices(&cc.egui_ctx);
+        // Ce qui arrive plus tard (pièces jointes, fichiers choisis) fait redessiner.
+        plateforme::retenir_le_contexte(&cc.egui_ctx);
         // L'échelle suit la taille de la fenêtre : pas de zoom au clavier.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         let depot = Depot::ouvrir();
@@ -241,6 +266,10 @@ impl Application {
             note_ouverte: None,
             viser_la_note: false,
             notes_a_sauvegarder: false,
+            vignettes: HashMap::new(),
+            photo_vue: None,
+            demandes: HashMap::new(),
+            note_qui_recoit: None,
         }
     }
 
@@ -612,13 +641,14 @@ impl Application {
             return;
         };
         // Bureau : boîte « Enregistrer sous »; navigateur : téléchargement.
+        let contenu = stockage::contenu_exporte(&texte);
         let fichier = Fichier {
             titre: textes::TITRE_EXPORTER.traduit(),
             filtre: textes::FILTRE_TEXTE.traduit(),
             extension: "txt",
             type_mime: "text/plain;charset=utf-8",
             nom: &stockage::nom_de_fichier(&nom),
-            contenu: &stockage::contenu_exporte(&texte),
+            contenu: contenu.as_bytes(),
         };
         match plateforme::exporter(&fichier) {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
@@ -659,7 +689,7 @@ impl Application {
             extension,
             type_mime,
             nom: &nom,
-            contenu: &contenu,
+            contenu: contenu.as_bytes(),
         };
         match plateforme::exporter(&fichier) {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_DESSIN_EXPORTE),
@@ -725,12 +755,51 @@ impl Application {
                         ..NoteDuBloc::default()
                     },
                 );
+                self.oublier_les_images();
                 self.note_ouverte = Some(id);
                 self.viser_la_note = true;
                 self.notes_a_sauvegarder = true;
             }
-            notes::Action::Ouvrir(id) => self.note_ouverte = Some(id),
+            notes::Action::Ouvrir(id) => {
+                self.oublier_les_images();
+                self.note_ouverte = Some(id);
+                self.demander_les_vignettes();
+            }
             notes::Action::Fermer => self.fermer_la_note(),
+            notes::Action::Joindre(photos) => {
+                let pleine = self
+                    .note_ouverte
+                    .and_then(|id| self.notes.iter().find(|n| n.id == id))
+                    .is_some_and(|note| note.pieces.len() >= pieces::MAX_PIECES_PAR_NOTE);
+                if pleine {
+                    self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_PIECES);
+                } else if self.note_ouverte.is_some() {
+                    self.note_qui_recoit = self.note_ouverte;
+                    plateforme::choisir_des_fichiers(photos);
+                }
+            }
+            notes::Action::VoirPhoto(id) => {
+                if let Some(piece) = self.piece_de_la_note_ouverte(id).cloned() {
+                    self.photo_vue = Some((id, None));
+                    self.demander(pieces::cle_des_octets(&piece), Demande::Grande(id));
+                }
+            }
+            notes::Action::FermerPhoto => self.photo_vue = None,
+            notes::Action::OuvrirPiece(id) => {
+                if let Some(piece) = self.piece_de_la_note_ouverte(id).cloned()
+                    && !self.depot.ouvrir_piece(&pieces::cle_des_octets(&piece))
+                {
+                    self.dialogue = Dialogue::Avis(textes::AVIS_OUVERTURE_ECHEC);
+                }
+            }
+            notes::Action::EnregistrerPiece(id) => {
+                if let Some(piece) = self.piece_de_la_note_ouverte(id).cloned() {
+                    self.demander(pieces::cle_des_octets(&piece), Demande::Enregistrer(id));
+                }
+            }
+            notes::Action::RetirerPiece(id) => {
+                self.dialogue = Dialogue::Confirmer(Confirmation::RetirerPiece(id));
+            }
             notes::Action::Modifiee => {
                 if let Some(note) = self
                     .note_ouverte
@@ -762,6 +831,7 @@ impl Application {
     /// plus récemment modifiée passe en tête.
     fn fermer_la_note(&mut self) {
         self.note_ouverte = None;
+        self.oublier_les_images();
         self.notes.retain(|note| !note.est_vide());
         self.notes.sort_by(|a, b| b.modifiee.cmp(&a.modifiee));
         self.notes_a_sauvegarder = true;
@@ -785,12 +855,267 @@ impl Application {
             extension: "txt",
             type_mime: "text/plain;charset=utf-8",
             nom: &nom,
-            contenu: &contenu,
+            contenu: contenu.as_bytes(),
         };
         match plateforme::exporter(&fichier) {
             Export::Reussi => self.annoncer(ctx, textes::AVIS_EXPORT_REUSSI),
             Export::Annule => {}
             Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_EXPORT_ECHEC),
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Pièces jointes du bloc-notes (section 26)
+    // ------------------------------------------------------------------
+
+    /// Demande à la plateforme une pièce jointe : elle n'est lue qu'une fois,
+    /// même si on la demande pour deux raisons.
+    fn demander(&mut self, cle: String, demande: Demande) {
+        let attente = self.demandes.entry(cle.clone()).or_default();
+        if attente.is_empty() {
+            self.depot.lire_piece(&cle);
+        }
+        if !attente.contains(&demande) {
+            attente.push(demande);
+        }
+    }
+
+    /// Demande les vignettes des photos de la note ouverte qui ne sont pas encore là.
+    fn demander_les_vignettes(&mut self) {
+        let Some(note) = self
+            .note_ouverte
+            .and_then(|id| self.notes.iter().find(|n| n.id == id))
+        else {
+            return;
+        };
+        let manquantes: Vec<u64> = note
+            .pieces
+            .iter()
+            .filter(|piece| piece.photo && !self.vignettes.contains_key(&piece.id))
+            .map(|piece| piece.id)
+            .collect();
+        for id in manquantes {
+            self.demander(pieces::cle_de_la_vignette(id), Demande::Vignette(id));
+        }
+    }
+
+    /// Oublie les images de la note qu'on quitte (leur mémoire est rendue).
+    fn oublier_les_images(&mut self) {
+        self.vignettes.clear();
+        self.photo_vue = None;
+        self.demandes.clear();
+    }
+
+    /// La pièce jointe de ce numéro, dans la note ouverte.
+    fn piece_de_la_note_ouverte(&self, id: u64) -> Option<&PieceJointe> {
+        self.note_ouverte
+            .and_then(|note| self.notes.iter().find(|n| n.id == note))
+            .and_then(|note| note.pieces.iter().find(|piece| piece.id == id))
+    }
+
+    /// Un numéro de pièce jointe neuf : l'heure en millisecondes, ou le
+    /// suivant du plus grand numéro déjà donné.
+    fn nouveau_numero_de_piece(&self) -> u64 {
+        let plus_grand = self
+            .notes
+            .iter()
+            .flat_map(|note| &note.pieces)
+            .map(|piece| piece.id)
+            .max()
+            .unwrap_or(0);
+        let maintenant = u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or(0);
+        maintenant.max(plus_grand + 1)
+    }
+
+    /// Traite ce qui est arrivé de la plateforme depuis la dernière image.
+    fn relever_les_arrivees(&mut self, ctx: &egui::Context) {
+        for arrivee in plateforme::arrivees() {
+            match arrivee {
+                Arrivee::EchecEcriture => self.dialogue = Dialogue::Avis(textes::AVIS_ECHEC_PIECE),
+                Arrivee::Choisis(fichiers) => self.joindre(ctx, fichiers),
+                Arrivee::Lue { cle, octets } => {
+                    let Some(attente) = self.demandes.remove(&cle) else {
+                        continue;
+                    };
+                    for demande in attente {
+                        self.recevoir_une_piece(ctx, demande, octets.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    fn recevoir_une_piece(
+        &mut self,
+        ctx: &egui::Context,
+        demande: Demande,
+        octets: Option<Vec<u8>>,
+    ) {
+        match (demande, octets) {
+            (Demande::Vignette(id), octets) => {
+                let texture = octets.and_then(|o| texture_de(ctx, &format!("vignette-{id}"), &o));
+                self.vignettes.insert(id, texture);
+            }
+            (Demande::Grande(id), Some(octets)) => {
+                if self.photo_vue.as_ref().is_some_and(|(vue, _)| *vue == id) {
+                    match texture_de(ctx, &format!("photo-{id}"), &octets) {
+                        Some(texture) => self.photo_vue = Some((id, Some(texture))),
+                        None => {
+                            self.photo_vue = None;
+                            self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_ABSENTE);
+                        }
+                    }
+                }
+            }
+            (Demande::Grande(id), None) => {
+                if self.photo_vue.as_ref().is_some_and(|(vue, _)| *vue == id) {
+                    self.photo_vue = None;
+                }
+                self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_ABSENTE);
+            }
+            (Demande::Enregistrer(id), Some(octets)) => self.enregistrer_la_piece(ctx, id, &octets),
+            (Demande::Enregistrer(_), None) => {
+                self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_ABSENTE);
+            }
+        }
+    }
+
+    /// Joint les fichiers choisis à la note qui les attendait : une photo est
+    /// préparée (réduite, avec sa vignette), un autre fichier est gardé tel quel.
+    fn joindre(&mut self, ctx: &egui::Context, fichiers: Vec<FichierChoisi>) {
+        let Some(id_note) = self.note_qui_recoit.take().or(self.note_ouverte) else {
+            return;
+        };
+        if !self.notes.iter().any(|n| n.id == id_note) {
+            return;
+        }
+        let mut avis = None;
+        let mut ajoutees = Vec::new();
+        let deja = self
+            .notes
+            .iter()
+            .find(|n| n.id == id_note)
+            .map_or(0, |n| n.pieces.len());
+        for fichier in fichiers {
+            if deja + ajoutees.len() >= pieces::MAX_PIECES_PAR_NOTE {
+                avis = Some(textes::AVIS_TROP_DE_PIECES);
+                break;
+            }
+            let Some(octets) = fichier.octets else {
+                avis = Some(textes::AVIS_FICHIER_TROP_GROS);
+                continue;
+            };
+            let id = self.nouveau_numero_de_piece().max(
+                ajoutees
+                    .iter()
+                    .map(|piece: &PieceJointe| piece.id + 1)
+                    .max()
+                    .unwrap_or(0),
+            );
+            let ajoutee = stockage::maintenant().0;
+            let nom = if fichier.nom.trim().is_empty() {
+                textes::FICHIER_PAR_DEFAUT.traduit().to_string()
+            } else {
+                fichier.nom
+            };
+            if let Some(photo) = pieces::preparer_photo(&octets) {
+                // Le nom porte l'extension du format gardé.
+                let nom = if matches!(pieces::extension_de(&nom).as_str(), "jpg" | "jpeg" | "png") {
+                    nom
+                } else {
+                    format!("{nom}.{}", photo.extension)
+                };
+                let piece = PieceJointe {
+                    id,
+                    nom,
+                    type_mime: photo.type_mime.to_string(),
+                    taille: photo.octets.len() as u64,
+                    photo: true,
+                    largeur: photo.largeur,
+                    hauteur: photo.hauteur,
+                    ajoutee,
+                };
+                let texture = texture_de(ctx, &format!("vignette-{id}"), &photo.vignette);
+                self.vignettes.insert(id, texture);
+                self.depot
+                    .ecrire_piece(&pieces::cle_de_la_vignette(id), photo.vignette);
+                self.depot
+                    .ecrire_piece(&pieces::cle_des_octets(&piece), photo.octets);
+                ajoutees.push(piece);
+                continue;
+            }
+            if octets.len() > pieces::TAILLE_MAX_FICHIER {
+                avis = Some(textes::AVIS_FICHIER_TROP_GROS);
+                continue;
+            }
+            if pieces::est_une_photo(&octets) || fichier.type_mime.starts_with("image/") {
+                avis = Some(textes::AVIS_IMAGE_ILLISIBLE);
+            }
+            let type_mime = if fichier.type_mime.is_empty() {
+                pieces::type_mime_de(&pieces::extension_de(&nom)).to_string()
+            } else {
+                fichier.type_mime
+            };
+            let piece = PieceJointe {
+                id,
+                nom,
+                type_mime,
+                taille: octets.len() as u64,
+                ajoutee,
+                ..PieceJointe::default()
+            };
+            self.depot
+                .ecrire_piece(&pieces::cle_des_octets(&piece), octets);
+            ajoutees.push(piece);
+        }
+        if !ajoutees.is_empty()
+            && let Some(note) = self.notes.iter_mut().find(|n| n.id == id_note)
+        {
+            note.pieces.extend(ajoutees);
+            note.modifiee = stockage::maintenant().0;
+            self.notes_a_sauvegarder = true;
+        }
+        if let Some(avis) = avis {
+            self.dialogue = Dialogue::Avis(avis);
+        }
+    }
+
+    /// Enregistre une pièce jointe ailleurs. Bureau : boîte « Enregistrer
+    /// sous »; navigateur : téléchargement.
+    fn enregistrer_la_piece(&mut self, ctx: &egui::Context, id: u64, octets: &[u8]) {
+        let Some(piece) = self.piece_de_la_note_ouverte(id).cloned() else {
+            return;
+        };
+        let extension = pieces::extension_de(&piece.nom);
+        let fichier = Fichier {
+            titre: textes::TITRE_ENREGISTRER_PIECE.traduit(),
+            filtre: textes::FILTRE_PIECE.traduit(),
+            extension: &extension,
+            type_mime: &piece.type_mime,
+            nom: &piece.nom,
+            contenu: octets,
+        };
+        match plateforme::exporter(&fichier) {
+            Export::Reussi => self.annoncer(ctx, textes::AVIS_PIECE_ENREGISTREE),
+            Export::Annule => {}
+            Export::Echec => self.dialogue = Dialogue::Avis(textes::AVIS_PIECE_EXPORT_ECHEC),
+        }
+    }
+
+    /// Efface les octets d'une pièce jointe (et sa vignette).
+    fn effacer_la_piece(&mut self, piece: &PieceJointe) {
+        self.depot.supprimer_piece(&pieces::cle_des_octets(piece));
+        if piece.photo {
+            self.depot
+                .supprimer_piece(&pieces::cle_de_la_vignette(piece.id));
+        }
+        self.vignettes.remove(&piece.id);
+        if self
+            .photo_vue
+            .as_ref()
+            .is_some_and(|(vue, _)| *vue == piece.id)
+        {
+            self.photo_vue = None;
         }
     }
 
@@ -1238,12 +1563,20 @@ impl Application {
         match self.vue {
             Vue::Accueil => self.accueil(ui, p),
             Vue::Notes => {
+                let images = notes::Images {
+                    vignettes: &self.vignettes,
+                    photo: self
+                        .photo_vue
+                        .as_ref()
+                        .map(|(id, texture)| (*id, texture.as_ref())),
+                };
                 let action = notes::afficher(
                     ui,
                     p,
                     &mut self.notes,
                     self.note_ouverte,
                     &mut self.viser_la_note,
+                    &images,
                 );
                 if let Some(action) = action {
                     self.traiter_action_note(ui.ctx(), action);
@@ -2014,6 +2347,11 @@ impl Application {
                 textes::CONFIRMER_SUPPRIMER_NOTE.traduit(),
                 textes::SUPPRIMER.traduit(),
             ),
+            Confirmation::RetirerPiece(_) => (
+                textes::TITRE_RETIRER_PIECE.traduit(),
+                textes::CONFIRMER_RETIRER_PIECE.traduit(),
+                textes::RETIRER.traduit(),
+            ),
             Confirmation::TropDeRubans(_) => (
                 textes::TITRE_ENREGISTRER_RUBAN.traduit(),
                 textes::TROP_DE_RUBANS.traduit(),
@@ -2045,9 +2383,31 @@ impl Application {
                         self.ecrire_rubans();
                     }
                     Confirmation::SupprimerNote(id) => {
+                        // Ses pièces jointes s'effacent avec elle.
+                        let a_effacer: Vec<PieceJointe> = self
+                            .notes
+                            .iter()
+                            .find(|n| n.id == id)
+                            .map(|n| n.pieces.clone())
+                            .unwrap_or_default();
+                        for piece in &a_effacer {
+                            self.effacer_la_piece(piece);
+                        }
                         self.notes.retain(|n| n.id != id);
                         if self.note_ouverte == Some(id) {
                             self.note_ouverte = None;
+                            self.oublier_les_images();
+                        }
+                        self.notes_a_sauvegarder = true;
+                    }
+                    Confirmation::RetirerPiece(id) => {
+                        let retiree = self.notes.iter_mut().find_map(|note| {
+                            let position = note.pieces.iter().position(|p| p.id == id)?;
+                            note.modifiee = stockage::maintenant().0;
+                            Some(note.pieces.remove(position))
+                        });
+                        if let Some(piece) = retiree {
+                            self.effacer_la_piece(&piece);
                         }
                         self.notes_a_sauvegarder = true;
                     }
@@ -2100,6 +2460,8 @@ impl Application {
 impl eframe::App for Application {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        // Pièces jointes lues, fichiers choisis : ce qui est arrivé depuis l'image d'avant.
+        self.relever_les_arrivees(&ctx);
         self.appliquer_la_langue(&ctx);
         let large = self.regler_echelle(&ctx);
         let p = self.appliquer_theme(&ctx);
@@ -2358,6 +2720,15 @@ fn dessiner_roue(painter: &Painter, r: Rect, couleur: Color32) {
             Stroke::new(3.0, couleur),
         );
     }
+}
+
+/// Une texture d'egui faite d'une photo ou d'une vignette jointe à une note;
+/// rien si l'image est illisible.
+fn texture_de(ctx: &egui::Context, nom: &str, octets: &[u8]) -> Option<egui::TextureHandle> {
+    let (largeur, hauteur, rvba) = pieces::pixels(octets)?;
+    let image =
+        egui::ColorImage::from_rgba_unmultiplied([largeur as usize, hauteur as usize], &rvba);
+    Some(ctx.load_texture(nom, image, egui::TextureOptions::LINEAR))
 }
 
 fn dessiner_onglet_accueil(painter: &Painter, r: Rect, couleur: Color32) {

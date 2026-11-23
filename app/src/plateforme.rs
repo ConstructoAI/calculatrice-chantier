@@ -15,6 +15,13 @@
 //! | installation | sans objet | application Web installable |
 //! | manuel | copie dans le dossier de données | page du site |
 //! | langue de l'appareil | langue du système | langue du navigateur |
+//! | pièces jointes | sous-dossier `pieces-jointes` | base IndexedDB du site |
+//! | choix de fichiers | boîte « Ouvrir » du système | champ de fichier du navigateur |
+//!
+//! Les pièces jointes et le choix de fichiers ne répondent pas tout de suite
+//! dans un navigateur : leur résultat arrive plus tard, et l'application le
+//! relève à chaque image par `arrivees()`. Sur le bureau, il arrive aussitôt,
+//! par le même chemin.
 
 #[cfg(not(target_arch = "wasm32"))]
 mod bureau;
@@ -35,8 +42,8 @@ pub enum Lecture {
     Illisible,
 }
 
-/// Un fichier texte à exporter : un ruban, ou le plan dessiné (PDF et DXF
-/// sont écrits en ASCII).
+/// Un fichier à exporter : un ruban, une note, le plan dessiné (PDF et DXF),
+/// ou une pièce jointe du bloc-notes.
 // Le titre, le filtre et l'extension ne servent que sur le bureau.
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub struct Fichier<'a> {
@@ -51,7 +58,30 @@ pub struct Fichier<'a> {
     pub type_mime: &'a str,
     /// Nom de fichier proposé, extension comprise.
     pub nom: &'a str,
-    pub contenu: &'a str,
+    pub contenu: &'a [u8],
+}
+
+/// Un fichier que l'utilisateur a choisi pour le joindre à une note.
+pub struct FichierChoisi {
+    /// Son nom, extension comprise.
+    pub nom: String,
+    /// Son type, quand le navigateur le donne (« image/jpeg »); vide sur le bureau.
+    pub type_mime: String,
+    /// Son contenu; rien s'il est trop gros pour être lu, ou illisible.
+    pub octets: Option<Vec<u8>>,
+}
+
+/// Résultat d'une opération qui ne répond pas tout de suite dans un navigateur.
+pub enum Arrivee {
+    /// Une pièce jointe lue; rien si elle est absente ou illisible.
+    Lue {
+        cle: String,
+        octets: Option<Vec<u8>>,
+    },
+    /// Les fichiers choisis par l'utilisateur.
+    Choisis(Vec<FichierChoisi>),
+    /// Une pièce jointe n'a pas pu être enregistrée (espace plein, refus).
+    EchecEcriture,
 }
 
 /// Ce que le menu peut offrir pour installer l'application sur l'appareil.

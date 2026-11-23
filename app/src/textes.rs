@@ -300,9 +300,85 @@ pub const AVIS_TROP_DE_NOTES: Texte = t(
 );
 pub const TITRE_SUPPRIMER_NOTE: Texte = t("Supprimer la note", "Delete the note");
 pub const CONFIRMER_SUPPRIMER_NOTE: Texte = t(
-    "La note sera supprimée pour de bon.",
-    "The note will be deleted for good.",
+    "La note sera supprimée pour de bon, avec ses pièces jointes.",
+    "The note will be deleted for good, with its attachments.",
 );
+
+// Pièces jointes du bloc-notes (section 26)
+pub const PIECES_JOINTES: Texte = t("Pièces jointes", "Attachments");
+pub const PIECES_JOINTES_DEUX_POINTS: Texte = t("Pièces jointes :", "Attachments:");
+pub const AJOUTER_PHOTO: Texte = t("+ Photo", "+ Photo");
+pub const AJOUTER_FICHIER: Texte = t("+ Fichier", "+ File");
+pub const RETIRER: Texte = t("Retirer", "Remove");
+pub const CHARGEMENT: Texte = t("Chargement…", "Loading…");
+// Titre et filtre de la boîte « Ouvrir » du bureau (le navigateur n'en a pas).
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub const TITRE_CHOISIR_PHOTOS: Texte = t("Joindre des photos", "Attach photos");
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub const TITRE_CHOISIR_FICHIERS: Texte = t("Joindre des fichiers", "Attach files");
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+pub const FILTRE_PHOTOS: Texte = t("Photos (JPEG, PNG)", "Photos (JPEG, PNG)");
+pub const FILTRE_PIECE: Texte = t("Pièce jointe", "Attachment");
+pub const TITRE_ENREGISTRER_PIECE: Texte = t("Enregistrer la pièce jointe", "Save the attachment");
+pub const AVIS_PIECE_ENREGISTREE: Texte = t("Pièce jointe enregistrée.", "Attachment saved.");
+pub const AVIS_PIECE_EXPORT_ECHEC: Texte = t(
+    "La pièce jointe n'a pas pu être enregistrée à cet endroit.",
+    "The attachment could not be saved there.",
+);
+pub const AVIS_TROP_DE_PIECES: Texte = t(
+    "Une note peut avoir 50 pièces jointes au plus.",
+    "A note can have at most 50 attachments.",
+);
+pub const AVIS_FICHIER_TROP_GROS: Texte = t(
+    "Un fichier de plus de 25 Mo ne peut pas être joint.",
+    "A file larger than 25 MB cannot be attached.",
+);
+pub const AVIS_IMAGE_ILLISIBLE: Texte = t(
+    "Cette image n'a pas pu être lue (JPEG et PNG seulement) : elle est jointe comme un fichier.",
+    "This image could not be read (JPEG and PNG only): it is attached as a file.",
+);
+pub const AVIS_ECHEC_PIECE: Texte = t(
+    "Une pièce jointe n'a pas pu être gardée : l'espace de l'appareil est peut-être plein.",
+    "An attachment could not be kept: the device may be out of space.",
+);
+pub const AVIS_PIECE_ABSENTE: Texte = t(
+    "Cette pièce jointe est introuvable sur l'appareil.",
+    "This attachment cannot be found on the device.",
+);
+pub const AVIS_OUVERTURE_ECHEC: Texte = t(
+    "Aucun programme n'a pu ouvrir cette pièce jointe.",
+    "No program could open this attachment.",
+);
+pub const TITRE_RETIRER_PIECE: Texte = t("Retirer la pièce jointe", "Remove the attachment");
+pub const CONFIRMER_RETIRER_PIECE: Texte = t(
+    "La pièce jointe sera effacée de l'appareil pour de bon.",
+    "The attachment will be erased from the device for good.",
+);
+
+/// « 3 pièces jointes », sous le titre d'une note de la liste.
+pub fn nombre_de_pieces(nombre: usize) -> String {
+    match (langue::en_cours(), nombre) {
+        (Langue::Francais, 1) => "1 pièce jointe".to_string(),
+        (Langue::Francais, n) => format!("{n} pièces jointes"),
+        (Langue::Anglais, 1) => "1 attachment".to_string(),
+        (Langue::Anglais, n) => format!("{n} attachments"),
+    }
+}
+
+/// Taille d'un fichier, en Ko ou en Mo (1 Ko = 1 024 octets) : « 2,4 Mo », « 2.4 MB ».
+pub fn taille_en_clair(octets: u64) -> String {
+    const KO: f64 = 1024.0;
+    let octets = octets as f64;
+    let (valeur, unite_fr, unite_en) = if octets < KO * KO {
+        ((octets / KO).ceil(), "Ko", "KB")
+    } else {
+        (((octets / (KO * KO)) * 10.0).round() / 10.0, "Mo", "MB")
+    };
+    match langue::en_cours() {
+        Langue::Francais => format!("{} {unite_fr}", valeur.to_string().replace('.', ",")),
+        Langue::Anglais => format!("{valeur} {unite_en}"),
+    }
+}
 pub const MENU_AIDE: Texte = t("Aide", "Help");
 pub const MENU_MANUEL: Texte = t("Manuel d'utilisation", "User manual");
 pub const MENU_BIENVENUE: Texte = t("Bienvenue", "Welcome");

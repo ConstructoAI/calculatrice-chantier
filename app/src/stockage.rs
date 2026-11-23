@@ -143,8 +143,8 @@ const VERSION_NOTES: u32 = 1;
 /// Nombre maximal de notes du bloc-notes (section 26).
 pub const MAX_NOTES: usize = 500;
 
-/// Une note du bloc-notes (section 26) : son titre, son texte, et ses dates
-/// de création et de dernière modification (ISO 8601).
+/// Une note du bloc-notes (section 26) : son titre, son texte, ses dates de
+/// création et de dernière modification (ISO 8601), et ses pièces jointes.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NoteDuBloc {
@@ -153,12 +153,35 @@ pub struct NoteDuBloc {
     pub texte: String,
     pub creee: String,
     pub modifiee: String,
+    /// Photos et fichiers joints, dans l'ordre d'ajout.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pieces: Vec<PieceJointe>,
+}
+
+/// Une pièce jointe d'une note : sa description. Ses octets sont gardés à
+/// part, sous la clé que donne `pieces::cle_des_octets` (R-95).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PieceJointe {
+    pub id: u64,
+    /// Nom du fichier, extension comprise.
+    pub nom: String,
+    pub type_mime: String,
+    /// Taille gardée, en octets.
+    pub taille: u64,
+    /// Une photo, affichée en vignette.
+    pub photo: bool,
+    /// Dimensions d'une photo gardée, en pixels.
+    pub largeur: u32,
+    pub hauteur: u32,
+    /// Date d'ajout (ISO 8601).
+    pub ajoutee: String,
 }
 
 impl NoteDuBloc {
-    /// Vrai si la note n'a ni titre ni texte.
+    /// Vrai si la note n'a ni titre, ni texte, ni pièce jointe.
     pub fn est_vide(&self) -> bool {
-        self.titre.trim().is_empty() && self.texte.trim().is_empty()
+        self.titre.trim().is_empty() && self.texte.trim().is_empty() && self.pieces.is_empty()
     }
 
     /// La date de sa dernière modification, en clair; la date brute si elle
@@ -170,9 +193,18 @@ impl NoteDuBloc {
         }
     }
 
-    /// La note à copier ou à exporter : son titre, sa date, puis son texte.
+    /// La note à copier ou à exporter : son titre, sa date, son texte, puis
+    /// le nom de ses pièces jointes.
     pub fn en_texte(&self, titre: &str) -> String {
-        format!("{titre}\n{}\n\n{}", self.date_en_clair(), self.texte)
+        let mut texte = format!("{titre}\n{}\n\n{}", self.date_en_clair(), self.texte);
+        if !self.pieces.is_empty() {
+            let noms: Vec<&str> = self.pieces.iter().map(|p| p.nom.as_str()).collect();
+            texte.push_str("\n\n");
+            texte.push_str(textes::PIECES_JOINTES_DEUX_POINTS.traduit());
+            texte.push(' ');
+            texte.push_str(&noms.join(", "));
+        }
+        texte
     }
 }
 
@@ -534,9 +566,13 @@ mod tests {
             texte: "Acheter 12 feuilles de gypse de 1/2 po.\nAppeler l'électricien.".to_string(),
             creee: "2026-11-21T08:04:00-05:00".to_string(),
             modifiee: "2026-11-21T09:15:00-05:00".to_string(),
+            pieces: Vec::new(),
         };
         enregistrer_notes(&d.depot(), std::slice::from_ref(&note)).unwrap();
         assert_eq!(charger_notes(&d.depot()), vec![note.clone()]);
+        // Une note sans pièce jointe s'écrit comme avant la version 0.12.0.
+        let texte = fs::read_to_string(d.0.join("notes.json")).unwrap();
+        assert!(!texte.contains("pieces"), "{texte}");
         assert_eq!(note.date_en_clair(), "21 novembre 2026, 9 h 15");
         assert!(
             note.en_texte(&note.titre)
@@ -544,6 +580,53 @@ mod tests {
         );
         assert!(!note.est_vide());
         assert!(NoteDuBloc::default().est_vide());
+    }
+
+    #[test]
+    fn pieces_jointes_des_notes() {
+        let d = DossierTemporaire::nouveau("notes-pieces");
+        let photo = PieceJointe {
+            id: 1_763_900_000_000,
+            nom: "IMG_2041.jpg".to_string(),
+            type_mime: "image/jpeg".to_string(),
+            taille: 412_000,
+            photo: true,
+            largeur: 2048,
+            hauteur: 1536,
+            ajoutee: "2026-11-23T10:00:00-05:00".to_string(),
+        };
+        let devis = PieceJointe {
+            id: 1_763_900_000_001,
+            nom: "Soumission.pdf".to_string(),
+            type_mime: "application/pdf".to_string(),
+            taille: 88_000,
+            ..PieceJointe::default()
+        };
+        let note = NoteDuBloc {
+            id: 3,
+            pieces: vec![photo, devis],
+            ..NoteDuBloc::default()
+        };
+        // Une note faite de pièces jointes seulement n'est pas vide.
+        assert!(!note.est_vide());
+        enregistrer_notes(&d.depot(), std::slice::from_ref(&note)).unwrap();
+        assert_eq!(charger_notes(&d.depot()), vec![note.clone()]);
+        assert!(
+            note.en_texte("Fenêtres")
+                .ends_with("\n\nPièces jointes : IMG_2041.jpg, Soumission.pdf"),
+            "{}",
+            note.en_texte("Fenêtres")
+        );
+        // Une liste écrite avant les pièces jointes se lit toujours.
+        fs::write(
+            d.0.join("notes.json"),
+            "{ \"version\": 1, \"notes\": [ { \"id\": 9, \"titre\": \"Ancienne\", \
+             \"texte\": \"t\", \"creee\": \"\", \"modifiee\": \"\" } ] }",
+        )
+        .unwrap();
+        let lues = charger_notes(&d.depot());
+        assert_eq!(lues.len(), 1);
+        assert!(lues[0].pieces.is_empty());
     }
 
     #[test]

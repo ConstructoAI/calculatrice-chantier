@@ -12,6 +12,7 @@ mod clavier;
 mod exportation;
 #[cfg(test)]
 mod manuel;
+mod pieces;
 mod plateforme;
 mod raccourcis;
 mod stockage;
