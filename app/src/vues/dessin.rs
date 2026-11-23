@@ -2662,6 +2662,9 @@ fn mesure_du_cote(
     let mut modifie = false;
     let mut suivant = false;
     let mut angle_choisi = None;
+    // Une mesure qu'on vient de choisir — au plan ou dans une liste plus bas —
+    // amène sa carte à l'écran, même si la liste a défilé.
+    let amener_a_l_ecran = etat.viser_le_champ;
     carte(ui, p, |ui| {
         let libelle = ui.label(
             RichText::new(textes::dessin_cote(rang + 1, nombre)).font(theme::police_grasse(13.5)),
@@ -2716,6 +2719,9 @@ fn mesure_du_cote(
             ui.add_space(6.0);
             angle_choisi =
                 rangee_de_l_angle(ui, p, textes::DESSIN_ANGLE_DU_COTE, virage, etat, prefs);
+        }
+        if amener_a_l_ecran {
+            ui.scroll_to_rect(ui.min_rect(), None);
         }
     });
     if let Some(angle) = angle_choisi {
@@ -2979,6 +2985,9 @@ fn autre_mesure(
     let mut modifie = false;
     let mut suivant = false;
     let mut angle_choisi = None;
+    // Une mesure qu'on vient de choisir — au plan ou dans une liste plus bas —
+    // amène sa carte à l'écran, même si la liste a défilé.
+    let amener_a_l_ecran = etat.viser_le_champ;
     carte(ui, p, |ui| {
         let libelle = ui.label(RichText::new(titre).font(theme::police_grasse(13.5)));
         let champ = egui::TextEdit::singleline(saisie)
@@ -3008,6 +3017,9 @@ fn autre_mesure(
             ui.add_space(6.0);
             angle_choisi =
                 rangee_de_l_angle(ui, p, textes::DESSIN_ANGLE_DU_SEGMENT, virage, etat, prefs);
+        }
+        if amener_a_l_ecran {
+            ui.scroll_to_rect(ui.min_rect(), None);
         }
     });
     if let (Some((rang, segment, _)), Some(angle)) = (virage_du_segment, angle_choisi) {

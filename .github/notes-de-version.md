@@ -78,6 +78,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   redessine telle qu'elle est, et chaque coin donne son angle et son écart à l'équerre
   (« 1/4 po sur 4 pi »).
 
+- **Le pavé vient à l'écran** : toucher une longueur de cloison, une porte ou un meuble plus
+  bas dans la page fait remonter la page jusqu'au pavé, qui restait sinon hors de vue.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
