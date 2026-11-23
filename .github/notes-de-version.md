@@ -63,6 +63,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   ou une rampe, la pente en degrés, sur 12 et en pour cent, qu'un toucher envoie à la
   calculatrice; étalonnage sur une surface de référence.
 
+- **Nom de l'application installée** : sur le téléphone, l'icône s'appelle désormais
+  **Calculs**. Une application déjà installée prend ce nom à sa prochaine mise à jour (sur
+  iPhone et iPad, en la réinstallant).
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

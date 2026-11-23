@@ -175,7 +175,8 @@ référence), puis exportez la photo cotée en PDF.
 
 ## Installer sur un téléphone ou une tablette
 
-La version Web s'installe comme une application : elle a alors son icône, s'ouvre en
+La version Web s'installe comme une application : elle a alors son icône, nommée
+« Calculs », s'ouvre en
 plein écran et fonctionne sans réseau, même au fond d'un sous-sol.
 
 - **Android (Chrome)** : ouvrir le site, puis menu ☰ de la calculatrice → *Installer
