@@ -3521,7 +3521,11 @@ fn vue_3d(
     painter.text(
         planche.left_top() + Vec2::new(12.0, 12.0),
         Align2::LEFT_TOP,
-        consigne,
+        if orbite.visite.is_some() {
+            textes::DESSIN_VISITE_CONSIGNE.traduit()
+        } else {
+            consigne
+        },
         theme::police(12.5),
         p.texte_attenue,
     );
@@ -3573,6 +3577,25 @@ fn vue_3d(
         Pos2::new(planche.left() + 8.0, planche.bottom() - 8.0 - cote),
         Vec2::new(52.0, cote),
     );
+    // La visite à hauteur d'œil (évolution 10), à côté de « 2D ».
+    let visite = plan
+        .translate(Vec2::new(58.0, 0.0))
+        .with_max_x(plan.max.x + 58.0 + 22.0);
+    if bouton_de_planche(
+        ui,
+        painter,
+        visite,
+        textes::DESSIN_VISITE.traduit(),
+        textes::DESSIN_VISITE_NOM.traduit(),
+        orbite.visite.is_some(),
+        p,
+    ) {
+        if orbite.visite.is_some() {
+            orbite.visite = None;
+        } else {
+            orbite.commencer_la_visite(maquette);
+        }
+    }
     bouton_de_planche(
         ui,
         painter,

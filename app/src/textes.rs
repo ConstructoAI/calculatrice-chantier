@@ -1505,6 +1505,14 @@ pub fn etage_pieces_incompletes(nombre: usize) -> String {
     }
 }
 
+/// La visite 3D à hauteur d'œil (évolution 10).
+pub const DESSIN_VISITE: Texte = t("Visite", "Walk");
+pub const DESSIN_VISITE_NOM: Texte = t("Visite à hauteur d'œil", "Walk through at eye level");
+pub const DESSIN_VISITE_CONSIGNE: Texte = t(
+    "Glissez de côté pour tourner, vers le haut pour avancer",
+    "Drag sideways to turn, up to walk forward",
+);
+
 /// Partager un plan par code QR (évolution 9).
 pub const PARTAGE_PAR_CODE_QR: Texte = t("Partager par code QR", "Share by QR code");
 pub const PARTAGE_CONSIGNE: Texte = t(

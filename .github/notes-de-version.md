@@ -159,6 +159,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   le plan, comprimé (rien n'est envoyé à un serveur); le collègue qui le scanne l'ajoute à ses
   pièces.
 
+- **Visite 3D à hauteur d'œil** : dans la vue 3D, « Visite » met l'œil dans la pièce à 5 pi
+  6 po; glisser de côté tourne, glisser vers le haut avance.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
