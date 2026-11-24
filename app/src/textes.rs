@@ -1836,6 +1836,14 @@ pub fn dessin_export_legende(piece: &str) -> String {
     }
 }
 
+/// Le titre de la page de l'étage, au PDF (évolution 4) : « Étage · 200 pi² ».
+pub fn dessin_export_etage(aire: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Étage · {aire}"),
+        Langue::Anglais => format!("Floor · {aire}"),
+    }
+}
+
 pub fn dessin_export_plan(pieces: usize) -> String {
     match (langue::en_cours(), pieces) {
         (Langue::Francais, 0 | 1) => format!("Plan : {pieces} pièce"),

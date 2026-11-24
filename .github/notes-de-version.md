@@ -145,6 +145,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Plan d'étage (deuxième partie)** : les murs communs — une porte posée dans le mur commun
   de deux pièces le traverse pour les deux, et la section de l'étage liste les murs communs.
 
+- **Plan d'étage (troisième partie)** : le PDF a une page de l'étage entier, et le DXF met
+  chaque pièce à sa place, tournée comme dans l'étage.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

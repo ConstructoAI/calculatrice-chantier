@@ -115,6 +115,10 @@ struct PieceExportee {
     /// contour de leur extérieur; vides sans épaisseur.
     murs_exterieurs: Vec<MorceauDeMur>,
     contour_exterieur: Vec<(f64, f64)>,
+    /// Sa place dans l'étage, et ses murs percés aussi par les ouvertures
+    /// des voisines, dans son propre plan (évolution 4).
+    place: Option<noyau::etage::Place>,
+    murs_dans_l_etage: Vec<MorceauDeMur>,
     /// L'épaisseur des murs extérieurs (pouces) : positive s'ils vont vers
     /// l'extérieur des mesures, négative vers l'intérieur, zéro sans murs.
     epaisseur_des_murs: f64,
@@ -146,17 +150,33 @@ fn sans_insecables(texte: &str) -> String {
 /// Les pièces dessinées du plan; une pièce vide n'est pas exportée.
 fn preparer(plan: &Plan, prefs: &Preferences) -> Vec<PieceExportee> {
     let reperes = plan.reperes_des_ouvertures();
+    // Les pièces à leur place dans l'étage; celles qui n'en ont pas la
+    // reçoivent d'office, à la suite des autres (évolution 4).
+    let mut etage = plan.clone();
+    etage.placer_les_pieces(FORMAT_PAR_DEFAUT);
     plan.pieces
         .iter()
         .enumerate()
         .filter(|(_, piece)| !piece.dessin.est_vide())
         .map(|(rang, piece)| {
-            preparer_la_piece(
+            let mut exportee = preparer_la_piece(
                 &piece.dessin,
                 &nom_de_la_piece(plan, rang),
                 &reperes[rang],
                 prefs,
-            )
+            );
+            if let Some(place) = etage.pieces[rang].place {
+                exportee.place = Some(place);
+                exportee.murs_dans_l_etage = etage
+                    .murs_dans_l_etage(rang, FORMAT_PAR_DEFAUT)
+                    .into_iter()
+                    .map(|morceau| MorceauDeMur {
+                        coins: morceau.coins.map(|coin| place.vers_la_piece(coin)),
+                        ..morceau
+                    })
+                    .collect();
+            }
+            exportee
         })
         .collect()
 }
@@ -422,6 +442,8 @@ fn preparer_la_piece(
         portes_de_cloisons,
         murs_exterieurs,
         contour_exterieur,
+        place: None,
+        murs_dans_l_etage: Vec::new(),
         epaisseur_des_murs,
         chaines: if dessin.lignes_de_cote {
             dessin
@@ -516,8 +538,19 @@ fn poser_une_chaine(
     if longueur <= 1e-9 || longueur_de_sortie <= 1e-9 {
         return None;
     }
-    // Le repère de sortie a l'axe des y vers le haut.
-    let dehors = (chaine.dehors.0, -chaine.dehors.1);
+    // La sortie, dans le repère de sortie : la pièce peut y être tournée
+    // (évolution 4), et l'axe des y y monte.
+    let bout = vers((
+        chaine.debut.0 + chaine.dehors.0,
+        chaine.debut.1 + chaine.dehors.1,
+    ));
+    let (dx, dy) = (bout.0 - a0.0, bout.1 - a0.1);
+    let norme = dx.hypot(dy);
+    let dehors = if norme > 1e-12 {
+        (dx / norme, dy / norme)
+    } else {
+        (0.0, 0.0)
+    };
     let ecart = if dehors == (0.0, 0.0) { 0.0 } else { decalage };
     let le_long = (
         (b0.0 - a0.0) / longueur_de_sortie,
@@ -1099,7 +1132,7 @@ fn page_de_piece(
     let cadre = (MARGE + 84.0, 372.0, LARGEUR_PAGE - MARGE - 84.0, 684.0);
     let points_a_cadrer = a_cadrer(piece);
     let vers_la_page = ajuster(&points_a_cadrer, cadre);
-    dessiner_le_plan(&mut page, piece, &vers_la_page);
+    dessiner_le_plan(&mut page, piece, &vers_la_page, false);
     if !piece.a_l_echelle {
         page.texte(
             (MARGE, 350.0),
@@ -1693,6 +1726,7 @@ fn dessiner_le_plan(
     page: &mut Page,
     piece: &PieceExportee,
     vers_la_page: &dyn Fn((f64, f64)) -> (f64, f64),
+    etage: bool,
 ) {
     let points: Vec<(f64, f64)> = piece.sommets.iter().map(|s| vers_la_page(*s)).collect();
     // L'échelle de la page, en points par pouce.
@@ -1722,10 +1756,16 @@ fn dessiner_le_plan(
     }
     // Les murs à leur épaisseur, pleins : l'intérieur, l'extérieur et les
     // jambages; sans épaisseur, le contour.
-    if piece.murs_exterieurs.is_empty() {
+    // Dans l'étage, les murs percés aussi par les ouvertures des voisines.
+    let murs = if etage && !piece.murs_dans_l_etage.is_empty() {
+        &piece.murs_dans_l_etage
+    } else {
+        &piece.murs_exterieurs
+    };
+    if murs.is_empty() {
         page.trait_(&points, 1.8, BLEU);
     } else {
-        for morceau in &piece.murs_exterieurs {
+        for morceau in murs {
             let [a, b, c, d] = morceau.coins.map(&vers_la_page);
             page.polygone_plein(&[a, b, c, d], MUR_PLEIN);
             page.trait_(&[a, b], 1.4, BLEU);
@@ -1831,7 +1871,7 @@ fn dessiner_le_plan(
         points.iter().take(nombre).map(|q| q.1).sum::<f64>() / nombre as f64,
     );
     for (i, segment) in points.windows(2).enumerate() {
-        let Some((texte, deduite)) = piece.cotes.get(i) else {
+        let Some((texte, deduite)) = piece.cotes.get(i).filter(|_| !etage) else {
             continue;
         };
         if texte.is_empty() {
@@ -1877,7 +1917,7 @@ fn dessiner_le_plan(
     }
     // Les lignes de cote (point 35), au-delà des mesures.
     let mur = epaisseur_des_murs.max(0.0);
-    for (chaine, textes_des_cotes) in &piece.chaines {
+    for (chaine, textes_des_cotes) in piece.chaines.iter().filter(|_| !etage) {
         // Au-delà de la mesure du mur, qui s'écrit à côté d'un mur vertical.
         let largeur_de_la_mesure = chaine
             .mur
@@ -2071,7 +2111,7 @@ fn page_de_piece_a_l_echelle(
             cy - (y - my) * points_par_pouce,
         )
     };
-    dessiner_le_plan(&mut page, piece, &vers_la_page);
+    dessiner_le_plan(&mut page, piece, &vers_la_page, false);
     // La colonne de droite : les résultats, puis, au bas, l'échelle graphique
     // et le cartouche.
     let x = feuille.largeur - MARGE - COLONNE;
@@ -2240,6 +2280,72 @@ fn tronquer(texte: &str, taille: f64, largeur: f64) -> String {
 }
 
 /// La page du plan, quand il a plusieurs pièces : chacune, puis le total.
+/// La page de l'étage (évolution 4) : les pièces complètes à leur place, à
+/// une même échelle, sans leurs cotes; leurs murs communs percés aussi par
+/// les ouvertures des voisines; leur nom et leur surface au milieu; la
+/// surface de l'étage en titre.
+fn page_de_l_etage(
+    pieces: &[PieceExportee],
+    prefs: &Preferences,
+    (entete, numero, total): (&str, usize, usize),
+) -> Page {
+    let mut page = Page::default();
+    let placees: Vec<&PieceExportee> = pieces
+        .iter()
+        .filter(|piece| piece.a_l_echelle && piece.place.is_some())
+        .collect();
+    let aire: f64 = placees.iter().filter_map(|piece| piece.aire_nette).sum();
+    let modele = placees.iter().find_map(|piece| piece.modele);
+    en_tete_de_page(
+        &mut page,
+        &textes::dessin_export_etage(&sans_insecables(
+            &Quantite::Aire(aire).en_clair(modele, prefs),
+        )),
+        entete,
+    );
+    let points: Vec<(f64, f64)> = placees
+        .iter()
+        .flat_map(|piece| {
+            let place = piece.place.unwrap_or_default();
+            a_cadrer(piece)
+                .into_iter()
+                .map(move |point| place.vers_l_etage(point))
+        })
+        .collect();
+    let vers_la_page = ajuster(&points, (MARGE, 90.0, LARGEUR_PAGE - MARGE, 690.0));
+    for piece in &placees {
+        let place = piece.place.unwrap_or_default();
+        let vers = |point: (f64, f64)| vers_la_page(place.vers_l_etage(point));
+        dessiner_le_plan(&mut page, piece, &vers, true);
+    }
+    // Les noms et les surfaces, par-dessus.
+    for piece in &placees {
+        let place = piece.place.unwrap_or_default();
+        let (x0, y0, x1, y1) = etendue(&piece.sommets);
+        let centre = vers_la_page(place.vers_l_etage(((x0 + x1) / 2.0, (y0 + y1) / 2.0)));
+        page.texte(
+            (centre.0, centre.1 + 3.0),
+            9.5,
+            true,
+            Alignement::Centre,
+            NOIR,
+            &piece.nom,
+        );
+        if let Some(aire) = piece.aire_nette {
+            page.texte(
+                (centre.0, centre.1 - 9.0),
+                8.0,
+                false,
+                Alignement::Centre,
+                GRIS,
+                &sans_insecables(&Quantite::Aire(aire).en_clair(piece.modele, prefs)),
+            );
+        }
+    }
+    pied_de_page(&mut page, numero, total);
+    page
+}
+
 fn page_du_plan(
     pieces: &[PieceExportee],
     prefs: &Preferences,
@@ -2457,8 +2563,16 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
             piece.elevations.len().div_ceil(par_page)
         })
         .sum();
+    // La page de l'étage, s'il compte au moins deux pièces complètes
+    // (évolution 4).
+    let etage = pieces
+        .iter()
+        .filter(|piece| piece.a_l_echelle && piece.place.is_some())
+        .count()
+        >= 2;
     let total = pieces.len()
         + usize::from(resume)
+        + usize::from(etage)
         + legendes
         + pages_d_elevations
         + pages_du_bordereau
@@ -2466,6 +2580,10 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     let mut pages = Vec::with_capacity(total);
     if resume {
         pages.push(page_du_plan(&pieces, prefs, &entete, 1, total));
+    }
+    if etage {
+        let numero = pages.len() + 1;
+        pages.push(page_de_l_etage(&pieces, prefs, (&entete, numero, total)));
     }
     let mise = MiseEnPageDuPdf {
         mise_en_page: plan.mise_en_page.clone(),
@@ -2804,7 +2922,14 @@ fn groupe(dxf: &mut String, code: u16, valeur: &str) {
 }
 
 fn nombre_dxf(x: f64) -> String {
-    format!("{x:.4}")
+    // « -0.0000 » s'écrit « 0.0000 ».
+    let texte = format!("{x:.4}");
+    let sans_signe = texte.trim_start_matches('-');
+    if sans_signe.chars().all(|c| c == '0' || c == '.') {
+        sans_signe.to_string()
+    } else {
+        texte
+    }
 }
 
 fn ligne_dxf(dxf: &mut String, calque: &str, a: (f64, f64), b: (f64, f64)) {
@@ -3004,14 +3129,15 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
 
     let mut entites = String::new();
     let (mut min, mut max) = ((f64::MAX, f64::MAX), (f64::MIN, f64::MIN));
-    let mut depart = 0.0;
     for piece in &pieces {
-        // Le DXF a l'axe des y vers le haut.
-        let points: Vec<(f64, f64)> = piece
-            .sommets
-            .iter()
-            .map(|&(x, y)| (x * facteur, -y * facteur))
-            .collect();
+        // Chaque pièce à sa place dans l'étage (évolution 4); le DXF a l'axe
+        // des y vers le haut.
+        let place = piece.place.unwrap_or_default();
+        let vers_le_dxf = move |point: (f64, f64)| {
+            let (x, y) = place.vers_l_etage(point);
+            (x * facteur, -y * facteur)
+        };
+        let points: Vec<(f64, f64)> = piece.sommets.iter().map(|&p| vers_le_dxf(p)).collect();
         let etendue: Vec<(f64, f64)> = piece
             .objets
             .iter()
@@ -3025,15 +3151,13 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             )
             .chain(piece.cloisons.iter().flat_map(|morceau| morceau.coins))
             .chain(piece.contour_exterieur.iter().copied())
-            .map(|(x, y)| (x * facteur, -y * facteur))
+            .map(vers_le_dxf)
             .chain(points.iter().copied())
             .collect();
         let gauche = etendue.iter().map(|q| q.0).fold(f64::MAX, f64::min);
         let droite = etendue.iter().map(|q| q.0).fold(f64::MIN, f64::max);
         let bas = etendue.iter().map(|q| q.1).fold(f64::MAX, f64::min);
         let haut = etendue.iter().map(|q| q.1).fold(f64::MIN, f64::max);
-        let decalage = depart - gauche;
-        let points: Vec<(f64, f64)> = points.iter().map(|&(x, y)| (x + decalage, y)).collect();
         let (largeur, hauteur) = (droite - gauche, haut - bas);
         let taille = (largeur.max(hauteur) * 0.025).clamp(3.0 * facteur, 12.0 * facteur);
         // Sans épaisseur, le mur est un trait, interrompu aux portes et aux
@@ -3070,7 +3194,6 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             piece.epaisseur_des_murs * facteur,
         );
         // Les objets, sur le calque de leur famille (point 40).
-        let vers_le_dxf = |(x, y): (f64, f64)| (x * facteur + decalage, -y * facteur);
         for objet in &piece.objets {
             for trait_ in &objet.traits {
                 match *trait_ {
@@ -3163,8 +3286,14 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
-        // Les murs à leur épaisseur : l'intérieur, l'extérieur et les jambages.
-        for morceau in &piece.murs_exterieurs {
+        // Les murs à leur épaisseur : l'intérieur, l'extérieur et les jambages;
+        // percés aussi par les ouvertures des voisines (évolution 4).
+        let murs = if piece.murs_dans_l_etage.is_empty() {
+            &piece.murs_exterieurs
+        } else {
+            &piece.murs_dans_l_etage
+        };
+        for morceau in murs {
             let [a, b, c, d] = morceau.coins.map(vers_le_dxf);
             ligne_dxf(&mut entites, "MURS", a, b);
             ligne_dxf(&mut entites, "MURS", d, c);
@@ -3269,7 +3398,18 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 .map_or(0.0, |(texte, _)| {
                     largeur_du_texte(texte, false) * taille / 1000.0
                 });
-            let decalage = if chaine.dehors.1.abs() > 0.9 {
+            // La sortie de la chaîne dans le DXF, où la pièce peut être tournée.
+            let sortie = {
+                let (a, b) = (
+                    vers_le_dxf(chaine.debut),
+                    vers_le_dxf((
+                        chaine.debut.0 + chaine.dehors.0,
+                        chaine.debut.1 + chaine.dehors.1,
+                    )),
+                );
+                (b.1 - a.1) / (b.0 - a.0).hypot(b.1 - a.1).max(1e-12)
+            };
+            let decalage = if sortie.abs() > 0.9 {
                 mur + taille * 3.0
             } else {
                 (mur + taille * 3.0).max(mur + taille * 1.3 + largeur_de_la_mesure)
@@ -3307,7 +3447,8 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
-        // Le nom de la pièce et sa surface nette, sous la pièce.
+        // Le nom de la pièce et sa surface nette, au milieu de la pièce, comme
+        // sur un plan d'étage (évolution 4).
         let etiquette = match piece.aire_nette {
             Some(aire) => format!(
                 "{} : {}",
@@ -3316,7 +3457,11 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             ),
             None => piece.nom.clone(),
         };
-        let position = (depart + largeur / 2.0, bas - taille * 3.5);
+        let (x0, x1, y0, y1) = piece.sommets.iter().fold(
+            (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
+            |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
+        );
+        let position = vers_le_dxf(((x0 + x1) / 2.0, (y0 + y1) / 2.0));
         texte_dans_le_dxf(
             &mut entites,
             "PIECES",
@@ -3326,14 +3471,13 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             &etiquette,
         );
         min = (
-            min.0.min(depart - taille * 12.0),
+            min.0.min(gauche - taille * 12.0),
             min.1.min(bas - taille * 5.0),
         );
         max = (
-            max.0.max(depart + largeur + taille * 12.0),
+            max.0.max(droite + taille * 12.0),
             max.1.max(haut + taille * 3.0),
         );
-        depart += largeur + (largeur.max(hauteur) * 0.3).max(48.0 * facteur);
     }
 
     let mut dxf = String::new();
@@ -3572,8 +3716,9 @@ mod tests {
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "21 novembre 2026, 14 h 05");
         assert!(pdf.is_ascii());
         assert!(pdf.starts_with("%PDF-1.4\n") && pdf.ends_with("%%EOF\n"));
-        // Une page de résumé, puis une par pièce dessinée (la pièce vide n'y est pas).
-        assert!(pdf.contains("/Count 3"));
+        // Une page de résumé, celle de l'étage, puis une par pièce dessinée (la
+        // pièce vide n'y est pas).
+        assert!(pdf.contains("/Count 4"));
         // Chaque objet est là où la table des renvois le dit.
         let debut: usize = pdf
             .rsplit("startxref\n")
@@ -3588,7 +3733,7 @@ mod tests {
             .take_while(|ligne| ligne.ends_with(" n "))
             .map(|ligne| ligne[..10].parse().unwrap())
             .collect();
-        assert_eq!(renvois.len(), 5 + 2 * 3);
+        assert_eq!(renvois.len(), 5 + 2 * 4);
         for (i, decalage) in renvois.iter().enumerate() {
             assert!(
                 pdf[*decalage..].starts_with(&format!("{} 0 obj", i + 1)),
@@ -3770,6 +3915,60 @@ mod tests {
         assert!(dxf.contains("\r\nGarde-robe\r\n") && dxf.contains("\r\nEspace 2\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Garde-robe)"));
+    }
+
+    #[test]
+    fn l_etage_au_pdf_et_au_dxf() {
+        // Le salon, et la chambre contre son mur de droite, sa porte dans
+        // leur mur commun.
+        let mut plan = plan(vec![
+            ("Salon", la_chambre_ou_le_salon(false)),
+            ("Chambre", la_chambre_ou_le_salon(true)),
+        ]);
+        plan.placer_les_pieces(FORMAT_PAR_DEFAUT);
+        let salon = plan.pieces[0].place.unwrap();
+        plan.pieces[1].place = Some(salon.deplacee((144.0 + 9.0, 0.0)));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(\\311tage \\267 200 pi\\262 \\(18,6 m\\262\\))"));
+        // Le sommaire, l'étage, les deux pièces, les élévations de la chambre
+        // et le bordereau.
+        assert!(pdf.contains("(Page 2 de 6)"));
+        // Au DXF, la chambre est à sa place : sa porte perce aussi le mur du
+        // salon, qui compte un morceau de plus.
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        let seule = dxf_du_plan(
+            &Plan::d_une_piece(la_chambre_ou_le_salon(false)),
+            &Preferences::default(),
+        )
+        .unwrap();
+        let murs = |dxf: &str| dxf.matches("\r\nLINE\r\n  8\r\nMURS\r\n").count();
+        let chambre_seule = dxf_du_plan(
+            &Plan::d_une_piece(la_chambre_ou_le_salon(true)),
+            &Preferences::default(),
+        )
+        .unwrap();
+        assert_eq!(murs(&dxf), murs(&seule) + murs(&chambre_seule) + 4);
+    }
+
+    /// Le salon de 12 pi × 10 pi, ou la chambre de 10 pi × 8 pi et sa porte
+    /// de 30 po dans son mur de gauche; des murs de 9 po.
+    fn la_chambre_ou_le_salon(chambre: bool) -> Dessin {
+        let mut dessin = if chambre {
+            rectangle("10", "8")
+        } else {
+            rectangle("12", "10")
+        };
+        dessin.epaisseur_des_murs = "9 po".into();
+        if chambre {
+            dessin.ouvertures = vec![noyau::dessin::Ouverture {
+                largeur: "30 po".into(),
+                hauteur: "80 po".into(),
+                cote: Some(3),
+                position: "2".into(),
+                ..noyau::dessin::Ouverture::default()
+            }];
+        }
+        dessin
     }
 
     #[test]
@@ -4022,9 +4221,9 @@ mod tests {
             dxf.matches("\r\nLINE\r\n  8\r\nMURS\r\n").count(),
             5 + 5 + 2
         );
-        // Le coin extérieur, à 9 po hors des mesures : la pièce commence à
-        // x = 0 par l'extérieur de son mur (le DXF a les y vers le haut).
-        assert!(dxf.contains("\r\n 10\r\n0.0000\r\n 20\r\n9.0000\r\n"));
+        // Le coin extérieur, à 9 po hors des mesures : l'étage place la pièce,
+        // l'extérieur de son mur au coin (0, 0) (évolution 4).
+        assert!(dxf.contains("\r\n 10\r\n0.0000\r\n 20\r\n0.0000\r\n"));
         // La fenêtre traverse le mur : trois traits.
         assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nOUVERTURES\r\n").count(), 3);
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
