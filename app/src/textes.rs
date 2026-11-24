@@ -1434,6 +1434,20 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// Les espaces que ferment les cloisons (évolution 5).
+pub const DESSIN_ESPACES: Texte = t(
+    "Espaces fermés par les cloisons",
+    "Spaces closed by partitions",
+);
+
+/// Le nom d'un espace qui n'en a pas reçu : « Espace 2 ».
+pub fn dessin_espace(rang: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Espace {rang}"),
+        Langue::Anglais => format!("Space {rang}"),
+    }
+}
+
 /// Les finis d'une pièce (évolution 27).
 pub const DESSIN_FINIS: Texte = t("Finis de la pièce", "Room finishes");
 pub const DESSIN_FINI_PLANCHER: Texte = t("Plancher", "Floor");

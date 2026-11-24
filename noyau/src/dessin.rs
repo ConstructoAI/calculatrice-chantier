@@ -487,6 +487,8 @@ pub struct Dessin {
     pub croquis: Vec<TraitAMainLevee>,
     /// Les finis de la pièce : plancher, peinture, plafond, plinthes (évolution 27).
     pub finis: crate::finis::Finis,
+    /// Les noms donnés aux espaces que ferment les cloisons (évolution 5).
+    pub noms_des_espaces: Vec<crate::espaces::NomDEspace>,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
     /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.
@@ -1155,6 +1157,39 @@ impl Plan {
         };
         lignes.sort_by_key(numero);
         lignes
+    }
+}
+
+impl Dessin {
+    /// Les espaces que ferment les cloisons dans la pièce complète (évolution
+    /// 5); vide s'il n'y en a qu'un.
+    pub fn espaces(&self, solution: &Solution) -> Vec<crate::espaces::Espace> {
+        let Some(contour) = self.contour_interieur(solution) else {
+            return Vec::new();
+        };
+        let cloisons: Vec<crate::cloison::CloisonMesuree> =
+            solution.cloisons.iter().flatten().cloned().collect();
+        crate::espaces::espaces(&contour, &cloisons)
+    }
+
+    /// Le nom donné à un espace : celui dont le point est en lui.
+    pub fn nom_de_l_espace(&self, espace: &crate::espaces::Espace) -> Option<&str> {
+        self.noms_des_espaces
+            .iter()
+            .find(|nom| crate::espaces::dedans(nom.point, &espace.contour))
+            .map(|nom| nom.nom.as_str())
+    }
+
+    /// Nomme un espace (un nom vide lui retire le sien).
+    pub fn nommer_l_espace(&mut self, espace: &crate::espaces::Espace, nom: &str) {
+        self.noms_des_espaces
+            .retain(|ancien| !crate::espaces::dedans(ancien.point, &espace.contour));
+        if !nom.trim().is_empty() {
+            self.noms_des_espaces.push(crate::espaces::NomDEspace {
+                point: espace.repere,
+                nom: nom.to_string(),
+            });
+        }
     }
 }
 
@@ -2213,6 +2248,9 @@ impl Dessin {
             for point in &mut trait_.points {
                 point.0 = -point.0;
             }
+        }
+        for nom in &mut self.noms_des_espaces {
+            nom.point.0 = -nom.point.0;
         }
         for cloison in &mut self.cloisons {
             cloison.debut.0 = -cloison.debut.0;

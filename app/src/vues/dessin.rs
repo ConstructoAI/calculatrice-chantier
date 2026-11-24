@@ -224,6 +224,7 @@ enum Section {
     Bordereau,
     Finis,
     TableauDesFinis,
+    Espaces,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -1192,6 +1193,71 @@ fn trame_sur_la_planche(
     }
 }
 
+/// Les espaces que ferment les cloisons (évolution 5) : le nom de chacun,
+/// qu'on peut changer, et son aire. Retourne vrai si le dessin a changé.
+fn espaces_de_la_piece(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    let espaces = dessin.espaces(solution);
+    if espaces.is_empty() {
+        return false;
+    }
+    ui.add_space(8.0);
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Espaces,
+        textes::DESSIN_ESPACES.traduit(),
+    ) {
+        return false;
+    }
+    let mut modifie = false;
+    for (rang, espace) in espaces.iter().enumerate() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(format!("{}.", rang + 1)).font(theme::police_grasse(13.5)));
+            let mut nom = dessin.nom_de_l_espace(espace).unwrap_or("").to_string();
+            let champ = egui::TextEdit::singleline(&mut nom)
+                .desired_width(150.0)
+                .char_limit(40)
+                .hint_text(textes::dessin_espace(rang + 1));
+            let reponse = ui.add(champ);
+            cadre_de_saisie(ui, p, &reponse);
+            // Tout ce qu'on y tape s'annule d'un coup.
+            if reponse.gained_focus() {
+                etat.memoriser(dessin);
+            }
+            if reponse.changed() {
+                dessin.nommer_l_espace(espace, &nom);
+                modifie = true;
+            }
+            ui.label(
+                RichText::new(sans_insecables(
+                    &Quantite::Aire(espace.aire).en_clair(solution.modele, prefs),
+                ))
+                .color(p.texte_attenue),
+            );
+        });
+    }
+    modifie
+}
+
+/// Le nom d'un espace : celui qu'on lui a donné, ou « Espace 2 ».
+pub(crate) fn nom_d_un_espace(
+    dessin: &Dessin,
+    espace: &noyau::espaces::Espace,
+    rang: usize,
+) -> String {
+    dessin
+        .nom_de_l_espace(espace)
+        .map_or_else(|| textes::dessin_espace(rang + 1), str::to_string)
+}
+
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
 /// son centre, s'il en est un assez près (point 40). Retourne vrai s'il s'y
 /// est posé.
@@ -1494,6 +1560,11 @@ pub fn afficher(
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
                 && cloisons(ui, p, dessin, etat, &solution, prefs)
+            {
+                action = Some(Action::Modifie);
+            }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && espaces_de_la_piece(ui, p, dessin, etat, &solution, prefs)
             {
                 action = Some(Action::Modifie);
             }
@@ -3412,6 +3483,26 @@ fn planche_et_gestes(
             painter.rect_stroke(cadre, 4, bord, egui::StrokeKind::Inside);
             painter.galley(cadre.min + Vec2::new(5.0, 3.0), galere, couleur);
             etat.notes_a_l_ecran.push((rang, cadre));
+        }
+    }
+    // Le nom et l'aire de chaque espace que ferment les cloisons (évolution 5).
+    if complete {
+        for (rang, espace) in dessin.espaces(solution).iter().enumerate() {
+            let centre = echelle.vers_l_ecran(espace.repere);
+            painter.text(
+                centre - Vec2::new(0.0, 7.0),
+                Align2::CENTER_CENTER,
+                nom_d_un_espace(dessin, espace, rang),
+                theme::police_grasse(11.0),
+                p.texte_attenue,
+            );
+            painter.text(
+                centre + Vec2::new(0.0, 7.0),
+                Align2::CENTER_CENTER,
+                sans_insecables(&Quantite::Aire(espace.aire).en_clair(solution.modele, prefs)),
+                theme::police(10.0),
+                p.texte_attenue,
+            );
         }
     }
     // Le battant d'une porte qui frappe un meuble : son quart de disque en
@@ -6095,6 +6186,13 @@ pub(crate) fn resultats_de_la_piece(
     // À l'écran (et au ruban), le compte des appareils et des symboles des
     // métiers : combien de prises, de coudes, d'armoires. Le PDF les met dans
     // sa légende (point 40).
+    // L'aire de chaque espace que ferment les cloisons (évolution 5).
+    for (rang, espace) in dessin.espaces(solution).iter().enumerate() {
+        lignes.push((
+            nom_d_un_espace(dessin, espace, rang),
+            aire_en_clair(espace.aire),
+        ));
+    }
     // Les finis de la pièce et leurs quantités, à l'écran et au ruban (le PDF
     // a son tableau des finis) (évolution 27).
     if !detail {

@@ -91,6 +91,9 @@ struct PieceExportee {
     legende: Vec<SymboleDeLaLegende>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
+    /// Les espaces que ferment les cloisons : leur nom, leur aire en clair et
+    /// le point où les écrire (évolution 5).
+    espaces: Vec<(String, String, (f64, f64))>,
     /// La trame du plancher d'une pièce complète (évolution 27).
     trame: Vec<noyau::finis::TraitDeTrame>,
     /// Le croquis à main levée d'une pièce complète : chaque trait et son
@@ -325,6 +328,18 @@ fn preparer_la_piece(
         modele: solution.modele,
         ouvertures,
         objets,
+        espaces: dessin
+            .espaces(&solution)
+            .iter()
+            .enumerate()
+            .map(|(rang, espace)| {
+                (
+                    crate::vues::dessin::nom_d_un_espace(dessin, espace, rang),
+                    sans_insecables(&Quantite::Aire(espace.aire).en_clair(solution.modele, prefs)),
+                    espace.repere,
+                )
+            })
+            .collect(),
         trame: match dessin.contour_interieur(&solution) {
             Some(contour) if complete => noyau::finis::trame(dessin.finis.plancher, &contour),
             _ => Vec::new(),
@@ -1664,6 +1679,12 @@ fn dessiner_le_plan(
             page.texte(position, 7.0, false, alignement, NOIR, texte);
         }
     }
+    // Le nom et l'aire de chaque espace (évolution 5).
+    for (nom, aire, point) in &piece.espaces {
+        let (x, y) = vers_la_page(*point);
+        page.texte((x, y + 2.0), 7.5, true, Alignement::Centre, GRIS, nom);
+        page.texte((x, y - 7.0), 7.0, false, Alignement::Centre, GRIS, aire);
+    }
     // Les traits du crayon, par-dessus tout (évolution 30).
     for (points, crayon) in &piece.croquis {
         if *crayon != noyau::dessin::Crayon::Surligneur {
@@ -2823,6 +2844,26 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
+        // Le nom et l'aire de chaque espace, sur le calque PIECES (évolution 5).
+        for (nom, aire, point) in &piece.espaces {
+            let (x, y) = vers_le_dxf(*point);
+            texte_dans_le_dxf(
+                &mut entites,
+                "PIECES",
+                (x, y + taille * 0.6),
+                taille * 0.8,
+                Alignement::Centre,
+                nom,
+            );
+            texte_dans_le_dxf(
+                &mut entites,
+                "PIECES",
+                (x, y - taille * 0.6),
+                taille * 0.7,
+                Alignement::Centre,
+                aire,
+            );
+        }
         // La trame du plancher, sur le calque FINIS (évolution 27).
         for trait_ in &piece.trame {
             if let noyau::finis::TraitDeTrame::Ligne(a, b) = *trait_ {
@@ -3418,6 +3459,30 @@ mod tests {
         assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nFINIS\r\n").count(), 12 + 10);
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(C\\351ramique)") && pdf.contains("Page 2 de 2"));
+    }
+
+    #[test]
+    fn les_espaces_d_une_piece_au_pdf_et_au_dxf() {
+        // Une cloison d'un mur à l'autre : deux espaces, l'un nommé.
+        let mut piece = rectangle("12", "10");
+        piece.cloisons.push(noyau::cloison::Cloison {
+            debut: (48.0, 0.0),
+            sens: noyau::dessin::Sens::Sud,
+            longueur: "10".into(),
+            epaisseur: "4 po".into(),
+            porte: None,
+            suite: Vec::new(),
+            ouvertures: Vec::new(),
+        });
+        let solution = piece.resoudre(FORMAT_PAR_DEFAUT);
+        let espaces = piece.espaces(&solution);
+        assert_eq!(espaces.len(), 2);
+        piece.nommer_l_espace(&espaces[0], "Garde-robe");
+        let plan = Plan::d_une_piece(piece);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        assert!(dxf.contains("\r\nGarde-robe\r\n") && dxf.contains("\r\nEspace 2\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(Garde-robe)"));
     }
 
     #[test]

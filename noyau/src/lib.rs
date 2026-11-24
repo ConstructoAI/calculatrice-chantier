@@ -10,6 +10,7 @@ pub mod conversions;
 pub mod coupe;
 pub mod dessin;
 pub mod erreurs;
+pub mod espaces;
 pub mod etiquettes;
 pub mod finis;
 pub mod fonctions;

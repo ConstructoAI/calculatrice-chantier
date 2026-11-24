@@ -125,6 +125,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Finis par pièce** : plancher, peinture, plafond et plinthes, le plancher en trame sur le
   plan, les quantités au bilan, et le tableau des finis à l'écran et au PDF.
 
+- **Surface de chaque sous-espace** : les espaces que ferment les cloisons, leur nom et leur
+  aire, sur le plan, au bilan et au PDF.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
