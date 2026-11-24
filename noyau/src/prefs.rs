@@ -93,6 +93,10 @@ pub struct Preferences {
     /// Vrai quand le plan d'exemple s'est déjà ouvert de lui-même (section
     /// 25.1, point 58) : il ne s'ajoute plus aux dessins.
     pub exemple_ouvert: bool,
+    /// Vrai quand le module Dessin montre tous ses outils : le mode Avancé
+    /// (section 25.1, point 59). Faux, le mode Débutant : l'essentiel d'un
+    /// croquis précis.
+    pub dessin_avance: bool,
     /// Le projet écrit sur les rapports de calcul (section 22.18); vide : aucun.
     pub projet: String,
     /// Les angles du niveau sur sa surface de référence (section 22.22) :
@@ -129,6 +133,7 @@ impl Default for Preferences {
             theme: Theme::Automatique,
             mode_chantier: false,
             exemple_ouvert: false,
+            dessin_avance: false,
             projet: String::new(),
             etalon_niveau: [0.0; 2],
             resolution: 16,

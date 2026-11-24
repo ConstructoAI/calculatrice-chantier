@@ -858,6 +858,17 @@ pub fn nom_de_sauvegarde(jour: &str) -> String {
 pub const DESSIN_RETABLIR: Texte = t("Rétablir", "Redo");
 pub const DESSIN_DUPLIQUER: Texte = t("Dupliquer", "Duplicate");
 pub const DESSIN_MIROIR: Texte = t("Miroir", "Mirror");
+// Le mode du dessin (section 25.1, point 59).
+pub const DESSIN_MODE_DEBUTANT: Texte = t("Débutant", "Beginner");
+pub const DESSIN_MODE_AVANCE: Texte = t("Avancé", "Advanced");
+pub const INFOBULLE_MODE_DEBUTANT: Texte = t(
+    "L'essentiel d'un croquis précis : les côtés et leurs mesures, les portes et les fenêtres, les cotes, la surface et l'export",
+    "The essentials of an accurate sketch: sides and their measurements, doors and windows, dimensions, area and export",
+);
+pub const INFOBULLE_MODE_AVANCE: Texte = t(
+    "Tous les outils du dessin : l'étage, la 3D, les cloisons, les objets, les finis, l'ossature et le reste",
+    "Every drawing tool: floor, 3D, partitions, objects, finishes, framing and more",
+);
 pub const AVIS_DESSIN_DUPLIQUE: Texte = t("Dessin dupliqué.", "Drawing duplicated.");
 
 /// « Chambre (copie) », le nom d'une copie.

@@ -228,6 +228,12 @@ pub struct Etat {
     pub plan_recu: Option<Plan>,
     /// Les places d'avant, pour « Annuler » dans l'étage.
     places_d_avant: Vec<Vec<Option<noyau::etage::Place>>>,
+    /// Vrai en mode Avancé (section 25.1, point 59) : tous les outils. Il
+    /// vient des préférences à chaque image.
+    avance: bool,
+    /// Le mode que l'utilisateur vient de choisir, que l'application retient
+    /// dans les préférences : vrai pour Avancé.
+    pub mode_demande: Option<bool>,
 }
 
 /// La pièce qu'on glisse dans l'étage (évolution 4).
@@ -477,6 +483,36 @@ impl Etat {
         self.cloison_tiree = None;
         self.mur_tire = None;
         self.cloison_etiree = None;
+    }
+
+    /// Le mode Débutant (point 59) range les outils avancés : l'étage, la 3D,
+    /// « Mesurer », le crayon, le code QR, ce qui attendait d'être posé et ce
+    /// qui était choisi. Les portes et les fenêtres restent.
+    fn ranger_les_outils_avances(&mut self) {
+        self.vue_3d = false;
+        self.vue_3d_etage = false;
+        self.mesure = None;
+        self.crayon_sorti = false;
+        self.trait_en_cours = None;
+        self.objet_a_placer = None;
+        self.objet_choisi = None;
+        self.objet_tire = None;
+        self.note_a_placer = false;
+        self.note_choisie = None;
+        self.note_tiree = None;
+        self.cloison_a_tracer = false;
+        self.cloison_en_trace = None;
+        self.cloison_choisie = None;
+        self.cloison_tiree = None;
+        self.cloison_etiree = None;
+        self.code_a_partager = None;
+        // Une mesure d'un outil avancé se referme; celles de la hauteur des
+        // murs et des ouvertures restent ouvertes.
+        if self.autre_choisi.is_some_and(|autre| {
+            !matches!(autre, AutreSaisie::Hauteur | AutreSaisie::Ouverture(..))
+        }) {
+            self.choisir_autre(None);
+        }
     }
 
     /// Choisit une autre mesure : un retrait, la hauteur des murs, une ouverture.
@@ -2183,9 +2219,18 @@ pub fn afficher(
     nom_du_dessin: &str,
 ) -> Option<Action> {
     let mut action = None;
+    etat.avance = prefs.dessin_avance;
     // Le nom du dessin ouvert, et la liste de tous les dessins.
     if en_tete(ui, p, nom_du_dessin, textes::MES_DESSINS.traduit()) {
         action = Some(Action::MesDessins);
+    }
+    rangee_du_mode(ui, etat);
+    // Le mode Débutant n'a ni l'étage, ni la 3D, ni les autres outils avancés.
+    if !etat.avance {
+        etat.ranger_les_outils_avances();
+        if etat.vue_etage {
+            quitter_l_etage(plan, etat);
+        }
     }
     plan.normaliser();
     if plan_recu(ui, p, plan, etat) {
@@ -2301,59 +2346,67 @@ pub fn afficher(
                 Some(autre) => action = Some(autre),
                 None => {}
             }
-            if dessin.fermee && dessin.cotes.len() == 4 {
+            // En mode Débutant (point 59) : les côtés, la hauteur des murs,
+            // les portes et les fenêtres, la surface et l'export.
+            if etat.avance && dessin.fermee && dessin.cotes.len() == 4 {
                 diagonales(ui, p, dessin, etat, &solution, prefs);
             }
-            if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
+            if etat.avance && dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
-            if dessin.terrain && matches!(solution.etat, EtatDeLaForme::Complete { .. }) {
+            if etat.avance
+                && dessin.terrain
+                && matches!(solution.etat, EtatDeLaForme::Complete { .. })
+            {
                 implantation(ui, p, dessin, etat, &solution, prefs);
             }
             if dessin.fermee && !dessin.terrain && murs(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
-                && !dessin.terrain
-                && finis(ui, p, dessin, etat)
-            {
-                action = Some(Action::Modifie);
-            }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
-                && !dessin.terrain
-                && calepinage_de_la_piece(ui, p, dessin, etat, &solution, prefs)
-            {
-                action = Some(Action::Modifie);
-            }
-            if dessin.fermee && !dessin.terrain {
-                elevations_des_murs(ui, p, dessin, etat, &solution, prefs);
-            }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
-                && !dessin.terrain
-                && ossature_de_la_piece(ui, p, dessin, etat, &solution, prefs)
-            {
-                action = Some(Action::Modifie);
-            }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
-                && !dessin.terrain
-                && cloisons(ui, p, dessin, etat, &solution, prefs)
-            {
-                action = Some(Action::Modifie);
-            }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
-                && !dessin.terrain
-                && espaces_de_la_piece(ui, p, dessin, etat, &solution, prefs)
-            {
-                action = Some(Action::Modifie);
-            }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
-                && objets(ui, p, dessin, etat, &solution, prefs)
-            {
-                action = Some(Action::Modifie);
-            }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. }) && notes(ui, p, dessin, etat)
-            {
-                action = Some(Action::Modifie);
+            if etat.avance {
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && !dessin.terrain
+                    && finis(ui, p, dessin, etat)
+                {
+                    action = Some(Action::Modifie);
+                }
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && !dessin.terrain
+                    && calepinage_de_la_piece(ui, p, dessin, etat, &solution, prefs)
+                {
+                    action = Some(Action::Modifie);
+                }
+                if dessin.fermee && !dessin.terrain {
+                    elevations_des_murs(ui, p, dessin, etat, &solution, prefs);
+                }
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && !dessin.terrain
+                    && ossature_de_la_piece(ui, p, dessin, etat, &solution, prefs)
+                {
+                    action = Some(Action::Modifie);
+                }
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && !dessin.terrain
+                    && cloisons(ui, p, dessin, etat, &solution, prefs)
+                {
+                    action = Some(Action::Modifie);
+                }
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && !dessin.terrain
+                    && espaces_de_la_piece(ui, p, dessin, etat, &solution, prefs)
+                {
+                    action = Some(Action::Modifie);
+                }
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && objets(ui, p, dessin, etat, &solution, prefs)
+                {
+                    action = Some(Action::Modifie);
+                }
+                if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                    && notes(ui, p, dessin, etat)
+                {
+                    action = Some(Action::Modifie);
+                }
             }
         }
         let (modifie, export) = la_piece_et_le_total(ui, p, plan, etat, prefs);
@@ -2366,6 +2419,34 @@ pub fn afficher(
         ui.add_space(10.0);
     });
     action
+}
+
+/// Le mode du dessin (section 25.1, point 59), sous son nom : Débutant,
+/// l'essentiel d'un croquis précis; Avancé, tous les outils. Le choix vaut
+/// dès cette image; l'application le retient dans les préférences.
+fn rangee_du_mode(ui: &mut Ui, etat: &mut Etat) {
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.add_space(10.0);
+        for (avance, texte, bulle) in [
+            (
+                false,
+                textes::DESSIN_MODE_DEBUTANT,
+                textes::INFOBULLE_MODE_DEBUTANT,
+            ),
+            (
+                true,
+                textes::DESSIN_MODE_AVANCE,
+                textes::INFOBULLE_MODE_AVANCE,
+            ),
+        ] {
+            let bouton = egui::Button::new(texte.traduit()).selected(etat.avance == avance);
+            if ui.add(bouton).on_hover_text(bulle.traduit()).clicked() && etat.avance != avance {
+                etat.avance = avance;
+                etat.mode_demande = Some(avance);
+            }
+        }
+    });
 }
 
 /// Le code QR à partager (évolution 9) : l'adresse du site qui porte le plan
@@ -3248,7 +3329,7 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
             ui.horizontal(|ui| {
                 ui.add_space(10.0);
                 // L'étage, en tête : toutes les pièces à leur place (évolution 4).
-                if plan.pieces.len() > 1 || etat.vue_etage {
+                if etat.avance && (plan.pieces.len() > 1 || etat.vue_etage) {
                     let etage =
                         egui::Button::new(textes::DESSIN_ETAGE.traduit()).selected(etat.vue_etage);
                     if ui.add(etage).clicked() {
@@ -3298,7 +3379,8 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                     modifie = true;
                 }
                 // Un terrain : le plan d'implantation (évolution 29).
-                if plan.pieces.len() < noyau::dessin::MAX_PIECES
+                if etat.avance
+                    && plan.pieces.len() < noyau::dessin::MAX_PIECES
                     && ui
                         .add(egui::Button::new(
                             textes::DESSIN_AJOUTER_UN_TERRAIN.traduit(),
@@ -3320,7 +3402,8 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                     etat.viser_le_nom = etat.renommer;
                 }
                 // Une copie de la pièce, juste après elle.
-                if plan.pieces.len() < noyau::dessin::MAX_PIECES
+                if etat.avance
+                    && plan.pieces.len() < noyau::dessin::MAX_PIECES
                     && ui
                         .add(egui::Button::new(textes::DESSIN_DUPLIQUER.traduit()))
                         .clicked()
@@ -3330,9 +3413,10 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                     modifie = true;
                 }
                 // La pièce retournée, la gauche et la droite échangées.
-                if ui
-                    .add(egui::Button::new(textes::DESSIN_MIROIR.traduit()))
-                    .clicked()
+                if etat.avance
+                    && ui
+                        .add(egui::Button::new(textes::DESSIN_MIROIR.traduit()))
+                        .clicked()
                 {
                     let dessin = &mut plan.pieces[plan.courante].dessin;
                     etat.memoriser(dessin);
@@ -3430,9 +3514,16 @@ fn la_piece_et_le_total(
         ui.add_space(8.0);
         carte(ui, p, |ui| {
             ui.label(
-                RichText::new(textes::dessin_total(completes, plan.pieces.len()))
-                    .font(theme::police_grasse(13.5))
-                    .color(p.titre),
+                // Un terrain n'est pas une pièce (évolution 29).
+                RichText::new(textes::dessin_total(
+                    completes,
+                    plan.pieces
+                        .iter()
+                        .filter(|piece| !piece.dessin.terrain)
+                        .count(),
+                ))
+                .font(theme::police_grasse(13.5))
+                .color(p.titre),
             );
             ui.label(
                 RichText::new(Quantite::Aire(aire).en_clair(modele, prefs))
@@ -3443,7 +3534,7 @@ fn la_piece_et_le_total(
     }
     // Le bordereau des portes et des fenêtres de tout le plan (évolution 24).
     let bordereau = plan.bordereau(FORMAT_PAR_DEFAUT);
-    if !bordereau.is_empty() {
+    if etat.avance && !bordereau.is_empty() {
         ui.add_space(10.0);
         if titre_de_section(
             ui,
@@ -3477,7 +3568,7 @@ fn la_piece_et_le_total(
     }
     // Le tableau des finis de tout le plan (évolution 27).
     let tableau = plan.tableau_des_finis(FORMAT_PAR_DEFAUT);
-    if !tableau.pieces.is_empty() {
+    if etat.avance && !tableau.pieces.is_empty() {
         ui.add_space(10.0);
         if titre_de_section(
             ui,
@@ -3539,46 +3630,50 @@ fn la_piece_et_le_total(
     ) {
         return (modifie, export);
     }
-    // La mise en page du PDF (point 36) : l'échelle, et le cartouche.
-    ui.label(RichText::new(textes::DESSIN_MISE_EN_PAGE.traduit()).size(13.5));
-    ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(textes::DESSIN_ECHELLE.traduit()).size(13.5));
-        for echelle in EchelleDuPlan::TOUTES {
-            let choisie = plan.mise_en_page.echelle == echelle;
-            let bouton =
-                egui::Button::new(textes::nom_de_l_echelle(echelle).traduit()).selected(choisie);
-            if ui.add(bouton).clicked() && !choisie {
-                plan.mise_en_page.echelle = echelle;
-                modifie = true;
-            }
-        }
-    });
-    // Où tiendrait la pièce à l'écran, à cette échelle.
-    if let Some(avis) = plan.pieces.get(plan.courante).and_then(|piece| {
-        crate::exportation::avis_de_l_echelle(&piece.dessin, plan.mise_en_page.echelle, prefs)
-    }) {
-        ui.label(RichText::new(avis).size(12.5).color(p.texte_attenue));
-    }
-    let mise_en_page = &mut plan.mise_en_page;
-    for (libelle, champ) in [
-        (textes::DESSIN_PROJET, &mut mise_en_page.projet),
-        (textes::DESSIN_ADRESSE, &mut mise_en_page.adresse),
-        (textes::DESSIN_DESSINE_PAR, &mut mise_en_page.dessine_par),
-    ] {
-        ui.horizontal(|ui| {
-            let etiquette = ui.label(RichText::new(libelle.traduit()).size(13.5));
-            let reponse = ui
-                .add(
-                    egui::TextEdit::singleline(champ)
-                        .desired_width((ui.available_width() - 8.0).clamp(120.0, 300.0))
-                        .char_limit(80),
-                )
-                .labelled_by(etiquette.id);
-            cadre_de_saisie(ui, p, &reponse);
-            if reponse.changed() {
-                modifie = true;
+    // La mise en page est du mode Avancé (point 59) : en Débutant, le PDF
+    // garde celle du plan.
+    if etat.avance {
+        // La mise en page du PDF (point 36) : l'échelle, et le cartouche.
+        ui.label(RichText::new(textes::DESSIN_MISE_EN_PAGE.traduit()).size(13.5));
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(textes::DESSIN_ECHELLE.traduit()).size(13.5));
+            for echelle in EchelleDuPlan::TOUTES {
+                let choisie = plan.mise_en_page.echelle == echelle;
+                let bouton = egui::Button::new(textes::nom_de_l_echelle(echelle).traduit())
+                    .selected(choisie);
+                if ui.add(bouton).clicked() && !choisie {
+                    plan.mise_en_page.echelle = echelle;
+                    modifie = true;
+                }
             }
         });
+        // Où tiendrait la pièce à l'écran, à cette échelle.
+        if let Some(avis) = plan.pieces.get(plan.courante).and_then(|piece| {
+            crate::exportation::avis_de_l_echelle(&piece.dessin, plan.mise_en_page.echelle, prefs)
+        }) {
+            ui.label(RichText::new(avis).size(12.5).color(p.texte_attenue));
+        }
+        let mise_en_page = &mut plan.mise_en_page;
+        for (libelle, champ) in [
+            (textes::DESSIN_PROJET, &mut mise_en_page.projet),
+            (textes::DESSIN_ADRESSE, &mut mise_en_page.adresse),
+            (textes::DESSIN_DESSINE_PAR, &mut mise_en_page.dessine_par),
+        ] {
+            ui.horizontal(|ui| {
+                let etiquette = ui.label(RichText::new(libelle.traduit()).size(13.5));
+                let reponse = ui
+                    .add(
+                        egui::TextEdit::singleline(champ)
+                            .desired_width((ui.available_width() - 8.0).clamp(120.0, 300.0))
+                            .char_limit(80),
+                    )
+                    .labelled_by(etiquette.id);
+                cadre_de_saisie(ui, p, &reponse);
+                if reponse.changed() {
+                    modifie = true;
+                }
+            });
+        }
     }
     ui.horizontal_wrapped(|ui| {
         if ui
@@ -3601,8 +3696,10 @@ fn la_piece_et_le_total(
             export = Some(FormatDExport::Dxf);
         }
     });
-    // Partager le plan par code QR (évolution 9).
-    partager_par_code_qr(ui, p, plan, etat);
+    // Partager le plan par code QR (évolution 9), en mode Avancé.
+    if etat.avance {
+        partager_par_code_qr(ui, p, plan, etat);
+    }
     (modifie, export)
 }
 
@@ -3884,7 +3981,8 @@ fn planche_et_gestes(
     }
     // Une cloison se saisit aussi par la poignée du milieu de chacun de ses
     // segments (point 38) : le segment glisse parallèlement à lui-même.
-    if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+    if etat.avance
+        && matches!(solution.etat, EtatDeLaForme::Complete { .. })
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && !etat.cloison_a_tracer
@@ -3975,7 +4073,10 @@ fn planche_et_gestes(
     }
     // Une note saisie au doigt se déplace aussi; elle passe avant les objets,
     // qu'elle recouvre.
+    // En mode Débutant (point 59), les cloisons, les objets et les notes
+    // restent sur le plan, sans se saisir.
     let note_saisie = if complete
+        && etat.avance
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
@@ -4000,6 +4101,7 @@ fn planche_et_gestes(
     }
     // Une cloison saisie au doigt se déplace d'un bloc.
     let cloison_saisie = if complete
+        && etat.avance
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
@@ -4028,6 +4130,7 @@ fn planche_et_gestes(
         etat.cloison_choisie = Some(rang);
     }
     let objet_saisi = if complete
+        && etat.avance
         && etat.mur_tire.is_none()
         && etat.cloison_etiree.is_none()
         && etat.cloison_en_trace.is_none()
@@ -4524,6 +4627,7 @@ fn planche_et_gestes(
         && complete
         && etat.ouverture_a_placer.is_none()
         && etat.objet_a_placer.is_none()
+        && etat.avance
         && let Some(rang) = note_sous(etat, position)
     {
         // Toucher une note la choisit et ouvre son champ.
@@ -4570,6 +4674,7 @@ fn planche_et_gestes(
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
         && etat.ouverture_a_placer.is_none()
+        && etat.avance
         && let Some(rang) = cloison_sous(
             solution,
             echelle.vers_le_plan(position),
@@ -4592,6 +4697,7 @@ fn planche_et_gestes(
         && let Some(position) = reponse.interact_pointer_pos()
         && complete
         && etat.ouverture_a_placer.is_none()
+        && etat.avance
         && let Some(rang) = objet_sous(dessin, solution, echelle.vers_le_plan(position))
     {
         // Toucher un objet le choisit.
@@ -5518,7 +5624,8 @@ fn planche_et_gestes(
         Pos2::new(planche.left() + 8.0, planche.bottom() - 42.0),
         Vec2::new(52.0, 34.0),
     );
-    if dessin.fermee
+    if etat.avance
+        && dessin.fermee
         && matches!(solution.etat, EtatDeLaForme::Complete { .. })
         && bouton_de_planche(
             ui,
@@ -5534,7 +5641,10 @@ fn planche_et_gestes(
     }
     // Les lignes de cote (point 35) : ce bouton les montre ou les cache.
     let bouton_des_cotes = Rect::from_min_size(
-        Pos2::new(planche.left() + 66.0, planche.bottom() - 42.0),
+        Pos2::new(
+            planche.left() + if etat.avance { 66.0 } else { 8.0 },
+            planche.bottom() - 42.0,
+        ),
         Vec2::new(64.0, 34.0),
     );
     if dessin.fermee
@@ -5559,7 +5669,8 @@ fn planche_et_gestes(
         Pos2::new(planche.left() + 136.0, planche.bottom() - 42.0),
         Vec2::new(84.0, 34.0),
     );
-    if dessin.fermee
+    if etat.avance
+        && dessin.fermee
         && matches!(solution.etat, EtatDeLaForme::Complete { .. })
         && bouton_de_planche(
             ui,
@@ -5589,7 +5700,8 @@ fn planche_et_gestes(
         Pos2::new(planche.left() + 226.0, planche.bottom() - 42.0),
         Vec2::new(68.0, 34.0),
     );
-    if dessin.fermee
+    if etat.avance
+        && dessin.fermee
         && matches!(solution.etat, EtatDeLaForme::Complete { .. })
         && bouton_de_planche(
             ui,
@@ -6922,168 +7034,173 @@ fn murs(
             etat.choisir_autre(Some(AutreSaisie::Hauteur));
         }
     });
-    ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(textes::DESSIN_EPAISSEUR_DES_MURS.traduit()).size(13.5));
-        let texte = longueur_en_clair(solution.epaisseur_des_murs, solution, prefs);
-        let cible = AutreSaisie::EpaisseurDesMurs;
-        let bouton = egui::Button::new(texte).selected(etat.autre_choisi == Some(cible));
-        if ui.add(bouton).clicked() {
-            etat.choisir_autre(Some(cible));
-        }
-    });
-    // De quel côté des murs sont les mesures : l'intérieur (les murs vont vers
-    // l'extérieur) ou l'extérieur (ils vont vers l'intérieur).
-    ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(textes::DESSIN_MESURES.traduit()).size(13.5));
-        for (exterieures, texte) in [
-            (false, textes::DESSIN_INTERIEUR),
-            (true, textes::DESSIN_EXTERIEUR),
-        ] {
-            let bouton = egui::Button::new(texte.traduit())
-                .selected(dessin.mesures_exterieures == exterieures);
-            if ui.add(bouton).clicked() && dessin.mesures_exterieures != exterieures {
-                etat.memoriser(dessin);
-                dessin.mesures_exterieures = exterieures;
-                modifie = true;
-            }
-        }
-    });
-    // Le plafond (point 34) : plat, cathédrale ou en pente.
-    ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(textes::DESSIN_PLAFOND.traduit()).size(13.5));
-        for (forme, texte) in [
-            (FormeDePlafond::Plat, textes::DESSIN_PLAFOND_PLAT),
-            (
-                FormeDePlafond::Cathedrale,
-                textes::DESSIN_PLAFOND_CATHEDRALE,
-            ),
-            (FormeDePlafond::EnPente, textes::DESSIN_PLAFOND_EN_PENTE),
-        ] {
-            let bouton = egui::Button::new(texte.traduit()).selected(dessin.plafond.forme == forme);
-            if ui.add(bouton).clicked() && dessin.plafond.forme != forme {
-                etat.memoriser(dessin);
-                dessin.plafond.forme = forme;
-                modifie = true;
-                // Sa hauteur haute s'inscrit ensuite au pavé.
-                if forme != FormeDePlafond::Plat && dessin.plafond.haut.trim().is_empty() {
-                    etat.choisir_autre(Some(AutreSaisie::HautDuPlafond));
-                }
-            }
-        }
-    });
-    if dessin.plafond.forme != FormeDePlafond::Plat {
-        let nombre = dessin.cotes.len().max(1);
-        let cote = dessin.plafond.cote % nombre;
+    // L'épaisseur des murs, le côté des mesures, le plafond et ses retombées
+    // sont du mode Avancé (point 59).
+    if etat.avance {
         ui.horizontal_wrapped(|ui| {
-            let (libelle, du_cote) = if dessin.plafond.forme == FormeDePlafond::Cathedrale {
-                (
-                    textes::DESSIN_HAUTEUR_AU_FAITE,
-                    textes::dessin_faite_parallele(cote + 1),
-                )
-            } else {
-                (
-                    textes::DESSIN_HAUTEUR_DU_COTE_HAUT,
-                    textes::dessin_cote_haut(cote + 1),
-                )
-            };
-            ui.label(RichText::new(libelle.traduit()).size(13.5));
-            let cible = AutreSaisie::HautDuPlafond;
-            let texte = mesure_du_bouton(&dessin.plafond.haut, "?", prefs);
-            if ui
-                .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
-                .clicked()
-            {
+            ui.label(RichText::new(textes::DESSIN_EPAISSEUR_DES_MURS.traduit()).size(13.5));
+            let texte = longueur_en_clair(solution.epaisseur_des_murs, solution, prefs);
+            let cible = AutreSaisie::EpaisseurDesMurs;
+            let bouton = egui::Button::new(texte).selected(etat.autre_choisi == Some(cible));
+            if ui.add(bouton).clicked() {
                 etat.choisir_autre(Some(cible));
             }
-            if ui
-                .add(egui::Button::new(du_cote))
-                .on_hover_text(textes::INFOBULLE_COTE_DU_PLAFOND.traduit())
-                .clicked()
-            {
-                etat.memoriser(dessin);
-                dessin.plafond.cote = (cote + 1) % nombre;
-                modifie = true;
+        });
+        // De quel côté des murs sont les mesures : l'intérieur (les murs vont vers
+        // l'extérieur) ou l'extérieur (ils vont vers l'intérieur).
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(textes::DESSIN_MESURES.traduit()).size(13.5));
+            for (exterieures, texte) in [
+                (false, textes::DESSIN_INTERIEUR),
+                (true, textes::DESSIN_EXTERIEUR),
+            ] {
+                let bouton = egui::Button::new(texte.traduit())
+                    .selected(dessin.mesures_exterieures == exterieures);
+                if ui.add(bouton).clicked() && dessin.mesures_exterieures != exterieures {
+                    etat.memoriser(dessin);
+                    dessin.mesures_exterieures = exterieures;
+                    modifie = true;
+                }
             }
         });
-        if solution.plafond_invalide {
+        // Le plafond (point 34) : plat, cathédrale ou en pente.
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(textes::DESSIN_PLAFOND.traduit()).size(13.5));
+            for (forme, texte) in [
+                (FormeDePlafond::Plat, textes::DESSIN_PLAFOND_PLAT),
+                (
+                    FormeDePlafond::Cathedrale,
+                    textes::DESSIN_PLAFOND_CATHEDRALE,
+                ),
+                (FormeDePlafond::EnPente, textes::DESSIN_PLAFOND_EN_PENTE),
+            ] {
+                let bouton =
+                    egui::Button::new(texte.traduit()).selected(dessin.plafond.forme == forme);
+                if ui.add(bouton).clicked() && dessin.plafond.forme != forme {
+                    etat.memoriser(dessin);
+                    dessin.plafond.forme = forme;
+                    modifie = true;
+                    // Sa hauteur haute s'inscrit ensuite au pavé.
+                    if forme != FormeDePlafond::Plat && dessin.plafond.haut.trim().is_empty() {
+                        etat.choisir_autre(Some(AutreSaisie::HautDuPlafond));
+                    }
+                }
+            }
+        });
+        if dessin.plafond.forme != FormeDePlafond::Plat {
+            let nombre = dessin.cotes.len().max(1);
+            let cote = dessin.plafond.cote % nombre;
+            ui.horizontal_wrapped(|ui| {
+                let (libelle, du_cote) = if dessin.plafond.forme == FormeDePlafond::Cathedrale {
+                    (
+                        textes::DESSIN_HAUTEUR_AU_FAITE,
+                        textes::dessin_faite_parallele(cote + 1),
+                    )
+                } else {
+                    (
+                        textes::DESSIN_HAUTEUR_DU_COTE_HAUT,
+                        textes::dessin_cote_haut(cote + 1),
+                    )
+                };
+                ui.label(RichText::new(libelle.traduit()).size(13.5));
+                let cible = AutreSaisie::HautDuPlafond;
+                let texte = mesure_du_bouton(&dessin.plafond.haut, "?", prefs);
+                if ui
+                    .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                    .clicked()
+                {
+                    etat.choisir_autre(Some(cible));
+                }
+                if ui
+                    .add(egui::Button::new(du_cote))
+                    .on_hover_text(textes::INFOBULLE_COTE_DU_PLAFOND.traduit())
+                    .clicked()
+                {
+                    etat.memoriser(dessin);
+                    dessin.plafond.cote = (cote + 1) % nombre;
+                    modifie = true;
+                }
+            });
+            if solution.plafond_invalide {
+                ui.label(
+                    RichText::new(textes::DESSIN_PLAFOND_INVALIDE.traduit())
+                        .size(12.5)
+                        .color(p.erreur),
+                );
+            } else if solution.plafond_incomplet {
+                ui.label(
+                    RichText::new(textes::DESSIN_PLAFOND_INCOMPLET.traduit())
+                        .size(12.5)
+                        .color(p.texte_attenue),
+                );
+            }
+        }
+        // Les retombées de plafond : longueur × largeur × descente.
+        let mut retombee_a_enlever = None;
+        for rang in 0..dessin.retombees.len() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new(format!(
+                        "{} {}.",
+                        textes::DESSIN_RETOMBEE.traduit(),
+                        rang + 1
+                    ))
+                    .font(theme::police_grasse(13.5)),
+                );
+                for (champ, vide) in [
+                    (ChampDeRetombee::Longueur, textes::DESSIN_LONGUEUR),
+                    (ChampDeRetombee::Largeur, textes::DESSIN_LARGEUR),
+                    (ChampDeRetombee::Descente, textes::DESSIN_DESCENTE),
+                ] {
+                    let retombee = &dessin.retombees[rang];
+                    let saisie = match champ {
+                        ChampDeRetombee::Longueur => &retombee.longueur,
+                        ChampDeRetombee::Largeur => &retombee.largeur,
+                        ChampDeRetombee::Descente => &retombee.hauteur,
+                    };
+                    let cible = AutreSaisie::Retombee(rang, champ);
+                    let bouton = egui::Button::new(mesure_du_bouton(saisie, vide.traduit(), prefs))
+                        .selected(etat.autre_choisi == Some(cible));
+                    if ui.add(bouton).clicked() {
+                        etat.choisir_autre(Some(cible));
+                    }
+                    if champ != ChampDeRetombee::Descente {
+                        ui.label("×");
+                    }
+                }
+                if ui
+                    .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
+                    .clicked()
+                {
+                    retombee_a_enlever = Some(rang);
+                }
+            });
+        }
+        if let Some(rang) = retombee_a_enlever {
+            etat.memoriser(dessin);
+            dessin.retombees.remove(rang);
+            etat.choisir_autre(None);
+            modifie = true;
+        }
+        if solution.retombees.iter().any(Option::is_none) {
             ui.label(
-                RichText::new(textes::DESSIN_PLAFOND_INVALIDE.traduit())
+                RichText::new(textes::DESSIN_RETOMBEE_INCOMPLETE.traduit())
                     .size(12.5)
                     .color(p.erreur),
             );
-        } else if solution.plafond_incomplet {
-            ui.label(
-                RichText::new(textes::DESSIN_PLAFOND_INCOMPLET.traduit())
-                    .size(12.5)
-                    .color(p.texte_attenue),
-            );
         }
-    }
-    // Les retombées de plafond : longueur × largeur × descente.
-    let mut retombee_a_enlever = None;
-    for rang in 0..dessin.retombees.len() {
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                RichText::new(format!(
-                    "{} {}.",
-                    textes::DESSIN_RETOMBEE.traduit(),
-                    rang + 1
-                ))
-                .font(theme::police_grasse(13.5)),
-            );
-            for (champ, vide) in [
-                (ChampDeRetombee::Longueur, textes::DESSIN_LONGUEUR),
-                (ChampDeRetombee::Largeur, textes::DESSIN_LARGEUR),
-                (ChampDeRetombee::Descente, textes::DESSIN_DESCENTE),
-            ] {
-                let retombee = &dessin.retombees[rang];
-                let saisie = match champ {
-                    ChampDeRetombee::Longueur => &retombee.longueur,
-                    ChampDeRetombee::Largeur => &retombee.largeur,
-                    ChampDeRetombee::Descente => &retombee.hauteur,
-                };
-                let cible = AutreSaisie::Retombee(rang, champ);
-                let bouton = egui::Button::new(mesure_du_bouton(saisie, vide.traduit(), prefs))
-                    .selected(etat.autre_choisi == Some(cible));
-                if ui.add(bouton).clicked() {
-                    etat.choisir_autre(Some(cible));
-                }
-                if champ != ChampDeRetombee::Descente {
-                    ui.label("×");
-                }
-            }
-            if ui
-                .add(egui::Button::new(textes::DESSIN_ENLEVER.traduit()))
-                .clicked()
-            {
-                retombee_a_enlever = Some(rang);
-            }
-        });
-    }
-    if let Some(rang) = retombee_a_enlever {
-        etat.memoriser(dessin);
-        dessin.retombees.remove(rang);
-        etat.choisir_autre(None);
-        modifie = true;
-    }
-    if solution.retombees.iter().any(Option::is_none) {
-        ui.label(
-            RichText::new(textes::DESSIN_RETOMBEE_INCOMPLETE.traduit())
-                .size(12.5)
-                .color(p.erreur),
-        );
-    }
-    if ui
-        .add(egui::Button::new(textes::DESSIN_AJOUTER_RETOMBEE.traduit()))
-        .clicked()
-    {
-        etat.memoriser(dessin);
-        dessin.retombees.push(Retombee::default());
-        etat.choisir_autre(Some(AutreSaisie::Retombee(
-            dessin.retombees.len() - 1,
-            ChampDeRetombee::Longueur,
-        )));
-        modifie = true;
+        if ui
+            .add(egui::Button::new(textes::DESSIN_AJOUTER_RETOMBEE.traduit()))
+            .clicked()
+        {
+            etat.memoriser(dessin);
+            dessin.retombees.push(Retombee::default());
+            etat.choisir_autre(Some(AutreSaisie::Retombee(
+                dessin.retombees.len() - 1,
+                ChampDeRetombee::Longueur,
+            )));
+            modifie = true;
+        }
     }
     if solution.hauteur_invalide {
         ui.label(
@@ -8581,6 +8698,150 @@ fn pave_de_touches(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Ce que l'écran du dessin montre, d'après son arbre d'accessibilité :
+    /// le nom de chaque bouton et le texte de chaque étiquette.
+    fn ce_que_montre_l_ecran(plan: &Plan, avance: bool) -> std::collections::BTreeSet<String> {
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        let prefs = Preferences {
+            dessin_avance: avance,
+            ..Preferences::default()
+        };
+        let mut plan = plan.clone();
+        let mut etat = Etat::default();
+        let entree = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 9000.0))),
+            ..egui::RawInput::default()
+        };
+        let mut noms = std::collections::BTreeSet::new();
+        // Deux images : la première met tout en place.
+        for _ in 0..2 {
+            let mut sortie = ctx.run_ui(entree.clone(), |ui| {
+                afficher(
+                    ui,
+                    crate::theme::palette(false, false),
+                    &mut plan,
+                    &mut etat,
+                    &prefs,
+                    "Essai",
+                );
+            });
+            // La texture des polices n'intéresse pas l'essai.
+            sortie.textures_delta.clear();
+            if let Some(arbre) = sortie.platform_output.accesskit_update {
+                for (_, noeud) in &arbre.nodes {
+                    noms.extend(noeud.label().map(str::to_string));
+                    noms.extend(noeud.value().map(str::to_string));
+                }
+            }
+        }
+        noms
+    }
+
+    #[test]
+    fn le_mode_debutant_garde_l_essentiel() {
+        // La salle de bain du plan d'exemple : un rectangle complet, avec
+        // ouvertures, objets, finis et calepinage, dans un plan de huit pièces.
+        let mut plan = crate::exemple::plan_d_exemple();
+        plan.courante = 3;
+        let debutant = ce_que_montre_l_ecran(&plan, false);
+        let avance = ce_que_montre_l_ecran(&plan, true);
+        let montre = |noms: &std::collections::BTreeSet<String>, texte: noyau::langue::Texte| {
+            noms.contains(texte.traduit())
+        };
+        // Ce que les deux modes montrent : l'essentiel d'un croquis précis.
+        for texte in [
+            textes::DESSIN_MODE_DEBUTANT,
+            textes::DESSIN_MODE_AVANCE,
+            textes::DESSIN_ANNULER,
+            textes::DESSIN_AJOUTER_UNE_PIECE,
+            textes::DESSIN_MURS,
+            textes::DESSIN_HAUTEUR_DES_MURS,
+            textes::DESSIN_AJOUTER_PORTE,
+            textes::DESSIN_AJOUTER_FENETRE,
+            textes::DESSIN_MONTRER_LES_COTES,
+            textes::DESSIN_EXPORTER,
+            textes::DESSIN_EXPORTER_PDF,
+            textes::DESSIN_EXPORTER_DXF,
+        ] {
+            assert!(
+                montre(&debutant, texte),
+                "Débutant sans « {} »",
+                texte.traduit()
+            );
+            assert!(
+                montre(&avance, texte),
+                "Avancé sans « {} »",
+                texte.traduit()
+            );
+        }
+        // Ce que seul le mode Avancé montre : tout le reste du module.
+        for texte in [
+            textes::DESSIN_ETAGE,
+            textes::DESSIN_AJOUTER_UN_TERRAIN,
+            textes::DESSIN_DUPLIQUER,
+            textes::DESSIN_MIROIR,
+            textes::DESSIN_VOIR_EN_3D,
+            textes::DESSIN_MESURER_UNE_DISTANCE,
+            textes::DESSIN_DESSINER_A_MAIN_LEVEE,
+            textes::DESSIN_DIAGONALES,
+            textes::DESSIN_RETRAITS,
+            textes::DESSIN_EPAISSEUR_DES_MURS,
+            // Le plafond se lit au bilan; seuls ses boutons sont du mode Avancé.
+            textes::DESSIN_PLAFOND_PLAT,
+            textes::DESSIN_AJOUTER_RETOMBEE,
+            textes::DESSIN_FINIS,
+            textes::DESSIN_CALEPINAGE,
+            textes::DESSIN_ELEVATIONS,
+            textes::DESSIN_OSSATURE,
+            // (Les espaces que ferment les cloisons ne paraissent qu'avec des
+            // cloisons.)
+            textes::DESSIN_CLOISONS,
+            textes::DESSIN_OBJETS,
+            textes::DESSIN_NOTES,
+            textes::DESSIN_BORDEREAU,
+            textes::DESSIN_TABLEAU_DES_FINIS,
+            textes::DESSIN_MISE_EN_PAGE,
+            textes::PARTAGE_PAR_CODE_QR,
+        ] {
+            assert!(
+                !montre(&debutant, texte),
+                "Débutant avec « {} »",
+                texte.traduit()
+            );
+            assert!(
+                montre(&avance, texte),
+                "Avancé sans « {} »",
+                texte.traduit()
+            );
+        }
+    }
+
+    #[test]
+    fn le_mode_debutant_range_les_outils_avances() {
+        let mut etat = Etat {
+            vue_3d: true,
+            mesure: Some(Vec::new()),
+            crayon_sorti: true,
+            cloison_a_tracer: true,
+            objet_choisi: Some(0),
+            note_a_placer: true,
+            autre_choisi: Some(AutreSaisie::EpaisseurDesMurs),
+            ouverture_a_placer: Some(0),
+            ..Etat::default()
+        };
+        etat.ranger_les_outils_avances();
+        assert!(!etat.vue_3d && etat.mesure.is_none() && !etat.crayon_sorti);
+        assert!(!etat.cloison_a_tracer && etat.objet_choisi.is_none() && !etat.note_a_placer);
+        assert_eq!(etat.autre_choisi, None);
+        // La porte qui attend son mur reste : elle est du mode Débutant.
+        assert_eq!(etat.ouverture_a_placer, Some(0));
+        // La hauteur des murs, qu'on inscrit, reste ouverte.
+        etat.autre_choisi = Some(AutreSaisie::Hauteur);
+        etat.ranger_les_outils_avances();
+        assert_eq!(etat.autre_choisi, Some(AutreSaisie::Hauteur));
+    }
 
     #[test]
     fn toucher_une_cloison_choisit_le_segment_le_plus_proche() {

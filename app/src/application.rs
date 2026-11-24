@@ -2576,6 +2576,12 @@ impl Application {
                     }
                     None => {}
                 }
+                // Le mode du dessin (section 25.1, point 59), retenu dans les
+                // préférences.
+                if let Some(avance) = self.etat_du_dessin.mode_demande.take() {
+                    self.moteur.preferences_mut().dessin_avance = avance;
+                    self.a_sauvegarder = true;
+                }
             }
             Vue::Aide => match vues::aide::afficher(ui, p, &mut self.recherche, self.fiche_ouverte)
             {

@@ -172,6 +172,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   l'onglet Dessin, pour montrer ce qu'il fait et ses limites; « Plan d'exemple », dans « Mes
   dessins », le rouvre.
 
+- **Mode Débutant | Avancé** : sous le nom du dessin, Débutant garde l'essentiel d'un croquis
+  précis (côtés et mesures, hauteur des murs, portes et fenêtres, cotes, surface, export); Avancé
+  montre tous les outils, comme avant.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
