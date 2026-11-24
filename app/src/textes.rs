@@ -869,6 +869,23 @@ pub const INFOBULLE_MODE_AVANCE: Texte = t(
     "Tous les outils du dessin : l'étage, la 3D, les cloisons, les objets, les finis, l'ossature et le reste",
     "Every drawing tool: floor, 3D, partitions, objects, finishes, framing and more",
 );
+// Les formes de départ (section 25.1, point 60).
+pub const DESSIN_FORMES_DE_DEPART: Texte = t("Formes de départ", "Starting shapes");
+pub const FORME_RECTANGLE: Texte = t("Rectangle", "Rectangle");
+pub const FORME_EN_L: Texte = t("En L", "L-shaped");
+pub const FORME_EN_T: Texte = t("En T", "T-shaped");
+pub const FORME_COIN_A_45: Texte = t("Coin à 45°", "45° corner");
+
+/// Le nom d'une forme de départ, sur son bouton.
+pub fn nom_de_la_forme(forme: noyau::formes::FormeDeDepart) -> Texte {
+    use noyau::formes::FormeDeDepart as F;
+    match forme {
+        F::Rectangle => FORME_RECTANGLE,
+        F::EnL => FORME_EN_L,
+        F::EnT => FORME_EN_T,
+        F::CoinA45 => FORME_COIN_A_45,
+    }
+}
 pub const AVIS_DESSIN_DUPLIQUE: Texte = t("Dessin dupliqué.", "Drawing duplicated.");
 
 /// « Chambre (copie) », le nom d'une copie.
@@ -2226,8 +2243,8 @@ pub const DESSIN_AGRANDIR_LA_PLANCHE: Texte = t(
     "Enlarge or shrink the drawing board",
 );
 pub const DESSIN_ETAPE_TRACER: Texte = t(
-    "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre, ou à 45° pour un mur en biais (le bouton 45° fait passer les flèches en biais).",
-    "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up, or set at 45° for an angled wall (the 45° button switches the arrows to angled).",
+    "Tracez le contour de la pièce avec le doigt ou la souris, d'un seul geste ou un côté à la fois, ou avec les flèches du bas de la planche : chacune ajoute un côté dans sa direction. Le croquis n'a pas besoin d'être à l'échelle : les angles sont mis d'équerre, ou à 45° pour un mur en biais (le bouton 45° fait passer les flèches en biais). Ou partez d'une forme de départ, sous la planche : touchez-la, puis inscrivez ses mesures.",
+    "Draw the outline of the room with your finger or the mouse, in one stroke or one side at a time, or with the arrows at the bottom of the board: each one adds a side in its direction. The sketch does not need to be to scale: corners are squared up, or set at 45° for an angled wall (the 45° button switches the arrows to angled). Or start from a shape, below the board: tap it, then enter its measurements.",
 );
 pub const DESSIN_ETAPE_FERMER: Texte = t(
     "Continuez le tracé jusqu'au point de départ (le cercle orange), ou touchez « Fermer la forme ».",

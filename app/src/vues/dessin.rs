@@ -11,6 +11,7 @@ use noyau::dessin::{
     Solution,
 };
 use noyau::dessin::{EPAISSEUR_DES_MURS_PAR_DEFAUT, EchelleDuPlan, MorceauDeMur};
+use noyau::formes::FormeDeDepart;
 use noyau::metiers::Quantite;
 use noyau::mobilier::{
     self, Contour, Encombrement, Famille, FormeDEscalier, GenreDObjet, Objet, TraitSurLePlan,
@@ -2325,6 +2326,16 @@ pub fn afficher(
             if boutons(ui, dessin, etat) {
                 action = Some(Action::Modifie);
             }
+            // Une pièce vide part d'un tracé ou d'une forme (point 60).
+            let solution = if dessin.est_vide()
+                && etat.trace.is_empty()
+                && formes_de_depart(ui, p, dessin, etat)
+            {
+                action = Some(Action::Modifie);
+                dessin.resoudre(FORMAT_PAR_DEFAUT)
+            } else {
+                solution
+            };
             ui.add_space(6.0);
             if mesure_du_cote(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
@@ -6106,6 +6117,84 @@ fn boutons(ui: &mut Ui, dessin: &mut Dessin, etat: &mut Etat) -> bool {
     modifie
 }
 
+/// Les formes de départ (section 25.1, point 60), sous une pièce vide : un
+/// toucher pose la forme, fermée, et le pavé s'ouvre sur son premier côté;
+/// « Suivant » mène ensuite d'un côté sans mesure au prochain. Retourne vrai
+/// si le dessin a changé.
+fn formes_de_depart(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool {
+    let mut choisie = None;
+    ui.add_space(8.0);
+    ui.label(
+        RichText::new(textes::DESSIN_FORMES_DE_DEPART.traduit())
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+    );
+    ui.horizontal_wrapped(|ui| {
+        for forme in FormeDeDepart::TOUTES {
+            if bouton_de_forme(ui, p, forme) {
+                choisie = Some(forme);
+            }
+        }
+    });
+    let Some(forme) = choisie else {
+        return false;
+    };
+    etat.memoriser(dessin);
+    dessin.poser_une_forme(forme);
+    etat.cadrage = Cadrage::default();
+    etat.choisir(Some(0));
+    true
+}
+
+/// Le bouton d'une forme de départ : son contour, et son nom dessous.
+fn bouton_de_forme(ui: &mut Ui, p: &Palette, forme: FormeDeDepart) -> bool {
+    let nom = textes::nom_de_la_forme(forme).traduit();
+    let (zone, reponse) = ui.allocate_exact_size(Vec2::new(84.0, 68.0), Sense::click());
+    reponse.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, nom));
+    let visuels = ui.style().interact(&reponse);
+    let painter = ui.painter();
+    painter.rect(
+        zone,
+        8,
+        visuels.weak_bg_fill,
+        visuels.bg_stroke,
+        egui::StrokeKind::Inside,
+    );
+    // Le contour, à l'échelle, dans le haut du bouton.
+    let sommets = forme.sommets();
+    let (x0, x1, y0, y1) = sommets.iter().fold(
+        (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
+        |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
+    );
+    let cadre = Rect::from_min_max(
+        zone.min + Vec2::new(18.0, 8.0),
+        Pos2::new(zone.max.x - 18.0, zone.max.y - 26.0),
+    );
+    let facteur = (f64::from(cadre.width()) / (x1 - x0).max(1.0))
+        .min(f64::from(cadre.height()) / (y1 - y0).max(1.0));
+    let points: Vec<Pos2> = sommets
+        .iter()
+        .map(|&(x, y)| {
+            Pos2::new(
+                cadre.center().x + ((x - (x0 + x1) / 2.0) * facteur) as f32,
+                cadre.center().y + ((y - (y0 + y1) / 2.0) * facteur) as f32,
+            )
+        })
+        .collect();
+    painter.add(egui::Shape::closed_line(
+        points,
+        Stroke::new(2.0, p.accent_du_plan()),
+    ));
+    painter.text(
+        Pos2::new(zone.center().x, zone.max.y - 13.0),
+        Align2::CENTER_CENTER,
+        nom,
+        theme::police(12.5),
+        visuels.text_color(),
+    );
+    reponse.clicked()
+}
+
 /// Le champ de la mesure du côté choisi. Retourne vrai si une mesure a changé.
 fn mesure_du_cote(
     ui: &mut Ui,
@@ -8816,6 +8905,25 @@ mod tests {
                 texte.traduit()
             );
         }
+    }
+
+    #[test]
+    fn une_piece_vide_offre_ses_formes_de_depart() {
+        // Dans les deux modes (point 60).
+        for avance in [false, true] {
+            let noms = ce_que_montre_l_ecran(&Plan::default(), avance);
+            assert!(noms.contains(textes::DESSIN_FORMES_DE_DEPART.traduit()));
+            for forme in FormeDeDepart::TOUTES {
+                let nom = textes::nom_de_la_forme(forme).traduit();
+                assert!(noms.contains(nom), "sans « {nom} »");
+            }
+        }
+        // Une pièce tracée ne les offre plus.
+        let mut plan = crate::exemple::plan_d_exemple();
+        plan.courante = 3;
+        let noms = ce_que_montre_l_ecran(&plan, false);
+        assert!(!noms.contains(textes::DESSIN_FORMES_DE_DEPART.traduit()));
+        assert!(!noms.contains(textes::FORME_EN_T.traduit()));
     }
 
     #[test]

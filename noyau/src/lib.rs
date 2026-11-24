@@ -17,6 +17,7 @@ pub mod etiquettes;
 pub mod finis;
 pub mod fonctions;
 pub mod format;
+pub mod formes;
 pub mod heures;
 pub mod implantation;
 pub mod langue;

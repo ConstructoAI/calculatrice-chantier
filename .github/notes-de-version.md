@@ -176,6 +176,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   précis (côtés et mesures, hauteur des murs, portes et fenêtres, cotes, surface, export); Avancé
   montre tous les outils, comme avant.
 
+- **Formes de départ** : sous une pièce vide, « Rectangle », « En L », « En T » ou « Coin à 45° »
+  pose la forme; on inscrit ses mesures au pavé, et les derniers côtés se déduisent.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
