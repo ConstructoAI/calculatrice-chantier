@@ -148,6 +148,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Plan d'étage (troisième partie)** : le PDF a une page de l'étage entier, et le DXF met
   chaque pièce à sa place, tournée comme dans l'étage.
 
+- **Plan d'étage (quatrième partie)** : la 3D de l'étage entier — le bouton « 3D » de la vue de
+  l'étage montre toutes les pièces à leur place, leurs portes traversant les murs communs.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

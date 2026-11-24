@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::dessin::{Dessin, GenreDOuverture, MorceauDeMur, Placement, Plan};
+use crate::maquette::{Bloc, Face, Maquette};
 use crate::unites::Format;
 
 /// La place d'une pièce dans l'étage : le point de l'étage où va l'origine de
@@ -410,9 +411,10 @@ impl Plan {
     }
 
     /// Les passages qu'ouvrent les portes et les fenêtres des pièces voisines
-    /// dans les murs communs de la pièce de rang `rang` : (côté, début, fin),
-    /// en pouces le long de ses mesures.
-    pub fn passages_des_voisins(&self, rang: usize, defaut: Format) -> Vec<(usize, f64, f64)> {
+    /// dans les murs communs de la pièce de rang `rang` : des baies libres
+    /// sur ses côtés, en pouces le long de ses mesures, du bas au haut de
+    /// l'ouverture de la voisine.
+    pub fn passages_des_voisins(&self, rang: usize, defaut: Format) -> Vec<Placement> {
         let Some(moi) = self.pieces.get(rang) else {
             return Vec::new();
         };
@@ -470,7 +472,14 @@ impl Plan {
                 let (p, q) = (bout(placement.debut), bout(placement.fin));
                 let (t0, t1) = (p.min(q).max(s0), p.max(q).min(s1));
                 if t1 - t0 > 0.5 {
-                    passages.push((mon_cote, t0, t1));
+                    passages.push(Placement {
+                        cote: mon_cote,
+                        debut: t0,
+                        fin: t1,
+                        genre: GenreDOuverture::BaieLibre,
+                        inversee: false,
+                        ..*placement
+                    });
                 }
             }
         }
@@ -488,18 +497,11 @@ impl Plan {
             return Vec::new();
         };
         let mut solution = piece.dessin.resoudre(defaut);
-        for (cote, debut, fin) in self.passages_des_voisins(rang, defaut) {
-            solution.placements.push(Some(Placement {
-                cote,
-                debut,
-                fin,
-                porte: true,
-                genre: GenreDOuverture::BaieLibre,
-                inversee: false,
-                bas: 0.0,
-                haut: 0.0,
-            }));
-        }
+        solution.placements.extend(
+            self.passages_des_voisins(rang, defaut)
+                .into_iter()
+                .map(Some),
+        );
         piece
             .dessin
             .murs_exterieurs(&solution)
@@ -509,6 +511,62 @@ impl Plan {
                 ..morceau
             })
             .collect()
+    }
+}
+
+impl Plan {
+    /// La maquette 3D de l'étage : celle de chaque pièce complète et placée,
+    /// percée aussi par les ouvertures des voisines dans leurs murs communs,
+    /// tournée et posée à sa place. `None` sans aucune pièce.
+    pub fn maquette_de_l_etage(&self, defaut: Format) -> Option<Maquette> {
+        let mut etage = Maquette {
+            faces: Vec::new(),
+            aretes: Vec::new(),
+            blocs: Vec::new(),
+        };
+        for piece in self.pieces_dans_l_etage(defaut) {
+            let dessin = &self.pieces[piece.rang].dessin;
+            let mut solution = dessin.resoudre(defaut);
+            solution.placements.extend(
+                self.passages_des_voisins(piece.rang, defaut)
+                    .into_iter()
+                    .map(Some),
+            );
+            let Some(maquette) = crate::maquette::maquette(dessin, &solution) else {
+                continue;
+            };
+            // La maquette a le plan en (x, z), la hauteur en y.
+            let place = piece.place;
+            let (sinus, cosinus) = place.rotation.to_radians().sin_cos();
+            let point = |[x, y, z]: [f64; 3]| {
+                let (x, z) = place.vers_l_etage((x, z));
+                [x, y, z]
+            };
+            let (faces, aretes) = (etage.faces.len(), etage.aretes.len());
+            etage.faces.extend(maquette.faces.into_iter().map(|face| {
+                let [nx, ny, nz] = face.normale;
+                Face {
+                    sommets: face.sommets.into_iter().map(point).collect(),
+                    normale: [nx * cosinus - nz * sinus, ny, nx * sinus + nz * cosinus],
+                    ..face
+                }
+            }));
+            etage.aretes.extend(
+                maquette
+                    .aretes
+                    .into_iter()
+                    .map(|[a, b]| [point(a), point(b)]),
+            );
+            etage
+                .blocs
+                .extend(maquette.blocs.into_iter().map(|bloc| Bloc {
+                    coins: bloc.coins.map(|coin| place.vers_l_etage(coin)),
+                    faces: bloc.faces.start + faces..bloc.faces.end + faces,
+                    aretes: bloc.aretes.start + aretes..bloc.aretes.end + aretes,
+                    ..bloc
+                }));
+        }
+        (!etage.faces.is_empty()).then_some(etage)
     }
 }
 
@@ -664,12 +722,14 @@ mod tests {
         // long de son côté 2.
         let passages = plan.passages_des_voisins(0, Format::PiPo);
         assert_eq!(passages.len(), 1, "{passages:?}");
-        let (cote, debut, fin) = passages[0];
-        assert_eq!(cote, 1);
-        assert!(
-            (debut - 42.0).abs() < 1e-6 && (fin - 72.0).abs() < 1e-6,
-            "{passages:?}"
+        let passage = passages[0];
+        assert_eq!(
+            (passage.cote, passage.genre),
+            (1, GenreDOuverture::BaieLibre)
         );
+        assert!((passage.debut - 42.0).abs() < 1e-6 && (passage.fin - 72.0).abs() < 1e-6);
+        // Du plancher au haut de la porte.
+        assert!(passage.bas.abs() < 1e-9 && (passage.haut - 80.0).abs() < 1e-9);
         // Le mur du salon s'interrompt là : un morceau de plus.
         let salon = &plan.pieces[0].dessin;
         let seuls = salon.murs_exterieurs(&salon.resoudre(Format::PiPo)).len();
@@ -681,5 +741,41 @@ mod tests {
             .map(|place| place.deplacee((24.0, 0.0)));
         assert!(loin.murs_communs(Format::PiPo).is_empty());
         assert!(loin.passages_des_voisins(0, Format::PiPo).is_empty());
+    }
+    #[test]
+    fn la_maquette_de_l_etage() {
+        let plan = salon_et_chambre();
+        let maquette = plan.maquette_de_l_etage(Format::PiPo).unwrap();
+        // Les deux pièces y sont : le plancher de la chambre commence à son
+        // coin, dans l'étage.
+        let chambre = plan.pieces[1].place.unwrap();
+        assert!(maquette.faces.iter().any(|face| {
+            face.genre == crate::maquette::GenreDeFace::Plancher
+                && face.sommets.iter().any(|s| {
+                    (s[0] - chambre.x).abs() < 1e-6
+                        && s[1].abs() < 1e-9
+                        && (s[2] - chambre.y).abs() < 1e-6
+                })
+        }));
+        // Le mur du salon, percé par la porte de la chambre, a plus de faces
+        // que celui du salon seul.
+        let seules: usize = plan
+            .pieces
+            .iter()
+            .map(|piece| {
+                let solution = piece.dessin.resoudre(Format::PiPo);
+                crate::maquette::maquette(&piece.dessin, &solution)
+                    .unwrap()
+                    .faces
+                    .len()
+            })
+            .sum();
+        assert!(maquette.faces.len() > seules);
+        // Sans pièce placée, aucune maquette.
+        assert!(
+            plan_de_deux_pieces()
+                .maquette_de_l_etage(Format::PiPo)
+                .is_none()
+        );
     }
 }

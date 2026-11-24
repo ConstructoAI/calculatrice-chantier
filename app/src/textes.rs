@@ -1479,8 +1479,8 @@ pub const ETAGE_VIDE: Texte = t(
     "No complete room to place: draw a room first.",
 );
 pub const ETAGE_CONSIGNE: Texte = t(
-    "Glissez une pièce pour la placer : ses murs s'aimantent à ceux des autres.",
-    "Drag a room to place it: its walls snap to the others.",
+    "Glissez une pièce : ses murs s'aimantent.",
+    "Drag a room: its walls snap.",
 );
 pub const ETAGE_SURFACE: Texte = t("Surface de l'étage", "Floor area");
 pub const ETAGE_TOURNER_A_GAUCHE: Texte = t("Tourner à gauche", "Rotate left");

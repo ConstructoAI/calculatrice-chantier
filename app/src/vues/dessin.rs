@@ -215,6 +215,9 @@ pub struct Etat {
     courante_avant_l_etage: usize,
     /// Le cadrage de la vue de l'étage.
     cadrage_etage: Cadrage,
+    /// Vrai quand la planche montre l'étage en 3D, et sa caméra.
+    vue_3d_etage: bool,
+    orbite_etage: super::maquette::Orbite,
     /// La pièce qu'on glisse dans l'étage.
     piece_tiree: Option<PieceTiree>,
     /// Les deux murs qui se touchent pendant qu'elle glisse.
@@ -2325,6 +2328,24 @@ fn planche_de_l_etage(
         Stroke::new(1.0, p.carte_bord),
         egui::StrokeKind::Inside,
     );
+    // L'étage en 3D (évolution 4).
+    if etat.vue_3d_etage {
+        if let Some(maquette) = plan.maquette_de_l_etage(FORMAT_PAR_DEFAUT) {
+            if vue_3d(
+                ui,
+                p,
+                &painter,
+                (planche, reponse),
+                &maquette,
+                &mut etat.orbite_etage,
+                textes::DESSIN_TOURNER.traduit(),
+            ) {
+                etat.vue_3d_etage = false;
+            }
+            return false;
+        }
+        etat.vue_3d_etage = false;
+    }
     let pieces = plan.pieces_dans_l_etage(FORMAT_PAR_DEFAUT);
     if pieces.is_empty() {
         painter.text(
@@ -2503,8 +2524,8 @@ fn planche_de_l_etage(
             ))
         };
         // La face s'interrompt aux passages des voisines et aux ouvertures.
-        for (cote, debut, fin) in plan.passages_des_voisins(piece.rang, FORMAT_PAR_DEFAUT) {
-            if let Some((q0, q1, _)) = sur_le_mur(cote, debut, fin) {
+        for passage in plan.passages_des_voisins(piece.rang, FORMAT_PAR_DEFAUT) {
+            if let Some((q0, q1, _)) = sur_le_mur(passage.cote, passage.debut, passage.fin) {
                 painter.line_segment([q0, q1], Stroke::new(7.0, p.carte));
             }
         }
@@ -2590,12 +2611,29 @@ fn planche_de_l_etage(
         }
     }
     painter.text(
-        Pos2::new(planche.left() + 12.0, planche.bottom() - 12.0),
-        Align2::LEFT_BOTTOM,
+        Pos2::new(planche.left() + 70.0, planche.bottom() - 18.0),
+        Align2::LEFT_CENTER,
         textes::ETAGE_CONSIGNE.traduit(),
         theme::police(11.5),
         p.texte_attenue,
     );
+    // L'étage en 3D.
+    let bouton_3d = Rect::from_min_size(
+        Pos2::new(planche.left() + 8.0, planche.bottom() - 42.0),
+        Vec2::new(52.0, 34.0),
+    );
+    if bouton_de_planche(
+        ui,
+        &painter,
+        bouton_3d,
+        textes::DESSIN_3D.traduit(),
+        textes::DESSIN_VOIR_EN_3D.traduit(),
+        false,
+        p,
+    ) {
+        etat.vue_3d_etage = true;
+        etat.piece_tiree = None;
+    }
     boutons_du_zoom(ui, p, &painter, planche, centre, &mut etat.cadrage_etage);
     modifie
 }
@@ -3114,6 +3152,98 @@ fn la_piece_et_le_total(
     (modifie, export)
 }
 
+/// La vue 3D sur la planche : la maquette qu'on tourne au doigt et qu'on
+/// zoome, sa consigne, les boutons du zoom et « 2D ». Retourne vrai si on
+/// revient au plan.
+fn vue_3d(
+    ui: &Ui,
+    p: &Palette,
+    painter: &egui::Painter,
+    (planche, reponse): (Rect, &egui::Response),
+    maquette: &noyau::maquette::Maquette,
+    orbite: &mut super::maquette::Orbite,
+    consigne: &str,
+) -> bool {
+    if reponse.dragged() {
+        orbite.tourner(reponse.drag_delta());
+    }
+    let (pincement, molette, survol) =
+        ui.input(|i| (i.zoom_delta(), i.smooth_scroll_delta, i.pointer.hover_pos()));
+    if survol.is_some_and(|q| planche.contains(q)) {
+        let facteur = if (pincement - 1.0).abs() > 1e-4 {
+            pincement
+        } else {
+            (molette.y * 0.002).exp()
+        };
+        orbite.zoomer(facteur);
+    }
+    super::maquette::dessiner(painter, planche.shrink(12.0), maquette, orbite, p);
+    painter.text(
+        planche.left_top() + Vec2::new(12.0, 12.0),
+        Align2::LEFT_TOP,
+        consigne,
+        theme::police(12.5),
+        p.texte_attenue,
+    );
+    // Le zoom, et le retour au plan.
+    let cote = 34.0;
+    let a_droite = planche.right() - 8.0 - cote;
+    let plus = Rect::from_min_size(Pos2::new(a_droite, planche.top() + 8.0), Vec2::splat(cote));
+    if bouton_de_planche(
+        ui,
+        painter,
+        plus,
+        "+",
+        textes::DESSIN_ZOOMER.traduit(),
+        false,
+        p,
+    ) {
+        orbite.zoomer(1.25);
+    }
+    let moins = plus.translate(Vec2::new(0.0, cote + 6.0));
+    if bouton_de_planche(
+        ui,
+        painter,
+        moins,
+        "\u{2212}",
+        textes::DESSIN_DEZOOMER.traduit(),
+        false,
+        p,
+    ) {
+        orbite.zoomer(0.8);
+    }
+    let ajuster = Rect::from_min_size(
+        Pos2::new(planche.right() - 8.0 - 74.0, moins.bottom() + 6.0),
+        Vec2::new(74.0, cote),
+    );
+    if *orbite != super::maquette::Orbite::default()
+        && bouton_de_planche(
+            ui,
+            painter,
+            ajuster,
+            textes::DESSIN_AJUSTER.traduit(),
+            textes::DESSIN_AJUSTER.traduit(),
+            false,
+            p,
+        )
+    {
+        *orbite = super::maquette::Orbite::default();
+    }
+    let plan = Rect::from_min_size(
+        Pos2::new(planche.left() + 8.0, planche.bottom() - 8.0 - cote),
+        Vec2::new(52.0, cote),
+    );
+    bouton_de_planche(
+        ui,
+        painter,
+        plan,
+        textes::DESSIN_2D.traduit(),
+        textes::DESSIN_REVENIR_AU_PLAN.traduit(),
+        true,
+        p,
+    )
+}
+
 /// Dessine la planche et traite les gestes. Retourne vrai si le dessin a changé.
 #[allow(clippy::too_many_arguments)]
 fn planche_et_gestes(
@@ -3138,20 +3268,6 @@ fn planche_et_gestes(
     // La vue 3D, quand elle est choisie et que la pièce est complète.
     if etat.vue_3d {
         if let Some(maquette) = noyau::maquette::maquette(dessin, solution) {
-            if reponse.dragged() {
-                etat.orbite.tourner(reponse.drag_delta());
-            }
-            let (pincement, molette, survol) =
-                ui.input(|i| (i.zoom_delta(), i.smooth_scroll_delta, i.pointer.hover_pos()));
-            if survol.is_some_and(|q| planche.contains(q)) {
-                let facteur = if (pincement - 1.0).abs() > 1e-4 {
-                    pincement
-                } else {
-                    (molette.y * 0.002).exp()
-                };
-                etat.orbite.zoomer(facteur);
-            }
-            super::maquette::dessiner(&painter, planche.shrink(12.0), &maquette, &etat.orbite, p);
             let consigne = if solution.hauteur.is_none() {
                 format!(
                     "{} · {}",
@@ -3161,70 +3277,14 @@ fn planche_et_gestes(
             } else {
                 textes::DESSIN_TOURNER.traduit().to_string()
             };
-            painter.text(
-                planche.left_top() + Vec2::new(12.0, 12.0),
-                Align2::LEFT_TOP,
-                consigne,
-                theme::police(12.5),
-                p.texte_attenue,
-            );
-            // Le zoom, et le retour au plan.
-            let cote = 34.0;
-            let a_droite = planche.right() - 8.0 - cote;
-            let plus =
-                Rect::from_min_size(Pos2::new(a_droite, planche.top() + 8.0), Vec2::splat(cote));
-            if bouton_de_planche(
+            if vue_3d(
                 ui,
-                &painter,
-                plus,
-                "+",
-                textes::DESSIN_ZOOMER.traduit(),
-                false,
                 p,
-            ) {
-                etat.orbite.zoomer(1.25);
-            }
-            let moins = plus.translate(Vec2::new(0.0, cote + 6.0));
-            if bouton_de_planche(
-                ui,
                 &painter,
-                moins,
-                "\u{2212}",
-                textes::DESSIN_DEZOOMER.traduit(),
-                false,
-                p,
-            ) {
-                etat.orbite.zoomer(0.8);
-            }
-            let ajuster = Rect::from_min_size(
-                Pos2::new(planche.right() - 8.0 - 74.0, moins.bottom() + 6.0),
-                Vec2::new(74.0, cote),
-            );
-            if etat.orbite != super::maquette::Orbite::default()
-                && bouton_de_planche(
-                    ui,
-                    &painter,
-                    ajuster,
-                    textes::DESSIN_AJUSTER.traduit(),
-                    textes::DESSIN_AJUSTER.traduit(),
-                    false,
-                    p,
-                )
-            {
-                etat.orbite = super::maquette::Orbite::default();
-            }
-            let plan = Rect::from_min_size(
-                Pos2::new(planche.left() + 8.0, planche.bottom() - 8.0 - cote),
-                Vec2::new(52.0, cote),
-            );
-            if bouton_de_planche(
-                ui,
-                &painter,
-                plan,
-                textes::DESSIN_2D.traduit(),
-                textes::DESSIN_REVENIR_AU_PLAN.traduit(),
-                true,
-                p,
+                (planche, reponse),
+                &maquette,
+                &mut etat.orbite,
+                &consigne,
             ) {
                 etat.vue_3d = false;
             }
