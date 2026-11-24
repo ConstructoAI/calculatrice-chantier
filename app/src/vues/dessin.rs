@@ -2424,15 +2424,12 @@ fn planche_de_l_etage(
         etat.piece_tiree = None;
         etat.contact = None;
     }
-    // Les pièces, à leur place d'après le geste.
+    // Les pièces, à leur place d'après le geste, en passes : les intérieurs,
+    // les murs (interrompus aussi par les ouvertures des voisines, dans les
+    // murs communs), les faces, les portes et les fenêtres, puis les noms.
     let pieces = plan.pieces_dans_l_etage(FORMAT_PAR_DEFAUT);
     for piece in &pieces {
-        let dessin = &plan.pieces[piece.rang].dessin;
-        let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
-        let place = piece.place;
-        let vers = |point: (f64, f64)| echelle.vers_l_ecran(place.vers_l_etage(point));
         let choisie = piece.rang == plan.courante;
-        // L'intérieur, un peu teinté; celui de la pièce choisie, davantage.
         let teinte = theme::melanger(
             p.carte,
             if choisie {
@@ -2451,15 +2448,17 @@ fn planche_de_l_etage(
             maillage.add_triangle(base, base + 1, base + 2);
         }
         painter.add(egui::Shape::mesh(maillage));
-        // Les murs à leur épaisseur, interrompus par les ouvertures.
-        for morceau in dessin.murs_exterieurs(&solution) {
-            let dans_l_etage = MorceauDeMur {
-                coins: morceau.coins.map(|coin| place.vers_l_etage(coin)),
-                ..morceau
-            };
-            dessiner_un_morceau_de_mur(&painter, &echelle, &dans_l_etage, None, p);
+    }
+    for piece in &pieces {
+        for morceau in plan.murs_dans_l_etage(piece.rang, FORMAT_PAR_DEFAUT) {
+            dessiner_un_morceau_de_mur(&painter, &echelle, &morceau, None, p);
         }
-        // La face des mesures.
+    }
+    let mut symboles = Vec::new();
+    for piece in &pieces {
+        let dessin = &plan.pieces[piece.rang].dessin;
+        let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+        let choisie = piece.rang == plan.courante;
         let contour: Vec<Pos2> = piece
             .interieur
             .iter()
@@ -2471,54 +2470,81 @@ fn planche_de_l_etage(
             Stroke::new(1.5, p.primaire)
         };
         painter.add(egui::Shape::closed_line(contour, trait_));
-        // Les portes et les fenêtres, à leur place sur leurs murs.
-        if let Some(sommets) = dessin.sommets_mesures(&solution) {
-            let ecran: Vec<Pos2> = sommets.iter().map(|&s| vers(s)).collect();
-            let aire_signee: f32 = ecran
-                .windows(2)
-                .map(|s| s[0].x * s[1].y - s[1].x * s[0].y)
-                .sum();
-            let epaisseur = solution.epaisseur_des_murs as f32 * echelle.facteur;
-            for placement in solution.placements.iter().flatten() {
-                let (Some(&a), Some(&b)) =
-                    (ecran.get(placement.cote), ecran.get(placement.cote + 1))
-                else {
-                    continue;
-                };
-                let longueur = f64::from(a.distance(b) / echelle.facteur);
-                if longueur < 1e-6 {
-                    continue;
-                }
-                let le_long = b - a;
-                let q0 = a + le_long * (placement.debut / longueur) as f32;
-                let q1 = a + le_long * (placement.fin / longueur) as f32;
-                let unite = le_long.normalized();
-                let dedans = if aire_signee > 0.0 {
-                    Vec2::new(-unite.y, unite.x)
-                } else {
-                    Vec2::new(unite.y, -unite.x)
-                };
-                dessiner_ouverture(
-                    &painter,
-                    (q0, q1),
-                    dedans,
-                    (
-                        placement.genre,
-                        placement.inversee,
-                        (placement.haut - placement.bas) as f32 * echelle.facteur,
-                        echelle.facteur,
-                    ),
-                    p.texte,
-                    p.primaire,
-                    if dessin.mesures_exterieures {
-                        -epaisseur
-                    } else {
-                        epaisseur
-                    },
-                );
+        let Some(sommets) = dessin.sommets_mesures(&solution) else {
+            continue;
+        };
+        let place = piece.place;
+        let ecran: Vec<Pos2> = sommets
+            .iter()
+            .map(|&s| echelle.vers_l_ecran(place.vers_l_etage(s)))
+            .collect();
+        let aire_signee: f32 = ecran
+            .windows(2)
+            .map(|s| s[0].x * s[1].y - s[1].x * s[0].y)
+            .sum();
+        // Un morceau d'un mur, à l'écran : ses deux bouts et le dedans.
+        let sur_le_mur = |cote: usize, debut: f64, fin: f64| {
+            let (&a, &b) = (ecran.get(cote)?, ecran.get(cote + 1)?);
+            let longueur = f64::from(a.distance(b) / echelle.facteur);
+            if longueur < 1e-6 {
+                return None;
+            }
+            let le_long = b - a;
+            let unite = le_long.normalized();
+            let dedans = if aire_signee > 0.0 {
+                Vec2::new(-unite.y, unite.x)
+            } else {
+                Vec2::new(unite.y, -unite.x)
+            };
+            Some((
+                a + le_long * (debut / longueur) as f32,
+                a + le_long * (fin / longueur) as f32,
+                dedans,
+            ))
+        };
+        // La face s'interrompt aux passages des voisines et aux ouvertures.
+        for (cote, debut, fin) in plan.passages_des_voisins(piece.rang, FORMAT_PAR_DEFAUT) {
+            if let Some((q0, q1, _)) = sur_le_mur(cote, debut, fin) {
+                painter.line_segment([q0, q1], Stroke::new(7.0, p.carte));
             }
         }
-        // Son nom et sa surface, au milieu.
+        let epaisseur = solution.epaisseur_des_murs as f32 * echelle.facteur;
+        for placement in solution.placements.iter().flatten() {
+            if let Some((q0, q1, dedans)) =
+                sur_le_mur(placement.cote, placement.debut, placement.fin)
+            {
+                painter.line_segment([q0, q1], Stroke::new(7.0, p.carte));
+                let epaisseur = if dessin.mesures_exterieures {
+                    -epaisseur
+                } else {
+                    epaisseur
+                };
+                symboles.push((q0, q1, dedans, *placement, epaisseur));
+            }
+        }
+    }
+    for (q0, q1, dedans, placement, epaisseur) in symboles {
+        dessiner_ouverture(
+            &painter,
+            (q0, q1),
+            dedans,
+            (
+                placement.genre,
+                placement.inversee,
+                (placement.haut - placement.bas) as f32 * echelle.facteur,
+                echelle.facteur,
+            ),
+            p.texte,
+            p.primaire,
+            epaisseur,
+        );
+    }
+    for piece in &pieces {
+        let modele = plan.pieces[piece.rang]
+            .dessin
+            .resoudre(FORMAT_PAR_DEFAUT)
+            .modele;
+        let choisie = piece.rang == plan.courante;
         let (x0, x1, y0, y1) = piece.interieur.iter().fold(
             (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
             |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
@@ -2536,7 +2562,7 @@ fn planche_de_l_etage(
         texte_qui_tient(
             &painter,
             milieu + Vec2::new(0.0, 8.0),
-            Quantite::Aire(piece.aire).en_clair(solution.modele, prefs),
+            Quantite::Aire(piece.aire).en_clair(modele, prefs),
             (theme::police(11.5), 8.0),
             largeur,
             p.texte_attenue,
@@ -2701,6 +2727,37 @@ fn section_de_l_etage(
             );
             ui.label(RichText::new(aire(piece.aire)).size(13.5).strong());
         });
+    }
+    // Les murs communs : deux pièces voisines de part et d'autre d'un seul mur.
+    let communs = plan.murs_communs(FORMAT_PAR_DEFAUT);
+    if !communs.is_empty() {
+        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(textes::ETAGE_MURS_COMMUNS.traduit())
+                    .font(theme::police_grasse(13.5)),
+            );
+        });
+        for mur in &communs {
+            ui.horizontal(|ui| {
+                ui.add_space(10.0);
+                ui.label(
+                    RichText::new(format!(
+                        "{} \u{2013} {}",
+                        nom_de_la_piece(plan, mur.pieces.0),
+                        nom_de_la_piece(plan, mur.pieces.1)
+                    ))
+                    .size(12.5)
+                    .color(p.texte_attenue),
+                );
+                ui.label(
+                    RichText::new(Quantite::Longueur(mur.longueur()).en_clair(modele, prefs))
+                        .size(13.5)
+                        .strong(),
+                );
+            });
+        }
     }
     modifie
 }

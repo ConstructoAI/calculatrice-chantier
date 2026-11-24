@@ -1486,6 +1486,7 @@ pub const ETAGE_SURFACE: Texte = t("Surface de l'étage", "Floor area");
 pub const ETAGE_TOURNER_A_GAUCHE: Texte = t("Tourner à gauche", "Rotate left");
 pub const ETAGE_TOURNER_A_DROITE: Texte = t("Tourner à droite", "Rotate right");
 pub const ETAGE_OUVRIR: Texte = t("Ouvrir la pièce", "Open the room");
+pub const ETAGE_MURS_COMMUNS: Texte = t("Murs communs", "Shared walls");
 
 /// Les pièces que l'étage ne montre pas encore.
 pub fn etage_pieces_incompletes(nombre: usize) -> String {

@@ -142,6 +142,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   place; on les glisse (leurs murs s'aimantent, un seul mur entre deux pièces voisines) et on
   les tourne, et la surface de l'étage s'additionne.
 
+- **Plan d'étage (deuxième partie)** : les murs communs — une porte posée dans le mur commun
+  de deux pièces le traverse pour les deux, et la section de l'étage liste les murs communs.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

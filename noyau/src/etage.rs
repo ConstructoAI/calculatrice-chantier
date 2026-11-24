@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::dessin::{Dessin, Plan};
+use crate::dessin::{Dessin, GenreDOuverture, MorceauDeMur, Placement, Plan};
 use crate::unites::Format;
 
 /// La place d'une pièce dans l'étage : le point de l'étage où va l'origine de
@@ -78,10 +78,6 @@ struct Contours {
     epaisseur: f64,
     aire: f64,
 }
-
-/// Un côté d'un contour : son début, sa direction, la normale qui sort de la
-/// pièce, et sa longueur.
-type CoteSortant = ((f64, f64), (f64, f64), (f64, f64), f64);
 
 fn contours(dessin: &Dessin, defaut: Format) -> Option<Contours> {
     let solution = dessin.resoudre(defaut);
@@ -222,6 +218,56 @@ impl Plan {
     }
 }
 
+/// Un côté d'un contour dans l'étage : son rang dans le contour, son début,
+/// sa direction, la normale qui sort de la pièce, et sa longueur.
+#[derive(Clone, Copy, Debug)]
+struct CoteSortant {
+    rang: usize,
+    debut: (f64, f64),
+    direction: (f64, f64),
+    sortie: (f64, f64),
+    longueur: f64,
+}
+
+/// Les côtés d'un contour, sauf ceux de longueur nulle.
+fn cotes_sortants(contour: &[(f64, f64)]) -> Vec<CoteSortant> {
+    let sens = if aire_signee(contour) >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    };
+    (0..contour.len())
+        .filter_map(|rang| {
+            let (a, b) = (contour[rang], contour[(rang + 1) % contour.len()]);
+            let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+            (longueur > 1e-6).then(|| {
+                let direction = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+                CoteSortant {
+                    rang,
+                    debut: a,
+                    direction,
+                    sortie: (sens * direction.1, -sens * direction.0),
+                    longueur,
+                }
+            })
+        })
+        .collect()
+}
+
+/// Deux côtés qui se font face : l'écart entre leurs lignes, le long de la
+/// sortie du premier, et l'étendue du second le long du premier, depuis son
+/// début. `None` s'ils ne se font pas face.
+fn en_face(a: &CoteSortant, b: &CoteSortant) -> Option<(f64, f64, f64)> {
+    if a.sortie.0 * b.sortie.0 + a.sortie.1 * b.sortie.1 > -0.9995 {
+        return None;
+    }
+    let (dx, dy) = (b.debut.0 - a.debut.0, b.debut.1 - a.debut.1);
+    let ecart = dx * a.sortie.0 + dy * a.sortie.1;
+    let debut = dx * a.direction.0 + dy * a.direction.1;
+    let fin = debut + b.longueur * (b.direction.0 * a.direction.0 + b.direction.1 * a.direction.1);
+    Some((ecart, debut.min(fin), debut.max(fin)))
+}
+
 /// La place de la pièce de rang `rang` corrigée par l'aimant : si l'un de ses
 /// murs arrive à moins de `seuil` pouces de sa place contre un mur d'une autre
 /// pièce, en face, les deux pièces se rangent de part et d'autre d'un seul mur
@@ -246,75 +292,224 @@ pub fn aimanter(
         return (place, None);
     };
     let tiree: Vec<(f64, f64)> = interieur.iter().map(|&p| place.vers_l_etage(p)).collect();
-    let autres = plan.pieces_dans_l_etage(defaut);
-    // La normale qui sort de chaque côté d'un contour.
-    let sorties = |contour: &[(f64, f64)]| -> Vec<CoteSortant> {
-        let sens = if aire_signee(contour) >= 0.0 {
-            1.0
-        } else {
-            -1.0
-        };
-        (0..contour.len())
-            .filter_map(|k| {
-                let (a, b) = (contour[k], contour[(k + 1) % contour.len()]);
-                let longueur = (b.0 - a.0).hypot(b.1 - a.1);
-                (longueur > 1e-6).then(|| {
-                    let t = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
-                    (a, t, (sens * t.1, -sens * t.0), longueur)
-                })
-            })
-            .collect()
-    };
-    let cotes_de_la_tiree = sorties(&tiree);
-    // Le meilleur appui : (écart à combler, côté de la tirée, l'autre pièce, son côté, décalage le long du mur).
-    let mut meilleur: Option<(f64, usize, usize, usize, f64)> = None;
-    for autre in autres.iter().filter(|autre| autre.rang != rang) {
+    let cotes_de_la_tiree = cotes_sortants(&tiree);
+    // Le meilleur appui : l'écart à combler, le côté de la tirée, le
+    // glissement le long du mur et les deux murs qui se touchent.
+    let mut meilleur: Option<(f64, CoteSortant, f64, Contact)> = None;
+    for autre in plan
+        .pieces_dans_l_etage(defaut)
+        .iter()
+        .filter(|autre| autre.rang != rang)
+    {
         let mur = epaisseur.max(autre.epaisseur);
-        for (i, &(a, t, n, longueur)) in cotes_de_la_tiree.iter().enumerate() {
-            for (k, &(b, u, m, longueur_b)) in sorties(&autre.interieur).iter().enumerate() {
-                // En face : les deux normales opposées.
-                if n.0 * m.0 + n.1 * m.1 > -0.9995 {
+        for cote in &cotes_de_la_tiree {
+            for vis_a_vis in cotes_sortants(&autre.interieur) {
+                let Some((ecart, b0, b1)) = en_face(cote, &vis_a_vis) else {
                     continue;
-                }
-                let ecart = (b.0 - a.0) * n.0 + (b.1 - a.1) * n.1 - mur;
-                if ecart.abs() > seuil {
-                    continue;
-                }
-                // Les deux côtés doivent se chevaucher, à `seuil` près.
-                let debut = (b.0 - a.0) * t.0 + (b.1 - a.1) * t.1;
-                let fin = debut + longueur_b * (u.0 * t.0 + u.1 * t.1);
-                let (b0, b1) = (debut.min(fin), debut.max(fin));
-                if b1.min(longueur) - b0.max(0.0) < -seuil {
+                };
+                let ecart = ecart - mur;
+                // Assez près, et les deux côtés se chevauchent, à `seuil` près.
+                if ecart.abs() > seuil || b1.min(cote.longueur) - b0.max(0.0) < -seuil {
                     continue;
                 }
                 // Les coins alignés, s'ils sont proches.
-                let glissement = [b0, b1 - longueur]
+                let glissement = [b0, b1 - cote.longueur]
                     .into_iter()
                     .filter(|s| s.abs() <= seuil)
                     .min_by(|s, r| s.abs().total_cmp(&r.abs()))
                     .unwrap_or(0.0);
                 if meilleur.is_none_or(|(e, ..)| ecart.abs() < e.abs()) {
-                    meilleur = Some((ecart, i, autre.rang, k, glissement));
+                    meilleur = Some((
+                        ecart,
+                        *cote,
+                        glissement,
+                        Contact {
+                            autre: autre.rang,
+                            cote: cote.rang,
+                            cote_de_l_autre: vis_a_vis.rang,
+                        },
+                    ));
                 }
             }
         }
     }
-    let Some((ecart, i, autre, k, glissement)) = meilleur else {
+    let Some((ecart, cote, glissement, contact)) = meilleur else {
         return (place, None);
     };
-    let (_, t, n, _) = cotes_de_la_tiree[i];
     let corrigee = place.deplacee((
-        n.0 * ecart + t.0 * glissement,
-        n.1 * ecart + t.1 * glissement,
+        cote.sortie.0 * ecart + cote.direction.0 * glissement,
+        cote.sortie.1 * ecart + cote.direction.1 * glissement,
     ));
-    (
-        corrigee,
-        Some(Contact {
-            autre,
-            cote: i,
-            cote_de_l_autre: k,
-        }),
-    )
+    (corrigee, Some(contact))
+}
+
+/// Un mur commun à deux pièces voisines (évolution 4) : les deux pièces, leurs
+/// côtés, et le morceau qu'elles partagent, dans l'étage, sur la face
+/// intérieure de la première.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MurCommun {
+    pub pieces: (usize, usize),
+    pub cotes: (usize, usize),
+    pub debut: (f64, f64),
+    pub fin: (f64, f64),
+    /// L'épaisseur du mur : celle du plus épais des deux.
+    pub epaisseur: f64,
+}
+
+impl MurCommun {
+    /// La longueur du morceau partagé (pouces).
+    pub fn longueur(&self) -> f64 {
+        (self.fin.0 - self.debut.0).hypot(self.fin.1 - self.debut.1)
+    }
+}
+
+/// L'écart toléré pour reconnaître un mur commun, en pouces.
+const TOLERANCE_DU_MUR_COMMUN: f64 = 0.75;
+/// Le plus court morceau qui fait un mur commun, en pouces.
+const PLUS_COURT_MUR_COMMUN: f64 = 1.0;
+
+impl Plan {
+    /// Les murs communs de l'étage : deux pièces placées dont les faces
+    /// intérieures se font face, à l'épaisseur du plus épais de leurs murs.
+    pub fn murs_communs(&self, defaut: Format) -> Vec<MurCommun> {
+        let pieces = self.pieces_dans_l_etage(defaut);
+        let mut murs = Vec::new();
+        for (i, une) in pieces.iter().enumerate() {
+            let cotes = cotes_sortants(&une.interieur);
+            for autre in &pieces[i + 1..] {
+                let mur = une.epaisseur.max(autre.epaisseur);
+                for cote in &cotes {
+                    for vis_a_vis in cotes_sortants(&autre.interieur) {
+                        let Some((ecart, b0, b1)) = en_face(cote, &vis_a_vis) else {
+                            continue;
+                        };
+                        let (t0, t1) = (b0.max(0.0), b1.min(cote.longueur));
+                        if (ecart - mur).abs() > TOLERANCE_DU_MUR_COMMUN
+                            || t1 - t0 < PLUS_COURT_MUR_COMMUN
+                        {
+                            continue;
+                        }
+                        let point = |t: f64| {
+                            (
+                                cote.debut.0 + cote.direction.0 * t,
+                                cote.debut.1 + cote.direction.1 * t,
+                            )
+                        };
+                        murs.push(MurCommun {
+                            pieces: (une.rang, autre.rang),
+                            cotes: (cote.rang, vis_a_vis.rang),
+                            debut: point(t0),
+                            fin: point(t1),
+                            epaisseur: mur,
+                        });
+                    }
+                }
+            }
+        }
+        murs
+    }
+
+    /// Les passages qu'ouvrent les portes et les fenêtres des pièces voisines
+    /// dans les murs communs de la pièce de rang `rang` : (côté, début, fin),
+    /// en pouces le long de ses mesures.
+    pub fn passages_des_voisins(&self, rang: usize, defaut: Format) -> Vec<(usize, f64, f64)> {
+        let Some(moi) = self.pieces.get(rang) else {
+            return Vec::new();
+        };
+        let (Some(ma_place), Some(mes_sommets)) = (
+            moi.place,
+            moi.dessin.sommets_mesures(&moi.dessin.resoudre(defaut)),
+        ) else {
+            return Vec::new();
+        };
+        let mut passages = Vec::new();
+        for mur in self.murs_communs(defaut) {
+            let (mon_cote, autre, son_cote) = if mur.pieces.0 == rang {
+                (mur.cotes.0, mur.pieces.1, mur.cotes.1)
+            } else if mur.pieces.1 == rang {
+                (mur.cotes.1, mur.pieces.0, mur.cotes.0)
+            } else {
+                continue;
+            };
+            let voisine = &self.pieces[autre];
+            let solution = voisine.dessin.resoudre(defaut);
+            let (Some(sa_place), Some(ses_sommets)) =
+                (voisine.place, voisine.dessin.sommets_mesures(&solution))
+            else {
+                continue;
+            };
+            let (Some(&a), Some(&b), Some(&c), Some(&d)) = (
+                mes_sommets.get(mon_cote),
+                mes_sommets.get(mon_cote + 1),
+                ses_sommets.get(son_cote),
+                ses_sommets.get(son_cote + 1),
+            ) else {
+                continue;
+            };
+            let (longueur, sa_longueur) =
+                ((b.0 - a.0).hypot(b.1 - a.1), (d.0 - c.0).hypot(d.1 - c.1));
+            if longueur < 1e-9 || sa_longueur < 1e-9 {
+                continue;
+            }
+            let u = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+            let v = ((d.0 - c.0) / sa_longueur, (d.1 - c.1) / sa_longueur);
+            // Un point de l'étage, le long de mon côté.
+            let le_long = |point: (f64, f64)| {
+                let (x, y) = ma_place.vers_la_piece(point);
+                (x - a.0) * u.0 + (y - a.1) * u.1
+            };
+            let (p, q) = (le_long(mur.debut), le_long(mur.fin));
+            let (s0, s1) = (p.min(q), p.max(q));
+            for placement in solution
+                .placements
+                .iter()
+                .flatten()
+                .filter(|placement| placement.cote == son_cote)
+            {
+                let bout = |t: f64| le_long(sa_place.vers_l_etage((c.0 + v.0 * t, c.1 + v.1 * t)));
+                let (p, q) = (bout(placement.debut), bout(placement.fin));
+                let (t0, t1) = (p.min(q).max(s0), p.max(q).min(s1));
+                if t1 - t0 > 0.5 {
+                    passages.push((mon_cote, t0, t1));
+                }
+            }
+        }
+        passages
+    }
+
+    /// Les murs de la pièce de rang `rang`, dans l'étage, à leur épaisseur :
+    /// interrompus par ses portes et ses fenêtres, et par celles de ses
+    /// voisines dans leurs murs communs.
+    pub fn murs_dans_l_etage(&self, rang: usize, defaut: Format) -> Vec<MorceauDeMur> {
+        let Some(piece) = self.pieces.get(rang) else {
+            return Vec::new();
+        };
+        let Some(place) = piece.place else {
+            return Vec::new();
+        };
+        let mut solution = piece.dessin.resoudre(defaut);
+        for (cote, debut, fin) in self.passages_des_voisins(rang, defaut) {
+            solution.placements.push(Some(Placement {
+                cote,
+                debut,
+                fin,
+                porte: true,
+                genre: GenreDOuverture::BaieLibre,
+                inversee: false,
+                bas: 0.0,
+                haut: 0.0,
+            }));
+        }
+        piece
+            .dessin
+            .murs_exterieurs(&solution)
+            .into_iter()
+            .map(|morceau| MorceauDeMur {
+                coins: morceau.coins.map(|coin| place.vers_l_etage(coin)),
+                ..morceau
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -435,5 +630,56 @@ mod tests {
                 && (place.x - 9.0).abs() < 1e-6
                 && (place.y - 9.0).abs() < 1e-6
         );
+    }
+    /// Le salon, et la chambre rangée contre son mur de droite, sa porte de
+    /// 30 po dans leur mur commun.
+    fn salon_et_chambre() -> Plan {
+        let mut plan = plan_de_deux_pieces();
+        plan.pieces[1].dessin.ouvertures = vec![crate::dessin::Ouverture {
+            largeur: "30 po".into(),
+            hauteur: "80 po".into(),
+            cote: Some(3),
+            position: "2".into(),
+            ..crate::dessin::Ouverture::default()
+        }];
+        plan.placer_les_pieces(Format::PiPo);
+        let premiere = plan.pieces[0].place.unwrap();
+        plan.pieces[1].place = Some(Place {
+            x: premiere.x + 144.0 + 9.0,
+            y: premiere.y,
+            rotation: 0.0,
+        });
+        plan
+    }
+
+    #[test]
+    fn deux_pieces_voisines_partagent_leur_mur() {
+        let plan = salon_et_chambre();
+        let murs = plan.murs_communs(Format::PiPo);
+        assert_eq!(murs.len(), 1);
+        let mur = &murs[0];
+        assert_eq!((mur.pieces, mur.cotes), ((0, 1), (1, 3)));
+        assert!((mur.longueur() - 96.0).abs() < 1e-6 && (mur.epaisseur - 9.0).abs() < 1e-9);
+        // La porte de la chambre traverse le mur du salon : de 42 à 72 po le
+        // long de son côté 2.
+        let passages = plan.passages_des_voisins(0, Format::PiPo);
+        assert_eq!(passages.len(), 1, "{passages:?}");
+        let (cote, debut, fin) = passages[0];
+        assert_eq!(cote, 1);
+        assert!(
+            (debut - 42.0).abs() < 1e-6 && (fin - 72.0).abs() < 1e-6,
+            "{passages:?}"
+        );
+        // Le mur du salon s'interrompt là : un morceau de plus.
+        let salon = &plan.pieces[0].dessin;
+        let seuls = salon.murs_exterieurs(&salon.resoudre(Format::PiPo)).len();
+        assert_eq!(plan.murs_dans_l_etage(0, Format::PiPo).len(), seuls + 1);
+        // Éloignées l'une de l'autre, plus de mur commun.
+        let mut loin = plan.clone();
+        loin.pieces[1].place = loin.pieces[1]
+            .place
+            .map(|place| place.deplacee((24.0, 0.0)));
+        assert!(loin.murs_communs(Format::PiPo).is_empty());
+        assert!(loin.passages_des_voisins(0, Format::PiPo).is_empty());
     }
 }
