@@ -67,6 +67,10 @@ struct ObjetExporte {
     plus_petit: f64,
 }
 
+/// La distance d'un bâtiment à une limite du terrain : le trait, son texte, et
+/// vrai dans une marge de recul (évolution 29).
+type DistanceExportee = ((f64, f64), (f64, f64), String, bool);
+
 struct PieceExportee {
     nom: String,
     /// Sommets en pouces, y vers le bas. Une forme fermée répète son départ.
@@ -115,6 +119,13 @@ struct PieceExportee {
     /// contour de leur extérieur; vides sans épaisseur.
     murs_exterieurs: Vec<MorceauDeMur>,
     contour_exterieur: Vec<(f64, f64)>,
+    /// Vrai pour un terrain : sa zone constructible, les distances de ses
+    /// bâtiments aux limites (le trait, son texte, et vrai dans une marge) et
+    /// le côté de la rue (évolution 29).
+    terrain: bool,
+    zone_constructible: Vec<(f64, f64)>,
+    distances: Vec<DistanceExportee>,
+    rue: Option<((f64, f64), (f64, f64))>,
     /// Sa place dans l'étage, et ses murs percés aussi par les ouvertures
     /// des voisines, dans son propre plan (évolution 4).
     place: Option<noyau::etage::Place>,
@@ -442,6 +453,42 @@ fn preparer_la_piece(
         portes_de_cloisons,
         murs_exterieurs,
         contour_exterieur,
+        terrain: dessin.terrain,
+        zone_constructible: if complete && dessin.terrain {
+            noyau::implantation::zone_constructible(dessin, &solution).unwrap_or_default()
+        } else {
+            Vec::new()
+        },
+        distances: if complete && dessin.terrain {
+            noyau::implantation::distances_aux_limites(dessin, &solution)
+                .into_iter()
+                .filter(|(rang, _)| {
+                    noyau::implantation::est_un_batiment(dessin.objets[*rang].genre)
+                })
+                .flat_map(|(rang, distances)| {
+                    noyau::implantation::distances_a_montrer(dessin.objets[rang].genre, distances)
+                })
+                .filter(|distance| distance.distance >= 0.5)
+                .map(|distance| {
+                    (
+                        distance.de,
+                        distance.a,
+                        sans_insecables(&longueur_en_clair(distance.distance, &solution, prefs)),
+                        distance.dans_la_marge,
+                    )
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
+        rue: if complete && dessin.terrain {
+            dessin
+                .contour_interieur(&solution)
+                .filter(|sommets| sommets.len() > 3)
+                .map(|sommets| (sommets[0], sommets[1]))
+        } else {
+            None
+        },
         place: None,
         murs_dans_l_etage: Vec::new(),
         epaisseur_des_murs,
@@ -1128,8 +1175,10 @@ fn page_de_piece(
     let mut page = Page::default();
     en_tete_de_page(&mut page, &piece.nom, entete);
 
-    // La forme, ajustée à son cadre; la place des mesures autour.
-    let cadre = (MARGE + 84.0, 372.0, LARGEUR_PAGE - MARGE - 84.0, 684.0);
+    // La forme, ajustée à son cadre; la place des mesures autour, et celle de
+    // la rue au-dessus d'un terrain (évolution 29).
+    let haut = if piece.terrain { 664.0 } else { 684.0 };
+    let cadre = (MARGE + 84.0, 372.0, LARGEUR_PAGE - MARGE - 84.0, haut);
     let points_a_cadrer = a_cadrer(piece);
     let vers_la_page = ajuster(&points_a_cadrer, cadre);
     dessiner_le_plan(&mut page, piece, &vers_la_page, false);
@@ -1785,6 +1834,71 @@ fn dessiner_le_plan(
         epaisseur_des_murs,
         echelle,
     );
+    // Le terrain (évolution 29) : sa zone constructible en tirets, les
+    // distances de ses bâtiments aux limites (en orange dans une marge) et
+    // la rue.
+    if !piece.zone_constructible.is_empty() {
+        let mut contour: Vec<(f64, f64)> = piece
+            .zone_constructible
+            .iter()
+            .map(|&c| vers_la_page(c))
+            .collect();
+        contour.push(contour[0]);
+        for (a, b) in morceaux_en_tirets(&contour, 5.0, 3.0) {
+            page.trait_(&[a, b], 0.9, BLEU);
+        }
+    }
+    for (de, a, texte, dans_la_marge) in &piece.distances {
+        let (de, a) = (vers_la_page(*de), vers_la_page(*a));
+        let couleur = if *dans_la_marge { ORANGE } else { GRIS };
+        page.trait_(&[de, a], 0.6, couleur);
+        let longueur = (a.0 - de.0).hypot(a.1 - de.1).max(1e-9);
+        let travers = (
+            -(a.1 - de.1) / longueur * 3.0,
+            (a.0 - de.0) / longueur * 3.0,
+        );
+        for bout in [de, a] {
+            page.trait_(
+                &[
+                    (bout.0 - travers.0, bout.1 - travers.1),
+                    (bout.0 + travers.0, bout.1 + travers.1),
+                ],
+                0.6,
+                couleur,
+            );
+        }
+        page.texte(
+            (
+                (de.0 + a.0) / 2.0 + travers.0 * 2.5,
+                (de.1 + a.1) / 2.0 + travers.1 * 2.5 - 3.0,
+            ),
+            7.5,
+            true,
+            Alignement::Centre,
+            couleur,
+            texte,
+        );
+    }
+    if let Some((a, b)) = piece.rue {
+        let (a, b) = (vers_la_page(a), vers_la_page(b));
+        let milieu = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+        let centre = points
+            .iter()
+            .fold((0.0, 0.0), |(x, y), q| (x + q.0, y + q.1));
+        let centre = (
+            centre.0 / points.len().max(1) as f64,
+            centre.1 / points.len().max(1) as f64,
+        );
+        let (nx, ny) = normale_exterieure(a, b, centre);
+        page.texte(
+            (milieu.0 + nx * 28.0, milieu.1 + ny * 28.0 - 3.0),
+            9.0,
+            true,
+            Alignement::Centre,
+            GRIS,
+            textes::IMPLANTATION_RUE.traduit(),
+        );
+    }
     // Les objets, à la même échelle que la forme.
     for objet in &piece.objets {
         for trait_ in &objet.traits {
@@ -2292,7 +2406,7 @@ fn page_de_l_etage(
     let mut page = Page::default();
     let placees: Vec<&PieceExportee> = pieces
         .iter()
-        .filter(|piece| piece.a_l_echelle && piece.place.is_some())
+        .filter(|piece| piece.a_l_echelle && piece.place.is_some() && !piece.terrain)
         .collect();
     let aire: f64 = placees.iter().filter_map(|piece| piece.aire_nette).sum();
     let modele = placees.iter().find_map(|piece| piece.modele);
@@ -2567,7 +2681,7 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     // (évolution 4).
     let etage = pieces
         .iter()
-        .filter(|piece| piece.a_l_echelle && piece.place.is_some())
+        .filter(|piece| piece.a_l_echelle && piece.place.is_some() && !piece.terrain)
         .count()
         >= 2;
     let total = pieces.len()
@@ -3231,6 +3345,27 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
+        // Le terrain (évolution 29) : sa zone constructible au calque MARGES, les
+        // distances de ses bâtiments aux limites au calque COTES.
+        for k in 0..piece.zone_constructible.len() {
+            let (a, b) = (
+                piece.zone_constructible[k],
+                piece.zone_constructible[(k + 1) % piece.zone_constructible.len()],
+            );
+            ligne_dxf(&mut entites, "MARGES", vers_le_dxf(a), vers_le_dxf(b));
+        }
+        for (de, a, texte, _) in &piece.distances {
+            let (de, a) = (vers_le_dxf(*de), vers_le_dxf(*a));
+            ligne_dxf(&mut entites, "COTES", de, a);
+            texte_dans_le_dxf(
+                &mut entites,
+                "COTES",
+                ((de.0 + a.0) / 2.0, (de.1 + a.1) / 2.0),
+                taille * 0.7,
+                Alignement::Centre,
+                texte,
+            );
+        }
         // Le calepinage, sur le calque CALEPINAGE (évolution 19).
         for &(a, b) in piece.calepinage.iter().flat_map(|pose| &pose.traits) {
             ligne_dxf(&mut entites, "CALEPINAGE", vers_le_dxf(a), vers_le_dxf(b));
@@ -3524,6 +3659,8 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("FINIS", "8"),
         ("OSSATURE", "30"),
         ("CALEPINAGE", "9"),
+        ("MARGES", "6"),
+        ("IMPLANTATION", "3"),
         ("NOTES", "2"),
         ("CLOISONS", "5"),
     ];
@@ -3915,6 +4052,28 @@ mod tests {
         assert!(dxf.contains("\r\nGarde-robe\r\n") && dxf.contains("\r\nEspace 2\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Garde-robe)"));
+    }
+
+    #[test]
+    fn le_plan_d_implantation_au_pdf_et_au_dxf() {
+        // Un terrain de 60 pi × 100 pi, ses marges de recul, et une maison.
+        let mut terrain = rectangle("60", "100");
+        terrain.terrain = true;
+        terrain.marges_de_recul = vec!["20".into(), "5".into(), "25".into(), "5".into()];
+        terrain.objets = vec![noyau::mobilier::Objet::nouveau(
+            noyau::mobilier::GenreDObjet::Maison,
+            (360.0, 400.0),
+        )];
+        let plan = Plan::d_une_piece(terrain);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // La zone constructible : quatre traits; la maison, au calque de
+        // l'implantation; ses quatre distances aux limites.
+        assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nMARGES\r\n").count(), 4);
+        assert!(dxf.contains("\r\nLINE\r\n  8\r\nIMPLANTATION\r\n"));
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(RUE)") && pdf.contains("(B\\342timents)"));
+        // La maison entre dans la marge d'avant : sa distance, en orange.
+        assert!(pdf.contains("(19 pi 4 po)"));
     }
 
     #[test]

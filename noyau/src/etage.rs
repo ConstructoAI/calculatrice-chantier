@@ -166,11 +166,13 @@ impl Plan {
         placee
     }
 
-    /// Les pièces complètes et placées, dans l'étage.
+    /// Les pièces complètes et placées, dans l'étage; un terrain n'en est pas
+    /// (évolution 29).
     pub fn pieces_dans_l_etage(&self, defaut: Format) -> Vec<PieceDansLEtage> {
         self.pieces
             .iter()
             .enumerate()
+            .filter(|(_, piece)| !piece.dessin.terrain)
             .filter_map(|(rang, piece)| {
                 let place = piece.place?;
                 let Contours {

@@ -65,11 +65,19 @@ pub enum GenreDObjet {
     Ilot,
     LaveVaisselle,
     Vanite,
+    // Le terrain : le plan d'implantation (évolution 29).
+    Maison,
+    Garage,
+    Cabanon,
+    Terrasse,
+    /// L'entrée d'auto.
+    Entree,
+    Piscine,
 }
 
 impl GenreDObjet {
     /// Tous les genres; les boutons les rangent par famille (`Famille::genres`).
-    pub const TOUS: [GenreDObjet; 50] = [
+    pub const TOUS: [GenreDObjet; 56] = [
         GenreDObjet::Escalier,
         GenreDObjet::Lit,
         GenreDObjet::Table,
@@ -120,6 +128,12 @@ impl GenreDObjet {
         GenreDObjet::Ilot,
         GenreDObjet::LaveVaisselle,
         GenreDObjet::Vanite,
+        GenreDObjet::Maison,
+        GenreDObjet::Garage,
+        GenreDObjet::Cabanon,
+        GenreDObjet::Terrasse,
+        GenreDObjet::Entree,
+        GenreDObjet::Piscine,
     ];
 
     /// Largeur, profondeur et hauteur de départ, en pouces : des tailles
@@ -176,6 +190,15 @@ impl GenreDObjet {
             GenreDObjet::Ilot => (72.0, 36.0, 36.0),
             GenreDObjet::LaveVaisselle => (24.0, 24.0, 36.0),
             GenreDObjet::Vanite => (30.0, 21.0, 40.0),
+            // Des tailles courantes de terrain : une maison de 40 pi × 28 pi, un
+            // garage double, un cabanon de 10 pi × 12 pi, une terrasse de 16 pi
+            // × 12 pi, une entrée de 12 pi × 30 pi, une piscine de 15 pi × 30 pi.
+            GenreDObjet::Maison => (480.0, 336.0, 156.0),
+            GenreDObjet::Garage => (288.0, 288.0, 132.0),
+            GenreDObjet::Cabanon => (120.0, 144.0, 96.0),
+            GenreDObjet::Terrasse => (192.0, 144.0, 24.0),
+            GenreDObjet::Entree => (144.0, 360.0, 1.0),
+            GenreDObjet::Piscine => (180.0, 360.0, 4.0),
         }
     }
 
@@ -526,6 +549,29 @@ impl GenreDObjet {
                 volume((0.2, 0.8), (1.0, 1.03), 31.0, 32.0, Noir),
                 volume((0.0, 1.0), (0.0, 1.0), 34.5, 36.0, Comptoir),
             ],
+            // Les bâtiments du terrain : leurs murs, puis leur toit (évolution 29).
+            GenreDObjet::Maison => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 120.0, Armoire),
+                volume((0.0, 1.0), (0.0, 1.0), 120.0, 156.0, BoisFonce),
+            ],
+            GenreDObjet::Garage => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 108.0, Armoire),
+                volume((0.0, 1.0), (0.0, 1.0), 108.0, 132.0, BoisFonce),
+            ],
+            GenreDObjet::Cabanon => vec![
+                volume((0.0, 1.0), (0.0, 1.0), 0.0, 84.0, Bois),
+                volume((0.0, 1.0), (0.0, 1.0), 84.0, 96.0, BoisFonce),
+            ],
+            GenreDObjet::Terrasse => vec![volume((0.0, 1.0), (0.0, 1.0), 0.0, 24.0, Bois)],
+            GenreDObjet::Entree => vec![volume((0.0, 1.0), (0.0, 1.0), 0.0, 1.0, Noir)],
+            // L'eau, et la margelle tout autour.
+            GenreDObjet::Piscine => vec![
+                volume((0.06, 0.94), (0.03, 0.97), 0.0, 2.0, Verre),
+                volume((0.0, 1.0), (0.0, 0.03), 0.0, 4.0, Comptoir),
+                volume((0.0, 1.0), (0.97, 1.0), 0.0, 4.0, Comptoir),
+                volume((0.0, 0.06), (0.03, 0.97), 0.0, 4.0, Comptoir),
+                volume((0.94, 1.0), (0.03, 0.97), 0.0, 4.0, Comptoir),
+            ],
             // Le socle, la caisse et ses portes, le dessus, le robinet et son bec.
             GenreDObjet::Vanite => vec![
                 volume((0.0, 1.0), (0.0, 0.86), 0.0, 4.0, Noir),
@@ -782,6 +828,19 @@ impl GenreDObjet {
                 Tirets((0.0, 1.0), (1.0, 0.0)),
             ],
             // La face des armoires; le comptoir déborde au-delà.
+            // Un bâtiment se reconnaît à ses deux diagonales; la terrasse, à ses
+            // planches; la piscine, à sa margelle.
+            GenreDObjet::Maison | GenreDObjet::Garage | GenreDObjet::Cabanon => {
+                vec![Ligne((0.0, 0.0), (1.0, 1.0)), Ligne((1.0, 0.0), (0.0, 1.0))]
+            }
+            GenreDObjet::Terrasse => (1..6)
+                .map(|k| {
+                    let v = f64::from(k) / 6.0;
+                    Ligne((0.0, v), (1.0, v))
+                })
+                .collect(),
+            GenreDObjet::Entree => vec![Tirets((0.5, 0.0), (0.5, 1.0))],
+            GenreDObjet::Piscine => vec![Rectangle((0.06, 0.03), (0.94, 0.97))],
             GenreDObjet::Ilot => vec![Ligne((0.0, 0.7), (1.0, 0.7))],
             GenreDObjet::LaveVaisselle => vec![Ligne((0.0, 0.88), (1.0, 0.88))],
             // La vasque dans le comptoir, son drain et le robinet.
@@ -818,6 +877,7 @@ impl GenreDObjet {
             Lavabo | Evier | ArmoireDuBas | ArmoireDuHaut | Ilot | LaveVaisselle | Vanite => {
                 Famille::CuisineEtBain
             }
+            Maison | Garage | Cabanon | Terrasse | Entree | Piscine => Famille::Implantation,
         }
     }
 
@@ -849,6 +909,11 @@ impl GenreDObjet {
                 | Ilot
                 | LaveVaisselle
                 | Vanite
+                | Maison
+                | Garage
+                | Cabanon
+                | Terrasse
+                | Piscine
         )
     }
 
@@ -897,7 +962,7 @@ impl GenreDObjet {
     pub fn contour(self) -> Contour {
         use GenreDObjet::*;
         match self {
-            ThermopompeMurale | Hotte | ArmoireDuHaut => Contour::Tirets,
+            ThermopompeMurale | Hotte | ArmoireDuHaut | Entree => Contour::Tirets,
             ChauffeEau | FiltreAEau | Coude90 | Coude45 | Te | RobinetDArret | Clapet
             | CompteurDEau | DrainDePlancher | ColonneDeChute | CompteurElectrique | Prise
             | PriseDdft | Prise240 | Interrupteur | Luminaire | Encastre | Detecteur
@@ -951,16 +1016,19 @@ pub enum Famille {
     Electricite,
     Ventilation,
     CuisineEtBain,
+    /// Le terrain : le plan d'implantation (évolution 29).
+    Implantation,
 }
 
 impl Famille {
     /// Les familles, dans l'ordre de la rangée.
-    pub const TOUTES: [Famille; 5] = [
+    pub const TOUTES: [Famille; 6] = [
         Famille::Mobilier,
         Famille::Plomberie,
         Famille::Electricite,
         Famille::Ventilation,
         Famille::CuisineEtBain,
+        Famille::Implantation,
     ];
 
     /// Ses objets, dans l'ordre de leurs boutons. Un objet peut être de
@@ -1045,6 +1113,7 @@ impl Famille {
                 Bain,
                 Douche,
             ],
+            Famille::Implantation => &[Maison, Garage, Cabanon, Terrasse, Entree, Piscine],
         }
     }
 
@@ -1056,6 +1125,7 @@ impl Famille {
             Famille::Plomberie => "PLOMBERIE",
             Famille::Electricite => "ELECTRICITE",
             Famille::Ventilation => "VENTILATION",
+            Famille::Implantation => "IMPLANTATION",
         }
     }
 }

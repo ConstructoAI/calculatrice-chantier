@@ -253,6 +253,7 @@ enum Section {
     Elevations,
     Ossature,
     Calepinage,
+    Implantation,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -357,6 +358,8 @@ enum AutreSaisie {
     Retombee(usize, ChampDeRetombee),
     /// Une dimension d'une pièce du calepinage : vrai pour sa longueur.
     Calepinage(bool),
+    /// La marge de recul d'un côté d'un terrain (évolution 29).
+    Marge(usize),
 }
 
 /// Une mesure d'une retombée de plafond.
@@ -413,6 +416,7 @@ impl AutreSaisie {
             AutreSaisie::HautDuPlafond => dessin.plafond.forme != FormeDePlafond::Plat,
             AutreSaisie::Retombee(rang, _) => rang < dessin.retombees.len(),
             AutreSaisie::Calepinage(_) => true,
+            AutreSaisie::Marge(cote) => dessin.terrain && cote < dessin.cotes.len(),
         }
     }
 }
@@ -1485,6 +1489,129 @@ fn mur_vu_de_face(
     }
 }
 
+/// Le plan d'implantation d'un terrain (évolution 29) : la marge de recul de
+/// chaque côté, au pavé, et la distance de chaque objet du terrain à chaque
+/// côté, en rouge dans une marge.
+fn implantation(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) {
+    ui.add_space(8.0);
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Implantation,
+        textes::DESSIN_IMPLANTATION.traduit(),
+    ) {
+        return;
+    }
+    ui.label(RichText::new(textes::IMPLANTATION_MARGES.traduit()).font(theme::police_grasse(13.5)));
+    ui.horizontal_wrapped(|ui| {
+        for cote in 0..dessin.cotes.len() {
+            let cible = AutreSaisie::Marge(cote);
+            let saisie = dessin.marges_de_recul.get(cote).map_or("", String::as_str);
+            let texte = format!(
+                "{} : {}",
+                textes::implantation_cote(cote + 1, cote == 0),
+                mesure_du_bouton(saisie, textes::IMPLANTATION_AUCUNE.traduit(), prefs)
+            );
+            if ui
+                .add(egui::Button::new(texte).selected(etat.autre_choisi == Some(cible)))
+                .clicked()
+            {
+                etat.choisir_autre(Some(cible));
+            }
+        }
+    });
+    let distances = noyau::implantation::distances_aux_limites(dessin, solution);
+    if !distances.is_empty() {
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(textes::IMPLANTATION_DISTANCES.traduit())
+                .font(theme::police_grasse(13.5)),
+        );
+        for (rang, liste) in distances {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new(format!(
+                        "{} {}",
+                        rang + 1,
+                        textes::objet(dessin.objets[rang].genre).traduit()
+                    ))
+                    .size(12.5)
+                    .color(p.texte_attenue),
+                );
+                for distance in liste {
+                    let couleur = if distance.dans_la_marge {
+                        p.erreur
+                    } else {
+                        p.texte
+                    };
+                    ui.label(
+                        RichText::new(format!(
+                            "{} {}",
+                            distance.cote + 1,
+                            longueur_en_clair(distance.distance, solution, prefs)
+                        ))
+                        .size(13.0)
+                        .color(couleur),
+                    );
+                }
+            });
+        }
+    }
+    ui.label(
+        RichText::new(textes::IMPLANTATION_AVIS.traduit())
+            .size(12.0)
+            .color(p.texte_attenue),
+    );
+}
+
+/// Le bilan d'un terrain : ses bâtiments et leur part du terrain, ses surfaces
+/// dures et sa zone constructible (évolution 29).
+fn lignes_du_terrain(
+    dessin: &Dessin,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> Vec<(String, String)> {
+    let Some(bilan) = noyau::implantation::bilan(dessin, solution) else {
+        return Vec::new();
+    };
+    let aire = |po2: f64| Quantite::Aire(po2).en_clair(solution.modele, prefs);
+    let mut lignes = vec![(
+        textes::IMPLANTATION_BATIMENTS.traduit().to_string(),
+        format!(
+            "{} · {}",
+            aire(bilan.batiments),
+            textes::implantation_taux(&noyau::format::nombre_fixe(bilan.taux * 100.0, 1, prefs))
+        ),
+    )];
+    if bilan.surfaces_dures > 0.0 {
+        lignes.push((
+            textes::IMPLANTATION_SURFACES_DURES.traduit().to_string(),
+            aire(bilan.surfaces_dures),
+        ));
+    }
+    if let Some(zone) = noyau::implantation::zone_constructible(dessin, solution) {
+        let n = zone.len();
+        let surface = (0..n)
+            .map(|k| zone[k].0 * zone[(k + 1) % n].1 - zone[(k + 1) % n].0 * zone[k].1)
+            .sum::<f64>()
+            .abs()
+            / 2.0;
+        lignes.push((
+            textes::IMPLANTATION_ZONE.traduit().to_string(),
+            aire(surface),
+        ));
+    }
+    lignes
+}
+
 /// Le calepinage (évolution 19) : ce qui se pose, le format d'une pièce, le
 /// joint, le mur de départ, au coin ou au centre, le sens et le décalage des
 /// rangs, et le compte des pièces. Retourne vrai si le dessin a changé.
@@ -2170,32 +2297,41 @@ pub fn afficher(
             if dessin.fermee && retraits(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
-            if dessin.fermee && murs(ui, p, dessin, etat, &solution, prefs) {
+            if dessin.terrain && matches!(solution.etat, EtatDeLaForme::Complete { .. }) {
+                implantation(ui, p, dessin, etat, &solution, prefs);
+            }
+            if dessin.fermee && !dessin.terrain && murs(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
-            if matches!(solution.etat, EtatDeLaForme::Complete { .. }) && finis(ui, p, dessin, etat)
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && !dessin.terrain
+                && finis(ui, p, dessin, etat)
             {
                 action = Some(Action::Modifie);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && !dessin.terrain
                 && calepinage_de_la_piece(ui, p, dessin, etat, &solution, prefs)
             {
                 action = Some(Action::Modifie);
             }
-            if dessin.fermee {
+            if dessin.fermee && !dessin.terrain {
                 elevations_des_murs(ui, p, dessin, etat, &solution, prefs);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && !dessin.terrain
                 && ossature_de_la_piece(ui, p, dessin, etat, &solution, prefs)
             {
                 action = Some(Action::Modifie);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && !dessin.terrain
                 && cloisons(ui, p, dessin, etat, &solution, prefs)
             {
                 action = Some(Action::Modifie);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && !dessin.terrain
                 && espaces_de_la_piece(ui, p, dessin, etat, &solution, prefs)
             {
                 action = Some(Action::Modifie);
@@ -2861,6 +2997,22 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                     etat.changer_de_piece();
                     modifie = true;
                 }
+                // Un terrain : le plan d'implantation (évolution 29).
+                if plan.pieces.len() < noyau::dessin::MAX_PIECES
+                    && ui
+                        .add(egui::Button::new(
+                            textes::DESSIN_AJOUTER_UN_TERRAIN.traduit(),
+                        ))
+                        .clicked()
+                    && plan.ajouter()
+                {
+                    let piece = plan.piece();
+                    piece.dessin.terrain = true;
+                    piece.nom = textes::IMPLANTATION_TERRAIN.traduit().to_string();
+                    etat.vue_etage = false;
+                    etat.changer_de_piece();
+                    modifie = true;
+                }
                 let renommer =
                     egui::Button::new(textes::DESSIN_RENOMMER.traduit()).selected(etat.renommer);
                 if ui.add(renommer).clicked() {
@@ -3268,7 +3420,8 @@ fn planche_et_gestes(
     // La vue 3D, quand elle est choisie et que la pièce est complète.
     if etat.vue_3d {
         if let Some(maquette) = noyau::maquette::maquette(dessin, solution) {
-            let consigne = if solution.hauteur.is_none() {
+            // Un terrain n'a pas de murs : rien à en dire (évolution 29).
+            let consigne = if solution.hauteur.is_none() && !dessin.terrain {
                 format!(
                     "{} · {}",
                     textes::DESSIN_TOURNER.traduit(),
@@ -4195,6 +4348,82 @@ fn planche_et_gestes(
     {
         let traits = noyau::finis::trame(dessin.finis.plancher, &contour);
         trame_sur_la_planche(&painter, p, &traits, &|point| echelle.vers_l_ecran(point));
+    }
+    // Le plan d'implantation (évolution 29) : la zone où bâtir, en tirets; la
+    // rue, devant le premier côté; les distances des bâtiments (et de l'objet
+    // choisi) aux limites, en rouge dans une marge de recul.
+    if complete && dessin.terrain {
+        if let Some(zone) = noyau::implantation::zone_constructible(dessin, solution) {
+            let mut points: Vec<Pos2> = zone.iter().map(|&c| echelle.vers_l_ecran(c)).collect();
+            points.push(points[0]);
+            painter.extend(egui::Shape::dashed_line(
+                &points,
+                Stroke::new(1.5, p.accent_du_plan()),
+                8.0,
+                5.0,
+            ));
+        }
+        for (rang, distances) in noyau::implantation::distances_aux_limites(dessin, solution) {
+            if !noyau::implantation::est_un_batiment(dessin.objets[rang].genre)
+                && etat.objet_choisi != Some(rang)
+            {
+                continue;
+            }
+            let genre = dessin.objets[rang].genre;
+            let distances = if etat.objet_choisi == Some(rang) {
+                distances
+            } else {
+                noyau::implantation::distances_a_montrer(genre, distances)
+            };
+            for distance in distances.iter().filter(|distance| distance.distance >= 0.5) {
+                let (a, b) = (
+                    echelle.vers_l_ecran(distance.de),
+                    echelle.vers_l_ecran(distance.a),
+                );
+                let couleur = if distance.dans_la_marge {
+                    p.erreur
+                } else {
+                    p.texte_attenue
+                };
+                let trait_ = Stroke::new(1.0, couleur);
+                painter.line_segment([a, b], trait_);
+                let le_long = (b - a).normalized();
+                let travers = Vec2::new(-le_long.y, le_long.x) * 4.0;
+                for bout in [a, b] {
+                    painter.line_segment([bout - travers, bout + travers], trait_);
+                }
+                painter.text(
+                    a + (b - a) * 0.5 + travers * 2.8,
+                    Align2::CENTER_CENTER,
+                    longueur_en_clair(distance.distance, solution, prefs),
+                    theme::police_grasse(11.0),
+                    couleur,
+                );
+            }
+        }
+        if let Some(sommets) = dessin.contour_interieur(solution)
+            && sommets.len() > 3
+        {
+            let ecran: Vec<Pos2> = sommets.iter().map(|&s| echelle.vers_l_ecran(s)).collect();
+            let aire_signee: f32 = ecran
+                .windows(2)
+                .map(|s| s[0].x * s[1].y - s[1].x * s[0].y)
+                .sum();
+            let (a, b) = (ecran[0], ecran[1]);
+            let unite = (b - a).normalized();
+            let dehors = if aire_signee > 0.0 {
+                Vec2::new(unite.y, -unite.x)
+            } else {
+                Vec2::new(-unite.y, unite.x)
+            };
+            painter.text(
+                a + (b - a) * 0.5 + dehors * 30.0,
+                Align2::CENTER_CENTER,
+                textes::IMPLANTATION_RUE.traduit(),
+                theme::police_grasse(11.5),
+                p.texte_attenue,
+            );
+        }
     }
     // Le surligneur du croquis passe sous le plan (évolution 30).
     if complete {
@@ -5619,6 +5848,17 @@ fn autre_mesure(
                 ensuite.map(|champ| AutreSaisie::Retombee(rang, champ)),
             )
         }
+        AutreSaisie::Marge(cote) => {
+            if dessin.marges_de_recul.len() <= cote {
+                dessin.marges_de_recul.resize(cote + 1, String::new());
+            }
+            (
+                &mut dessin.marges_de_recul[cote],
+                textes::implantation_marge(cote + 1),
+                textes::DESSIN_EXEMPLE.traduit().to_string(),
+                None,
+            )
+        }
         AutreSaisie::Calepinage(en_longueur) => {
             let saisie = if en_longueur {
                 &mut dessin.calepinage.longueur
@@ -6962,8 +7202,18 @@ fn objets(
     // La rangée des familles, comme la barre des métiers de la calculatrice,
     // puis un bouton par objet de la famille choisie : on touche ensuite la
     // pièce pour l'y poser (point 40).
+    // Sur un terrain, les objets de l'implantation seulement; dans une pièce,
+    // tous les autres (évolution 29).
+    if dessin.terrain {
+        etat.famille = Famille::Implantation;
+    } else if etat.famille == Famille::Implantation {
+        etat.famille = Famille::Mobilier;
+    }
     ui.horizontal_wrapped(|ui| {
-        for famille in Famille::TOUTES {
+        for famille in Famille::TOUTES
+            .into_iter()
+            .filter(|&famille| (famille == Famille::Implantation) == dessin.terrain)
+        {
             let genre = if etat.famille == famille {
                 super::Pastille::Active
             } else {
@@ -7483,6 +7733,10 @@ pub(crate) fn resultats_de_la_piece(
             ));
         }
     }
+    // Le bilan d'un terrain (évolution 29).
+    if dessin.terrain {
+        lignes.extend(lignes_du_terrain(dessin, solution, prefs));
+    }
     // Le compte de l'ossature, si elle paraît (évolution 28).
     if dessin.ossature_visible {
         lignes.extend(lignes_de_l_ossature(dessin, solution, prefs));
@@ -7592,7 +7846,7 @@ pub(crate) fn resultats_de_la_piece(
 pub(crate) fn comptes_des_symboles(dessin: &Dessin) -> Vec<(GenreDObjet, usize)> {
     GenreDObjet::TOUS
         .into_iter()
-        .filter(|genre| genre.famille() != Famille::Mobilier)
+        .filter(|genre| !matches!(genre.famille(), Famille::Mobilier | Famille::Implantation))
         .map(|genre| {
             let nombre = dessin
                 .objets

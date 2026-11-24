@@ -495,6 +495,12 @@ pub struct Dessin {
     pub entraxe: crate::ossature::Entraxe,
     /// La pose de la céramique, du plancher ou du gypse (évolution 19).
     pub calepinage: crate::calepinage::Calepinage,
+    /// Vrai si le dessin est celui d'un terrain, sans murs : un plan
+    /// d'implantation (évolution 29).
+    pub terrain: bool,
+    /// La marge de recul de chaque côté d'un terrain, telle qu'inscrite; vide :
+    /// aucune.
+    pub marges_de_recul: Vec<String>,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
     /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.
@@ -2857,7 +2863,8 @@ impl Dessin {
             None => (None, None),
         };
         let texte_de_la_hauteur = self.hauteur_des_murs.trim();
-        let hauteur = if texte_de_la_hauteur.is_empty() {
+        // Un terrain n'a pas de murs, donc pas de hauteur (évolution 29).
+        let hauteur = if texte_de_la_hauteur.is_empty() || self.terrain {
             None
         } else {
             lire(texte_de_la_hauteur)
@@ -2971,8 +2978,13 @@ impl Dessin {
             }
             _ => None,
         };
-        let epaisseur_des_murs = lire_une_epaisseur(&self.epaisseur_des_murs, true)
-            .unwrap_or(EPAISSEUR_DES_MURS_PAR_DEFAUT);
+        // Un terrain n'a pas de murs (évolution 29).
+        let epaisseur_des_murs = if self.terrain {
+            0.0
+        } else {
+            lire_une_epaisseur(&self.epaisseur_des_murs, true)
+                .unwrap_or(EPAISSEUR_DES_MURS_PAR_DEFAUT)
+        };
         let epaisseur_des_cloisons = lire_une_epaisseur(&self.epaisseur_des_cloisons, false)
             .unwrap_or(crate::cloison::EPAISSEUR_PAR_DEFAUT);
         let cloisons = self

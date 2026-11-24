@@ -1223,6 +1223,12 @@ pub fn objet(genre: noyau::mobilier::GenreDObjet) -> Texte {
         GenreDObjet::Ilot => t("Îlot", "Island"),
         GenreDObjet::LaveVaisselle => t("Lave-vaisselle", "Dishwasher"),
         GenreDObjet::Vanite => t("Vanité", "Vanity"),
+        GenreDObjet::Maison => t("Maison", "House"),
+        GenreDObjet::Garage => tel("Garage"),
+        GenreDObjet::Cabanon => t("Cabanon", "Shed"),
+        GenreDObjet::Terrasse => t("Terrasse", "Deck"),
+        GenreDObjet::Entree => t("Entrée", "Driveway"),
+        GenreDObjet::Piscine => t("Piscine", "Pool"),
     }
 }
 
@@ -1270,6 +1276,7 @@ pub fn famille_d_objets(famille: noyau::mobilier::Famille) -> Texte {
         Famille::Electricite => t("Électricité", "Electrical"),
         Famille::Ventilation => t("Ventilation", "HVAC"),
         Famille::CuisineEtBain => t("Cuisine et SdB", "Kitchen & bath"),
+        Famille::Implantation => t("Implantation", "Site"),
     }
 }
 
@@ -1495,6 +1502,48 @@ pub fn etage_pieces_incompletes(nombre: usize) -> String {
         (Langue::Francais, n) => format!("{n} pièces pas encore complètes n'y paraissent pas"),
         (Langue::Anglais, 1) => "1 room not complete yet is not shown".to_string(),
         (Langue::Anglais, n) => format!("{n} rooms not complete yet are not shown"),
+    }
+}
+
+/// Le plan d'implantation (évolution 29).
+pub const DESSIN_AJOUTER_UN_TERRAIN: Texte = t("+ Terrain", "+ Lot");
+pub const DESSIN_IMPLANTATION: Texte = t("Plan d'implantation", "Site plan");
+pub const IMPLANTATION_TERRAIN: Texte = t("Terrain", "Lot");
+pub const IMPLANTATION_MARGES: Texte = t("Marges de recul", "Setbacks");
+pub const IMPLANTATION_AUCUNE: Texte = t("aucune", "none");
+pub const IMPLANTATION_DISTANCES: Texte = t("Distances aux limites", "Distances to lot lines");
+pub const IMPLANTATION_BATIMENTS: Texte = t("Bâtiments", "Buildings");
+pub const IMPLANTATION_SURFACES_DURES: Texte = t("Surfaces dures", "Hard surfaces");
+pub const IMPLANTATION_ZONE: Texte = t("Zone constructible", "Buildable area");
+pub const IMPLANTATION_RUE: Texte = t("RUE", "STREET");
+pub const IMPLANTATION_AVIS: Texte = t(
+    "Aucune règle d'urbanisme n'est vérifiée : les marges sont celles que vous inscrivez.",
+    "No zoning rule is checked: the setbacks are the ones you enter.",
+);
+
+/// Un côté du terrain : « Côté 1 (rue) ».
+pub fn implantation_cote(numero: usize, rue: bool) -> String {
+    match (langue::en_cours(), rue) {
+        (Langue::Francais, true) => format!("Côté {numero} (rue)"),
+        (Langue::Francais, false) => format!("Côté {numero}"),
+        (Langue::Anglais, true) => format!("Side {numero} (street)"),
+        (Langue::Anglais, false) => format!("Side {numero}"),
+    }
+}
+
+/// Le titre du champ de la marge de recul d'un côté.
+pub fn implantation_marge(numero: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Marge de recul du côté {numero}"),
+        Langue::Anglais => format!("Setback of side {numero}"),
+    }
+}
+
+/// La part du terrain que couvrent les bâtiments : « 15,8 % du terrain ».
+pub fn implantation_taux(pour_cent: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{pour_cent} % du terrain"),
+        Langue::Anglais => format!("{pour_cent}% of the lot"),
     }
 }
 

@@ -18,6 +18,7 @@ pub mod finis;
 pub mod fonctions;
 pub mod format;
 pub mod heures;
+pub mod implantation;
 pub mod langue;
 pub mod maquette;
 pub mod memoire;

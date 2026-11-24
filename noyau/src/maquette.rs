@@ -94,8 +94,9 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
         });
     }
 
-    // Les murs, interrompus par leurs ouvertures, puis les ouvertures.
-    for (cote, segment) in sommets.windows(2).enumerate() {
+    // Les murs, interrompus par leurs ouvertures, puis les ouvertures; un
+    // terrain n'en a pas (évolution 29).
+    for (cote, segment) in sommets.windows(2).enumerate().filter(|_| !dessin.terrain) {
         let (a, b) = (segment[0], segment[1]);
         let longueur = (b.0 - a.0).hypot(b.1 - a.1);
         if longueur <= 1e-9 {

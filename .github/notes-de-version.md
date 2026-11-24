@@ -151,6 +151,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Plan d'étage (quatrième partie)** : la 3D de l'étage entier — le bouton « 3D » de la vue de
   l'étage montre toutes les pièces à leur place, leurs portes traversant les murs communs.
 
+- **Plan d'implantation** : « + Terrain » ajoute un terrain, ses marges de recul, la maison,
+  le garage, le cabanon, la terrasse, l'entrée et la piscine, avec leurs distances aux limites,
+  la zone constructible et la part du terrain que couvrent les bâtiments.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
