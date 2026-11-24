@@ -95,6 +95,8 @@ struct PieceExportee {
     /// trait de chaque linteau (évolution 28).
     montants: Vec<[(f64, f64); 4]>,
     linteaux: Vec<((f64, f64), (f64, f64))>,
+    /// Son calepinage, s'il paraît (évolution 19).
+    calepinage: Option<noyau::calepinage::Pose>,
     /// Ses murs vus de face (évolution 18).
     elevations: Vec<ElevationExportee>,
     /// Les espaces que ferment les cloisons : leur nom, leur aire en clair et
@@ -334,6 +336,12 @@ fn preparer_la_piece(
         modele: solution.modele,
         ouvertures,
         objets,
+        calepinage: match dessin.contour_interieur(&solution) {
+            Some(contour) if complete && dessin.calepinage.visible => {
+                Some(noyau::calepinage::poser(&dessin.calepinage, &contour))
+            }
+            _ => None,
+        },
         montants: if complete && dessin.ossature_visible {
             noyau::ossature::ossature(dessin, &solution)
                 .iter()
@@ -390,7 +398,9 @@ fn preparer_la_piece(
             })
             .collect(),
         trame: match dessin.contour_interieur(&solution) {
-            Some(contour) if complete => noyau::finis::trame(dessin.finis.plancher, &contour),
+            Some(contour) if complete && !dessin.calepinage.visible => {
+                noyau::finis::trame(dessin.finis.plancher, &contour)
+            }
             _ => Vec::new(),
         },
         croquis: if complete {
@@ -582,6 +592,9 @@ const MUR_PLEIN: Couleur = (0.74, 0.80, 0.90);
 const BLEU: Couleur = (0.0, 0.40, 0.80);
 const ORANGE: Couleur = (0.85, 0.38, 0.05);
 const FILET: Couleur = (0.80, 0.83, 0.87);
+/// Les pièces coupées d'un calepinage, et les joints entre les pièces.
+const COUPE: Couleur = (0.99, 0.92, 0.84);
+const JOINT: Couleur = (0.62, 0.65, 0.70);
 const BLANC: Couleur = (1.0, 1.0, 1.0);
 
 /// Une ouverture sur un contour : ses deux bords, le sens du mur, celui de
@@ -1689,6 +1702,17 @@ fn dessiner_le_plan(
     let epaisseur_des_murs = piece.epaisseur_des_murs * echelle;
     // La trame du plancher, sous le plan, d'un gris pâle (évolution 27).
     trame_sur_la_page(page, &piece.trame, vers_la_page);
+    // Le calepinage, à la place de la trame : les pièces coupées teintées et
+    // les joints d'un trait fin (évolution 19).
+    if let Some(pose) = &piece.calepinage {
+        for coupee in pose.pieces.iter().filter(|piece| !piece.entiere) {
+            let coins: Vec<(f64, f64)> = coupee.contour.iter().map(|&c| vers_la_page(c)).collect();
+            page.polygone_plein(&coins, COUPE);
+        }
+        for &(a, b) in &pose.traits {
+            page.trait_(&[vers_la_page(a), vers_la_page(b)], 0.4, JOINT);
+        }
+    }
     // Le surligneur du croquis à main levée, sous le plan (évolution 30).
     for (points, crayon) in &piece.croquis {
         if *crayon == noyau::dessin::Crayon::Surligneur {
@@ -3084,6 +3108,10 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
+        // Le calepinage, sur le calque CALEPINAGE (évolution 19).
+        for &(a, b) in piece.calepinage.iter().flat_map(|pose| &pose.traits) {
+            ligne_dxf(&mut entites, "CALEPINAGE", vers_le_dxf(a), vers_le_dxf(b));
+        }
         // L'ossature, sur le calque OSSATURE (évolution 28).
         for rectangle in &piece.montants {
             for k in 0..4 {
@@ -3351,6 +3379,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("CROQUIS", "1"),
         ("FINIS", "8"),
         ("OSSATURE", "30"),
+        ("CALEPINAGE", "9"),
         ("NOTES", "2"),
         ("CLOISONS", "5"),
     ];
@@ -3740,6 +3769,25 @@ mod tests {
         assert!(dxf.contains("\r\nGarde-robe\r\n") && dxf.contains("\r\nEspace 2\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Garde-robe)"));
+    }
+
+    #[test]
+    fn le_calepinage_au_pdf_et_au_dxf() {
+        let mut piece = rectangle("12", "10");
+        piece.calepinage.visible = true;
+        piece.calepinage.largeur = "12 po".into();
+        piece.calepinage.longueur = "12 po".into();
+        piece.calepinage.joint = 0.0;
+        let plan = Plan::d_une_piece(piece);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Des carreaux de 12 po dans 12 pi × 10 pi : 11 joints de 10 carreaux
+        // dans un sens, 9 de 12 dans l'autre, sans les murs.
+        assert_eq!(
+            dxf.matches("\r\nLINE\r\n  8\r\nCALEPINAGE\r\n").count(),
+            11 * 10 + 9 * 12
+        );
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(120 enti\\350res, 0 coup\\351es)") && pdf.contains("(Perte)"));
     }
 
     #[test]

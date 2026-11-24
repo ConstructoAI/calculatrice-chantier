@@ -227,6 +227,7 @@ enum Section {
     Espaces,
     Elevations,
     Ossature,
+    Calepinage,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -329,6 +330,8 @@ enum AutreSaisie {
     HautDuPlafond,
     /// Une mesure d'une retombée de plafond : son rang, et laquelle.
     Retombee(usize, ChampDeRetombee),
+    /// Une dimension d'une pièce du calepinage : vrai pour sa longueur.
+    Calepinage(bool),
 }
 
 /// Une mesure d'une retombée de plafond.
@@ -384,6 +387,7 @@ impl AutreSaisie {
             AutreSaisie::Diagonale(k) => k < 2 && dessin.fermee && dessin.cotes.len() == 4,
             AutreSaisie::HautDuPlafond => dessin.plafond.forme != FormeDePlafond::Plat,
             AutreSaisie::Retombee(rang, _) => rang < dessin.retombees.len(),
+            AutreSaisie::Calepinage(_) => true,
         }
     }
 }
@@ -1456,6 +1460,285 @@ fn mur_vu_de_face(
     }
 }
 
+/// Le calepinage (évolution 19) : ce qui se pose, le format d'une pièce, le
+/// joint, le mur de départ, au coin ou au centre, le sens et le décalage des
+/// rangs, et le compte des pièces. Retourne vrai si le dessin a changé.
+fn calepinage_de_la_piece(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    use noyau::calepinage::{Decalage, Depart, JOINTS, MateriauAPoser, SensDeLaPose};
+    ui.add_space(8.0);
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Calepinage,
+        textes::DESSIN_CALEPINAGE.traduit(),
+    ) {
+        return false;
+    }
+    let avant = dessin.calepinage.clone();
+    let mut calepinage = avant.clone();
+    let gras = |texte: &str| RichText::new(texte).font(theme::police_grasse(13.5));
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add(
+                egui::Button::new(textes::DESSIN_MONTRER_L_OSSATURE.traduit())
+                    .selected(calepinage.visible),
+            )
+            .clicked()
+        {
+            calepinage.visible = !calepinage.visible;
+        }
+        for materiau in MateriauAPoser::TOUS {
+            if ui
+                .add(
+                    egui::Button::new(textes::materiau_a_poser(materiau).traduit())
+                        .selected(calepinage.materiau == materiau),
+                )
+                .clicked()
+                && calepinage.materiau != materiau
+            {
+                calepinage.changer_de_materiau(materiau);
+            }
+        }
+    });
+    // Le format : la largeur et la longueur d'une pièce, au pavé, ou un format
+    // courant du matériau; puis le joint.
+    ui.horizontal_wrapped(|ui| {
+        ui.label(gras(textes::DESSIN_FORMAT.traduit()));
+        let (largeur, longueur) = calepinage.materiau.formats()[0];
+        for (en_longueur, saisie, defaut) in [
+            (false, &calepinage.largeur, largeur),
+            (true, &calepinage.longueur, longueur),
+        ] {
+            let cible = AutreSaisie::Calepinage(en_longueur);
+            let bouton = egui::Button::new(dimension_a_poser(saisie, defaut, prefs))
+                .selected(etat.autre_choisi == Some(cible));
+            if ui.add(bouton).clicked() {
+                etat.choisir_autre(Some(cible));
+            }
+            if !en_longueur {
+                ui.label("×");
+            }
+        }
+        let mut format_choisi = None;
+        egui::ComboBox::from_id_salt("format-du-calepinage")
+            .selected_text(textes::DESSIN_FORMAT.traduit())
+            .show_ui(ui, |ui| {
+                for &(largeur, longueur) in calepinage.materiau.formats() {
+                    let texte = format!(
+                        "{} × {}",
+                        format_d_une_piece(largeur, prefs),
+                        format_d_une_piece(longueur, prefs)
+                    );
+                    if ui.selectable_label(false, texte).clicked() {
+                        format_choisi = Some((largeur, longueur));
+                    }
+                }
+            });
+        if let Some((largeur, longueur)) = format_choisi {
+            calepinage.largeur = sans_insecables(&format_d_une_piece(largeur, prefs));
+            calepinage.longueur = sans_insecables(&format_d_une_piece(longueur, prefs));
+        }
+        ui.label(gras(textes::DESSIN_CALEPINAGE_JOINT.traduit()));
+        let joint_en_clair = |joint: f64| {
+            if joint <= 0.0 {
+                textes::DESSIN_CALEPINAGE_SANS_JOINT.traduit().to_string()
+            } else {
+                petite_mesure(joint, solution, prefs)
+            }
+        };
+        egui::ComboBox::from_id_salt("joint-du-calepinage")
+            .selected_text(joint_en_clair(calepinage.joint))
+            .show_ui(ui, |ui| {
+                for joint in JOINTS {
+                    ui.selectable_value(&mut calepinage.joint, joint, joint_en_clair(joint));
+                }
+            });
+    });
+    // Le départ : le mur que la pose suit, depuis son premier coin ou depuis
+    // le centre de la pièce.
+    ui.horizontal_wrapped(|ui| {
+        ui.label(gras(textes::DESSIN_CALEPINAGE_LE_LONG_DU_MUR.traduit()));
+        let murs = dessin.cotes.len().max(1);
+        egui::ComboBox::from_id_salt("mur-du-calepinage")
+            .width(44.0)
+            .selected_text((calepinage.mur % murs + 1).to_string())
+            .show_ui(ui, |ui| {
+                for mur in 0..murs {
+                    ui.selectable_value(&mut calepinage.mur, mur, (mur + 1).to_string());
+                }
+            });
+        for (depart, texte) in [
+            (Depart::Coin, textes::DESSIN_CALEPINAGE_AU_COIN),
+            (Depart::Centre, textes::DESSIN_CALEPINAGE_AU_CENTRE),
+        ] {
+            if ui
+                .add(egui::Button::new(texte.traduit()).selected(calepinage.depart == depart))
+                .clicked()
+            {
+                calepinage.depart = depart;
+            }
+        }
+    });
+    ui.horizontal_wrapped(|ui| {
+        egui::ComboBox::from_id_salt("sens-du-calepinage")
+            .selected_text(textes::sens_de_la_pose(calepinage.sens).traduit())
+            .show_ui(ui, |ui| {
+                for sens in SensDeLaPose::TOUS {
+                    ui.selectable_value(
+                        &mut calepinage.sens,
+                        sens,
+                        textes::sens_de_la_pose(sens).traduit(),
+                    );
+                }
+            });
+        egui::ComboBox::from_id_salt("decalage-du-calepinage")
+            .selected_text(textes::decalage_des_rangs(calepinage.decalage).traduit())
+            .show_ui(ui, |ui| {
+                for decalage in Decalage::TOUS {
+                    ui.selectable_value(
+                        &mut calepinage.decalage,
+                        decalage,
+                        textes::decalage_des_rangs(decalage).traduit(),
+                    );
+                }
+            });
+    });
+    // Le compte des pièces, la perte et la plus petite coupe.
+    for (nom, valeur) in lignes_du_calepinage(dessin, &calepinage, solution, prefs) {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(nom).size(12.5).color(p.texte_attenue));
+            ui.label(RichText::new(valeur).size(13.5).strong());
+        });
+    }
+    if calepinage != avant {
+        etat.memoriser(dessin);
+        dessin.calepinage = calepinage;
+        return true;
+    }
+    false
+}
+
+/// Le format d'une pièce à poser, en pouces et fractions (« 12 po », pas
+/// « 1 pi 0 po ») : les formats courants sont en pouces, même dans une pièce
+/// mesurée en métrique.
+fn format_d_une_piece(pouces: f64, prefs: &Preferences) -> String {
+    noyau::format::en_texte(
+        &noyau::valeur::Valeur::en_base(pouces, Format::PoFrac),
+        &noyau::format::OptionsFormat::nouvelles(prefs),
+    )
+}
+
+/// Une dimension inscrite d'une pièce à poser : en pouces et fractions, ou
+/// dans l'unité métrique où elle a été inscrite; le format du matériau si rien
+/// n'est inscrit.
+fn dimension_a_poser(saisie: &str, defaut: f64, prefs: &Preferences) -> String {
+    let lue = noyau::analyse::analyser_longueur(saisie.trim(), FORMAT_PAR_DEFAUT)
+        .ok()
+        .filter(|v| v.est_longueur() && v.base > 0.0 && v.base.is_finite());
+    match lue {
+        Some(v) if v.format.systeme() == Some(noyau::unites::Systeme::Metrique) => {
+            Quantite::Longueur(v.base).en_clair(Some(v.format), prefs)
+        }
+        Some(v) => format_d_une_piece(v.base, prefs),
+        None if saisie.trim().is_empty() => format_d_une_piece(defaut, prefs),
+        None => saisie.trim().to_string(),
+    }
+}
+
+/// Une petite mesure (un joint, une coupe) : en pouces et fractions, ou en
+/// millimètres dans une pièce mesurée en métrique.
+fn petite_mesure(pouces: f64, solution: &Solution, prefs: &Preferences) -> String {
+    let metrique =
+        solution.modele.and_then(Format::systeme) == Some(noyau::unites::Systeme::Metrique);
+    if metrique {
+        Quantite::Longueur(pouces).en_clair(Some(Format::Mm), prefs)
+    } else {
+        format_d_une_piece(pouces, prefs)
+    }
+}
+
+/// Le bilan d'un calepinage : ce qui se pose et son format, les pièces
+/// entières et coupées, la perte et la plus petite coupe (évolution 19).
+fn lignes_du_calepinage(
+    dessin: &Dessin,
+    calepinage: &noyau::calepinage::Calepinage,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> Vec<(String, String)> {
+    let Some(contour) = dessin.contour_interieur(solution) else {
+        return Vec::new();
+    };
+    let pose = noyau::calepinage::poser(calepinage, &contour);
+    let (largeur, longueur) = calepinage.dimensions();
+    let titre = format!(
+        "{} {} × {}",
+        textes::materiau_a_poser(calepinage.materiau).traduit(),
+        format_d_une_piece(largeur, prefs),
+        format_d_une_piece(longueur, prefs)
+    );
+    if pose.trop_de_pieces {
+        return vec![(titre, textes::DESSIN_CALEPINAGE_TROP.traduit().to_string())];
+    }
+    let mut lignes = vec![
+        (
+            titre,
+            textes::dessin_pieces_posees(pose.entieres, pose.coupees),
+        ),
+        (
+            textes::DESSIN_CALEPINAGE_PERTE.traduit().to_string(),
+            noyau::format::nombre_et_unite(
+                &noyau::format::nombre_fixe(pose.perte * 100.0, 1, prefs),
+                "%",
+            ),
+        ),
+    ];
+    if let Some(coupe) = pose.plus_petite_coupe {
+        lignes.push((
+            textes::DESSIN_CALEPINAGE_PLUS_PETITE_COUPE
+                .traduit()
+                .to_string(),
+            petite_mesure(coupe, solution, prefs),
+        ));
+    }
+    lignes
+}
+
+/// Le calepinage sur la planche : les pièces coupées teintées, les bords des
+/// pièces d'un trait pâle et le point de départ (évolution 19).
+fn calepinage_sur_la_planche(
+    painter: &egui::Painter,
+    p: &Palette,
+    pose: &noyau::calepinage::Pose,
+    vers: &dyn Fn((f64, f64)) -> Pos2,
+) {
+    // Les coupes en un seul maillage : sans lisière entre leurs triangles.
+    let teinte = theme::melanger(p.carte, p.accent_du_plan(), 0.16);
+    let mut maillage = egui::epaint::Mesh::default();
+    for piece in pose.pieces.iter().filter(|piece| !piece.entiere) {
+        for triangle in noyau::maquette::trianguler(&piece.contour) {
+            let base = maillage.vertices.len() as u32;
+            for coin in triangle {
+                maillage.colored_vertex(vers(coin), teinte);
+            }
+            maillage.add_triangle(base, base + 1, base + 2);
+        }
+    }
+    painter.add(egui::Shape::mesh(maillage));
+    let joint = Stroke::new(1.0, theme::melanger(p.carte, p.texte, 0.35));
+    for &(a, b) in &pose.traits {
+        painter.line_segment([vers(a), vers(b)], joint);
+    }
+    painter.circle_filled(vers(pose.depart), 4.0, p.accent_du_plan());
+}
+
 /// L'ossature dessinée (évolution 28) : la montrer sur le plan, son
 /// entraxe, et le compte des montants de chaque mur et de chaque segment de
 /// cloison. Retourne vrai si le dessin a changé.
@@ -1863,6 +2146,11 @@ pub fn afficher(
                 action = Some(Action::Modifie);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. }) && finis(ui, p, dessin, etat)
+            {
+                action = Some(Action::Modifie);
+            }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && calepinage_de_la_piece(ui, p, dessin, etat, &solution, prefs)
             {
                 action = Some(Action::Modifie);
             }
@@ -3243,8 +3531,15 @@ fn planche_et_gestes(
     } else {
         Vec::new()
     };
-    // La trame du plancher, sous tout le reste (évolution 27).
+    // La trame du plancher, sous tout le reste (évolution 27); le calepinage
+    // prend sa place quand il paraît (évolution 19).
     if complete
+        && dessin.calepinage.visible
+        && let Some(contour) = dessin.contour_interieur(solution)
+    {
+        let pose = noyau::calepinage::poser(&dessin.calepinage, &contour);
+        calepinage_sur_la_planche(&painter, p, &pose, &|point| echelle.vers_l_ecran(point));
+    } else if complete
         && dessin.finis.plancher != noyau::finis::Plancher::Aucun
         && let Some(contour) = dessin.contour_interieur(solution)
     {
@@ -4665,6 +4960,21 @@ fn autre_mesure(
                 ),
                 textes::DESSIN_EXEMPLE.traduit().to_string(),
                 ensuite.map(|champ| AutreSaisie::Retombee(rang, champ)),
+            )
+        }
+        AutreSaisie::Calepinage(en_longueur) => {
+            let saisie = if en_longueur {
+                &mut dessin.calepinage.longueur
+            } else {
+                &mut dessin.calepinage.largeur
+            };
+            (
+                saisie,
+                textes::dessin_dimension_a_poser(en_longueur)
+                    .traduit()
+                    .to_string(),
+                textes::DESSIN_CALEPINAGE_EXEMPLE.traduit().to_string(),
+                (!en_longueur).then_some(AutreSaisie::Calepinage(true)),
             )
         }
         AutreSaisie::Diagonale(k) => {
@@ -6516,12 +6826,18 @@ pub(crate) fn resultats_de_la_piece(
             ));
         }
     }
-    // À l'écran (et au ruban), le compte des appareils et des symboles des
-    // métiers : combien de prises, de coudes, d'armoires. Le PDF les met dans
-    // sa légende (point 40).
     // Le compte de l'ossature, si elle paraît (évolution 28).
     if dessin.ossature_visible {
         lignes.extend(lignes_de_l_ossature(dessin, solution, prefs));
+    }
+    // Le calepinage, s'il paraît (évolution 19).
+    if dessin.calepinage.visible {
+        lignes.extend(lignes_du_calepinage(
+            dessin,
+            &dessin.calepinage,
+            solution,
+            prefs,
+        ));
     }
     // L'aire de chaque espace que ferment les cloisons (évolution 5).
     for (rang, espace) in dessin.espaces(solution).iter().enumerate() {
@@ -6580,6 +6896,9 @@ pub(crate) fn resultats_de_la_piece(
             ));
         }
     }
+    // À l'écran (et au ruban), les conflits, puis le compte des appareils et
+    // des symboles des métiers : combien de prises, de coudes, d'armoires. Le
+    // PDF met ce compte dans sa légende (point 40).
     if !detail {
         let nom = |rang: usize| {
             dessin

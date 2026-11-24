@@ -5,6 +5,7 @@
 #![forbid(unsafe_code)]
 
 pub mod analyse;
+pub mod calepinage;
 pub mod cloison;
 pub mod conversions;
 pub mod coupe;

@@ -134,6 +134,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Ossature dessinée** : les montants aux 16 ou 24 po dans les murs et les cloisons, doublés
   aux coins et autour des ouvertures, leur compte par mur, les lisses et les linteaux.
 
+- **Calepinage** : la pose de la céramique, des lames ou du gypse dessinée sur la pièce
+  (départ au coin ou au centre, sens, joint, décalage des rangs), avec le compte des pièces
+  entières et coupées, la perte réelle et la plus petite coupe.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

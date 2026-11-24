@@ -493,6 +493,8 @@ pub struct Dessin {
     pub ossature_visible: bool,
     /// L'entraxe des montants de l'ossature.
     pub entraxe: crate::ossature::Entraxe,
+    /// La pose de la céramique, du plancher ou du gypse (évolution 19).
+    pub calepinage: crate::calepinage::Calepinage,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
     /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.

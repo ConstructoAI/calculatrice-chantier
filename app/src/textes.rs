@@ -1472,6 +1472,74 @@ pub fn dessin_montants_du_mur(mur: noyau::ossature::MurDOssature, montants: usiz
     }
 }
 
+/// Le calepinage (évolution 19).
+pub const DESSIN_CALEPINAGE: Texte = t("Calepinage", "Tile layout");
+pub const DESSIN_CALEPINAGE_JOINT: Texte = t("Joint", "Joint");
+pub const DESSIN_CALEPINAGE_SANS_JOINT: Texte = t("Sans joint", "No joint");
+pub const DESSIN_CALEPINAGE_LE_LONG_DU_MUR: Texte = t("Le long du mur", "Along wall");
+pub const DESSIN_CALEPINAGE_AU_COIN: Texte = t("Au coin", "At the corner");
+pub const DESSIN_CALEPINAGE_AU_CENTRE: Texte = t("Au centre", "At the center");
+pub const DESSIN_CALEPINAGE_PERTE: Texte = t("Perte", "Waste");
+pub const DESSIN_CALEPINAGE_PLUS_PETITE_COUPE: Texte = t("Plus petite coupe", "Smallest cut");
+pub const DESSIN_CALEPINAGE_EXEMPLE: Texte = t("12 po", "12 in");
+pub const DESSIN_CALEPINAGE_TROP: Texte = t(
+    "Trop de pièces à poser : un plus grand format?",
+    "Too many pieces to lay: a larger size?",
+);
+
+/// Ce qui se pose : « Céramique ».
+pub fn materiau_a_poser(materiau: noyau::calepinage::MateriauAPoser) -> Texte {
+    use noyau::calepinage::MateriauAPoser;
+    match materiau {
+        MateriauAPoser::Ceramique => t("Céramique", "Tile"),
+        MateriauAPoser::Plancher => t("Lames de plancher", "Floor boards"),
+        MateriauAPoser::Gypse => t("Gypse au plafond", "Ceiling drywall"),
+    }
+}
+
+/// Le sens de la pose, par rapport au mur de départ.
+pub fn sens_de_la_pose(sens: noyau::calepinage::SensDeLaPose) -> Texte {
+    use noyau::calepinage::SensDeLaPose;
+    match sens {
+        SensDeLaPose::Droit => t("Pose droite", "Straight"),
+        SensDeLaPose::Travers => t("Pose en travers", "Crosswise"),
+        SensDeLaPose::Diagonale => t("Pose en diagonale", "Diagonal"),
+    }
+}
+
+/// Le décalage d'un rang au suivant.
+pub fn decalage_des_rangs(decalage: noyau::calepinage::Decalage) -> Texte {
+    use noyau::calepinage::Decalage;
+    match decalage {
+        Decalage::Aligne => t("Joints alignés", "Stacked joints"),
+        Decalage::Demi => t("Rangs décalés de 1/2", "Rows offset by 1/2"),
+        Decalage::Tiers => t("Rangs décalés de 1/3", "Rows offset by 1/3"),
+    }
+}
+
+/// Le titre du champ d'une dimension d'une pièce à poser.
+pub fn dessin_dimension_a_poser(en_longueur: bool) -> Texte {
+    if en_longueur {
+        t(
+            "Calepinage : longueur d'une pièce",
+            "Tile layout: piece length",
+        )
+    } else {
+        t(
+            "Calepinage : largeur d'une pièce",
+            "Tile layout: piece width",
+        )
+    }
+}
+
+/// Le compte des pièces posées : « 99 entières, 21 coupées ».
+pub fn dessin_pieces_posees(entieres: usize, coupees: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{entieres} entières, {coupees} coupées"),
+        Langue::Anglais => format!("{entieres} full, {coupees} cut"),
+    }
+}
+
 /// Les élévations des murs (évolution 18).
 pub const DESSIN_ELEVATIONS: Texte = t("Élévations des murs", "Wall elevations");
 
