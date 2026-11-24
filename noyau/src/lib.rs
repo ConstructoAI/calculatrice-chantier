@@ -24,6 +24,7 @@ pub mod mobilier;
 pub mod moteur;
 pub mod niveau;
 pub mod nivellement;
+pub mod ossature;
 pub mod persistance;
 pub mod plafond;
 pub mod prefs;

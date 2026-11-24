@@ -91,6 +91,10 @@ struct PieceExportee {
     legende: Vec<SymboleDeLaLegende>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
+    /// Son ossature, si elle paraît : le rectangle de chaque montant et le
+    /// trait de chaque linteau (évolution 28).
+    montants: Vec<[(f64, f64); 4]>,
+    linteaux: Vec<((f64, f64), (f64, f64))>,
     /// Ses murs vus de face (évolution 18).
     elevations: Vec<ElevationExportee>,
     /// Les espaces que ferment les cloisons : leur nom, leur aire en clair et
@@ -330,6 +334,22 @@ fn preparer_la_piece(
         modele: solution.modele,
         ouvertures,
         objets,
+        montants: if complete && dessin.ossature_visible {
+            noyau::ossature::ossature(dessin, &solution)
+                .iter()
+                .flat_map(|mur| mur.rectangles_des_montants())
+                .collect()
+        } else {
+            Vec::new()
+        },
+        linteaux: if complete && dessin.ossature_visible {
+            noyau::ossature::ossature(dessin, &solution)
+                .iter()
+                .flat_map(|mur| mur.traits_des_linteaux())
+                .collect()
+        } else {
+            Vec::new()
+        },
         // Au PDF, les murs qui montrent quelque chose : une porte, une fenêtre,
         // ou un haut qui n'est pas plat.
         elevations: elevations_utiles(dessin.elevations(&solution))
@@ -1869,6 +1889,14 @@ fn dessiner_le_plan(
             page.texte(position, 7.0, false, alignement, NOIR, texte);
         }
     }
+    // L'ossature : les montants, pleins, et les linteaux (évolution 28).
+    for rectangle in &piece.montants {
+        let coins = rectangle.map(vers_la_page);
+        page.polygone_plein(&coins, GRIS);
+    }
+    for &(a, b) in &piece.linteaux {
+        page.trait_(&[vers_la_page(a), vers_la_page(b)], 1.4, GRIS);
+    }
     // Le nom et l'aire de chaque espace (évolution 5).
     for (nom, aire, point) in &piece.espaces {
         let (x, y) = vers_la_page(*point);
@@ -3056,6 +3084,20 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
+        // L'ossature, sur le calque OSSATURE (évolution 28).
+        for rectangle in &piece.montants {
+            for k in 0..4 {
+                ligne_dxf(
+                    &mut entites,
+                    "OSSATURE",
+                    vers_le_dxf(rectangle[k]),
+                    vers_le_dxf(rectangle[(k + 1) % 4]),
+                );
+            }
+        }
+        for &(a, b) in &piece.linteaux {
+            ligne_dxf(&mut entites, "OSSATURE", vers_le_dxf(a), vers_le_dxf(b));
+        }
         // Le nom et l'aire de chaque espace, sur le calque PIECES (évolution 5).
         for (nom, aire, point) in &piece.espaces {
             let (x, y) = vers_le_dxf(*point);
@@ -3308,6 +3350,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("VENTILATION", "94"),
         ("CROQUIS", "1"),
         ("FINIS", "8"),
+        ("OSSATURE", "30"),
         ("NOTES", "2"),
         ("CLOISONS", "5"),
     ];
@@ -3697,6 +3740,23 @@ mod tests {
         assert!(dxf.contains("\r\nGarde-robe\r\n") && dxf.contains("\r\nEspace 2\r\n"));
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(Garde-robe)"));
+    }
+
+    #[test]
+    fn l_ossature_au_pdf_et_au_dxf() {
+        let mut piece = rectangle("12", "10");
+        piece.ossature_visible = true;
+        let plan = Plan::d_une_piece(piece);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Deux murs de 12 pi (2 + 8 + 2 montants) et deux de 10 pi (2 + 7 + 2),
+        // chaque montant en quatre traits.
+        let montants = 2 * 12 + 2 * 11;
+        assert_eq!(
+            dxf.matches("\r\nLINE\r\n  8\r\nOSSATURE\r\n").count(),
+            4 * montants
+        );
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(Montants \\(16 po c. \\340 c.\\))") && pdf.contains("(46)"));
     }
 
     #[test]

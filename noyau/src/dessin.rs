@@ -489,6 +489,10 @@ pub struct Dessin {
     pub finis: crate::finis::Finis,
     /// Les noms donnés aux espaces que ferment les cloisons (évolution 5).
     pub noms_des_espaces: Vec<crate::espaces::NomDEspace>,
+    /// Vrai si l'ossature (les montants) paraît sur le plan (évolution 28).
+    pub ossature_visible: bool,
+    /// L'entraxe des montants de l'ossature.
+    pub entraxe: crate::ossature::Entraxe,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
     /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.

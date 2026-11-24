@@ -226,6 +226,7 @@ enum Section {
     TableauDesFinis,
     Espaces,
     Elevations,
+    Ossature,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -1455,6 +1456,116 @@ fn mur_vu_de_face(
     }
 }
 
+/// L'ossature dessinée (évolution 28) : la montrer sur le plan, son
+/// entraxe, et le compte des montants de chaque mur et de chaque segment de
+/// cloison. Retourne vrai si le dessin a changé.
+fn ossature_de_la_piece(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &mut Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> bool {
+    use noyau::ossature::Entraxe;
+    ui.add_space(8.0);
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Ossature,
+        textes::DESSIN_OSSATURE.traduit(),
+    ) {
+        return false;
+    }
+    let mut modifie = false;
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add(
+                egui::Button::new(textes::DESSIN_MONTRER_L_OSSATURE.traduit())
+                    .selected(dessin.ossature_visible),
+            )
+            .clicked()
+        {
+            etat.memoriser(dessin);
+            dessin.ossature_visible = !dessin.ossature_visible;
+            modifie = true;
+        }
+        for entraxe in [Entraxe::Seize, Entraxe::VingtQuatre] {
+            if ui
+                .add(
+                    egui::Button::new(textes::entraxe(entraxe).traduit())
+                        .selected(dessin.entraxe == entraxe),
+                )
+                .clicked()
+                && dessin.entraxe != entraxe
+            {
+                etat.memoriser(dessin);
+                dessin.entraxe = entraxe;
+                modifie = true;
+            }
+        }
+    });
+    for mur in noyau::ossature::ossature(dessin, solution) {
+        let linteaux: Vec<String> = mur
+            .linteaux
+            .iter()
+            .map(|&(de, a)| longueur_en_clair(a - de, solution, prefs))
+            .collect();
+        let mut texte = textes::dessin_montants_du_mur(mur.mur, mur.montants.len());
+        if !linteaux.is_empty() {
+            texte = format!(
+                "{texte} · {} {}",
+                textes::DESSIN_LINTEAUX.traduit().to_lowercase(),
+                linteaux.join(", ")
+            );
+        }
+        ui.label(RichText::new(texte).size(13.0));
+    }
+    modifie
+}
+
+/// Le compte de l'ossature d'une pièce, pour le bilan : les montants, les
+/// lisses et les sablières (trois longueurs de mur), et les linteaux.
+fn lignes_de_l_ossature(
+    dessin: &Dessin,
+    solution: &Solution,
+    prefs: &Preferences,
+) -> Vec<(String, String)> {
+    let murs = noyau::ossature::ossature(dessin, solution);
+    if murs.is_empty() {
+        return Vec::new();
+    }
+    let montants: usize = murs.iter().map(|mur| mur.montants.len()).sum();
+    let longueur: f64 = murs.iter().map(|mur| mur.longueur()).sum();
+    let mut lignes = vec![
+        (
+            format!(
+                "{} ({})",
+                textes::DESSIN_MONTANTS.traduit(),
+                textes::entraxe(dessin.entraxe).traduit()
+            ),
+            montants.to_string(),
+        ),
+        (
+            textes::DESSIN_LISSES.traduit().to_string(),
+            longueur_en_clair(3.0 * longueur, solution, prefs),
+        ),
+    ];
+    let linteaux: Vec<String> = murs
+        .iter()
+        .flat_map(|mur| mur.linteaux.iter())
+        .map(|&(de, a)| longueur_en_clair(a - de, solution, prefs))
+        .collect();
+    if !linteaux.is_empty() {
+        lignes.push((
+            textes::DESSIN_LINTEAUX.traduit().to_string(),
+            linteaux.join(", "),
+        ));
+    }
+    lignes
+}
+
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
 /// son centre, s'il en est un assez près (point 40). Retourne vrai s'il s'y
 /// est posé.
@@ -1757,6 +1868,11 @@ pub fn afficher(
             }
             if dessin.fermee {
                 elevations_des_murs(ui, p, dessin, etat, &solution, prefs);
+            }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. })
+                && ossature_de_la_piece(ui, p, dessin, etat, &solution, prefs)
+            {
+                action = Some(Action::Modifie);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
                 && cloisons(ui, p, dessin, etat, &solution, prefs)
@@ -3683,6 +3799,23 @@ fn planche_et_gestes(
             painter.rect_stroke(cadre, 4, bord, egui::StrokeKind::Inside);
             painter.galley(cadre.min + Vec2::new(5.0, 3.0), galere, couleur);
             etat.notes_a_l_ecran.push((rang, cadre));
+        }
+    }
+    // L'ossature : les montants dans les murs et les cloisons, et les
+    // linteaux au-dessus des ouvertures (évolution 28).
+    if complete && dessin.ossature_visible {
+        let couleur = theme::melanger(p.carte, p.texte, 0.55);
+        for mur in noyau::ossature::ossature(dessin, solution) {
+            for rectangle in mur.rectangles_des_montants() {
+                let coins: Vec<Pos2> = rectangle.iter().map(|c| echelle.vers_l_ecran(*c)).collect();
+                painter.add(egui::Shape::convex_polygon(coins, couleur, Stroke::NONE));
+            }
+            for (a, b) in mur.traits_des_linteaux() {
+                painter.line_segment(
+                    [echelle.vers_l_ecran(a), echelle.vers_l_ecran(b)],
+                    Stroke::new(2.5, couleur),
+                );
+            }
         }
     }
     // Le nom et l'aire de chaque espace que ferment les cloisons (évolution 5).
@@ -6386,6 +6519,10 @@ pub(crate) fn resultats_de_la_piece(
     // À l'écran (et au ruban), le compte des appareils et des symboles des
     // métiers : combien de prises, de coudes, d'armoires. Le PDF les met dans
     // sa légende (point 40).
+    // Le compte de l'ossature, si elle paraît (évolution 28).
+    if dessin.ossature_visible {
+        lignes.extend(lignes_de_l_ossature(dessin, solution, prefs));
+    }
     // L'aire de chaque espace que ferment les cloisons (évolution 5).
     for (rang, espace) in dessin.espaces(solution).iter().enumerate() {
         lignes.push((

@@ -131,6 +131,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Élévations des murs** : chaque mur vu de face, ses portes et ses fenêtres à leur hauteur,
   avec leurs cotes, à l'écran et au PDF.
 
+- **Ossature dessinée** : les montants aux 16 ou 24 po dans les murs et les cloisons, doublés
+  aux coins et autour des ouvertures, leur compte par mur, les lisses et les linteaux.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

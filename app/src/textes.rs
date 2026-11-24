@@ -1434,6 +1434,44 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// L'ossature dessinée (évolution 28).
+pub const DESSIN_OSSATURE: Texte = t("Ossature", "Framing");
+pub const DESSIN_MONTRER_L_OSSATURE: Texte = t("Montrer sur le plan", "Show on the plan");
+pub const DESSIN_MONTANTS: Texte = t("Montants", "Studs");
+pub const DESSIN_LISSES: Texte = t("Lisses et sablières", "Plates");
+pub const DESSIN_LINTEAUX: Texte = t("Linteaux", "Headers");
+
+/// L'entraxe des montants : « 16 po c. à c. ».
+pub fn entraxe(entraxe: noyau::ossature::Entraxe) -> Texte {
+    match entraxe {
+        noyau::ossature::Entraxe::Seize => t("16 po c. à c.", "16 in o.c."),
+        noyau::ossature::Entraxe::VingtQuatre => t("24 po c. à c.", "24 in o.c."),
+    }
+}
+
+/// Le compte des montants d'un mur ou d'un segment de cloison.
+pub fn dessin_montants_du_mur(mur: noyau::ossature::MurDOssature, montants: usize) -> String {
+    use noyau::ossature::MurDOssature;
+    match (langue::en_cours(), mur) {
+        (Langue::Francais, MurDOssature::Mur(cote)) => {
+            format!("Mur {} : {montants} montants", cote + 1)
+        }
+        (Langue::Francais, MurDOssature::Cloison(rang, segment)) => format!(
+            "Cloison {}, segment {} : {montants} montants",
+            rang + 1,
+            segment + 1
+        ),
+        (Langue::Anglais, MurDOssature::Mur(cote)) => {
+            format!("Wall {}: {montants} studs", cote + 1)
+        }
+        (Langue::Anglais, MurDOssature::Cloison(rang, segment)) => format!(
+            "Partition {}, segment {}: {montants} studs",
+            rang + 1,
+            segment + 1
+        ),
+    }
+}
+
 /// Les élévations des murs (évolution 18).
 pub const DESSIN_ELEVATIONS: Texte = t("Élévations des murs", "Wall elevations");
 
