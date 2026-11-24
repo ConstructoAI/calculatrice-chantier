@@ -3487,6 +3487,7 @@ mod tests {
                 .map(|(nom, dessin)| Piece {
                     nom: nom.to_string(),
                     dessin,
+                    ..Piece::default()
                 })
                 .collect(),
             courante: 0,

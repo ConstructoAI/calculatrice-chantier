@@ -966,6 +966,9 @@ pub struct Piece {
     /// Le nom donné par l'utilisateur; vide tant qu'il n'en a pas donné.
     pub nom: String,
     pub dessin: Dessin,
+    /// Sa place dans l'étage (évolution 4); `None` tant qu'elle n'en a pas
+    /// reçu.
+    pub place: Option<crate::etage::Place>,
 }
 
 /// Le crayon d'un trait à main levée (évolution 30) : sa couleur, ou le
@@ -1605,6 +1608,7 @@ impl Plan {
             pieces: vec![Piece {
                 nom: String::new(),
                 dessin,
+                place: None,
             }],
             courante: 0,
             mise_en_page: MiseEnPage::default(),
@@ -1651,6 +1655,8 @@ impl Plan {
         }
         let mut copie = self.pieces[self.courante].clone();
         copie.nom = nom;
+        // La copie se place d'office à côté des autres, dans l'étage.
+        copie.place = None;
         self.pieces.insert(self.courante + 1, copie);
         self.courante += 1;
         true

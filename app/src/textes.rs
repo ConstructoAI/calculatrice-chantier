@@ -1472,6 +1472,31 @@ pub fn dessin_montants_du_mur(mur: noyau::ossature::MurDOssature, montants: usiz
     }
 }
 
+/// Le plan d'étage (évolution 4).
+pub const DESSIN_ETAGE: Texte = t("Étage", "Floor");
+pub const ETAGE_VIDE: Texte = t(
+    "Aucune pièce complète à placer : dessinez d'abord une pièce.",
+    "No complete room to place: draw a room first.",
+);
+pub const ETAGE_CONSIGNE: Texte = t(
+    "Glissez une pièce pour la placer : ses murs s'aimantent à ceux des autres.",
+    "Drag a room to place it: its walls snap to the others.",
+);
+pub const ETAGE_SURFACE: Texte = t("Surface de l'étage", "Floor area");
+pub const ETAGE_TOURNER_A_GAUCHE: Texte = t("Tourner à gauche", "Rotate left");
+pub const ETAGE_TOURNER_A_DROITE: Texte = t("Tourner à droite", "Rotate right");
+pub const ETAGE_OUVRIR: Texte = t("Ouvrir la pièce", "Open the room");
+
+/// Les pièces que l'étage ne montre pas encore.
+pub fn etage_pieces_incompletes(nombre: usize) -> String {
+    match (langue::en_cours(), nombre) {
+        (Langue::Francais, 1) => "1 pièce pas encore complète n'y paraît pas".to_string(),
+        (Langue::Francais, n) => format!("{n} pièces pas encore complètes n'y paraissent pas"),
+        (Langue::Anglais, 1) => "1 room not complete yet is not shown".to_string(),
+        (Langue::Anglais, n) => format!("{n} rooms not complete yet are not shown"),
+    }
+}
+
 /// Le calepinage (évolution 19).
 pub const DESSIN_CALEPINAGE: Texte = t("Calepinage", "Tile layout");
 pub const DESSIN_CALEPINAGE_JOINT: Texte = t("Joint", "Joint");

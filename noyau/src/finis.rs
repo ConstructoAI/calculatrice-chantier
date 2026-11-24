@@ -456,10 +456,12 @@ mod tests {
                 Piece {
                     nom: "Salon".into(),
                     dessin: salon,
+                    ..Piece::default()
                 },
                 Piece {
                     nom: "Chambre".into(),
                     dessin: chambre,
+                    ..Piece::default()
                 },
                 Piece::default(),
             ],

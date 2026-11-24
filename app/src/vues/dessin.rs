@@ -209,6 +209,28 @@ pub struct Etat {
     planche_agrandie: bool,
     /// Les sections pliées sous le plan.
     sections_pliees: Vec<Section>,
+    /// Vrai quand la planche montre l'étage entier (évolution 4).
+    vue_etage: bool,
+    /// La pièce à l'écran quand l'étage s'est ouvert.
+    courante_avant_l_etage: usize,
+    /// Le cadrage de la vue de l'étage.
+    cadrage_etage: Cadrage,
+    /// La pièce qu'on glisse dans l'étage.
+    piece_tiree: Option<PieceTiree>,
+    /// Les deux murs qui se touchent pendant qu'elle glisse.
+    contact: Option<noyau::etage::Contact>,
+    /// Les places d'avant, pour « Annuler » dans l'étage.
+    places_d_avant: Vec<Vec<Option<noyau::etage::Place>>>,
+}
+
+/// La pièce qu'on glisse dans l'étage (évolution 4).
+struct PieceTiree {
+    rang: usize,
+    /// Sa place au début du geste, et le chemin parcouru depuis (pouces).
+    depart: noyau::etage::Place,
+    chemin: (f64, f64),
+    /// Le cadrage de l'étage au début du geste, gardé jusqu'à sa fin.
+    echelle: Echelle,
 }
 
 /// Une section repliable sous le plan (point 37).
@@ -2032,6 +2054,9 @@ pub fn afficher(
     if barre_des_pieces(ui, p, plan, etat) {
         action = Some(Action::Modifie);
     }
+    if etat.vue_etage {
+        return afficher_l_etage(ui, p, plan, etat, prefs, action);
+    }
     let courante = plan.courante;
     etat.reperes_des_ouvertures = plan
         .reperes_des_ouvertures()
@@ -2194,6 +2219,492 @@ pub fn afficher(
     action
 }
 
+/// Quitte la vue de l'étage : si une autre pièce y a été choisie, l'écran de
+/// la pièce repart à neuf (évolution 4).
+fn quitter_l_etage(plan: &Plan, etat: &mut Etat) {
+    etat.vue_etage = false;
+    etat.piece_tiree = None;
+    etat.contact = None;
+    if plan.courante != etat.courante_avant_l_etage {
+        etat.changer_de_piece();
+    }
+}
+
+/// La vue de l'étage (évolution 4) : toutes les pièces complètes à leur place,
+/// qu'on glisse et qu'on tourne, puis la surface de l'étage.
+fn afficher_l_etage(
+    ui: &mut Ui,
+    p: &Palette,
+    plan: &mut Plan,
+    etat: &mut Etat,
+    prefs: &Preferences,
+    mut action: Option<Action>,
+) -> Option<Action> {
+    if plan.placer_les_pieces(FORMAT_PAR_DEFAUT) {
+        action = Some(Action::Modifie);
+    }
+    let largeur = ui.available_width() - 20.0;
+    let reserve = if etat.planche_agrandie { 100.0 } else { 250.0 };
+    let maximum = if etat.planche_agrandie {
+        f32::INFINITY
+    } else {
+        largeur.max(150.0)
+    };
+    let hauteur = (ui.available_height() - reserve).clamp(150.0, maximum);
+    ui.add_space(6.0);
+    let (planche, reponse) = ui
+        .horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.allocate_exact_size(Vec2::new(largeur, hauteur), Sense::click_and_drag())
+        })
+        .inner;
+    reponse.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::Role::Canvas, true, textes::DESSIN_ETAGE.traduit())
+    });
+    if planche_de_l_etage(ui, p, planche, &reponse, plan, etat, prefs) {
+        action = Some(Action::Modifie);
+    }
+    let zone = Rect::from_min_size(
+        Pos2::new(planche.right() - 138.0, planche.top() + 8.0),
+        Vec2::new(88.0, 34.0),
+    );
+    let texte = if etat.planche_agrandie {
+        textes::DESSIN_REDUIRE
+    } else {
+        textes::DESSIN_AGRANDIR
+    };
+    if bouton_de_planche(
+        ui,
+        &ui.painter_at(planche),
+        zone,
+        texte.traduit(),
+        textes::DESSIN_AGRANDIR_LA_PLANCHE.traduit(),
+        etat.planche_agrandie,
+        p,
+    ) {
+        etat.planche_agrandie = !etat.planche_agrandie;
+    }
+    corps(ui, "dessin", |ui| {
+        if section_de_l_etage(ui, p, plan, etat, prefs) {
+            action = Some(Action::Modifie);
+        }
+        if etat.planche_agrandie {
+            return;
+        }
+        let (modifie, export) = la_piece_et_le_total(ui, p, plan, etat, prefs);
+        if modifie {
+            action = Some(Action::Modifie);
+        }
+        if let Some(format) = export {
+            action = Some(Action::Exporter(format));
+        }
+        ui.add_space(10.0);
+    });
+    action
+}
+
+/// La planche de l'étage : les pièces à leur place, leurs murs, leurs portes
+/// et leurs fenêtres, leur nom et leur surface; glisser une pièce la déplace
+/// (ses murs s'aimantent), glisser ailleurs déplace la vue. Retourne vrai si
+/// le plan a changé.
+fn planche_de_l_etage(
+    ui: &mut Ui,
+    p: &Palette,
+    planche: Rect,
+    reponse: &egui::Response,
+    plan: &mut Plan,
+    etat: &mut Etat,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    let painter = ui.painter_at(planche);
+    painter.rect_filled(planche, 10, p.carte);
+    painter.rect_stroke(
+        planche,
+        10,
+        Stroke::new(1.0, p.carte_bord),
+        egui::StrokeKind::Inside,
+    );
+    let pieces = plan.pieces_dans_l_etage(FORMAT_PAR_DEFAUT);
+    if pieces.is_empty() {
+        painter.text(
+            planche.center(),
+            Align2::CENTER_CENTER,
+            textes::ETAGE_VIDE.traduit(),
+            theme::police(13.0),
+            p.texte_attenue,
+        );
+        return false;
+    }
+    let centre = planche.center();
+    // L'étage entier tient dans la planche; pendant qu'une pièce glisse, le
+    // cadrage du début du geste reste.
+    let echelle = match &etat.piece_tiree {
+        Some(tiree) => tiree.echelle,
+        None => {
+            let tous: Vec<(f64, f64)> = pieces
+                .iter()
+                .flat_map(|piece| piece.exterieur.iter().copied())
+                .collect();
+            etat.cadrage_etage.appliquer(cadrer(planche, &tous), centre)
+        }
+    };
+    // Deux doigts, la molette ou le pincement zooment et déplacent la vue.
+    let (deux_doigts, pincement, molette, survol) = ui.input(|i| {
+        (
+            i.multi_touch(),
+            i.zoom_delta(),
+            i.smooth_scroll_delta,
+            i.pointer.hover_pos(),
+        )
+    });
+    if let Some(toucher) = deux_doigts.filter(|m| planche.contains(m.center_pos)) {
+        etat.cadrage_etage
+            .zoomer(centre, toucher.center_pos, toucher.zoom_delta);
+        etat.cadrage_etage.decalage += toucher.translation_delta;
+        etat.piece_tiree = None;
+        etat.contact = None;
+    } else if let Some(pointeur) = survol.filter(|q| planche.contains(*q)) {
+        let facteur = if (pincement - 1.0).abs() > 1e-4 {
+            pincement
+        } else {
+            (molette.y * 0.002).exp()
+        };
+        if (facteur - 1.0).abs() > 1e-4 {
+            etat.cadrage_etage.zoomer(centre, pointeur, facteur);
+        }
+    }
+    let sous = |point: Pos2| {
+        let dans_l_etage = echelle.vers_le_plan(point);
+        pieces
+            .iter()
+            .rev()
+            .find(|piece| noyau::espaces::dedans(dans_l_etage, &piece.exterieur))
+            .map(|piece| piece.rang)
+    };
+    // Un toucher choisit la pièce dessous.
+    if reponse.clicked()
+        && let Some(rang) = reponse.interact_pointer_pos().and_then(sous)
+    {
+        plan.courante = rang;
+    }
+    // Glisser une pièce la déplace; ses murs s'aimantent à ceux des autres.
+    if reponse.drag_started_by(egui::PointerButton::Primary)
+        && let Some(rang) = reponse.interact_pointer_pos().and_then(sous)
+        && let Some(depart) = plan.pieces[rang].place
+    {
+        memoriser_les_places(plan, etat);
+        plan.courante = rang;
+        etat.piece_tiree = Some(PieceTiree {
+            rang,
+            depart,
+            chemin: (0.0, 0.0),
+            echelle,
+        });
+    }
+    if reponse.dragged_by(egui::PointerButton::Primary) && etat.piece_tiree.is_some() {
+        if let Some(tiree) = &mut etat.piece_tiree {
+            let glisse = reponse.drag_delta();
+            tiree.chemin.0 += f64::from(glisse.x / echelle.facteur);
+            tiree.chemin.1 += f64::from(glisse.y / echelle.facteur);
+            let proposee = tiree.depart.deplacee(tiree.chemin);
+            let seuil = f64::from(14.0 / echelle.facteur);
+            let (place, contact) =
+                noyau::etage::aimanter(plan, tiree.rang, proposee, seuil, FORMAT_PAR_DEFAUT);
+            if let Some(piece) = plan.pieces.get_mut(tiree.rang) {
+                piece.place = Some(place);
+            }
+            etat.contact = contact;
+            modifie = true;
+        }
+    } else if reponse.dragged() {
+        etat.cadrage_etage.decalage += reponse.drag_delta();
+    }
+    if reponse.drag_stopped() {
+        etat.piece_tiree = None;
+        etat.contact = None;
+    }
+    // Les pièces, à leur place d'après le geste.
+    let pieces = plan.pieces_dans_l_etage(FORMAT_PAR_DEFAUT);
+    for piece in &pieces {
+        let dessin = &plan.pieces[piece.rang].dessin;
+        let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+        let place = piece.place;
+        let vers = |point: (f64, f64)| echelle.vers_l_ecran(place.vers_l_etage(point));
+        let choisie = piece.rang == plan.courante;
+        // L'intérieur, un peu teinté; celui de la pièce choisie, davantage.
+        let teinte = theme::melanger(
+            p.carte,
+            if choisie {
+                p.accent_du_plan()
+            } else {
+                p.primaire
+            },
+            if choisie { 0.12 } else { 0.05 },
+        );
+        let mut maillage = egui::epaint::Mesh::default();
+        for triangle in noyau::maquette::trianguler(&piece.interieur) {
+            let base = maillage.vertices.len() as u32;
+            for coin in triangle {
+                maillage.colored_vertex(echelle.vers_l_ecran(coin), teinte);
+            }
+            maillage.add_triangle(base, base + 1, base + 2);
+        }
+        painter.add(egui::Shape::mesh(maillage));
+        // Les murs à leur épaisseur, interrompus par les ouvertures.
+        for morceau in dessin.murs_exterieurs(&solution) {
+            let dans_l_etage = MorceauDeMur {
+                coins: morceau.coins.map(|coin| place.vers_l_etage(coin)),
+                ..morceau
+            };
+            dessiner_un_morceau_de_mur(&painter, &echelle, &dans_l_etage, None, p);
+        }
+        // La face des mesures.
+        let contour: Vec<Pos2> = piece
+            .interieur
+            .iter()
+            .map(|&c| echelle.vers_l_ecran(c))
+            .collect();
+        let trait_ = if choisie {
+            Stroke::new(2.5, p.accent_du_plan())
+        } else {
+            Stroke::new(1.5, p.primaire)
+        };
+        painter.add(egui::Shape::closed_line(contour, trait_));
+        // Les portes et les fenêtres, à leur place sur leurs murs.
+        if let Some(sommets) = dessin.sommets_mesures(&solution) {
+            let ecran: Vec<Pos2> = sommets.iter().map(|&s| vers(s)).collect();
+            let aire_signee: f32 = ecran
+                .windows(2)
+                .map(|s| s[0].x * s[1].y - s[1].x * s[0].y)
+                .sum();
+            let epaisseur = solution.epaisseur_des_murs as f32 * echelle.facteur;
+            for placement in solution.placements.iter().flatten() {
+                let (Some(&a), Some(&b)) =
+                    (ecran.get(placement.cote), ecran.get(placement.cote + 1))
+                else {
+                    continue;
+                };
+                let longueur = f64::from(a.distance(b) / echelle.facteur);
+                if longueur < 1e-6 {
+                    continue;
+                }
+                let le_long = b - a;
+                let q0 = a + le_long * (placement.debut / longueur) as f32;
+                let q1 = a + le_long * (placement.fin / longueur) as f32;
+                let unite = le_long.normalized();
+                let dedans = if aire_signee > 0.0 {
+                    Vec2::new(-unite.y, unite.x)
+                } else {
+                    Vec2::new(unite.y, -unite.x)
+                };
+                dessiner_ouverture(
+                    &painter,
+                    (q0, q1),
+                    dedans,
+                    (
+                        placement.genre,
+                        placement.inversee,
+                        (placement.haut - placement.bas) as f32 * echelle.facteur,
+                        echelle.facteur,
+                    ),
+                    p.texte,
+                    p.primaire,
+                    if dessin.mesures_exterieures {
+                        -epaisseur
+                    } else {
+                        epaisseur
+                    },
+                );
+            }
+        }
+        // Son nom et sa surface, au milieu.
+        let (x0, x1, y0, y1) = piece.interieur.iter().fold(
+            (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
+            |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
+        );
+        let milieu = echelle.vers_l_ecran(((x0 + x1) / 2.0, (y0 + y1) / 2.0));
+        let largeur = (x1 - x0) as f32 * echelle.facteur - 8.0;
+        texte_qui_tient(
+            &painter,
+            milieu - Vec2::new(0.0, 8.0),
+            nom_de_la_piece(plan, piece.rang),
+            (theme::police_grasse(12.5), 8.5),
+            largeur,
+            if choisie { p.accent_du_plan() } else { p.texte },
+        );
+        texte_qui_tient(
+            &painter,
+            milieu + Vec2::new(0.0, 8.0),
+            Quantite::Aire(piece.aire).en_clair(solution.modele, prefs),
+            (theme::police(11.5), 8.0),
+            largeur,
+            p.texte_attenue,
+        );
+    }
+    // Les deux murs qui se touchent, pendant que la pièce glisse.
+    if let (Some(contact), Some(tiree)) = (etat.contact, &etat.piece_tiree) {
+        let cote = |rang: usize, k: usize| {
+            pieces.iter().find(|piece| piece.rang == rang).map(|piece| {
+                let n = piece.interieur.len();
+                (piece.interieur[k % n], piece.interieur[(k + 1) % n])
+            })
+        };
+        for (a, b) in [
+            cote(tiree.rang, contact.cote),
+            cote(contact.autre, contact.cote_de_l_autre),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            painter.line_segment(
+                [echelle.vers_l_ecran(a), echelle.vers_l_ecran(b)],
+                Stroke::new(4.0, p.accent_du_plan()),
+            );
+        }
+    }
+    painter.text(
+        Pos2::new(planche.left() + 12.0, planche.bottom() - 12.0),
+        Align2::LEFT_BOTTOM,
+        textes::ETAGE_CONSIGNE.traduit(),
+        theme::police(11.5),
+        p.texte_attenue,
+    );
+    boutons_du_zoom(ui, p, &painter, planche, centre, &mut etat.cadrage_etage);
+    modifie
+}
+
+/// Écrit un texte centré s'il tient dans `largeur` points, sa police
+/// rapetissée au besoin, mais pas sous `plus_petite`; sinon, ne l'écrit pas.
+fn texte_qui_tient(
+    painter: &egui::Painter,
+    centre: Pos2,
+    texte: String,
+    (police, plus_petite): (egui::FontId, f32),
+    largeur: f32,
+    couleur: Color32,
+) {
+    let mesure = painter
+        .layout_no_wrap(texte.clone(), police.clone(), couleur)
+        .size()
+        .x;
+    let taille = if mesure <= largeur {
+        police.size
+    } else {
+        police.size * largeur / mesure
+    };
+    if taille >= plus_petite {
+        painter.text(
+            centre,
+            Align2::CENTER_CENTER,
+            texte,
+            egui::FontId::new(taille, police.family),
+            couleur,
+        );
+    }
+}
+
+/// Garde les places des pièces, pour « Annuler » dans l'étage.
+fn memoriser_les_places(plan: &Plan, etat: &mut Etat) {
+    etat.places_d_avant
+        .push(plan.pieces.iter().map(|piece| piece.place).collect());
+    if etat.places_d_avant.len() > PROFONDEUR_DE_L_HISTORIQUE {
+        etat.places_d_avant.remove(0);
+    }
+}
+
+/// La section de l'étage : sa surface, la pièce choisie (la tourner,
+/// l'ouvrir), « Annuler », et la surface de chaque pièce. Retourne vrai si le
+/// plan a changé.
+fn section_de_l_etage(
+    ui: &mut Ui,
+    p: &Palette,
+    plan: &mut Plan,
+    etat: &mut Etat,
+    prefs: &Preferences,
+) -> bool {
+    let mut modifie = false;
+    let pieces = plan.pieces_dans_l_etage(FORMAT_PAR_DEFAUT);
+    let modele = plan
+        .pieces
+        .iter()
+        .find_map(|piece| piece.dessin.resoudre(FORMAT_PAR_DEFAUT).modele);
+    let aire = |po2: f64| Quantite::Aire(po2).en_clair(modele, prefs);
+    ui.add_space(8.0);
+    ui.horizontal_wrapped(|ui| {
+        ui.add_space(10.0);
+        ui.label(RichText::new(textes::ETAGE_SURFACE.traduit()).font(theme::police_grasse(14.0)));
+        ui.label(
+            RichText::new(aire(pieces.iter().map(|piece| piece.aire).sum()))
+                .size(15.0)
+                .strong()
+                .color(p.titre),
+        );
+    });
+    let absentes = plan.pieces.len() - pieces.len();
+    if absentes > 0 {
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(textes::etage_pieces_incompletes(absentes))
+                    .size(12.5)
+                    .color(p.texte_attenue),
+            );
+        });
+    }
+    ui.add_space(6.0);
+    let courante = plan.courante;
+    let placee = pieces.iter().any(|piece| piece.rang == courante);
+    ui.horizontal_wrapped(|ui| {
+        ui.add_space(10.0);
+        ui.label(RichText::new(nom_de_la_piece(plan, courante)).font(theme::police_grasse(13.5)));
+        for (texte, degres) in [
+            (textes::ETAGE_TOURNER_A_GAUCHE, -90.0),
+            (textes::ETAGE_TOURNER_A_DROITE, 90.0),
+        ] {
+            if ui
+                .add_enabled(placee, egui::Button::new(texte.traduit()))
+                .clicked()
+            {
+                memoriser_les_places(plan, etat);
+                if plan.tourner_dans_l_etage(courante, degres, FORMAT_PAR_DEFAUT) {
+                    modifie = true;
+                }
+            }
+        }
+        if ui
+            .add(egui::Button::new(textes::ETAGE_OUVRIR.traduit()))
+            .clicked()
+        {
+            quitter_l_etage(plan, etat);
+        }
+        if !etat.places_d_avant.is_empty()
+            && ui
+                .add(egui::Button::new(textes::DESSIN_ANNULER.traduit()))
+                .clicked()
+            && let Some(places) = etat.places_d_avant.pop()
+        {
+            for (piece, place) in plan.pieces.iter_mut().zip(places) {
+                piece.place = place;
+            }
+            modifie = true;
+        }
+    });
+    ui.add_space(4.0);
+    for piece in &pieces {
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(nom_de_la_piece(plan, piece.rang))
+                    .size(12.5)
+                    .color(p.texte_attenue),
+            );
+            ui.label(RichText::new(aire(piece.aire)).size(13.5).strong());
+        });
+    }
+    modifie
+}
+
 /// La rangée des pièces, sous l'en-tête : une pastille par pièce, et « + Pièce ».
 /// Retourne vrai si le plan a changé.
 fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) -> bool {
@@ -2205,11 +2716,31 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.add_space(10.0);
+                // L'étage, en tête : toutes les pièces à leur place (évolution 4).
+                if plan.pieces.len() > 1 || etat.vue_etage {
+                    let etage =
+                        egui::Button::new(textes::DESSIN_ETAGE.traduit()).selected(etat.vue_etage);
+                    if ui.add(etage).clicked() {
+                        if etat.vue_etage {
+                            quitter_l_etage(plan, etat);
+                        } else {
+                            etat.vue_etage = true;
+                            etat.courante_avant_l_etage = plan.courante;
+                            etat.renommer = false;
+                            etat.choisir(None);
+                        }
+                    }
+                }
                 for rang in 0..plan.pieces.len() {
                     let bouton = egui::Button::new(nom_de_la_piece(plan, rang))
                         .selected(rang == plan.courante);
                     if ui.add(bouton).clicked() {
-                        if rang == plan.courante {
+                        if etat.vue_etage {
+                            // Dans l'étage, toucher une pièce l'ouvre.
+                            plan.courante = rang;
+                            quitter_l_etage(plan, etat);
+                            modifie = true;
+                        } else if rang == plan.courante {
                             // Toucher la pièce choisie ouvre son nom.
                             etat.renommer = !etat.renommer;
                             etat.viser_le_nom = etat.renommer;
@@ -2230,6 +2761,8 @@ fn barre_des_pieces(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) 
                         .clicked()
                     && plan.ajouter()
                 {
+                    // Une pièce neuve se dessine dans sa vue à elle.
+                    etat.vue_etage = false;
                     etat.changer_de_piece();
                     modifie = true;
                 }
@@ -4267,7 +4800,14 @@ fn planche_et_gestes(
             p.accent_du_plan(),
         );
     }
-    boutons_du_zoom(ui, p, &painter, planche, centre_de_la_planche, etat);
+    boutons_du_zoom(
+        ui,
+        p,
+        &painter,
+        planche,
+        centre_de_la_planche,
+        &mut etat.cadrage,
+    );
     // Le meuble choisi pivote aussi d'ici : au 15°, dans un sens ou dans
     // l'autre, ou d'un quart de tour.
     if complete && let Some(rang) = etat.objet_choisi.filter(|rang| *rang < dessin.objets.len()) {
@@ -4666,7 +5206,7 @@ fn boutons_du_zoom(
     painter: &egui::Painter,
     planche: Rect,
     centre: Pos2,
-    etat: &mut Etat,
+    cadrage: &mut Cadrage,
 ) {
     let cote = 34.0;
     let mut haut = planche.top() + 8.0;
@@ -4674,7 +5214,7 @@ fn boutons_du_zoom(
         ("+", textes::DESSIN_ZOOMER, 1.25_f32, cote),
         ("\u{2212}", textes::DESSIN_DEZOOMER, 0.8, cote),
     ];
-    if etat.cadrage != Cadrage::default() {
+    if *cadrage != Cadrage::default() {
         boutons.push((
             textes::DESSIN_AJUSTER.traduit(),
             textes::DESSIN_AJUSTER,
@@ -4714,9 +5254,9 @@ fn boutons_du_zoom(
         painter.text(zone.center(), Align2::CENTER_CENTER, signe, police, p.texte);
         if reponse.clicked() {
             if facteur > 0.0 {
-                etat.cadrage.zoomer(centre, centre, facteur);
+                cadrage.zoomer(centre, centre, facteur);
             } else {
-                etat.cadrage = Cadrage::default();
+                *cadrage = Cadrage::default();
             }
         }
         reponse.on_hover_text(nom.traduit());

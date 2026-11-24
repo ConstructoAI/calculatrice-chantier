@@ -12,6 +12,7 @@ pub mod coupe;
 pub mod dessin;
 pub mod erreurs;
 pub mod espaces;
+pub mod etage;
 pub mod etiquettes;
 pub mod finis;
 pub mod fonctions;

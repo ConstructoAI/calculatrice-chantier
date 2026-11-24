@@ -138,6 +138,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   (départ au coin ou au centre, sens, joint, décalage des rangs), avec le compte des pièces
   entières et coupées, la perte réelle et la plus petite coupe.
 
+- **Plan d'étage (première partie)** : le bouton « Étage » montre toutes les pièces à leur
+  place; on les glisse (leurs murs s'aimantent, un seul mur entre deux pièces voisines) et on
+  les tourne, et la surface de l'étage s'additionne.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
