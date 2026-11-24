@@ -519,9 +519,10 @@ pub struct Dessin {
     pub plafond: crate::plafond::Plafond,
     /// Les retombées de plafond.
     pub retombees: Vec<crate::plafond::Retombee>,
-    /// Vrai quand les lignes de cote se montrent, à l'écran et dans les
-    /// exports (section 25.1, point 35).
-    pub lignes_de_cote: bool,
+    /// Vrai quand l'utilisateur a caché les lignes de cote : elles se
+    /// montrent d'elles-mêmes, à l'écran et dans les exports (section 25.1,
+    /// points 35 et 57).
+    pub cotes_cachees: bool,
 }
 
 /// Une ouverture dans les murs : une porte ou une fenêtre.
@@ -2657,6 +2658,44 @@ impl Dessin {
     /// fenêtres et les deux faces des cloisons qui le touchent (un mur sans
     /// rien de tel n'en a pas : sa mesure suffit); entre deux segments de
     /// cloison parallèles qui se font face, leur écart, de face à face.
+    /// Vrai si les lignes de cote se montrent : toujours, sauf si l'utilisateur
+    /// les a cachées (point 57).
+    pub fn cotes_visibles(&self) -> bool {
+        !self.cotes_cachees
+    }
+
+    /// Les lignes de cote de tous les murs (point 57) : celles de
+    /// `chaines_de_cotes`, et pour un mur sans rien entre ses coins, sa seule
+    /// longueur. Le plan d'étage cote ainsi chacun de ses murs extérieurs.
+    pub fn chaines_de_tous_les_murs(&self, solution: &Solution) -> Vec<ChaineDeCotes> {
+        let mut chaines: Vec<ChaineDeCotes> = self
+            .chaines_de_cotes(solution)
+            .into_iter()
+            .filter(|chaine| chaine.mur.is_some())
+            .collect();
+        let Some(sommets) = self.sommets_mesures(solution) else {
+            return chaines;
+        };
+        for (cote, repere) in reperes_des_cotes(&sommets).into_iter().enumerate() {
+            let (Some(&a), Some(&b)) = (sommets.get(cote), sommets.get(cote + 1)) else {
+                continue;
+            };
+            let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+            if longueur < 1e-6 || chaines.iter().any(|chaine| chaine.mur == Some(cote)) {
+                continue;
+            }
+            chaines.push(ChaineDeCotes {
+                debut: a,
+                fin: b,
+                dehors: repere.dehors,
+                points: vec![0.0, longueur],
+                mur: Some(cote),
+            });
+        }
+        chaines.sort_by_key(|chaine| chaine.mur);
+        chaines
+    }
+
     pub fn chaines_de_cotes(&self, solution: &Solution) -> Vec<ChaineDeCotes> {
         if !matches!(solution.etat, Etat::Complete { .. }) {
             return Vec::new();
@@ -5095,5 +5134,40 @@ mod tests {
         let solution = dessin.resoudre(Format::PiPo);
         assert!((solution.objets[0].1 - 144.0).abs() < 1e-9);
         assert!((solution.escaliers[0].unwrap().giron.unwrap() - 9.6).abs() < 1e-9);
+    }
+    #[test]
+    fn les_cotes_de_tous_les_murs() {
+        let cote = |sens, saisie: &str| Cote {
+            sens,
+            croquis: 100.0,
+            saisie: saisie.to_string(),
+        };
+        let dessin = Dessin {
+            cotes: vec![
+                cote(Sens::Est, "12"),
+                cote(Sens::Sud, "10"),
+                cote(Sens::Ouest, ""),
+                cote(Sens::Nord, ""),
+            ],
+            fermee: true,
+            ouvertures: vec![Ouverture {
+                largeur: "32 po".into(),
+                hauteur: "80 po".into(),
+                cote: Some(0),
+                position: "2".into(),
+                ..Ouverture::default()
+            }],
+            ..Dessin::default()
+        };
+        // Les cotes se montrent d'elles-mêmes.
+        assert!(dessin.cotes_visibles());
+        let solution = dessin.resoudre(Format::PiPo);
+        let chaines = dessin.chaines_de_tous_les_murs(&solution);
+        assert_eq!(chaines.len(), 4);
+        // Le mur de la porte : ses coins et les bords de la porte; les autres,
+        // leur seule longueur.
+        assert_eq!(chaines[0].points, vec![0.0, 24.0, 56.0, 144.0]);
+        assert_eq!(chaines[1].points, vec![0.0, 120.0]);
+        assert!(chaines.iter().all(|chaine| chaine.dehors != (0.0, 0.0)));
     }
 }

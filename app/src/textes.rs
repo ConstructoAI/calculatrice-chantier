@@ -2142,8 +2142,8 @@ pub fn dessin_cote_haut(cote: usize) -> String {
 // Les lignes de cote (section 25.1, point 35)
 pub const DESSIN_COTES: Texte = t("Cotes", "Dims");
 pub const DESSIN_MONTRER_LES_COTES: Texte = t(
-    "Montrer ou cacher les lignes de cote",
-    "Show or hide the dimension lines",
+    "Cacher ou remontrer les lignes de cote",
+    "Hide or show again the dimension lines",
 );
 // Le PDF à l'échelle et son cartouche (section 25.1, point 36)
 pub const DESSIN_MISE_EN_PAGE: Texte = t("Mise en page du PDF", "PDF layout");

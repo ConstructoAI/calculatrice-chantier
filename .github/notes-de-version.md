@@ -165,6 +165,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Escalier calculé** : la contremarche maximale et le giron minimal de l'escalier du dessin
   se modifient; un escalier droit prend la longueur de ses marches.
 
+- **Cotations automatiques** : les lignes de cote des murs, des portes, des fenêtres et des
+  cloisons se montrent d'elles-mêmes (« Cotes » les cache), et l'étage cote ses murs extérieurs.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

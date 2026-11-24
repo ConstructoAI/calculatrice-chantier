@@ -2800,6 +2800,38 @@ fn planche_de_l_etage(
             dessiner_un_morceau_de_mur(&painter, &echelle, &morceau, None, p);
         }
     }
+    // Les cotes des murs extérieurs, d'elles-mêmes (point 57), sauf pendant
+    // qu'une pièce glisse.
+    if etat.piece_tiree.is_none() {
+        let communs = plan.murs_communs(FORMAT_PAR_DEFAUT);
+        for piece in &pieces {
+            let dessin = &plan.pieces[piece.rang].dessin;
+            if !dessin.cotes_visibles() {
+                continue;
+            }
+            let partages: Vec<usize> = communs
+                .iter()
+                .filter_map(|mur| {
+                    if mur.pieces.0 == piece.rang {
+                        Some(mur.cotes.0)
+                    } else if mur.pieces.1 == piece.rang {
+                        Some(mur.cotes.1)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let solution = dessin.resoudre(FORMAT_PAR_DEFAUT);
+            cotes_dans_l_etage(
+                &painter,
+                p,
+                &echelle,
+                (dessin, &solution, piece.place),
+                &partages,
+                prefs,
+            );
+        }
+    }
     let mut symboles = Vec::new();
     for piece in &pieces {
         let dessin = &plan.pieces[piece.rang].dessin;
@@ -2990,6 +3022,76 @@ fn texte_qui_tient(
             egui::FontId::new(taille, police.family),
             couleur,
         );
+    }
+}
+
+/// Les lignes de cote d'une pièce dans la vue de l'étage (point 57) : celles
+/// de ses murs extérieurs (pas de ses murs communs, qui encombreraient la
+/// pièce voisine), au-delà de leur face extérieure : les coins, les bords des
+/// ouvertures et des cloisons, ou la seule longueur du mur.
+fn cotes_dans_l_etage(
+    painter: &egui::Painter,
+    p: &Palette,
+    echelle: &Echelle,
+    (dessin, solution, place): (&Dessin, &Solution, noyau::etage::Place),
+    partages: &[usize],
+    prefs: &Preferences,
+) {
+    let (sinus, cosinus) = place.rotation.to_radians().sin_cos();
+    let mur = if dessin.mesures_exterieures {
+        0.0
+    } else {
+        solution.epaisseur_des_murs as f32 * echelle.facteur
+    };
+    for chaine in dessin.chaines_de_tous_les_murs(solution) {
+        let Some(cote) = chaine.mur else {
+            continue;
+        };
+        let longueur = (chaine.fin.0 - chaine.debut.0).hypot(chaine.fin.1 - chaine.debut.1);
+        if partages.contains(&cote) || longueur <= 1e-9 {
+            continue;
+        }
+        let (a0, b0) = (
+            echelle.vers_l_ecran(place.vers_l_etage(chaine.debut)),
+            echelle.vers_l_ecran(place.vers_l_etage(chaine.fin)),
+        );
+        let dehors = Vec2::new(
+            (chaine.dehors.0 * cosinus - chaine.dehors.1 * sinus) as f32,
+            (chaine.dehors.0 * sinus + chaine.dehors.1 * cosinus) as f32,
+        );
+        let ecart = mur + 16.0;
+        let (a, b) = (a0 + dehors * ecart, b0 + dehors * ecart);
+        let le_long = (b - a).normalized();
+        let oblique = Vec2::new(le_long.x - le_long.y, le_long.y + le_long.x).normalized() * 3.5;
+        painter.line_segment([a, b], Stroke::new(0.8, p.texte_attenue));
+        let sur_la_ligne = |t: f64| a + (b - a) * (t / longueur) as f32;
+        for &t in &chaine.points {
+            let q = sur_la_ligne(t);
+            let depuis = a0 + (b0 - a0) * (t / longueur) as f32 + dehors * (mur + 2.0);
+            painter.line_segment(
+                [depuis, q + dehors * 2.5],
+                Stroke::new(0.6, p.texte_attenue.gamma_multiply(0.7)),
+            );
+            painter.line_segment([q - oblique, q + oblique], Stroke::new(1.2, p.texte));
+        }
+        for paire in chaine.points.windows(2) {
+            let (q0, q1) = (sur_la_ligne(paire[0]), sur_la_ligne(paire[1]));
+            let texte = sans_insecables(&longueur_en_clair(paire[1] - paire[0], solution, prefs));
+            let galere = painter.layout_no_wrap(texte, theme::police(9.0), p.texte);
+            let taille = galere.size();
+            let horizontale = le_long.x.abs() >= le_long.y.abs();
+            let place_requise = if horizontale { taille.x } else { taille.y };
+            if q0.distance(q1) < place_requise + 4.0 {
+                continue;
+            }
+            let decalage = if horizontale {
+                taille.y / 2.0 + 2.0
+            } else {
+                taille.x / 2.0 + 3.0
+            };
+            let milieu = q0 + (q1 - q0) * 0.5 + dehors * decalage;
+            painter.galley(milieu - taille / 2.0, galere, p.texte);
+        }
     }
 }
 
@@ -4024,9 +4126,15 @@ fn planche_et_gestes(
         None
     };
     let faces_interieures = contour_interieur.as_deref().unwrap_or(sommets);
-    // Avec ses lignes de cote, la forme leur laisse de la place, et à leurs
-    // textes (point 35).
-    let zone_cadree = if complete && dessin.lignes_de_cote {
+    // Les lignes de cote se montrent d'elles-mêmes (point 57), sauf si
+    // l'utilisateur les a cachées; la forme leur laisse alors de la place, et à
+    // leurs textes (point 35), s'il y en a.
+    let chaines = if complete && dessin.cotes_visibles() {
+        dessin.chaines_de_cotes(solution)
+    } else {
+        Vec::new()
+    };
+    let zone_cadree = if !chaines.is_empty() {
         zone_de_la_forme.shrink2(Vec2::new(60.0, 26.0))
     } else {
         zone_de_la_forme
@@ -4990,13 +5098,13 @@ fn planche_et_gestes(
     }
     // Les lignes de cote (point 35) : hors des murs, au-delà de leurs mesures;
     // l'écart entre deux cloisons, entre elles.
-    if complete && dessin.lignes_de_cote {
+    if !chaines.is_empty() {
         let mur_dehors = if dessin.mesures_exterieures {
             0.0
         } else {
             epaisseur_des_murs_a_l_ecran
         };
-        for chaine in dessin.chaines_de_cotes(solution) {
+        for chaine in &chaines {
             let longueur = (chaine.fin.0 - chaine.debut.0).hypot(chaine.fin.1 - chaine.debut.1);
             if longueur <= 1e-9 {
                 continue;
@@ -5428,12 +5536,12 @@ fn planche_et_gestes(
             bouton_des_cotes,
             textes::DESSIN_COTES.traduit(),
             textes::DESSIN_MONTRER_LES_COTES.traduit(),
-            dessin.lignes_de_cote,
+            dessin.cotes_visibles(),
             p,
         )
     {
         etat.memoriser(dessin);
-        dessin.lignes_de_cote = !dessin.lignes_de_cote;
+        dessin.cotes_cachees = !dessin.cotes_cachees;
         modifie = true;
     }
     // L'outil « Mesurer » (évolution 23) : ouvert, chaque toucher du plan pose

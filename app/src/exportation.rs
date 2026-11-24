@@ -130,6 +130,9 @@ struct PieceExportee {
     /// des voisines, dans son propre plan (évolution 4).
     place: Option<noyau::etage::Place>,
     murs_dans_l_etage: Vec<MorceauDeMur>,
+    /// Ses côtés qui sont des murs communs : dans l'étage, ni leur mesure ni
+    /// leurs cotes ne s'écrivent (point 57).
+    murs_partages: Vec<usize>,
     /// L'épaisseur des murs extérieurs (pouces) : positive s'ils vont vers
     /// l'extérieur des mesures, négative vers l'intérieur, zéro sans murs.
     epaisseur_des_murs: f64,
@@ -165,6 +168,7 @@ fn preparer(plan: &Plan, prefs: &Preferences) -> Vec<PieceExportee> {
     // reçoivent d'office, à la suite des autres (évolution 4).
     let mut etage = plan.clone();
     etage.placer_les_pieces(FORMAT_PAR_DEFAUT);
+    let communs = etage.murs_communs(FORMAT_PAR_DEFAUT);
     plan.pieces
         .iter()
         .enumerate()
@@ -176,6 +180,18 @@ fn preparer(plan: &Plan, prefs: &Preferences) -> Vec<PieceExportee> {
                 &reperes[rang],
                 prefs,
             );
+            exportee.murs_partages = communs
+                .iter()
+                .filter_map(|mur| {
+                    if mur.pieces.0 == rang {
+                        Some(mur.cotes.0)
+                    } else if mur.pieces.1 == rang {
+                        Some(mur.cotes.1)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             if let Some(place) = etage.pieces[rang].place {
                 exportee.place = Some(place);
                 exportee.murs_dans_l_etage = etage
@@ -491,8 +507,9 @@ fn preparer_la_piece(
         },
         place: None,
         murs_dans_l_etage: Vec::new(),
+        murs_partages: Vec::new(),
         epaisseur_des_murs,
-        chaines: if dessin.lignes_de_cote {
+        chaines: if dessin.cotes_visibles() {
             dessin
                 .chaines_de_cotes(&solution)
                 .into_iter()
@@ -1985,7 +2002,11 @@ fn dessiner_le_plan(
         points.iter().take(nombre).map(|q| q.1).sum::<f64>() / nombre as f64,
     );
     for (i, segment) in points.windows(2).enumerate() {
-        let Some((texte, deduite)) = piece.cotes.get(i).filter(|_| !etage) else {
+        let Some((texte, deduite)) = piece
+            .cotes
+            .get(i)
+            .filter(|_| !etage || !piece.murs_partages.contains(&i))
+        else {
             continue;
         };
         if texte.is_empty() {
@@ -2031,7 +2052,12 @@ fn dessiner_le_plan(
     }
     // Les lignes de cote (point 35), au-delà des mesures.
     let mur = epaisseur_des_murs.max(0.0);
-    for (chaine, textes_des_cotes) in piece.chaines.iter().filter(|_| !etage) {
+    for (chaine, textes_des_cotes) in piece.chaines.iter().filter(|(chaine, _)| {
+        !etage
+            || chaine
+                .mur
+                .is_some_and(|mur| !piece.murs_partages.contains(&mur))
+    }) {
         // Au-delà de la mesure du mur, qui s'écrit à côté d'un mur vertical.
         let largeur_de_la_mesure = chaine
             .mur
@@ -3494,6 +3520,10 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             let Some((texte, _)) = piece.cotes.get(i) else {
                 continue;
             };
+            // La mesure d'un mur commun s'écrirait dans la pièce voisine.
+            if piece.murs_partages.contains(&i) {
+                continue;
+            }
             let milieu = (
                 (segment[0].0 + segment[1].0) / 2.0,
                 (segment[0].1 + segment[1].1) / 2.0,
@@ -3525,7 +3555,11 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         }
         // Les lignes de cote (point 35), sur le calque COTES aussi.
         let mur = piece.epaisseur_des_murs.max(0.0) * facteur;
-        for (chaine, textes_des_cotes) in &piece.chaines {
+        for (chaine, textes_des_cotes) in piece.chaines.iter().filter(|(chaine, _)| {
+            chaine
+                .mur
+                .is_none_or(|mur| !piece.murs_partages.contains(&mur))
+        }) {
             // Au-delà de la mesure du mur, qui s'écrit à côté d'un mur vertical.
             let largeur_de_la_mesure = chaine
                 .mur
@@ -4228,10 +4262,13 @@ mod tests {
             ouvertures: Vec::new(),
         }];
         let lignes_de_cote = |dxf: &str| dxf.matches("\r\nLINE\r\n  8\r\nCOTES\r\n").count();
-        // Sans le bouton « Cotes », aucune ligne de cote.
-        let sans = dxf_du_plan(&Plan::d_une_piece(chambre.clone()), &Preferences::default());
+        // Cachées par le bouton « Cotes », aucune ligne de cote.
+        let mut cachees = chambre.clone();
+        cachees.cotes_cachees = true;
+        let sans = dxf_du_plan(&Plan::d_une_piece(cachees), &Preferences::default());
         assert_eq!(lignes_de_cote(&sans.unwrap()), 0);
-        chambre.lignes_de_cote = true;
+        // Elles se montrent d'elles-mêmes (point 57).
+        assert!(chambre.cotes_visibles());
         let plan = Plan::d_une_piece(chambre);
         // Le mur de gauche : de 0 à 69 1/2 po, la cloison, puis 45 1/2 po; une
         // ligne, quatre traits et quatre lignes d'attache.
