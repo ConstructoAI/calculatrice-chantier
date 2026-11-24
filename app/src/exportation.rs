@@ -91,6 +91,8 @@ struct PieceExportee {
     legende: Vec<SymboleDeLaLegende>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
+    /// Ses murs vus de face (évolution 18).
+    elevations: Vec<ElevationExportee>,
     /// Les espaces que ferment les cloisons : leur nom, leur aire en clair et
     /// le point où les écrire (évolution 5).
     espaces: Vec<(String, String, (f64, f64))>,
@@ -328,6 +330,33 @@ fn preparer_la_piece(
         modele: solution.modele,
         ouvertures,
         objets,
+        // Au PDF, les murs qui montrent quelque chose : une porte, une fenêtre,
+        // ou un haut qui n'est pas plat.
+        elevations: elevations_utiles(dessin.elevations(&solution))
+            .into_iter()
+            .map(|elevation| ElevationExportee {
+                titre: textes::dessin_mur_vu_de_face(
+                    elevation.cote + 1,
+                    &sans_insecables(&longueur_en_clair(elevation.longueur, &solution, prefs)),
+                ),
+                hauteur: elevation.haut.first().map_or(String::new(), |&(_, h)| {
+                    sans_insecables(&longueur_en_clair(h, &solution, prefs))
+                }),
+                reperes: elevation
+                    .ouvertures
+                    .iter()
+                    .map(|o| reperes.get(o.rang).cloned().unwrap_or_default())
+                    .collect(),
+                chaine: elevation
+                    .chaine()
+                    .windows(2)
+                    .map(|paire| {
+                        sans_insecables(&longueur_en_clair(paire[1] - paire[0], &solution, prefs))
+                    })
+                    .collect(),
+                elevation,
+            })
+            .collect(),
         espaces: dessin
             .espaces(&solution)
             .iter()
@@ -1260,6 +1289,167 @@ fn page_des_finis_du_plan(
             &crate::vues::dessin::quantite_d_un_fini(fini, *quantite, modele, prefs),
         );
         y -= 16.5;
+    }
+    pied_de_page(&mut page, numero, total);
+    page
+}
+
+/// Un mur vu de face, prêt à mettre en page (évolution 18) : son titre, son
+/// élévation, la hauteur à son début, les repères de ses ouvertures et les
+/// longueurs de sa chaîne de cotes, en clair.
+struct ElevationExportee {
+    titre: String,
+    elevation: noyau::dessin::Elevation,
+    hauteur: String,
+    reperes: Vec<String>,
+    chaine: Vec<String>,
+}
+
+/// Les élévations d'une pièce, si l'une d'elles montre quelque chose : une
+/// ouverture, ou un mur qui n'est pas d'une seule hauteur; aucune sinon.
+fn elevations_utiles(elevations: Vec<noyau::dessin::Elevation>) -> Vec<noyau::dessin::Elevation> {
+    let utile = |e: &noyau::dessin::Elevation| {
+        !e.ouvertures.is_empty() || e.haut.iter().any(|&(_, h)| (h - e.haut[0].1).abs() > 0.5)
+    };
+    if elevations.iter().any(utile) {
+        elevations
+    } else {
+        Vec::new()
+    }
+}
+
+/// La place que prend un mur vu de face sur une page d'élévations, en plus de
+/// sa hauteur à l'échelle : son titre au-dessus, sa chaîne au-dessous.
+const MARGES_D_UNE_ELEVATION: f64 = 54.0;
+
+/// L'échelle des élévations d'une pièce (points par pouce), et combien de
+/// murs tiennent sur une page.
+fn mise_en_page_des_elevations(elevations: &[ElevationExportee]) -> (f64, usize) {
+    let plus_long = elevations
+        .iter()
+        .map(|e| e.elevation.longueur)
+        .fold(1.0, f64::max);
+    let plus_haut = elevations
+        .iter()
+        .map(|e| e.elevation.plus_haut())
+        .fold(1.0, f64::max);
+    // Quatre murs, les plus courants, sur une page.
+    let place = HAUTEUR_PAGE - 112.0 - 64.0;
+    let echelle = ((LARGEUR_PAGE - 2.0 * MARGE - 40.0) / plus_long)
+        .min((place / 4.0 - MARGES_D_UNE_ELEVATION) / plus_haut);
+    let rangee = plus_haut * echelle + MARGES_D_UNE_ELEVATION;
+    (echelle, ((place / rangee + 1e-6).floor() as usize).max(1))
+}
+
+/// Une page d'élévations d'une pièce : ses murs, l'un sous l'autre.
+fn page_d_elevations(
+    piece: &PieceExportee,
+    murs: &[ElevationExportee],
+    echelle: f64,
+    (entete, numero, total): (&str, usize, usize),
+) -> Page {
+    use noyau::dessin::GenreDOuverture;
+    let mut page = Page::default();
+    en_tete_de_page(
+        &mut page,
+        &textes::dessin_export_elevations(&piece.nom),
+        entete,
+    );
+    let mut haut_de_rangee = HAUTEUR_PAGE - 104.0;
+    for mur in murs {
+        let elevation = &mur.elevation;
+        page.texte(
+            (MARGE, haut_de_rangee - 10.0),
+            10.0,
+            true,
+            Alignement::Gauche,
+            NOIR,
+            &mur.titre,
+        );
+        let base = haut_de_rangee - 18.0 - elevation.plus_haut() * echelle;
+        let gauche = MARGE + 30.0;
+        let point = |t: f64, h: f64| (gauche + t * echelle, base + h * echelle);
+        let mut contour = vec![point(0.0, 0.0)];
+        contour.extend(elevation.haut.iter().map(|&(t, h)| point(t, h)));
+        contour.push(point(elevation.longueur, 0.0));
+        contour.push(point(0.0, 0.0));
+        page.trait_(&contour, 1.2, NOIR);
+        for (ouverture, repere) in elevation.ouvertures.iter().zip(&mur.reperes) {
+            let (a, b) = (
+                point(ouverture.debut, ouverture.bas),
+                point(ouverture.fin, ouverture.haut),
+            );
+            let cadre = [a, (b.0, a.1), b, (a.0, b.1), a];
+            if ouverture.genre == GenreDOuverture::BaieLibre {
+                for (de, a) in morceaux_en_tirets(&cadre[1..], 3.0, 2.0) {
+                    page.trait_(&[de, a], 0.8, NOIR);
+                }
+            } else {
+                page.trait_(&cadre, 0.9, NOIR);
+            }
+            match ouverture.genre {
+                GenreDOuverture::Fenetre
+                | GenreDOuverture::FenetreEnBaie
+                | GenreDOuverture::PorteFenetre
+                | GenreDOuverture::PorteDouble => {
+                    let x = (a.0 + b.0) / 2.0;
+                    page.trait_(&[(x, a.1), (x, b.1)], 0.5, GRIS);
+                }
+                GenreDOuverture::PorteDeGarage => {
+                    for k in 1..4 {
+                        let y = a.1 + (b.1 - a.1) * f64::from(k) / 4.0;
+                        page.trait_(&[(a.0, y), (b.0, y)], 0.5, GRIS);
+                    }
+                }
+                _ => {}
+            }
+            page.texte(
+                ((a.0 + b.0) / 2.0, b.1 - 9.0),
+                7.0,
+                true,
+                Alignement::Centre,
+                GRIS,
+                repere,
+            );
+        }
+        // La chaîne des cotes, au bas, et la hauteur à gauche.
+        let chaine = elevation.chaine();
+        let y = base - 10.0;
+        page.trait_(
+            &[point(0.0, 0.0), point(elevation.longueur, 0.0)].map(|(x, _)| (x, y)),
+            0.5,
+            GRIS,
+        );
+        for &t in &chaine {
+            let (x, _) = point(t, 0.0);
+            page.trait_(&[(x, y - 3.0), (x, y + 3.0)], 0.5, GRIS);
+        }
+        for (paire, texte) in chaine.windows(2).zip(&mur.chaine) {
+            let (x0, x1) = (point(paire[0], 0.0).0, point(paire[1], 0.0).0);
+            if largeur_du_texte(texte, false) * 6.5 / 1000.0 + 3.0 < x1 - x0 {
+                page.texte(
+                    ((x0 + x1) / 2.0, y - 9.0),
+                    6.5,
+                    false,
+                    Alignement::Centre,
+                    GRIS,
+                    texte,
+                );
+            }
+        }
+        if let Some(&(_, h)) = elevation.haut.first() {
+            let x = gauche - 10.0;
+            page.trait_(&[(x, base), (x, base + h * echelle)], 0.5, GRIS);
+            page.texte(
+                (x - 2.0, base + h * echelle / 2.0),
+                6.5,
+                false,
+                Alignement::Droite,
+                GRIS,
+                &mur.hauteur,
+            );
+        }
+        haut_de_rangee -= elevation.plus_haut() * echelle + MARGES_D_UNE_ELEVATION;
     }
     pied_de_page(&mut page, numero, total);
     page
@@ -2206,9 +2396,19 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     // Le tableau des finis, sur sa page, à la toute fin (évolution 27).
     let tableau = plan.tableau_des_finis(FORMAT_PAR_DEFAUT);
     let page_des_finis = !tableau.pieces.is_empty();
+    // Les élévations de chaque pièce, sur leurs pages (évolution 18).
+    let pages_d_elevations: usize = pieces
+        .iter()
+        .filter(|piece| !piece.elevations.is_empty())
+        .map(|piece| {
+            let (_, par_page) = mise_en_page_des_elevations(&piece.elevations);
+            piece.elevations.len().div_ceil(par_page)
+        })
+        .sum();
     let total = pieces.len()
         + usize::from(resume)
         + legendes
+        + pages_d_elevations
         + pages_du_bordereau
         + usize::from(page_des_finis);
     let mut pages = Vec::with_capacity(total);
@@ -2240,6 +2440,18 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
         if !piece.legende.is_empty() {
             let numero = pages.len() + 1;
             pages.push(page_de_legende(piece, &entete, numero, total));
+        }
+        if !piece.elevations.is_empty() {
+            let (echelle, par_page) = mise_en_page_des_elevations(&piece.elevations);
+            for murs in piece.elevations.chunks(par_page) {
+                let numero = pages.len() + 1;
+                pages.push(page_d_elevations(
+                    piece,
+                    murs,
+                    echelle,
+                    (&entete, numero, total),
+                ));
+            }
         }
     }
     for morceau in bordereau.chunks(LIGNES_DU_BORDEREAU_PAR_PAGE) {
@@ -3443,8 +3655,10 @@ mod tests {
         );
         let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
         assert!(pdf.contains("(P1)") && pdf.contains("(F1)"));
-        // Une page de bordereau, à la suite de la pièce.
-        assert!(pdf.contains("Page 2 de 2"));
+        // La pièce, ses élévations (ses murs ont des ouvertures), puis le
+        // bordereau, à la fin.
+        assert!(pdf.contains("Page 3 de 3"));
+        assert!(pdf.contains("Mur 1") && pdf.contains("vations des murs"));
         assert!(pdf.contains("(Baie libre)") && pdf.contains("(poussant droite)"));
     }
 

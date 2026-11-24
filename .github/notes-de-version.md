@@ -128,6 +128,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Surface de chaque sous-espace** : les espaces que ferment les cloisons, leur nom et leur
   aire, sur le plan, au bilan et au PDF.
 
+- **Élévations des murs** : chaque mur vu de face, ses portes et ses fenêtres à leur hauteur,
+  avec leurs cotes, à l'écran et au PDF.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

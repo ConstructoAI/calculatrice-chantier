@@ -1434,6 +1434,25 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// Les élévations des murs (évolution 18).
+pub const DESSIN_ELEVATIONS: Texte = t("Élévations des murs", "Wall elevations");
+
+/// Le titre d'un mur vu de face : « Mur 2 · 12 pi 0 po ».
+pub fn dessin_mur_vu_de_face(numero: usize, longueur: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Mur {numero} · {longueur}"),
+        Langue::Anglais => format!("Wall {numero} · {longueur}"),
+    }
+}
+
+/// Le titre d'une page d'élévations, au PDF.
+pub fn dessin_export_elevations(piece: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("{piece} : élévations des murs"),
+        Langue::Anglais => format!("{piece}: wall elevations"),
+    }
+}
+
 /// Les espaces que ferment les cloisons (évolution 5).
 pub const DESSIN_ESPACES: Texte = t(
     "Espaces fermés par les cloisons",

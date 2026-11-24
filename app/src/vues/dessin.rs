@@ -225,6 +225,7 @@ enum Section {
     Finis,
     TableauDesFinis,
     Espaces,
+    Elevations,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -1258,6 +1259,202 @@ pub(crate) fn nom_d_un_espace(
         .map_or_else(|| textes::dessin_espace(rang + 1), str::to_string)
 }
 
+/// Les élévations des murs (évolution 18) : chaque mur vu de face, tous à la
+/// même échelle, avec ses portes et ses fenêtres à leur hauteur, leurs
+/// repères et ses cotes.
+fn elevations_des_murs(
+    ui: &mut Ui,
+    p: &Palette,
+    dessin: &Dessin,
+    etat: &mut Etat,
+    solution: &Solution,
+    prefs: &Preferences,
+) {
+    let elevations = dessin.elevations(solution);
+    if elevations.is_empty() {
+        return;
+    }
+    ui.add_space(8.0);
+    if !titre_de_section(
+        ui,
+        p,
+        etat,
+        Section::Elevations,
+        textes::DESSIN_ELEVATIONS.traduit(),
+    ) {
+        return;
+    }
+    let plus_long = elevations.iter().map(|e| e.longueur).fold(1.0, f64::max);
+    let plus_haut = elevations.iter().map(|e| e.plus_haut()).fold(1.0, f64::max);
+    let largeur = ui.available_width();
+    let echelle = ((largeur - 56.0) / plus_long as f32).min(150.0 / plus_haut as f32);
+    for elevation in &elevations {
+        ui.label(
+            RichText::new(textes::dessin_mur_vu_de_face(
+                elevation.cote + 1,
+                &longueur_en_clair(elevation.longueur, solution, prefs),
+            ))
+            .font(theme::police_grasse(13.0))
+            .color(p.titre),
+        );
+        let hauteur = elevation.plus_haut() as f32 * echelle + 46.0;
+        let (zone, _) = ui.allocate_exact_size(Vec2::new(largeur, hauteur), Sense::hover());
+        let ecrire = |pouces: f64| longueur_en_clair(pouces, solution, prefs);
+        mur_vu_de_face(
+            ui.painter(),
+            p,
+            zone,
+            elevation,
+            echelle,
+            &etat.reperes_des_ouvertures,
+            &ecrire,
+        );
+        ui.add_space(6.0);
+    }
+}
+
+/// Un mur vu de face dans `zone`, à `echelle` points par pouce : son contour,
+/// ses portes et ses fenêtres, leurs repères, la chaîne des cotes au bas et sa
+/// hauteur à gauche.
+fn mur_vu_de_face(
+    painter: &egui::Painter,
+    p: &Palette,
+    zone: Rect,
+    elevation: &noyau::dessin::Elevation,
+    echelle: f32,
+    reperes: &[String],
+    ecrire: &dyn Fn(f64) -> String,
+) {
+    use noyau::dessin::GenreDOuverture;
+    let (gauche, base) = (zone.left() + 34.0, zone.bottom() - 28.0);
+    let point = |t: f64, h: f64| Pos2::new(gauche + t as f32 * echelle, base - h as f32 * echelle);
+    // Le mur : du plancher, par son haut, et retour.
+    let mut contour = vec![point(0.0, 0.0)];
+    contour.extend(elevation.haut.iter().map(|&(t, h)| point(t, h)));
+    contour.push(point(elevation.longueur, 0.0));
+    painter.add(egui::Shape::convex_polygon(
+        contour.clone(),
+        theme::melanger(p.carte, p.texte, 0.05),
+        Stroke::NONE,
+    ));
+    painter.add(egui::Shape::closed_line(contour, Stroke::new(1.5, p.texte)));
+    // Ses ouvertures, et leurs repères.
+    for ouverture in &elevation.ouvertures {
+        let cadre = Rect::from_two_pos(
+            point(ouverture.debut, ouverture.bas),
+            point(ouverture.fin, ouverture.haut),
+        );
+        painter.rect_filled(cadre, 0.0, p.carte);
+        if ouverture.genre == GenreDOuverture::BaieLibre {
+            let coins = [
+                cadre.left_bottom(),
+                cadre.left_top(),
+                cadre.right_top(),
+                cadre.right_bottom(),
+            ];
+            painter.extend(egui::Shape::dashed_line(
+                &coins,
+                Stroke::new(1.2, p.texte),
+                4.0,
+                3.0,
+            ));
+        } else {
+            painter.rect_stroke(
+                cadre,
+                0.0,
+                Stroke::new(1.2, p.texte),
+                egui::StrokeKind::Middle,
+            );
+        }
+        let fin = Stroke::new(0.8, p.texte_attenue);
+        match ouverture.genre {
+            // Le vitrage : deux châssis.
+            GenreDOuverture::Fenetre
+            | GenreDOuverture::FenetreEnBaie
+            | GenreDOuverture::PorteFenetre => {
+                painter.line_segment([cadre.center_top(), cadre.center_bottom()], fin);
+            }
+            // Les panneaux d'une porte de garage.
+            GenreDOuverture::PorteDeGarage => {
+                for k in 1..4 {
+                    let y = cadre.top() + cadre.height() * k as f32 / 4.0;
+                    painter.line_segment(
+                        [Pos2::new(cadre.left(), y), Pos2::new(cadre.right(), y)],
+                        fin,
+                    );
+                }
+            }
+            GenreDOuverture::PorteDouble => {
+                painter.line_segment([cadre.center_top(), cadre.center_bottom()], fin);
+            }
+            GenreDOuverture::BaieLibre => {}
+            // La poignée d'une porte, du côté opposé aux charnières.
+            _ => {
+                let x = cadre.right() - (cadre.width() * 0.12).max(3.0);
+                painter.circle_filled(
+                    Pos2::new(x, cadre.center().y + cadre.height() * 0.05),
+                    1.8,
+                    p.texte,
+                );
+            }
+        }
+        if let Some(repere) = reperes.get(ouverture.rang) {
+            painter.text(
+                cadre.center_top() + Vec2::new(0.0, 8.0),
+                Align2::CENTER_CENTER,
+                repere,
+                theme::police_grasse(10.0),
+                p.texte_attenue,
+            );
+        }
+    }
+    // La chaîne des cotes, au bas.
+    let chaine = elevation.chaine();
+    let y = base + 12.0;
+    let trait_ = Stroke::new(1.0, p.accent_du_plan());
+    painter.line_segment(
+        [
+            Pos2::new(point(0.0, 0.0).x, y),
+            Pos2::new(point(elevation.longueur, 0.0).x, y),
+        ],
+        trait_,
+    );
+    for &t in &chaine {
+        let x = point(t, 0.0).x;
+        painter.line_segment([Pos2::new(x, y - 4.0), Pos2::new(x, y + 4.0)], trait_);
+    }
+    for paire in chaine.windows(2) {
+        let (x0, x1) = (point(paire[0], 0.0).x, point(paire[1], 0.0).x);
+        let ecrit = painter.layout_no_wrap(
+            ecrire(paire[1] - paire[0]),
+            theme::police(9.5),
+            p.accent_du_plan(),
+        );
+        if ecrit.size().x + 4.0 < x1 - x0 {
+            let centre = Pos2::new((x0 + x1) / 2.0, y + 9.0);
+            painter.galley(centre - ecrit.size() / 2.0, ecrit, p.accent_du_plan());
+        }
+    }
+    // La hauteur du mur à son début, à gauche.
+    if let Some(&(_, h)) = elevation.haut.first() {
+        let x = gauche - 14.0;
+        let (bas, haut) = (base, point(0.0, h).y);
+        painter.line_segment([Pos2::new(x, bas), Pos2::new(x, haut)], trait_);
+        for y in [bas, haut] {
+            painter.line_segment([Pos2::new(x - 4.0, y), Pos2::new(x + 4.0, y)], trait_);
+        }
+        let ecrit = painter.layout_no_wrap(ecrire(h), theme::police(9.5), p.accent_du_plan());
+        let centre = Pos2::new(x - 9.0, (bas + haut) / 2.0);
+        let texte = egui::epaint::TextShape::new(
+            centre + Vec2::new(-ecrit.size().y / 2.0, ecrit.size().x / 2.0),
+            ecrit,
+            p.accent_du_plan(),
+        )
+        .with_angle(-std::f32::consts::FRAC_PI_2);
+        painter.add(texte);
+    }
+}
+
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
 /// son centre, s'il en est un assez près (point 40). Retourne vrai s'il s'y
 /// est posé.
@@ -1557,6 +1754,9 @@ pub fn afficher(
             if matches!(solution.etat, EtatDeLaForme::Complete { .. }) && finis(ui, p, dessin, etat)
             {
                 action = Some(Action::Modifie);
+            }
+            if dessin.fermee {
+                elevations_des_murs(ui, p, dessin, etat, &solution, prefs);
             }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
                 && cloisons(ui, p, dessin, etat, &solution, prefs)

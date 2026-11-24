@@ -1193,6 +1193,118 @@ impl Dessin {
     }
 }
 
+/// Un mur vu de face (évolution 18) : sa longueur, le profil de son haut, et
+/// ses portes et ses fenêtres à leur hauteur.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Elevation {
+    /// Le rang du mur (de son côté).
+    pub cote: usize,
+    pub longueur: f64,
+    /// Le haut du mur, de son début à sa fin : (distance depuis le début,
+    /// hauteur), en pouces; deux points, ou trois pour un mur en pignon.
+    pub haut: Vec<(f64, f64)>,
+    pub ouvertures: Vec<OuvertureEnElevation>,
+}
+
+/// Une porte ou une fenêtre d'un mur vu de face : son rang parmi les
+/// ouvertures, ses bords depuis le début du mur, son bas et son haut (pouces).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OuvertureEnElevation {
+    pub rang: usize,
+    pub debut: f64,
+    pub fin: f64,
+    pub bas: f64,
+    pub haut: f64,
+    pub genre: GenreDOuverture,
+}
+
+impl Elevation {
+    /// Sa plus grande hauteur.
+    pub fn plus_haut(&self) -> f64 {
+        self.haut.iter().map(|&(_, h)| h).fold(0.0, f64::max)
+    }
+
+    /// La chaîne de ses cotes au bas du mur : les coins et les bords de ses
+    /// ouvertures, dans l'ordre, sans doublon.
+    pub fn chaine(&self) -> Vec<f64> {
+        let mut points = vec![0.0, self.longueur];
+        for ouverture in &self.ouvertures {
+            points.push(ouverture.debut.clamp(0.0, self.longueur));
+            points.push(ouverture.fin.clamp(0.0, self.longueur));
+        }
+        points.sort_by(f64::total_cmp);
+        points.dedup_by(|a, b| (*a - *b).abs() < 0.5);
+        points
+    }
+}
+
+impl Dessin {
+    /// Chaque mur de la pièce complète vu de face (évolution 18), de la
+    /// hauteur des murs ou sous son plafond; vide sans hauteur de murs.
+    pub fn elevations(&self, solution: &Solution) -> Vec<Elevation> {
+        if !matches!(solution.etat, Etat::Complete { .. }) {
+            return Vec::new();
+        }
+        let Some(sommets) = self.sommets_mesures(solution) else {
+            return Vec::new();
+        };
+        let hauteur = solution.hauteur;
+        if hauteur.is_none() && solution.plafond.is_none() {
+            return Vec::new();
+        }
+        (0..self.cotes.len())
+            .filter_map(|cote| {
+                let a = *sommets.get(cote)?;
+                let b = *sommets.get(cote + 1).or(sommets.first())?;
+                let longueur = (b.0 - a.0).hypot(b.1 - a.1);
+                if longueur < 1e-9 {
+                    return None;
+                }
+                let haut = match &solution.plafond {
+                    Some(plafond) => {
+                        let mut haut = vec![(0.0, plafond.hauteur_au(a))];
+                        if let Some(t) = plafond.brisure(a, b) {
+                            let point = (
+                                a.0 + (b.0 - a.0) * t / longueur,
+                                a.1 + (b.1 - a.1) * t / longueur,
+                            );
+                            haut.push((t, plafond.hauteur_au(point)));
+                        }
+                        haut.push((longueur, plafond.hauteur_au(b)));
+                        haut
+                    }
+                    None => {
+                        let h = hauteur?;
+                        vec![(0.0, h), (longueur, h)]
+                    }
+                };
+                let ouvertures = solution
+                    .placements
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(rang, placement)| {
+                        let placement = placement.as_ref()?;
+                        (placement.cote == cote).then_some(OuvertureEnElevation {
+                            rang,
+                            debut: placement.debut,
+                            fin: placement.fin,
+                            bas: placement.bas,
+                            haut: placement.haut,
+                            genre: placement.genre,
+                        })
+                    })
+                    .collect();
+                Some(Elevation {
+                    cote,
+                    longueur,
+                    haut,
+                    ouvertures,
+                })
+            })
+            .collect()
+    }
+}
+
 /// Ce qui gêne un objet de la pièce (évolution 23).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RaisonDuConflit {
@@ -4829,5 +4941,72 @@ mod tests {
         );
         assert_eq!(baie.len(), 1);
         assert_eq!(baie[0].style, StyleDOuverture::Tirets);
+    }
+    #[test]
+    fn les_elevations_des_murs() {
+        let mut dessin = Dessin::default();
+        for (sens, saisie) in [
+            (Sens::Est, "12"),
+            (Sens::Sud, "10"),
+            (Sens::Ouest, ""),
+            (Sens::Nord, ""),
+        ] {
+            dessin.cotes.push(Cote {
+                sens,
+                croquis: 100.0,
+                saisie: saisie.to_string(),
+            });
+        }
+        dessin.fermee = true;
+        dessin.hauteur_des_murs = "8".into();
+        dessin.ouvertures = vec![
+            Ouverture {
+                largeur: "32 po".into(),
+                hauteur: "80 po".into(),
+                genre: Some(GenreDOuverture::Porte),
+                cote: Some(0),
+                position: "1".into(),
+                ..Ouverture::default()
+            },
+            Ouverture {
+                largeur: "3".into(),
+                hauteur: "4".into(),
+                genre: Some(GenreDOuverture::Fenetre),
+                cote: Some(1),
+                ..Ouverture::default()
+            },
+        ];
+        let elevations = dessin.elevations(&dessin.resoudre(Format::PiPo));
+        assert_eq!(elevations.len(), 4);
+        // Le premier mur : 12 pi de long, 8 pi de haut, la porte à 1 pi du coin.
+        let mur = &elevations[0];
+        assert_eq!(
+            (mur.longueur, mur.haut.clone()),
+            (144.0, vec![(0.0, 96.0), (144.0, 96.0)])
+        );
+        assert_eq!(mur.ouvertures.len(), 1);
+        assert_eq!(
+            (mur.ouvertures[0].debut, mur.ouvertures[0].fin),
+            (12.0, 44.0)
+        );
+        assert_eq!(mur.chaine(), vec![0.0, 12.0, 44.0, 144.0]);
+        // La fenêtre, centrée sur le deuxième mur, à son allège de 3 pi.
+        let fenetre = elevations[1].ouvertures[0];
+        assert_eq!(
+            (fenetre.debut, fenetre.bas, fenetre.haut),
+            (42.0, 36.0, 84.0)
+        );
+        // Sous un plafond cathédrale, les murs en pignon montent au faîte.
+        dessin.plafond = crate::plafond::Plafond {
+            forme: crate::plafond::FormeDePlafond::Cathedrale,
+            haut: "12".into(),
+            ..Default::default()
+        };
+        let elevations = dessin.elevations(&dessin.resoudre(Format::PiPo));
+        assert!(
+            elevations
+                .iter()
+                .any(|mur| mur.haut.len() == 3 && (mur.plus_haut() - 144.0).abs() < 1e-6)
+        );
     }
 }
