@@ -222,6 +222,8 @@ enum Section {
     Notes,
     Exporter,
     Bordereau,
+    Finis,
+    TableauDesFinis,
 }
 
 /// Le titre d'une section repliable : un triangle, pointé vers le bas si elle
@@ -973,6 +975,49 @@ fn trait_a_main_levee(
     ));
 }
 
+/// Les quatre finis d'une pièce en clair, « — » pour ceux qui manquent
+/// (évolution 27) : plancher, murs, plafond, plinthes.
+pub(crate) fn finis_en_clair(finis: &noyau::finis::Finis) -> [String; 4] {
+    use noyau::finis::{FiniDePlafond, Plancher, Plinthe};
+    let ou_tiret = |aucun: bool, nom: &str| {
+        if aucun {
+            "—".to_string()
+        } else {
+            nom.to_string()
+        }
+    };
+    [
+        ou_tiret(
+            finis.plancher == Plancher::Aucun,
+            textes::nom_du_plancher(finis.plancher).traduit(),
+        ),
+        textes::peinture_en_clair(finis.peinture, &finis.couleur),
+        ou_tiret(
+            finis.plafond == FiniDePlafond::Aucun,
+            textes::nom_du_plafond(finis.plafond).traduit(),
+        ),
+        ou_tiret(
+            finis.plinthes == Plinthe::Aucune,
+            textes::nom_de_la_plinthe(finis.plinthes).traduit(),
+        ),
+    ]
+}
+
+/// La quantité d'un fini en clair : une aire, ou une longueur de plinthes.
+pub(crate) fn quantite_d_un_fini(
+    fini: &noyau::finis::Fini,
+    quantite: f64,
+    modele: Option<Format>,
+    prefs: &Preferences,
+) -> String {
+    let quantite = if fini.en_longueur() {
+        Quantite::Longueur(quantite)
+    } else {
+        Quantite::Aire(quantite)
+    };
+    sans_insecables(&quantite.en_clair(modele, prefs))
+}
+
 /// Une ligne du bordereau en clair (évolution 24) : son repère, son genre,
 /// sa largeur × sa hauteur, le sens d'une porte battante (« — » sinon) et sa
 /// pièce.
@@ -999,6 +1044,152 @@ pub(crate) fn ligne_du_bordereau(
         sens,
         nom_de_la_piece(plan, ligne.rang_de_la_piece),
     ]
+}
+
+/// Les finis de la pièce (évolution 27) : son plancher, que montre une
+/// trame, la peinture de ses murs, son plafond et ses plinthes. Retourne vrai
+/// si le dessin a changé.
+fn finis(ui: &mut Ui, p: &Palette, dessin: &mut Dessin, etat: &mut Etat) -> bool {
+    use noyau::finis::{FiniDePeinture, FiniDePlafond, Plancher, Plinthe};
+    ui.add_space(8.0);
+    if !titre_de_section(ui, p, etat, Section::Finis, textes::DESSIN_FINIS.traduit()) {
+        return false;
+    }
+    let avant = dessin.finis.clone();
+    let mut finis = avant.clone();
+    let mut couleur_prise = false;
+    // Une liste par fini; le plancher a sa légende : un carré de sa trame.
+    ui.horizontal_wrapped(|ui| {
+        ui.label(
+            RichText::new(textes::DESSIN_FINI_PLANCHER.traduit()).font(theme::police_grasse(13.5)),
+        );
+        egui::ComboBox::from_id_salt("fini-plancher")
+            .selected_text(textes::nom_du_plancher(finis.plancher).traduit())
+            .show_ui(ui, |ui| {
+                for plancher in Plancher::TOUS {
+                    ui.selectable_value(
+                        &mut finis.plancher,
+                        plancher,
+                        textes::nom_du_plancher(plancher).traduit(),
+                    );
+                }
+            });
+        let (zone, _) = ui.allocate_exact_size(Vec2::splat(26.0), Sense::hover());
+        echantillon_de_trame(ui.painter(), p, zone, finis.plancher);
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label(
+            RichText::new(textes::DESSIN_FINI_PEINTURE.traduit()).font(theme::police_grasse(13.5)),
+        );
+        egui::ComboBox::from_id_salt("fini-peinture")
+            .selected_text(textes::nom_de_la_peinture(finis.peinture).traduit())
+            .show_ui(ui, |ui| {
+                for peinture in FiniDePeinture::TOUS {
+                    ui.selectable_value(
+                        &mut finis.peinture,
+                        peinture,
+                        textes::nom_de_la_peinture(peinture).traduit(),
+                    );
+                }
+            });
+        let champ = egui::TextEdit::singleline(&mut finis.couleur)
+            .desired_width(150.0)
+            .char_limit(40)
+            .hint_text(textes::DESSIN_FINI_COULEUR.traduit());
+        let reponse = ui.add(champ);
+        cadre_de_saisie(ui, p, &reponse);
+        couleur_prise = reponse.gained_focus();
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label(
+            RichText::new(textes::DESSIN_FINI_PLAFOND.traduit()).font(theme::police_grasse(13.5)),
+        );
+        egui::ComboBox::from_id_salt("fini-plafond")
+            .selected_text(textes::nom_du_plafond(finis.plafond).traduit())
+            .show_ui(ui, |ui| {
+                for plafond in FiniDePlafond::TOUS {
+                    ui.selectable_value(
+                        &mut finis.plafond,
+                        plafond,
+                        textes::nom_du_plafond(plafond).traduit(),
+                    );
+                }
+            });
+        ui.label(
+            RichText::new(textes::DESSIN_FINI_PLINTHES.traduit()).font(theme::police_grasse(13.5)),
+        );
+        egui::ComboBox::from_id_salt("fini-plinthes")
+            .selected_text(textes::nom_de_la_plinthe(finis.plinthes).traduit())
+            .show_ui(ui, |ui| {
+                for plinthe in Plinthe::TOUS {
+                    ui.selectable_value(
+                        &mut finis.plinthes,
+                        plinthe,
+                        textes::nom_de_la_plinthe(plinthe).traduit(),
+                    );
+                }
+            });
+    });
+    // Une étape d'annulation par liste changée, et une pour la couleur, prise
+    // quand on entre dans son champ : tout ce qu'on y tape s'annule d'un coup.
+    let liste_changee = finis.plancher != avant.plancher
+        || finis.peinture != avant.peinture
+        || finis.plafond != avant.plafond
+        || finis.plinthes != avant.plinthes;
+    if liste_changee || couleur_prise {
+        etat.memoriser(dessin);
+    }
+    if finis != avant {
+        dessin.finis = finis;
+        return true;
+    }
+    false
+}
+
+/// La légende d'un plancher : un carré de sa trame.
+fn echantillon_de_trame(
+    painter: &egui::Painter,
+    p: &Palette,
+    zone: Rect,
+    plancher: noyau::finis::Plancher,
+) {
+    painter.rect_filled(zone, 4.0, p.carte);
+    painter.rect_stroke(
+        zone,
+        4.0,
+        Stroke::new(1.0, p.bouton_bord),
+        egui::StrokeKind::Inside,
+    );
+    // Un carré de 3 pi, ramené au carré de la légende.
+    let cote = 36.0;
+    let carre = [(0.0, 0.0), (cote, 0.0), (cote, cote), (0.0, cote)];
+    let vers = |(x, y): (f64, f64)| {
+        Pos2::new(
+            zone.left() + 2.0 + (x / cote) as f32 * (zone.width() - 4.0),
+            zone.top() + 2.0 + (y / cote) as f32 * (zone.height() - 4.0),
+        )
+    };
+    trame_sur_la_planche(painter, p, &noyau::finis::trame(plancher, &carre), &vers);
+}
+
+/// Les traits d'une trame de plancher, à l'écran, d'un trait pâle.
+fn trame_sur_la_planche(
+    painter: &egui::Painter,
+    p: &Palette,
+    traits: &[noyau::finis::TraitDeTrame],
+    vers: &dyn Fn((f64, f64)) -> Pos2,
+) {
+    let couleur = theme::melanger(p.carte, p.texte, 0.28);
+    for trait_ in traits {
+        match *trait_ {
+            noyau::finis::TraitDeTrame::Ligne(a, b) => {
+                painter.line_segment([vers(a), vers(b)], Stroke::new(0.8, couleur));
+            }
+            noyau::finis::TraitDeTrame::Point(point) => {
+                painter.circle_filled(vers(point), 1.1, couleur);
+            }
+        }
+    }
 }
 
 /// Pose l'objet de rang `rang` contre le mur ou la cloison le plus proche de
@@ -1297,6 +1488,10 @@ pub fn afficher(
             if dessin.fermee && murs(ui, p, dessin, etat, &solution, prefs) {
                 action = Some(Action::Modifie);
             }
+            if matches!(solution.etat, EtatDeLaForme::Complete { .. }) && finis(ui, p, dessin, etat)
+            {
+                action = Some(Action::Modifie);
+            }
             if matches!(solution.etat, EtatDeLaForme::Complete { .. })
                 && cloisons(ui, p, dessin, etat, &solution, prefs)
             {
@@ -1521,6 +1716,51 @@ fn la_piece_et_le_total(
                             ui.label(RichText::new(texte).size(13.5));
                         }
                     });
+                }
+            });
+        }
+    }
+    // Le tableau des finis de tout le plan (évolution 27).
+    let tableau = plan.tableau_des_finis(FORMAT_PAR_DEFAUT);
+    if !tableau.pieces.is_empty() {
+        ui.add_space(10.0);
+        if titre_de_section(
+            ui,
+            p,
+            etat,
+            Section::TableauDesFinis,
+            textes::DESSIN_TABLEAU_DES_FINIS.traduit(),
+        ) {
+            let modele = plan
+                .pieces
+                .iter()
+                .find_map(|piece| piece.dessin.resoudre(FORMAT_PAR_DEFAUT).modele);
+            carte(ui, p, |ui| {
+                for (rang, finis, _) in &tableau.pieces {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(
+                            RichText::new(nom_de_la_piece(plan, *rang))
+                                .font(theme::police_grasse(13.5))
+                                .color(p.titre),
+                        );
+                        ui.label(RichText::new(finis_en_clair(finis).join(" · ")).size(13.5));
+                    });
+                }
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(textes::DESSIN_QUANTITES_PAR_FINI.traduit())
+                        .font(theme::police_grasse(13.5))
+                        .color(p.titre),
+                );
+                for (fini, quantite) in &tableau.totaux {
+                    ui.label(
+                        RichText::new(format!(
+                            "{} : {}",
+                            textes::fini_en_clair(fini),
+                            quantite_d_un_fini(fini, *quantite, modele, prefs)
+                        ))
+                        .size(13.5),
+                    );
                 }
             });
         }
@@ -2616,6 +2856,14 @@ fn planche_et_gestes(
     } else {
         Vec::new()
     };
+    // La trame du plancher, sous tout le reste (évolution 27).
+    if complete
+        && dessin.finis.plancher != noyau::finis::Plancher::Aucun
+        && let Some(contour) = dessin.contour_interieur(solution)
+    {
+        let traits = noyau::finis::trame(dessin.finis.plancher, &contour);
+        trame_sur_la_planche(&painter, p, &traits, &|point| echelle.vers_l_ecran(point));
+    }
     // Le surligneur du croquis passe sous le plan (évolution 30).
     if complete {
         for trait_ in dessin
@@ -5847,6 +6095,56 @@ pub(crate) fn resultats_de_la_piece(
     // À l'écran (et au ruban), le compte des appareils et des symboles des
     // métiers : combien de prises, de coudes, d'armoires. Le PDF les met dans
     // sa légende (point 40).
+    // Les finis de la pièce et leurs quantités, à l'écran et au ruban (le PDF
+    // a son tableau des finis) (évolution 27).
+    if !detail {
+        let finis = &dessin.finis;
+        let quantites = noyau::finis::quantites(solution);
+        let avec = |nom: String, quantite: Option<String>| match quantite {
+            Some(quantite) => format!("{nom} · {quantite}"),
+            None => nom,
+        };
+        if finis.plancher != noyau::finis::Plancher::Aucun {
+            lignes.push((
+                textes::DESSIN_FINI_PLANCHER.traduit().to_string(),
+                avec(
+                    textes::nom_du_plancher(finis.plancher)
+                        .traduit()
+                        .to_string(),
+                    quantites.plancher.map(aire_en_clair),
+                ),
+            ));
+        }
+        if finis.peinture_choisie() {
+            lignes.push((
+                textes::DESSIN_FINI_PEINTURE.traduit().to_string(),
+                avec(
+                    textes::peinture_en_clair(finis.peinture, &finis.couleur),
+                    quantites.murs.map(aire_en_clair),
+                ),
+            ));
+        }
+        if finis.plafond != noyau::finis::FiniDePlafond::Aucun {
+            lignes.push((
+                textes::DESSIN_FINI_PLAFOND.traduit().to_string(),
+                avec(
+                    textes::nom_du_plafond(finis.plafond).traduit().to_string(),
+                    quantites.plafond.map(aire_en_clair),
+                ),
+            ));
+        }
+        if finis.plinthes != noyau::finis::Plinthe::Aucune {
+            lignes.push((
+                textes::DESSIN_FINI_PLINTHES.traduit().to_string(),
+                avec(
+                    textes::nom_de_la_plinthe(finis.plinthes)
+                        .traduit()
+                        .to_string(),
+                    quantites.plinthes.map(longueur),
+                ),
+            ));
+        }
+    }
     if !detail {
         let nom = |rang: usize| {
             dessin

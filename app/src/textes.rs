@@ -1434,6 +1434,114 @@ pub fn dessin_export_page(numero: usize, total: usize) -> String {
 }
 
 /// Titre du plan exporté : « Plan : 3 pièces ».
+/// Les finis d'une pièce (évolution 27).
+pub const DESSIN_FINIS: Texte = t("Finis de la pièce", "Room finishes");
+pub const DESSIN_FINI_PLANCHER: Texte = t("Plancher", "Floor");
+pub const DESSIN_FINI_PEINTURE: Texte = t("Peinture des murs", "Wall paint");
+pub const DESSIN_FINI_COULEUR: Texte = t("Couleur (nom ou code)", "Colour (name or code)");
+pub const DESSIN_FINI_PLAFOND: Texte = t("Plafond", "Ceiling");
+pub const DESSIN_FINI_PLINTHES: Texte = t("Plinthes", "Baseboards");
+pub const DESSIN_TABLEAU_DES_FINIS: Texte = t("Tableau des finis", "Finish schedule");
+pub const DESSIN_QUANTITES_PAR_FINI: Texte = t("Quantités par fini", "Quantities by finish");
+/// Les colonnes du tableau des finis, au PDF.
+pub const DESSIN_FINIS_COLONNES: [Texte; 5] = [
+    t("Pièce", "Room"),
+    t("Plancher", "Floor"),
+    t("Murs", "Walls"),
+    t("Plafond", "Ceiling"),
+    t("Plinthes", "Baseboards"),
+];
+
+/// Le nom d'un revêtement de plancher.
+pub fn nom_du_plancher(plancher: noyau::finis::Plancher) -> Texte {
+    use noyau::finis::Plancher;
+    match plancher {
+        Plancher::Aucun => t("Aucun", "None"),
+        Plancher::BoisFranc => t("Bois franc", "Hardwood"),
+        Plancher::Flottant => t("Plancher flottant", "Floating floor"),
+        Plancher::Ceramique => t("Céramique", "Ceramic tile"),
+        Plancher::Vinyle => t("Vinyle", "Vinyl"),
+        Plancher::Tapis => t("Tapis", "Carpet"),
+        Plancher::Beton => t("Béton", "Concrete"),
+    }
+}
+
+/// Le nom d'un fini de peinture.
+pub fn nom_de_la_peinture(fini: noyau::finis::FiniDePeinture) -> Texte {
+    use noyau::finis::FiniDePeinture;
+    match fini {
+        FiniDePeinture::Aucun => t("Aucune", "None"),
+        FiniDePeinture::Mat => t("Mat", "Flat"),
+        FiniDePeinture::Velours => t("Velours", "Velvet"),
+        FiniDePeinture::CoquilleDOeuf => t("Coquille d'œuf", "Eggshell"),
+        FiniDePeinture::Satine => t("Satiné", "Satin"),
+        FiniDePeinture::SemiLustre => t("Semi-lustré", "Semi-gloss"),
+    }
+}
+
+/// Le nom d'un fini de plafond.
+pub fn nom_du_plafond(fini: noyau::finis::FiniDePlafond) -> Texte {
+    use noyau::finis::FiniDePlafond;
+    match fini {
+        FiniDePlafond::Aucun => t("Aucun", "None"),
+        FiniDePlafond::GypsePeint => t("Gypse peint", "Painted drywall"),
+        FiniDePlafond::Suspendu => t("Plafond suspendu", "Suspended ceiling"),
+        FiniDePlafond::Crepi => t("Crépi", "Stucco"),
+        FiniDePlafond::Bois => t("Bois", "Wood"),
+        FiniDePlafond::BetonApparent => t("Béton apparent", "Exposed concrete"),
+    }
+}
+
+/// Le nom d'une plinthe.
+pub fn nom_de_la_plinthe(plinthe: noyau::finis::Plinthe) -> Texte {
+    use noyau::finis::Plinthe;
+    match plinthe {
+        Plinthe::Aucune => t("Aucune", "None"),
+        Plinthe::Mdf => tel("MDF"),
+        Plinthe::Bois => t("Bois", "Wood"),
+        Plinthe::Vinyle => t("Vinyle", "Vinyl"),
+        Plinthe::Ceramique => t("Céramique", "Ceramic"),
+    }
+}
+
+/// La peinture en clair : son fini et sa couleur, l'un ou l'autre, ou « — ».
+pub fn peinture_en_clair(fini: noyau::finis::FiniDePeinture, couleur: &str) -> String {
+    let couleur = couleur.trim();
+    match (
+        fini == noyau::finis::FiniDePeinture::Aucun,
+        couleur.is_empty(),
+    ) {
+        (true, true) => "—".to_string(),
+        (true, false) => couleur.to_string(),
+        (false, true) => nom_de_la_peinture(fini).traduit().to_string(),
+        (false, false) => format!("{}, {couleur}", nom_de_la_peinture(fini).traduit()),
+    }
+}
+
+/// Un fini du tableau, avec sa catégorie : « Plancher — Bois franc ».
+pub fn fini_en_clair(fini: &noyau::finis::Fini) -> String {
+    use noyau::finis::Fini;
+    let (categorie, nom) = match fini {
+        Fini::Plancher(plancher) => (
+            DESSIN_FINI_PLANCHER,
+            nom_du_plancher(*plancher).traduit().to_string(),
+        ),
+        Fini::Peinture(peinture, couleur) => (
+            DESSIN_FINIS_COLONNES[2],
+            peinture_en_clair(*peinture, couleur),
+        ),
+        Fini::Plafond(plafond) => (
+            DESSIN_FINI_PLAFOND,
+            nom_du_plafond(*plafond).traduit().to_string(),
+        ),
+        Fini::Plinthe(plinthe) => (
+            DESSIN_FINI_PLINTHES,
+            nom_de_la_plinthe(*plinthe).traduit().to_string(),
+        ),
+    };
+    format!("{} — {nom}", categorie.traduit())
+}
+
 /// Le nom d'un genre de porte ou de fenêtre (évolution 24).
 pub fn genre_d_ouverture(genre: noyau::dessin::GenreDOuverture) -> Texte {
     use noyau::dessin::GenreDOuverture;

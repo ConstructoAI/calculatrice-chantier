@@ -485,6 +485,8 @@ pub struct Dessin {
     pub notes: Vec<Note>,
     /// Les traits à main levée, par-dessus le plan (évolution 30).
     pub croquis: Vec<TraitAMainLevee>,
+    /// Les finis de la pièce : plancher, peinture, plafond, plinthes (évolution 27).
+    pub finis: crate::finis::Finis,
     /// Les cloisons : des murs intérieurs.
     pub cloisons: Vec<crate::cloison::Cloison>,
     /// L'épaisseur des murs extérieurs, telle qu'inscrite; vide : 9 po.

@@ -122,6 +122,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   pliante, porte-fenêtre, garage, baie libre, fenêtre en baie…) avec leurs formats courants, des
   repères P1, F1… sur le plan, et un bordereau à l'écran et au PDF.
 
+- **Finis par pièce** : plancher, peinture, plafond et plinthes, le plancher en trame sur le
+  plan, les quantités au bilan, et le tableau des finis à l'écran et au PDF.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

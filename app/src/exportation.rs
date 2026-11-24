@@ -91,6 +91,8 @@ struct PieceExportee {
     legende: Vec<SymboleDeLaLegende>,
     /// Les notes écrites d'une pièce complète : leur texte et leur place.
     notes: Vec<(String, (f64, f64))>,
+    /// La trame du plancher d'une pièce complète (évolution 27).
+    trame: Vec<noyau::finis::TraitDeTrame>,
     /// Le croquis à main levée d'une pièce complète : chaque trait et son
     /// crayon (évolution 30).
     croquis: Vec<(Vec<(f64, f64)>, noyau::dessin::Crayon)>,
@@ -323,6 +325,10 @@ fn preparer_la_piece(
         modele: solution.modele,
         ouvertures,
         objets,
+        trame: match dessin.contour_interieur(&solution) {
+            Some(contour) if complete => noyau::finis::trame(dessin.finis.plancher, &contour),
+            _ => Vec::new(),
+        },
         croquis: if complete {
             dessin
                 .croquis
@@ -1124,6 +1130,126 @@ fn ligne_de_base_du_sigle(
     (ou.0, ou.1 - taille * 0.35)
 }
 
+/// La page du tableau des finis (évolution 27) : chaque pièce et ses finis,
+/// avec la légende de son plancher, puis les quantités par fini.
+fn page_des_finis_du_plan(
+    plan: &Plan,
+    tableau: &noyau::finis::TableauDesFinis,
+    modele: Option<Format>,
+    prefs: &Preferences,
+    (entete, numero, total): (&str, usize, usize),
+) -> Page {
+    const COLONNES: [f64; 5] = [0.0, 112.0, 222.0, 336.0, 428.0];
+    const LARGEURS: [f64; 5] = [106.0, 104.0, 110.0, 88.0, 76.0];
+    let mut page = Page::default();
+    en_tete_de_page(
+        &mut page,
+        textes::DESSIN_TABLEAU_DES_FINIS.traduit(),
+        entete,
+    );
+    let mut y = HAUTEUR_PAGE - 112.0;
+    for (k, titre) in textes::DESSIN_FINIS_COLONNES.iter().enumerate() {
+        page.texte(
+            (MARGE + COLONNES[k], y),
+            9.5,
+            true,
+            Alignement::Gauche,
+            NOIR,
+            &tronquer(titre.traduit(), 9.5, LARGEURS[k]),
+        );
+    }
+    page.trait_(
+        &[(MARGE, y - 5.0), (LARGEUR_PAGE - MARGE, y - 5.0)],
+        0.8,
+        FILET,
+    );
+    y -= 22.0;
+    for (rang, finis, _) in &tableau.pieces {
+        if y < 120.0 {
+            break;
+        }
+        let [plancher, murs, plafond, plinthes] = crate::vues::dessin::finis_en_clair(finis);
+        // La légende du plancher : un carré de sa trame, devant son nom.
+        let carre = [(0.0, 0.0), (36.0, 0.0), (36.0, 36.0), (0.0, 36.0)];
+        let (x0, y0) = (MARGE + COLONNES[1], y + 8.0);
+        if finis.plancher != noyau::finis::Plancher::Aucun {
+            let vers = |(x, yy): (f64, f64)| (x0 + x / 36.0 * 10.0, y0 - yy / 36.0 * 10.0);
+            page.trait_(
+                &[
+                    (x0, y0),
+                    (x0 + 10.0, y0),
+                    (x0 + 10.0, y0 - 10.0),
+                    (x0, y0 - 10.0),
+                    (x0, y0),
+                ],
+                0.5,
+                GRIS,
+            );
+            trame_sur_la_page(
+                &mut page,
+                &noyau::finis::trame(finis.plancher, &carre),
+                &vers,
+            );
+        }
+        let decalage = [0.0, 14.0, 0.0, 0.0, 0.0];
+        for (k, texte) in [
+            nom_de_la_piece(plan, *rang),
+            plancher,
+            murs,
+            plafond,
+            plinthes,
+        ]
+        .iter()
+        .enumerate()
+        {
+            page.texte(
+                (MARGE + COLONNES[k] + decalage[k], y),
+                9.5,
+                k == 0,
+                Alignement::Gauche,
+                NOIR,
+                &tronquer(texte, 9.5, LARGEURS[k] - decalage[k]),
+            );
+        }
+        y -= 18.0;
+    }
+    // Les quantités par fini.
+    y -= 14.0;
+    page.texte(
+        (MARGE, y),
+        11.0,
+        true,
+        Alignement::Gauche,
+        NOIR,
+        textes::DESSIN_QUANTITES_PAR_FINI.traduit(),
+    );
+    y -= 20.0;
+    for (fini, quantite) in &tableau.totaux {
+        if y < 70.0 {
+            break;
+        }
+        page.texte(
+            (MARGE, y),
+            9.5,
+            false,
+            Alignement::Gauche,
+            NOIR,
+            &tronquer(&textes::fini_en_clair(fini), 9.5, 330.0),
+        );
+        page.texte(
+            (MARGE + 340.0, y),
+            9.5,
+            true,
+            Alignement::Gauche,
+            NOIR,
+            &crate::vues::dessin::quantite_d_un_fini(fini, *quantite, modele, prefs),
+        );
+        y -= 16.5;
+    }
+    pied_de_page(&mut page, numero, total);
+    page
+}
+
 /// Le nombre de lignes du bordereau sur une page.
 const LIGNES_DU_BORDEREAU_PAR_PAGE: usize = 36;
 
@@ -1262,6 +1388,26 @@ fn icone_d_un_symbole(
     }
 }
 
+/// Les traits d'une trame de plancher sur la page, d'un gris pâle (évolution 27).
+fn trame_sur_la_page(
+    page: &mut Page,
+    traits: &[noyau::finis::TraitDeTrame],
+    vers_la_page: &dyn Fn((f64, f64)) -> (f64, f64),
+) {
+    const TRAME: Couleur = (0.78, 0.80, 0.83);
+    for trait_ in traits {
+        match *trait_ {
+            noyau::finis::TraitDeTrame::Ligne(a, b) => {
+                page.trait_(&[vers_la_page(a), vers_la_page(b)], 0.35, TRAME);
+            }
+            noyau::finis::TraitDeTrame::Point(point) => {
+                let (x, y) = vers_la_page(point);
+                page.trait_(&[(x - 0.4, y), (x + 0.4, y)], 0.8, TRAME);
+            }
+        }
+    }
+}
+
 /// La couleur d'un crayon du croquis à main levée au PDF (évolution 30); le
 /// surligneur, un jaune pâle tracé sous le plan.
 fn couleur_du_crayon(crayon: noyau::dessin::Crayon) -> Couleur {
@@ -1316,6 +1462,8 @@ fn dessiner_le_plan(
     let un_pouce = vers_la_page((1.0, 0.0));
     let echelle = (un_pouce.0 - origine.0).hypot(un_pouce.1 - origine.1);
     let epaisseur_des_murs = piece.epaisseur_des_murs * echelle;
+    // La trame du plancher, sous le plan, d'un gris pâle (évolution 27).
+    trame_sur_la_page(page, &piece.trame, vers_la_page);
     // Le surligneur du croquis à main levée, sous le plan (évolution 30).
     for (points, crayon) in &piece.croquis {
         if *crayon == noyau::dessin::Crayon::Surligneur {
@@ -2034,7 +2182,14 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
         .map(|ligne| crate::vues::dessin::ligne_du_bordereau(ligne, plan, modele, prefs))
         .collect();
     let pages_du_bordereau = bordereau.len().div_ceil(LIGNES_DU_BORDEREAU_PAR_PAGE);
-    let total = pieces.len() + usize::from(resume) + legendes + pages_du_bordereau;
+    // Le tableau des finis, sur sa page, à la toute fin (évolution 27).
+    let tableau = plan.tableau_des_finis(FORMAT_PAR_DEFAUT);
+    let page_des_finis = !tableau.pieces.is_empty();
+    let total = pieces.len()
+        + usize::from(resume)
+        + legendes
+        + pages_du_bordereau
+        + usize::from(page_des_finis);
     let mut pages = Vec::with_capacity(total);
     if resume {
         pages.push(page_du_plan(&pieces, prefs, &entete, 1, total));
@@ -2069,6 +2224,16 @@ pub fn pdf_du_plan(plan: &Plan, prefs: &Preferences, date: &str) -> String {
     for morceau in bordereau.chunks(LIGNES_DU_BORDEREAU_PAR_PAGE) {
         let numero = pages.len() + 1;
         pages.push(page_du_bordereau(morceau, &entete, numero, total));
+    }
+    if page_des_finis {
+        let numero = pages.len() + 1;
+        pages.push(page_des_finis_du_plan(
+            plan,
+            &tableau,
+            modele,
+            prefs,
+            (&entete, numero, total),
+        ));
     }
     assembler_pdf(&pages, &textes::dessin_export_plan(pieces.len()))
 }
@@ -2658,6 +2823,12 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 );
             }
         }
+        // La trame du plancher, sur le calque FINIS (évolution 27).
+        for trait_ in &piece.trame {
+            if let noyau::finis::TraitDeTrame::Ligne(a, b) = *trait_ {
+                ligne_dxf(&mut entites, "FINIS", vers_le_dxf(a), vers_le_dxf(b));
+            }
+        }
         // Le croquis à main levée, sur le calque CROQUIS (évolution 30).
         for (points, _) in &piece.croquis {
             for paire in points.windows(2) {
@@ -2883,6 +3054,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
         ("ELECTRICITE", "30"),
         ("VENTILATION", "94"),
         ("CROQUIS", "1"),
+        ("FINIS", "8"),
         ("NOTES", "2"),
         ("CLOISONS", "5"),
     ];
@@ -3233,6 +3405,19 @@ mod tests {
         // Une page de bordereau, à la suite de la pièce.
         assert!(pdf.contains("Page 2 de 2"));
         assert!(pdf.contains("(Baie libre)") && pdf.contains("(poussant droite)"));
+    }
+
+    #[test]
+    fn la_trame_et_le_tableau_des_finis() {
+        let mut piece = rectangle("12", "10");
+        piece.finis.plancher = noyau::finis::Plancher::Ceramique;
+        piece.finis.plinthes = noyau::finis::Plinthe::Mdf;
+        let plan = Plan::d_une_piece(piece);
+        let dxf = dxf_du_plan(&plan, &Preferences::default()).unwrap();
+        // Le quadrillage de la céramique : 12 lignes dans un sens, 10 dans l'autre.
+        assert_eq!(dxf.matches("\r\nLINE\r\n  8\r\nFINIS\r\n").count(), 12 + 10);
+        let pdf = pdf_du_plan(&plan, &Preferences::default(), "");
+        assert!(pdf.contains("(C\\351ramique)") && pdf.contains("Page 2 de 2"));
     }
 
     #[test]

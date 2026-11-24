@@ -11,6 +11,7 @@ pub mod coupe;
 pub mod dessin;
 pub mod erreurs;
 pub mod etiquettes;
+pub mod finis;
 pub mod fonctions;
 pub mod format;
 pub mod heures;
