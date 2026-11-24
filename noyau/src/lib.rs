@@ -31,6 +31,7 @@ pub mod ossature;
 pub mod persistance;
 pub mod plafond;
 pub mod prefs;
+pub mod qr;
 pub mod ruban;
 pub mod saisie;
 pub mod touches;

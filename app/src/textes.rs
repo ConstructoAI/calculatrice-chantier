@@ -1505,6 +1505,48 @@ pub fn etage_pieces_incompletes(nombre: usize) -> String {
     }
 }
 
+/// Partager un plan par code QR (évolution 9).
+pub const PARTAGE_PAR_CODE_QR: Texte = t("Partager par code QR", "Share by QR code");
+pub const PARTAGE_CONSIGNE: Texte = t(
+    "Un collègue le scanne avec son téléphone : la version Web s'ouvre et propose d'ajouter le plan à ses pièces.",
+    "A colleague scans it with their phone: the web version opens and offers to add the plan to their rooms.",
+);
+pub const PARTAGE_COPIER: Texte = t("Copier l'adresse", "Copy the link");
+pub const PARTAGE_AJOUTER: Texte = t("Ajouter à mes pièces", "Add to my rooms");
+pub const PARTAGE_IGNORER: Texte = t("Ignorer", "Dismiss");
+
+/// Un plan trop gros pour un code QR : « Ce plan est trop gros pour un code
+/// QR : 4 120 octets, pour 2 953 au plus. »
+pub fn partage_trop_gros(octets: usize, au_plus: usize) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!(
+            "Ce plan est trop gros pour un code QR : {octets} octets, pour {au_plus} au plus. Rien n'est tronqué."
+        ),
+        Langue::Anglais => format!(
+            "This plan is too big for a QR code: {octets} bytes, for {au_plus} at most. Nothing is cut off."
+        ),
+    }
+}
+
+/// Le bouton qui partage la pièce seule : « Partager seulement Salon ».
+pub fn partage_la_piece_seule(nom: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Partager seulement « {nom} »"),
+        Langue::Anglais => format!("Share only “{nom}”"),
+    }
+}
+
+/// Le plan reçu par l'adresse : « Un plan vous est partagé : 2 pièces (Salon,
+/// Chambre). »
+pub fn partage_recu(nombre: usize, noms: &str) -> String {
+    match (langue::en_cours(), nombre) {
+        (Langue::Francais, 1) => format!("Un plan vous est partagé : 1 pièce ({noms})."),
+        (Langue::Francais, n) => format!("Un plan vous est partagé : {n} pièces ({noms})."),
+        (Langue::Anglais, 1) => format!("A plan is shared with you: 1 room ({noms})."),
+        (Langue::Anglais, n) => format!("A plan is shared with you: {n} rooms ({noms})."),
+    }
+}
+
 /// Le plan d'implantation (évolution 29).
 pub const DESSIN_AJOUTER_UN_TERRAIN: Texte = t("+ Terrain", "+ Lot");
 pub const DESSIN_IMPLANTATION: Texte = t("Plan d'implantation", "Site plan");

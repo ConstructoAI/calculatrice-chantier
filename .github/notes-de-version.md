@@ -155,6 +155,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
   le garage, le cabanon, la terrasse, l'entrée et la piscine, avec leurs distances aux limites,
   la zone constructible et la part du terrain que couvrent les bâtiments.
 
+- **Partager un plan par code QR** : sous l'export, le code QR d'une adresse du site qui porte
+  le plan, comprimé (rien n'est envoyé à un serveur); le collègue qui le scanne l'ajoute à ses
+  pièces.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

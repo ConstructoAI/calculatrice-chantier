@@ -475,6 +475,28 @@ pub fn ecran_demande() -> Option<String> {
         .map(str::to_string)
 }
 
+/// Le plan partagé par l'adresse de la page (évolution 9) : ce qui suit
+/// « #plan= ».
+pub fn plan_partage() -> Option<String> {
+    let adresse = document()?.url().ok()?;
+    adresse
+        .split_once("#plan=")
+        .map(|(_, plan)| plan.to_string())
+}
+
+/// Retire le plan partagé de l'adresse, sans recharger la page : il ne se
+/// propose plus au prochain chargement.
+pub fn oublier_le_plan_partage() {
+    let (Some(fenetre), Some(adresse)) = (web_sys::window(), document().and_then(|d| d.url().ok()))
+    else {
+        return;
+    };
+    let sans = adresse.split('#').next().unwrap_or_default().to_string();
+    if let Ok(historique) = fenetre.history() {
+        let _ = historique.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&sans));
+    }
+}
+
 /// Langue du navigateur, si c'est le français ou l'anglais : elle sert au
 /// premier lancement seulement (section 24). Les langues préférées sont
 /// examinées dans l'ordre.

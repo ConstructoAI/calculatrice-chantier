@@ -260,6 +260,15 @@ pub fn ecran_demande() -> Option<String> {
     None
 }
 
+/// Le plan partagé par l'adresse (évolution 9) : seule la version Web en
+/// reçoit.
+pub fn plan_partage() -> Option<String> {
+    None
+}
+
+/// Rien à oublier : la version de bureau n'a pas d'adresse.
+pub fn oublier_le_plan_partage() {}
+
 /// Langue du système, si c'est le français ou l'anglais : elle sert au premier
 /// lancement seulement (section 24). Les langues préférées sont examinées dans
 /// l'ordre.

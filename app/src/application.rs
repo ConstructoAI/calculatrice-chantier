@@ -282,6 +282,19 @@ impl Application {
         {
             application.aller(vue);
         }
+        // Un plan partagé par code QR (évolution 9) : l'onglet Dessin propose
+        // de l'ajouter aux pièces; illisible, il est oublié.
+        if let Some(texte) = plateforme::plan_partage() {
+            match crate::partage::plan_de_l_adresse(&texte) {
+                Some(plan) => {
+                    application.etat_du_dessin.plan_recu = Some(plan);
+                    if application.vue == Vue::Accueil {
+                        application.aller(Vue::Dessin);
+                    }
+                }
+                None => plateforme::oublier_le_plan_partage(),
+            }
+        }
         application
     }
 

@@ -222,6 +222,10 @@ pub struct Etat {
     piece_tiree: Option<PieceTiree>,
     /// Les deux murs qui se touchent pendant qu'elle glisse.
     contact: Option<noyau::etage::Contact>,
+    /// Le code QR à partager, quand il est ouvert (évolution 9).
+    code_a_partager: Option<CodeAPartager>,
+    /// Un plan reçu par l'adresse, à ajouter aux pièces ou à ignorer.
+    pub plan_recu: Option<Plan>,
     /// Les places d'avant, pour « Annuler » dans l'étage.
     places_d_avant: Vec<Vec<Option<noyau::etage::Place>>>,
 }
@@ -2181,6 +2185,9 @@ pub fn afficher(
         action = Some(Action::MesDessins);
     }
     plan.normaliser();
+    if plan_recu(ui, p, plan, etat) {
+        action = Some(Action::Modifie);
+    }
     if barre_des_pieces(ui, p, plan, etat) {
         action = Some(Action::Modifie);
     }
@@ -2356,6 +2363,185 @@ pub fn afficher(
         ui.add_space(10.0);
     });
     action
+}
+
+/// Le code QR à partager (évolution 9) : l'adresse du site qui porte le plan
+/// (ou la pièce seule), et son code; `None` si l'adresse est trop longue.
+pub struct CodeAPartager {
+    /// Le plan dont le code est fait, pour le refaire quand il change.
+    plan: Option<Plan>,
+    adresse: String,
+    code: Option<noyau::qr::CodeQr>,
+    piece_seule: bool,
+}
+
+/// « Partager par code QR » : le code de l'adresse qui porte le plan, à
+/// scanner, et l'adresse à copier; un plan trop gros est signalé, avec de quoi
+/// partager la pièce seule.
+fn partager_par_code_qr(ui: &mut Ui, p: &Palette, plan: &Plan, etat: &mut Etat) {
+    let ouvert = etat.code_a_partager.is_some();
+    if ui
+        .add(egui::Button::new(textes::PARTAGE_PAR_CODE_QR.traduit()).selected(ouvert))
+        .clicked()
+    {
+        etat.code_a_partager = (!ouvert).then(|| CodeAPartager {
+            plan: None,
+            adresse: String::new(),
+            code: None,
+            piece_seule: false,
+        });
+    }
+    let Some(partage) = &mut etat.code_a_partager else {
+        return;
+    };
+    // Le code se refait quand le plan change : à correction M s'il reste petit
+    // (version 10 au plus), sinon à L, plus dense mais plus court.
+    if partage.plan.as_ref() != Some(plan) {
+        let adresse = if partage.piece_seule {
+            crate::partage::adresse_de_la_piece(plan, plan.courante)
+        } else {
+            crate::partage::adresse_du_plan(plan)
+        };
+        partage.code = noyau::qr::encoder(adresse.as_bytes(), noyau::qr::Correction::M)
+            .filter(|code| code.version <= 10)
+            .or_else(|| noyau::qr::encoder(adresse.as_bytes(), noyau::qr::Correction::L));
+        partage.adresse = adresse;
+        partage.plan = Some(plan.clone());
+    }
+    match &partage.code {
+        Some(code) => {
+            // Noir sur blanc, avec sa marge de quatre modules, quel que soit le
+            // thème : un téléphone doit le lire.
+            let modules = code.taille + 8;
+            let cote = ui.available_width().clamp(160.0, 420.0);
+            let module = cote / modules as f32;
+            let (zone, _) = ui.allocate_exact_size(Vec2::splat(cote), Sense::hover());
+            let painter = ui.painter_at(zone);
+            painter.rect_filled(zone, 0.0, Color32::WHITE);
+            for y in 0..code.taille {
+                let mut x = 0;
+                while x < code.taille {
+                    if !code.fonce(x, y) {
+                        x += 1;
+                        continue;
+                    }
+                    let debut = x;
+                    while x < code.taille && code.fonce(x, y) {
+                        x += 1;
+                    }
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            zone.min
+                                + Vec2::new((debut + 4) as f32 * module, (y + 4) as f32 * module),
+                            zone.min + Vec2::new((x + 4) as f32 * module, (y + 5) as f32 * module),
+                        ),
+                        0.0,
+                        Color32::BLACK,
+                    );
+                }
+            }
+            ui.label(
+                RichText::new(textes::PARTAGE_CONSIGNE.traduit())
+                    .size(12.5)
+                    .color(p.texte_attenue),
+            );
+            if ui
+                .add(egui::Button::new(textes::PARTAGE_COPIER.traduit()))
+                .clicked()
+            {
+                ui.ctx().copy_text(partage.adresse.clone());
+            }
+        }
+        None => {
+            ui.label(
+                RichText::new(textes::partage_trop_gros(
+                    partage.adresse.len(),
+                    noyau::qr::capacite(noyau::qr::Correction::L),
+                ))
+                .size(13.0)
+                .color(p.erreur),
+            );
+            if !partage.piece_seule
+                && ui
+                    .add(egui::Button::new(textes::partage_la_piece_seule(
+                        &nom_de_la_piece(plan, plan.courante),
+                    )))
+                    .clicked()
+            {
+                partage.piece_seule = true;
+                partage.plan = None;
+            }
+        }
+    }
+}
+
+/// Un plan reçu par l'adresse (évolution 9) : l'ajouter aux pièces, ou
+/// l'ignorer. Retourne vrai si le plan a changé.
+fn plan_recu(ui: &mut Ui, p: &Palette, plan: &mut Plan, etat: &mut Etat) -> bool {
+    let Some(recu) = &etat.plan_recu else {
+        return false;
+    };
+    let noms: Vec<String> = (0..recu.pieces.len())
+        .map(|rang| nom_de_la_piece(recu, rang))
+        .collect();
+    let mut choix = None;
+    ui.add_space(6.0);
+    egui::Frame::new()
+        .fill(theme::melanger(p.carte, p.accent_du_plan(), 0.12))
+        .corner_radius(10)
+        .inner_margin(10)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(textes::partage_recu(noms.len(), &noms.join(", ")))
+                    .size(13.5)
+                    .strong(),
+            );
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add(bouton_principal(p, textes::PARTAGE_AJOUTER.traduit(), 13.0))
+                    .clicked()
+                {
+                    choix = Some(true);
+                }
+                if ui
+                    .add(egui::Button::new(textes::PARTAGE_IGNORER.traduit()))
+                    .clicked()
+                {
+                    choix = Some(false);
+                }
+            });
+        });
+    let Some(ajouter) = choix else {
+        return false;
+    };
+    crate::plateforme::oublier_le_plan_partage();
+    let Some(recu) = etat.plan_recu.take() else {
+        return false;
+    };
+    if !ajouter {
+        return false;
+    }
+    // Un plan vide (une seule pièce, vide) laisse sa place au plan reçu; ses
+    // pièces se placent d'office dans l'étage.
+    if plan.pieces.len() == 1 && plan.pieces[0] == noyau::dessin::Piece::default() {
+        plan.pieces.clear();
+    }
+    let premiere = plan.pieces.len();
+    let place = noyau::dessin::MAX_PIECES.saturating_sub(plan.pieces.len());
+    plan.pieces.extend(
+        recu.pieces
+            .into_iter()
+            .take(place)
+            .map(|piece| noyau::dessin::Piece {
+                place: None,
+                ..piece
+            }),
+    );
+    plan.normaliser();
+    plan.courante = premiere.min(plan.pieces.len() - 1);
+    etat.vue_etage = false;
+    etat.changer_de_piece();
+    true
 }
 
 /// Quitte la vue de l'étage : si une autre pièce y a été choisie, l'écran de
@@ -3301,6 +3487,8 @@ fn la_piece_et_le_total(
             export = Some(FormatDExport::Dxf);
         }
     });
+    // Partager le plan par code QR (évolution 9).
+    partager_par_code_qr(ui, p, plan, etat);
     (modifie, export)
 }
 
