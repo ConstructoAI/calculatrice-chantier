@@ -902,6 +902,11 @@ pub const NOUVEAU_DESSIN: Texte = t("+ Nouveau dessin", "+ New drawing");
 /// Le plan d'exemple (section 25.1, point 58).
 pub const PLAN_D_EXEMPLE: Texte = t("Plan d'exemple", "Example plan");
 pub const NOM_DU_PLAN_D_EXEMPLE: Texte = t("Exemple : maison complète", "Example: complete house");
+pub const NOM_DE_L_EXEMPLE_SIMPLE: Texte = t("Exemple : croquis simple", "Example: simple sketch");
+pub const AVIS_MAISON_DANS_MES_DESSINS: Texte = t(
+    "La maison d'exemple du mode Avancé est dans « Mes dessins ».",
+    "The Advanced mode's example house is in « My drawings ».",
+);
 pub const OUVRIR_UN_FICHIER: Texte = t("Ouvrir un fichier…", "Open a file…");
 pub const ENREGISTRER_LE_FICHIER: Texte = t("Enregistrer le fichier", "Save as a file");
 pub const DESSIN_OUVERT: Texte = t("ouvert", "open");

@@ -9,6 +9,9 @@
 //! levée — et, par ses notes, quelques-unes de ses limites.
 //!
 //! Ses noms, ses notes et ses mesures s'écrivent dans la langue en cours.
+//!
+//! Le mode Débutant a son exemple à lui (section 25.1, point 61) : une
+//! chambre simple, sa porte, sa fenêtre et ses cotes.
 
 use std::f64::consts::{FRAC_1_SQRT_2, TAU};
 
@@ -25,6 +28,7 @@ use noyau::langue::selon;
 use noyau::mobilier::{GenreDObjet, Objet};
 use noyau::ossature::Entraxe;
 use noyau::plafond::{FormeDePlafond, Plafond, Retombee};
+use noyau::prefs::Preferences;
 
 // ----------------------------------------------------------------------
 // La maison dans l'étage, en pouces : l'extérieur du mur avant (au nord, du
@@ -82,6 +86,56 @@ pub fn plan_d_exemple() -> Plan {
             dessine_par: "Constructo AI".to_string(),
             ..MiseEnPage::default()
         },
+    }
+}
+
+/// L'exemple du mode Débutant (section 25.1, point 61) : une chambre de
+/// 12 pi × 10 pi, ses murs de 8 pi, sa fenêtre centrée sur le mur du haut et
+/// sa porte sur le mur de droite; ses cotes se montrent d'elles-mêmes.
+pub fn plan_simple() -> Plan {
+    let dessin = Dessin {
+        ouvertures: vec![
+            ouverture(GenreDOuverture::Fenetre, 0, "4", &pi_po(3, "6"), ""),
+            ouverture(GenreDOuverture::Porte, 1, &po("32"), &pi_po(6, "8"), "1"),
+        ],
+        ..rectangle(144.0, 120.0, "12", "10")
+    };
+    Plan {
+        pieces: vec![Piece {
+            nom: selon("Chambre", "Bedroom").to_string(),
+            dessin,
+            place: None,
+        }],
+        ..Plan::default()
+    }
+}
+
+/// L'exemple de ce mode du dessin, et le nom de son dessin : la maison
+/// complète en Avancé, la chambre simple en Débutant.
+pub fn exemple_du_mode(avance: bool) -> (Plan, noyau::langue::Texte) {
+    if avance {
+        (plan_d_exemple(), crate::textes::NOM_DU_PLAN_D_EXEMPLE)
+    } else {
+        (plan_simple(), crate::textes::NOM_DE_L_EXEMPLE_SIMPLE)
+    }
+}
+
+/// Vrai quand l'exemple de ce mode s'est déjà ouvert de lui-même (points 58
+/// et 61) : il ne s'ajoute plus aux dessins.
+pub fn exemple_deja_ouvert(prefs: &Preferences, avance: bool) -> bool {
+    if avance {
+        prefs.exemple_ouvert
+    } else {
+        prefs.exemple_simple_ouvert
+    }
+}
+
+/// Retient que l'exemple de ce mode s'est ouvert.
+pub fn marquer_l_exemple_ouvert(prefs: &mut Preferences, avance: bool) {
+    if avance {
+        prefs.exemple_ouvert = true;
+    } else {
+        prefs.exemple_simple_ouvert = true;
     }
 }
 
@@ -842,7 +896,6 @@ mod tests {
     use super::*;
     use noyau::dessin::{Etat, Mesure};
     use noyau::langue::{self, Langue};
-    use noyau::prefs::Preferences;
     use noyau::unites::Format;
 
     const FORMAT: Format = Format::PiPo;
@@ -1038,6 +1091,57 @@ mod tests {
             assert_eq!(une.dessin.resoudre(FORMAT), autre.dessin.resoudre(FORMAT));
         }
         assert_eq!(anglais.murs_communs(FORMAT).len(), 12);
+    }
+
+    #[test]
+    fn l_exemple_simple_montre_l_essentiel() {
+        let plan = plan_simple();
+        assert_eq!(plan.pieces.len(), 1);
+        let dessin = &plan.pieces[0].dessin;
+        let solution = dessin.resoudre(FORMAT);
+        // Une chambre de 12 pi × 10 pi, complète.
+        assert!(
+            matches!(solution.etat, Etat::Complete { aire, .. } if (aire - 120.0 * 144.0).abs() < 1e-6),
+            "{:?}",
+            solution.etat
+        );
+        // Sa porte et sa fenêtre, placées sur leur mur; ses cotes se montrent.
+        assert_eq!(dessin.ouvertures.len(), 2);
+        assert!(solution.placements.iter().all(Option::is_some));
+        assert!(dessin.cotes_visibles());
+        // Rien du mode Avancé.
+        assert!(dessin.cloisons.is_empty() && dessin.objets.is_empty());
+        assert!(dessin.notes.is_empty() && dessin.croquis.is_empty());
+        assert!(dessin.retraits.is_empty() && dessin.retombees.is_empty());
+        // Il s'exporte, et suit la langue.
+        assert!(!crate::exportation::pdf_du_plan(&plan, &Preferences::default(), "").is_empty());
+        assert!(crate::exportation::dxf_du_plan(&plan, &Preferences::default()).is_some());
+        let anglais = {
+            let _anglais = langue::pour_la_portee(Langue::Anglais);
+            plan_simple()
+        };
+        assert_eq!(plan.pieces[0].nom, "Chambre");
+        assert_eq!(anglais.pieces[0].nom, "Bedroom");
+        assert_eq!(anglais.pieces[0].dessin.resoudre(FORMAT), solution);
+    }
+
+    #[test]
+    fn chaque_mode_a_son_exemple_qui_s_ouvre_une_fois() {
+        assert_eq!(exemple_du_mode(false).0, plan_simple());
+        assert_eq!(exemple_du_mode(true).0, plan_d_exemple());
+        assert_ne!(
+            exemple_du_mode(false).1.traduit(),
+            exemple_du_mode(true).1.traduit()
+        );
+        // Débutant par défaut; chaque exemple ne s'ajoute qu'une fois, dans
+        // son mode.
+        let mut prefs = Preferences::default();
+        assert!(!prefs.dessin_avance);
+        assert!(!exemple_deja_ouvert(&prefs, false) && !exemple_deja_ouvert(&prefs, true));
+        marquer_l_exemple_ouvert(&mut prefs, false);
+        assert!(exemple_deja_ouvert(&prefs, false) && !exemple_deja_ouvert(&prefs, true));
+        marquer_l_exemple_ouvert(&mut prefs, true);
+        assert!(exemple_deja_ouvert(&prefs, true));
     }
 
     #[test]

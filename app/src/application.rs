@@ -354,21 +354,25 @@ impl Application {
                 &chargement.etat.preferences,
             );
         }
-        // Le plan d'exemple (point 58) : il s'ouvre de lui-même une première
-        // fois, comme un dessin de plus; un premier dessin resté vide lui laisse
-        // sa place. Les dessins de l'utilisateur restent dans « Mes dessins ».
+        // L'exemple du mode du dessin (points 58 et 61) : il s'ouvre de lui-même
+        // une première fois, comme un dessin de plus — la chambre simple en
+        // Débutant, la maison complète en Avancé; un premier dessin resté vide
+        // lui laisse sa place. Les dessins de l'utilisateur restent dans « Mes
+        // dessins ».
+        let avance = chargement.etat.preferences.dessin_avance;
         let exemple_ajoute =
-            !chargement.etat.preferences.exemple_ouvert && dessins.len() < MAX_DESSINS;
+            !crate::exemple::exemple_deja_ouvert(&chargement.etat.preferences, avance)
+                && dessins.len() < MAX_DESSINS;
         if exemple_ajoute {
             if dessins.len() == 1 && stockage::plan_est_vide(&dessins[0].plan) {
                 dessins.clear();
             }
-            let exemple = crate::exemple::plan_d_exemple();
+            let (exemple, nom) = crate::exemple::exemple_du_mode(avance);
             let (date, _) = stockage::maintenant();
             let id = nouveau_numero(dessins.iter().map(|d| d.id));
             dessins.push(DessinEnregistre {
                 id,
-                nom: textes::NOM_DU_PLAN_D_EXEMPLE.traduit().to_string(),
+                nom: nom.traduit().to_string(),
                 cree: date.clone(),
                 modifie: date,
                 langue,
@@ -377,7 +381,7 @@ impl Application {
             dessin_courant = id;
             plan = exemple;
             dessins_a_sauvegarder = true;
-            chargement.etat.preferences.exemple_ouvert = true;
+            crate::exemple::marquer_l_exemple_ouvert(&mut chargement.etat.preferences, avance);
         }
         // Des saisies écrites dans l'autre langue sont récrites dans celle-ci.
         let saisies_a_sauvegarder = langue_des_saisies != langue;
@@ -1413,6 +1417,38 @@ impl Application {
         self.dessins_a_sauvegarder = true;
     }
 
+    /// Le premier passage en mode Avancé (point 61) ajoute la maison complète
+    /// aux dessins, une fois. Elle s'ouvre si le dessin à l'écran est vide ou
+    /// est l'exemple simple tel qu'il s'est ouvert; sinon, elle attend dans
+    /// « Mes dessins », et un avis le dit.
+    fn ajouter_la_maison_d_exemple(&mut self, ctx: &egui::Context) {
+        if self.dessins.len() >= MAX_DESSINS {
+            return;
+        }
+        crate::exemple::marquer_l_exemple_ouvert(self.moteur.preferences_mut(), true);
+        self.a_sauvegarder = true;
+        let mut simple = crate::exemple::plan_simple();
+        simple.normaliser();
+        let ouvrir = stockage::plan_est_vide(&self.plan) || self.plan == simple;
+        self.synchroniser_le_dessin_courant();
+        let (date, _) = stockage::maintenant();
+        let id = nouveau_numero(self.dessins.iter().map(|d| d.id));
+        self.dessins.push(DessinEnregistre {
+            id,
+            nom: textes::NOM_DU_PLAN_D_EXEMPLE.traduit().to_string(),
+            cree: date.clone(),
+            modifie: date,
+            langue: self.moteur.preferences().langue,
+            plan: crate::exemple::plan_d_exemple(),
+        });
+        self.dessins_a_sauvegarder = true;
+        if ouvrir {
+            self.ouvrir_le_dessin(id);
+        } else {
+            self.annoncer(ctx, textes::AVIS_MAISON_DANS_MES_DESSINS);
+        }
+    }
+
     /// Ajoute un dessin vide à la bibliothèque; son numéro.
     fn ajouter_un_dessin_vide(&mut self) -> u64 {
         let (date, _) = stockage::maintenant();
@@ -1445,18 +1481,20 @@ impl Application {
             A::Exemple if self.dessins.len() >= MAX_DESSINS => {
                 self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_DESSINS);
             }
-            // Le plan d'exemple (point 58), dans un dessin à lui.
+            // L'exemple du mode du dessin (points 58 et 61), dans un dessin à lui.
             A::Exemple => {
                 self.synchroniser_le_dessin_courant();
+                let (exemple, nom) =
+                    crate::exemple::exemple_du_mode(self.moteur.preferences().dessin_avance);
                 let (date, _) = stockage::maintenant();
                 let id = nouveau_numero(self.dessins.iter().map(|d| d.id));
                 self.dessins.push(DessinEnregistre {
                     id,
-                    nom: textes::NOM_DU_PLAN_D_EXEMPLE.traduit().to_string(),
+                    nom: nom.traduit().to_string(),
                     cree: date.clone(),
                     modifie: date,
                     langue: self.moteur.preferences().langue,
-                    plan: crate::exemple::plan_d_exemple(),
+                    plan: exemple,
                 });
                 self.ouvrir_le_dessin(id);
             }
@@ -2581,6 +2619,11 @@ impl Application {
                 if let Some(avance) = self.etat_du_dessin.mode_demande.take() {
                     self.moteur.preferences_mut().dessin_avance = avance;
                     self.a_sauvegarder = true;
+                    // Le premier passage en Avancé apporte la maison
+                    // complète (point 61).
+                    if avance && !self.moteur.preferences().exemple_ouvert {
+                        self.ajouter_la_maison_d_exemple(ui.ctx());
+                    }
                 }
             }
             Vue::Aide => match vues::aide::afficher(ui, p, &mut self.recherche, self.fiche_ouverte)

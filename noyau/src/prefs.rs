@@ -93,6 +93,9 @@ pub struct Preferences {
     /// Vrai quand le plan d'exemple s'est déjà ouvert de lui-même (section
     /// 25.1, point 58) : il ne s'ajoute plus aux dessins.
     pub exemple_ouvert: bool,
+    /// Vrai quand l'exemple simple du mode Débutant s'est déjà ouvert de
+    /// lui-même (section 25.1, point 61).
+    pub exemple_simple_ouvert: bool,
     /// Vrai quand le module Dessin montre tous ses outils : le mode Avancé
     /// (section 25.1, point 59). Faux, le mode Débutant : l'essentiel d'un
     /// croquis précis.
@@ -133,6 +136,7 @@ impl Default for Preferences {
             theme: Theme::Automatique,
             mode_chantier: false,
             exemple_ouvert: false,
+            exemple_simple_ouvert: false,
             dessin_avance: false,
             projet: String::new(),
             etalon_niveau: [0.0; 2],

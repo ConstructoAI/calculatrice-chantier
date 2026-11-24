@@ -179,6 +179,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Formes de départ** : sous une pièce vide, « Rectangle », « En L », « En T » ou « Coin à 45° »
   pose la forme; on inscrit ses mesures au pavé, et les derniers côtés se déduisent.
 
+- **Un exemple par mode** : en Débutant, une chambre simple (fenêtre, porte, cotes) s'ouvre la
+  première fois; la maison complète s'ouvre au premier passage en Avancé.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint
