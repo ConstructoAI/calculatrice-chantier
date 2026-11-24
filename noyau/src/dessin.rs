@@ -2929,7 +2929,7 @@ impl Dessin {
                 })
             })
             .collect();
-        let objets = self
+        let mut objets = self
             .objets
             .iter()
             .map(|objet| {
@@ -2942,11 +2942,13 @@ impl Dessin {
             .collect::<Vec<_>>();
         // Les escaliers : leur hauteur à monter, celle des murs s'ils n'en ont
         // pas d'inscrite (8 pi sans murs), et leurs contremarches.
+        // Un escalier droit sans profondeur inscrite prend la longueur que
+        // donnent ses marches, chacune de son giron minimal (évolution 7).
         let escaliers = self
             .objets
             .iter()
-            .zip(&objets)
-            .map(|(objet, &dimensions)| {
+            .zip(objets.iter_mut())
+            .map(|(objet, dimensions)| {
                 if objet.genre != crate::mobilier::GenreDObjet::Escalier {
                     return None;
                 }
@@ -2954,7 +2956,27 @@ impl Dessin {
                     .or(hauteur)
                     .unwrap_or(crate::maquette::HAUTEUR_PAR_DEFAUT);
                 let voulues = objet.contremarches.trim().parse::<usize>().ok();
-                crate::mobilier::calculer_l_escalier(objet.forme, dimensions, a_monter, voulues)
+                let regles = objet.regles_d_escalier();
+                let calcul = crate::mobilier::calculer_l_escalier(
+                    objet.forme,
+                    *dimensions,
+                    a_monter,
+                    voulues,
+                    regles,
+                )?;
+                match calcul.longueur {
+                    Some(longueur) if objet.profondeur.trim().is_empty() => {
+                        dimensions.1 = longueur;
+                        crate::mobilier::calculer_l_escalier(
+                            objet.forme,
+                            *dimensions,
+                            a_monter,
+                            voulues,
+                            regles,
+                        )
+                    }
+                    _ => Some(calcul),
+                }
             })
             .collect();
         // Une épaisseur sans unité se lit en pouces (en millimètres si les
@@ -5032,5 +5054,46 @@ mod tests {
                 .iter()
                 .any(|mur| mur.haut.len() == 3 && (mur.plus_haut() - 144.0).abs() < 1e-6)
         );
+    }
+    #[test]
+    fn la_longueur_d_un_escalier_droit_decoule_de_ses_regles() {
+        let cote = |sens, saisie: &str| Cote {
+            sens,
+            croquis: 100.0,
+            saisie: saisie.to_string(),
+        };
+        let mut dessin = Dessin {
+            cotes: vec![
+                cote(Sens::Est, "20"),
+                cote(Sens::Sud, "15"),
+                cote(Sens::Ouest, ""),
+                cote(Sens::Nord, ""),
+            ],
+            fermee: true,
+            hauteur_des_murs: "106 po".into(),
+            objets: vec![crate::mobilier::Objet::nouveau(
+                crate::mobilier::GenreDObjet::Escalier,
+                (60.0, 90.0),
+            )],
+            ..Dessin::default()
+        };
+        // 106 po en contremarches d'au plus 7 1/2 po : 15; 14 marches de 10 po.
+        let solution = dessin.resoudre(Format::PiPo);
+        let calcul = solution.escaliers[0].unwrap();
+        assert_eq!(calcul.contremarches, 15);
+        assert!((solution.objets[0].1 - 140.0).abs() < 1e-9);
+        assert!((calcul.giron.unwrap() - 10.0).abs() < 1e-9);
+        // Une contremarche d'au plus 7 po et un giron d'au moins 11 po : 16
+        // contremarches, 15 marches de 11 po.
+        dessin.objets[0].contremarche_max = "7".into();
+        dessin.objets[0].giron_min = "11".into();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert_eq!(solution.escaliers[0].unwrap().contremarches, 16);
+        assert!((solution.objets[0].1 - 165.0).abs() < 1e-9);
+        // Une profondeur inscrite garde sa longueur : le giron en découle.
+        dessin.objets[0].profondeur = "12".into();
+        let solution = dessin.resoudre(Format::PiPo);
+        assert!((solution.objets[0].1 - 144.0).abs() < 1e-9);
+        assert!((solution.escaliers[0].unwrap().giron.unwrap() - 9.6).abs() < 1e-9);
     }
 }

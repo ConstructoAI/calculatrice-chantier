@@ -1327,6 +1327,12 @@ pub struct Objet {
     /// échangées (point 31) : un escalier tournant tourne de l'autre côté.
     #[serde(default)]
     pub retourne: bool,
+    /// La contremarche maximale et le giron minimal d'un escalier, tels
+    /// qu'inscrits (évolution 7); vides : 7 1/2 po et 10 po.
+    #[serde(default)]
+    pub contremarche_max: String,
+    #[serde(default)]
+    pub giron_min: String,
 }
 
 impl Objet {
@@ -1343,11 +1349,28 @@ impl Objet {
             hauteur: String::new(),
             contremarches: String::new(),
             retourne: false,
+            contremarche_max: String::new(),
+            giron_min: String::new(),
         }
     }
 
     /// Sa largeur et sa profondeur de départ, en pouces : celles de son genre,
     /// ou, pour un escalier, celles de sa forme.
+    /// Les règles d'un escalier : sa contremarche maximale et son giron minimal
+    /// inscrits (un nombre seul est en pouces), sinon ceux de départ.
+    pub fn regles_d_escalier(&self) -> ReglesDEscalier {
+        let lire = |texte: &str, defaut: f64| {
+            crate::analyse::analyser_longueur(texte.trim(), crate::unites::Format::PoFrac)
+                .ok()
+                .filter(|v| v.est_longueur() && v.base > 0.0 && v.base.is_finite())
+                .map_or(defaut, |v| v.base)
+        };
+        ReglesDEscalier {
+            contremarche_max: lire(&self.contremarche_max, CONTREMARCHE_VISEE),
+            giron_min: lire(&self.giron_min, GIRON_VISE),
+        }
+    }
+
     pub fn dimensions_de_depart(&self) -> (f64, f64) {
         if self.genre == GenreDObjet::Escalier {
             self.forme.dimensions()
@@ -1518,6 +1541,26 @@ impl FormeDEscalier {
 /// Contremarche visée d'un escalier du dessin, en pouces : la valeur de départ
 /// du calcul d'escalier (section 13.4). Ce n'est pas une norme.
 pub const CONTREMARCHE_VISEE: f64 = 7.5;
+/// Giron visé d'un escalier du dessin, en pouces : la valeur de départ du
+/// calcul d'escalier (section 13.4). Ce n'est pas une norme non plus.
+pub const GIRON_VISE: f64 = 10.0;
+
+/// Ce qu'un escalier du dessin respecte (évolution 7) : sa contremarche
+/// maximale et son giron minimal, en pouces.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ReglesDEscalier {
+    pub contremarche_max: f64,
+    pub giron_min: f64,
+}
+
+impl Default for ReglesDEscalier {
+    fn default() -> Self {
+        ReglesDEscalier {
+            contremarche_max: CONTREMARCHE_VISEE,
+            giron_min: GIRON_VISE,
+        }
+    }
+}
 /// Largeur d'une volée d'un escalier en L, en U ou tournant, en pouces.
 pub const LARGEUR_DE_VOLEE: f64 = 36.0;
 /// Nombre de contremarches permis.
@@ -1533,21 +1576,26 @@ pub struct EscalierCalcule {
     pub contremarche: f64,
     /// Le giron d'un escalier droit : sa profondeur partagée entre ses marches.
     pub giron: Option<f64>,
+    /// Ses règles (évolution 7), et la longueur qu'elles donnent à un escalier
+    /// droit : ses marches, chacune du giron minimal.
+    pub regles: ReglesDEscalier,
+    pub longueur: Option<f64>,
 }
 
 /// Calcule un escalier : `contremarches` inscrites, ou le plus petit nombre
-/// qui donne des contremarches d'au plus 7 1/2 po. Rien si la hauteur n'en
-/// est pas une.
+/// qui donne des contremarches d'au plus la contremarche maximale. Rien si la
+/// hauteur n'en est pas une.
 pub fn calculer_l_escalier(
     forme: FormeDEscalier,
     (_, profondeur): (f64, f64),
     hauteur: f64,
     contremarches: Option<usize>,
+    regles: ReglesDEscalier,
 ) -> Option<EscalierCalcule> {
     if !(hauteur.is_finite() && hauteur > 0.0) {
         return None;
     }
-    let calcule = (hauteur / CONTREMARCHE_VISEE - 1e-9).ceil() as usize;
+    let calcule = (hauteur / regles.contremarche_max - 1e-9).ceil() as usize;
     let n = contremarches
         .filter(|n| CONTREMARCHES_PERMISES.contains(n))
         .unwrap_or(calcule.clamp(
@@ -1560,6 +1608,8 @@ pub fn calculer_l_escalier(
         contremarche: hauteur / n as f64,
         // Un escalier droit a n − 1 marches sur sa profondeur.
         giron: (forme == FormeDEscalier::Droit).then(|| profondeur / (n - 1) as f64),
+        regles,
+        longueur: (forme == FormeDEscalier::Droit).then(|| regles.giron_min * (n - 1) as f64),
     })
 }
 
@@ -2453,22 +2503,57 @@ mod tests {
     #[test]
     fn le_calcul_d_un_escalier() {
         // 8 pi 10 po à monter : 15 contremarches de 7 1/15 po (106 / 15).
-        let droit = calculer_l_escalier(FormeDEscalier::Droit, (36.0, 140.0), 106.0, None).unwrap();
+        let droit = calculer_l_escalier(
+            FormeDEscalier::Droit,
+            (36.0, 140.0),
+            106.0,
+            None,
+            ReglesDEscalier::default(),
+        )
+        .unwrap();
         assert_eq!(droit.contremarches, 15);
         assert!((droit.contremarche - 106.0 / 15.0).abs() < 1e-9);
         // 14 marches sur 140 po : un giron de 10 po.
         assert!((droit.giron.unwrap() - 10.0).abs() < 1e-9);
         // Une hauteur juste divisible ne prend pas de contremarche de trop.
-        let juste = calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 90.0, None).unwrap();
+        let juste = calculer_l_escalier(
+            FormeDEscalier::Droit,
+            (36.0, 120.0),
+            90.0,
+            None,
+            ReglesDEscalier::default(),
+        )
+        .unwrap();
         assert_eq!(juste.contremarches, 12);
         // Le nombre inscrit l'emporte; un nombre déraisonnable est ignoré.
-        let inscrit =
-            calculer_l_escalier(FormeDEscalier::EnL, (72.0, 96.0), 96.0, Some(14)).unwrap();
+        let inscrit = calculer_l_escalier(
+            FormeDEscalier::EnL,
+            (72.0, 96.0),
+            96.0,
+            Some(14),
+            ReglesDEscalier::default(),
+        )
+        .unwrap();
         assert_eq!((inscrit.contremarches, inscrit.giron), (14, None));
-        let ignore =
-            calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 96.0, Some(500)).unwrap();
+        let ignore = calculer_l_escalier(
+            FormeDEscalier::Droit,
+            (36.0, 120.0),
+            96.0,
+            Some(500),
+            ReglesDEscalier::default(),
+        )
+        .unwrap();
         assert_eq!(ignore.contremarches, 13);
-        assert!(calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 0.0, None).is_none());
+        assert!(
+            calculer_l_escalier(
+                FormeDEscalier::Droit,
+                (36.0, 120.0),
+                0.0,
+                None,
+                ReglesDEscalier::default()
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -2478,7 +2563,9 @@ mod tests {
             escalier.forme = forme;
             let dimensions = escalier.dimensions_de_depart();
             assert_eq!(dimensions, forme.dimensions());
-            let calcul = calculer_l_escalier(forme, dimensions, 96.0, None).unwrap();
+            let calcul =
+                calculer_l_escalier(forme, dimensions, 96.0, None, ReglesDEscalier::default())
+                    .unwrap();
             let traits = escalier.traits_sur_le_plan(dimensions, Some(calcul.contremarches));
             assert!(traits.len() >= 8, "{forme:?} : {} traits", traits.len());
             let marches = escalier.marches_en_3d(dimensions, &calcul);
@@ -2505,7 +2592,14 @@ mod tests {
         }
         // Le droit : une marche par contremarche; le colimaçon : son poteau en plus.
         let droit = Objet::nouveau(GenreDObjet::Escalier, (0.0, 0.0));
-        let calcul = calculer_l_escalier(FormeDEscalier::Droit, (36.0, 120.0), 96.0, None).unwrap();
+        let calcul = calculer_l_escalier(
+            FormeDEscalier::Droit,
+            (36.0, 120.0),
+            96.0,
+            None,
+            ReglesDEscalier::default(),
+        )
+        .unwrap();
         assert_eq!(droit.marches_en_3d((36.0, 120.0), &calcul).len(), 13);
         let mut colimacon = droit.clone();
         colimacon.forme = FormeDEscalier::Colimacon;

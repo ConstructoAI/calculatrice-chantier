@@ -1505,6 +1505,34 @@ pub fn etage_pieces_incompletes(nombre: usize) -> String {
     }
 }
 
+/// Les règles d'un escalier du dessin (évolution 7).
+pub const DESSIN_CONTREMARCHE_MAX: Texte = t("Contremarche maximale", "Maximum riser");
+pub const DESSIN_GIRON_MIN: Texte = t("Giron minimal", "Minimum tread");
+
+/// Le bouton de la contremarche maximale : « Contremarche max. 7 1/2 po ».
+pub fn contremarche_max_en_clair(valeur: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Contremarche max. {valeur}"),
+        Langue::Anglais => format!("Max. riser {valeur}"),
+    }
+}
+
+/// Le bouton du giron minimal : « Giron min. 10 po ».
+pub fn giron_min_en_clair(valeur: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Giron min. {valeur}"),
+        Langue::Anglais => format!("Min. tread {valeur}"),
+    }
+}
+
+/// Un giron plus court que le giron minimal, d'une profondeur inscrite.
+pub fn giron_trop_court(giron: &str) -> String {
+    match langue::en_cours() {
+        Langue::Francais => format!("Giron {giron} : plus court que le giron minimal"),
+        Langue::Anglais => format!("Tread {giron}: shorter than the minimum tread"),
+    }
+}
+
 /// La visite 3D à hauteur d'œil (évolution 10).
 pub const DESSIN_VISITE: Texte = t("Visite", "Walk");
 pub const DESSIN_VISITE_NOM: Texte = t("Visite à hauteur d'œil", "Walk through at eye level");

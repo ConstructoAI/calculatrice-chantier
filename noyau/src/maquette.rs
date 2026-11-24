@@ -259,7 +259,13 @@ pub fn maquette(dessin: &Dessin, solution: &Solution) -> Option<Maquette> {
             // Ses marches et ses paliers, selon sa forme et son calcul (R-101).
             let genre = GenreDeFace::Meuble(Matiere::Bois);
             let calcul = solution.escaliers.get(rang).copied().flatten().or_else(|| {
-                crate::mobilier::calculer_l_escalier(objet.forme, dimensions, hauteur, None)
+                crate::mobilier::calculer_l_escalier(
+                    objet.forme,
+                    dimensions,
+                    hauteur,
+                    None,
+                    objet.regles_d_escalier(),
+                )
             });
             for marche in calcul
                 .map(|calcul| objet.marches_en_3d(dimensions, &calcul))

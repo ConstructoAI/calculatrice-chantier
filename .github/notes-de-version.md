@@ -162,6 +162,9 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Visite 3D à hauteur d'œil** : dans la vue 3D, « Visite » met l'œil dans la pièce à 5 pi
   6 po; glisser de côté tourne, glisser vers le haut avance.
 
+- **Escalier calculé** : la contremarche maximale et le giron minimal de l'escalier du dessin
+  se modifient; un escalier droit prend la longueur de ses marches.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

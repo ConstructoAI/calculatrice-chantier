@@ -383,6 +383,9 @@ enum ChampDObjet {
     Profondeur,
     Hauteur,
     Contremarches,
+    /// La contremarche maximale et le giron minimal d'un escalier (évolution 7).
+    ContremarcheMax,
+    GironMin,
 }
 
 /// Une mesure d'une porte ou d'une fenêtre.
@@ -6197,6 +6200,18 @@ fn autre_mesure(
                     &mut objet.contremarches,
                     textes::DESSIN_CONTREMARCHES,
                     escalier.map_or(String::new(), |e| e.contremarches.to_string()),
+                    Some(AutreSaisie::Objet(rang, ChampDObjet::ContremarcheMax)),
+                ),
+                ChampDObjet::ContremarcheMax => (
+                    &mut objet.contremarche_max,
+                    textes::DESSIN_CONTREMARCHE_MAX,
+                    en_clair(noyau::mobilier::CONTREMARCHE_VISEE),
+                    Some(AutreSaisie::Objet(rang, ChampDObjet::GironMin)),
+                ),
+                ChampDObjet::GironMin => (
+                    &mut objet.giron_min,
+                    textes::DESSIN_GIRON_MIN,
+                    en_clair(noyau::mobilier::GIRON_VISE),
                     None,
                 ),
             };
@@ -7300,6 +7315,24 @@ fn objets(
                             ChampDObjet::Contremarches,
                             textes::contremarches_en_clair(calcul.contremarches, &contremarche),
                         ),
+                        // Ses règles (évolution 7) : la longueur d'un escalier droit
+                        // en découle.
+                        (
+                            ChampDObjet::ContremarcheMax,
+                            textes::contremarche_max_en_clair(&longueur_en_clair(
+                                calcul.regles.contremarche_max,
+                                solution,
+                                prefs,
+                            )),
+                        ),
+                        (
+                            ChampDObjet::GironMin,
+                            textes::giron_min_en_clair(&longueur_en_clair(
+                                calcul.regles.giron_min,
+                                solution,
+                                prefs,
+                            )),
+                        ),
                     ] {
                         let cible = AutreSaisie::Objet(rang, champ);
                         if ui
@@ -7313,9 +7346,14 @@ fn objets(
                         }
                     }
                     if let Some(giron) = calcul.giron {
-                        ui.label(textes::giron_en_clair(&longueur_en_clair(
-                            giron, solution, prefs,
-                        )));
+                        let texte = longueur_en_clair(giron, solution, prefs);
+                        if giron < calcul.regles.giron_min - 1e-6 {
+                            ui.label(
+                                RichText::new(textes::giron_trop_court(&texte)).color(p.erreur),
+                            );
+                        } else {
+                            ui.label(textes::giron_en_clair(&texte));
+                        }
                     }
                 }
             }
