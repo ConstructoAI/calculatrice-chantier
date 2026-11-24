@@ -153,6 +153,27 @@ fn normale_exterieure(a: (f64, f64), b: (f64, f64), centre: (f64, f64)) -> (f64,
     (nx, ny)
 }
 
+/// La normale qui sort du côté `ab` d'un polygone, d'après le sens où il
+/// tourne (le signe de son aire) : juste aussi pour les côtés rentrants d'une
+/// pièce en L, où le centre de la forme tromperait.
+fn normale_vers_le_dehors(a: (f64, f64), b: (f64, f64), aire_signee: f64) -> (f64, f64) {
+    let longueur = (b.0 - a.0).hypot(b.1 - a.1).max(1e-12);
+    let (dx, dy) = ((b.0 - a.0) / longueur, (b.1 - a.1) / longueur);
+    if aire_signee >= 0.0 {
+        (dy, -dx)
+    } else {
+        (-dy, dx)
+    }
+}
+
+/// L'aire signée d'une suite de sommets qui se referme.
+fn aire_signee_de(sommets: &[(f64, f64)]) -> f64 {
+    sommets
+        .windows(2)
+        .map(|s| s[0].0 * s[1].1 - s[1].0 * s[0].1)
+        .sum()
+}
+
 /// Les espaces insécables des valeurs affichées deviennent des espaces.
 fn sans_insecables(texte: &str) -> String {
     texte
@@ -1212,45 +1233,50 @@ fn page_de_piece(
         page.texte((MARGE, 350.0), 9.5, false, Alignement::Gauche, ORANGE, avis);
     }
 
-    // Les résultats.
+    // Les résultats, puis les côtés : sur une page trop pleine, leurs lignes
+    // se resserrent et leurs textes rapetissent, plutôt que d'être coupés.
+    let rangees_des_cotes = if piece.cotes.len() > 8 {
+        piece.cotes.len().div_ceil(2)
+    } else {
+        piece.cotes.len().max(1)
+    };
+    let besoin = piece.resultats.len() as f64 * 17.0 + 23.0 + rangees_des_cotes as f64 * 13.5;
+    let serre = ((318.0 - 54.0) / besoin).min(1.0);
+    let taille = 11.0 * serre.max(0.7);
     let mut y = 318.0;
     let largeur_des_libelles = piece
         .resultats
         .iter()
-        .map(|(libelle, _)| largeur_du_texte(libelle, true) * 11.0 / 1000.0)
+        .map(|(libelle, _)| largeur_du_texte(libelle, true) * taille / 1000.0)
         .fold(0.0, f64::max);
     for (libelle, valeur) in &piece.resultats {
-        page.texte((MARGE, y), 11.0, true, Alignement::Gauche, NOIR, libelle);
+        page.texte((MARGE, y), taille, true, Alignement::Gauche, NOIR, libelle);
         page.texte(
             (MARGE + largeur_des_libelles + 12.0, y),
-            11.0,
+            taille,
             false,
             Alignement::Gauche,
             NOIR,
             valeur,
         );
-        y -= 17.0;
+        y -= 17.0 * serre;
     }
 
     // Les côtés, sur deux colonnes s'il y en a beaucoup.
-    y -= 8.0;
+    y -= 8.0 * serre;
     page.texte(
         (MARGE, y),
-        11.0,
+        taille,
         true,
         Alignement::Gauche,
         NOIR,
         textes::DESSIN_EXPORT_COTES.traduit(),
     );
-    y -= 15.0;
-    let par_colonne = if piece.cotes.len() > 8 {
-        piece.cotes.len().div_ceil(2)
-    } else {
-        piece.cotes.len().max(1)
-    };
+    y -= 15.0 * serre;
+    let par_colonne = rangees_des_cotes;
     for (i, (texte, deduite)) in piece.cotes.iter().enumerate() {
         let x = MARGE + (i / par_colonne) as f64 * 250.0;
-        let y_ligne = y - (i % par_colonne) as f64 * 13.5;
+        let y_ligne = y - (i % par_colonne) as f64 * 13.5 * serre;
         if y_ligne < 60.0 {
             continue;
         }
@@ -1899,14 +1925,7 @@ fn dessiner_le_plan(
     if let Some((a, b)) = piece.rue {
         let (a, b) = (vers_la_page(a), vers_la_page(b));
         let milieu = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
-        let centre = points
-            .iter()
-            .fold((0.0, 0.0), |(x, y), q| (x + q.0, y + q.1));
-        let centre = (
-            centre.0 / points.len().max(1) as f64,
-            centre.1 / points.len().max(1) as f64,
-        );
-        let (nx, ny) = normale_exterieure(a, b, centre);
+        let (nx, ny) = normale_vers_le_dehors(a, b, aire_signee_de(&points));
         page.texte(
             (milieu.0 + nx * 28.0, milieu.1 + ny * 28.0 - 3.0),
             9.0,
@@ -2017,7 +2036,7 @@ fn dessiner_le_plan(
             (segment[0].1 + segment[1].1) / 2.0,
         );
         // La page a l'axe des y vers le haut.
-        let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
+        let (nx, ny) = normale_vers_le_dehors(segment[0], segment[1], aire_signee_de(&points));
         // La mesure s'écrit hors du mur, à son épaisseur.
         let milieu = (
             milieu.0 + nx * epaisseur_des_murs.max(0.0),
@@ -2452,7 +2471,11 @@ fn page_de_l_etage(
                 .map(move |point| place.vers_l_etage(point))
         })
         .collect();
-    let vers_la_page = ajuster(&points, (MARGE, 90.0, LARGEUR_PAGE - MARGE, 690.0));
+    // La place des mesures et des cotes des murs extérieurs, autour (point 57).
+    let vers_la_page = ajuster(
+        &points,
+        (MARGE + 64.0, 110.0, LARGEUR_PAGE - MARGE - 64.0, 666.0),
+    );
     for piece in &placees {
         let place = piece.place.unwrap_or_default();
         let vers = |point: (f64, f64)| vers_la_page(place.vers_l_etage(point));
@@ -2461,8 +2484,8 @@ fn page_de_l_etage(
     // Les noms et les surfaces, par-dessus.
     for piece in &placees {
         let place = piece.place.unwrap_or_default();
-        let (x0, y0, x1, y1) = etendue(&piece.sommets);
-        let centre = vers_la_page(place.vers_l_etage(((x0 + x1) / 2.0, (y0 + y1) / 2.0)));
+        let centre =
+            vers_la_page(place.vers_l_etage(noyau::espaces::point_interieur(&piece.sommets)));
         page.texte(
             (centre.0, centre.1 + 3.0),
             9.5,
@@ -2494,7 +2517,9 @@ fn page_du_plan(
     total: usize,
 ) -> Page {
     let mut page = Page::default();
-    en_tete_de_page(&mut page, &textes::dessin_export_plan(pieces.len()), entete);
+    // Le titre compte les pièces, pas un terrain.
+    let nombre = pieces.iter().filter(|piece| !piece.terrain).count();
+    en_tete_de_page(&mut page, &textes::dessin_export_plan(nombre), entete);
     let colonnes = [MARGE, 300.0, 440.0];
     let mut y = 688.0;
     for (x, titre) in colonnes.iter().zip([
@@ -2527,7 +2552,10 @@ fn page_du_plan(
         );
         match (piece.aire_nette, piece.perimetre) {
             (Some(aire), Some(perimetre)) => {
-                somme += aire;
+                // Un terrain se liste, mais n'entre pas dans le total des pièces.
+                if !piece.terrain {
+                    somme += aire;
+                }
                 let aire = sans_insecables(&Quantite::Aire(aire).en_clair(piece.modele, prefs));
                 let perimetre =
                     sans_insecables(&Quantite::Longueur(perimetre).en_clair(piece.modele, prefs));
@@ -3528,7 +3556,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
                 (segment[0].0 + segment[1].0) / 2.0,
                 (segment[0].1 + segment[1].1) / 2.0,
             );
-            let (nx, ny) = normale_exterieure(segment[0], segment[1], centre);
+            let (nx, ny) = normale_vers_le_dehors(segment[0], segment[1], aire_signee_de(&points));
             // La mesure s'écrit hors du mur, à son épaisseur.
             let epaisseur = piece.epaisseur_des_murs.max(0.0) * facteur;
             let milieu = (milieu.0 + nx * epaisseur, milieu.1 + ny * epaisseur);
@@ -3626,11 +3654,7 @@ pub fn dxf_du_plan(plan: &Plan, prefs: &Preferences) -> Option<String> {
             ),
             None => piece.nom.clone(),
         };
-        let (x0, x1, y0, y1) = piece.sommets.iter().fold(
-            (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
-            |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
-        );
-        let position = vers_le_dxf(((x0 + x1) / 2.0, (y0 + y1) / 2.0));
+        let position = vers_le_dxf(noyau::espaces::point_interieur(&piece.sommets));
         texte_dans_le_dxf(
             &mut entites,
             "PIECES",

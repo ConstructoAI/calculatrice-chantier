@@ -168,6 +168,10 @@ metric, with a keypad that adapts to your trade. Tap **EN** in the top bar.*
 - **Cotations automatiques** : les lignes de cote des murs, des portes, des fenêtres et des
   cloisons se montrent d'elles-mêmes (« Cotes » les cache), et l'étage cote ses murs extérieurs.
 
+- **Plan d'exemple** : une maison complète et son terrain s'ouvrent une première fois dans
+  l'onglet Dessin, pour montrer ce qu'il fait et ses limites; « Plan d'exemple », dans « Mes
+  dessins », le rouvre.
+
 ## Nouveautés de la version 0.12
 
 - **Photos et pièces jointes dans le bloc-notes** : sous le texte d'une note, **+ Photo** joint

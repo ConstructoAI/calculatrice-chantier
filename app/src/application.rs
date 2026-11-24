@@ -328,8 +328,9 @@ impl Application {
         // La bibliothèque des dessins; le plan de travail lui appartient. Un
         // plan d'avant la bibliothèque y entre comme un premier dessin.
         let mut dessins = stockage::charger_dessins(&depot);
-        let dessins_a_sauvegarder = !courant.is_some_and(|id| dessins.iter().any(|d| d.id == id));
-        let dessin_courant = match courant.filter(|id| dessins.iter().any(|d| d.id == *id)) {
+        let mut dessins_a_sauvegarder =
+            !courant.is_some_and(|id| dessins.iter().any(|d| d.id == id));
+        let mut dessin_courant = match courant.filter(|id| dessins.iter().any(|d| d.id == *id)) {
             Some(id) => id,
             None => {
                 let (date, _) = stockage::maintenant();
@@ -352,6 +353,31 @@ impl Application {
                 langue,
                 &chargement.etat.preferences,
             );
+        }
+        // Le plan d'exemple (point 58) : il s'ouvre de lui-même une première
+        // fois, comme un dessin de plus; un premier dessin resté vide lui laisse
+        // sa place. Les dessins de l'utilisateur restent dans « Mes dessins ».
+        let exemple_ajoute =
+            !chargement.etat.preferences.exemple_ouvert && dessins.len() < MAX_DESSINS;
+        if exemple_ajoute {
+            if dessins.len() == 1 && stockage::plan_est_vide(&dessins[0].plan) {
+                dessins.clear();
+            }
+            let exemple = crate::exemple::plan_d_exemple();
+            let (date, _) = stockage::maintenant();
+            let id = nouveau_numero(dessins.iter().map(|d| d.id));
+            dessins.push(DessinEnregistre {
+                id,
+                nom: textes::NOM_DU_PLAN_D_EXEMPLE.traduit().to_string(),
+                cree: date.clone(),
+                modifie: date,
+                langue,
+                plan: exemple.clone(),
+            });
+            dessin_courant = id;
+            plan = exemple;
+            dessins_a_sauvegarder = true;
+            chargement.etat.preferences.exemple_ouvert = true;
         }
         // Des saisies écrites dans l'autre langue sont récrites dans celle-ci.
         let saisies_a_sauvegarder = langue_des_saisies != langue;
@@ -397,7 +423,7 @@ impl Application {
             carnet_a_sauvegarder: false,
             outil_a_montrer: true,
             fugace: None,
-            a_sauvegarder: chargement.illisible,
+            a_sauvegarder: chargement.illisible || exemple_ajoute,
             // Le premier changement est enregistré sans attendre.
             derniere_sauvegarde: f64::NEG_INFINITY,
             echec_d_ecriture_signale: false,
@@ -1414,6 +1440,24 @@ impl Application {
             A::Nouveau if self.dessin_courant_inutilise() => self.liste_des_dessins = false,
             A::Nouveau => {
                 let id = self.ajouter_un_dessin_vide();
+                self.ouvrir_le_dessin(id);
+            }
+            A::Exemple if self.dessins.len() >= MAX_DESSINS => {
+                self.dialogue = Dialogue::Avis(textes::AVIS_TROP_DE_DESSINS);
+            }
+            // Le plan d'exemple (point 58), dans un dessin à lui.
+            A::Exemple => {
+                self.synchroniser_le_dessin_courant();
+                let (date, _) = stockage::maintenant();
+                let id = nouveau_numero(self.dessins.iter().map(|d| d.id));
+                self.dessins.push(DessinEnregistre {
+                    id,
+                    nom: textes::NOM_DU_PLAN_D_EXEMPLE.traduit().to_string(),
+                    cree: date.clone(),
+                    modifie: date,
+                    langue: self.moteur.preferences().langue,
+                    plan: crate::exemple::plan_d_exemple(),
+                });
                 self.ouvrir_le_dessin(id);
             }
             A::OuvrirUnFichier => {

@@ -9,6 +9,7 @@ mod afficheur;
 mod aide;
 mod application;
 mod clavier;
+mod exemple;
 mod exportation;
 #[cfg(test)]
 mod manuel;

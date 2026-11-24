@@ -269,8 +269,9 @@ pub fn dedans((x, y): (f64, f64), polygone: &[(f64, f64)]) -> bool {
 }
 
 /// Un point bien à l'intérieur d'un polygone, même concave : parmi une grille
-/// de points, celui qui est le plus loin de ses côtés.
-fn point_interieur(polygone: &[(f64, f64)]) -> (f64, f64) {
+/// de points, celui qui est le plus loin de ses côtés. Le nom d'une pièce
+/// en L s'y écrit, dans l'étage, au lieu du milieu de son étendue.
+pub fn point_interieur(polygone: &[(f64, f64)]) -> (f64, f64) {
     let (x0, x1, y0, y1) = polygone.iter().fold(
         (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
         |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),

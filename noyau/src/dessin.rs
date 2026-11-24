@@ -1685,6 +1685,8 @@ impl Plan {
     pub fn total(&self, defaut: Format) -> (f64, usize) {
         self.pieces
             .iter()
+            // Un terrain n'est pas une pièce (évolution 29).
+            .filter(|piece| !piece.dessin.terrain)
             .filter_map(|piece| piece.dessin.resoudre(defaut).aire_nette())
             .fold((0.0, 0), |(somme, nombre), aire| (somme + aire, nombre + 1))
     }

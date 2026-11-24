@@ -2923,11 +2923,15 @@ fn planche_de_l_etage(
             .resoudre(FORMAT_PAR_DEFAUT)
             .modele;
         let choisie = piece.rang == plan.courante;
-        let (x0, x1, y0, y1) = piece.interieur.iter().fold(
-            (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
-            |(x0, x1, y0, y1), &(x, y)| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
-        );
-        let milieu = echelle.vers_l_ecran(((x0 + x1) / 2.0, (y0 + y1) / 2.0));
+        let (x0, x1) = piece
+            .interieur
+            .iter()
+            .fold((f64::MAX, f64::MIN), |(x0, x1), &(x, _)| {
+                (x0.min(x), x1.max(x))
+            });
+        // Au point intérieur : le milieu de l'étendue d'une pièce en L peut
+        // tomber dans une voisine.
+        let milieu = echelle.vers_l_ecran(noyau::espaces::point_interieur(&piece.interieur));
         let largeur = (x1 - x0) as f32 * echelle.facteur - 8.0;
         texte_qui_tient(
             &painter,
@@ -3132,7 +3136,12 @@ fn section_de_l_etage(
                 .color(p.titre),
         );
     });
-    let absentes = plan.pieces.len() - pieces.len();
+    let absentes = plan
+        .pieces
+        .iter()
+        .filter(|piece| !piece.dessin.terrain)
+        .count()
+        .saturating_sub(pieces.len());
     if absentes > 0 {
         ui.horizontal(|ui| {
             ui.add_space(10.0);

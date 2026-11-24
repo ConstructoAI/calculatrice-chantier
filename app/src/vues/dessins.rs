@@ -17,6 +17,8 @@ pub enum Action {
     Nouveau,
     /// Rouvrir un dessin enregistré en fichier.
     OuvrirUnFichier,
+    /// Ouvrir le plan d'exemple dans un dessin à lui (point 58).
+    Exemple,
     Ouvrir(u64),
     Renommer(u64),
     /// L'enregistrer en fichier.
@@ -53,6 +55,9 @@ pub fn afficher(
             }
             if ui.button(textes::OUVRIR_UN_FICHIER.traduit()).clicked() {
                 action = Some(Action::OuvrirUnFichier);
+            }
+            if ui.button(textes::PLAN_D_EXEMPLE.traduit()).clicked() {
+                action = Some(Action::Exemple);
             }
         });
         ui.add_space(4.0);

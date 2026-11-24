@@ -871,6 +871,9 @@ pub fn nom_de_copie(nom: &str) -> String {
 // Mes dessins : la bibliothèque des dessins (section 25)
 pub const MES_DESSINS: Texte = t("Mes dessins", "My drawings");
 pub const NOUVEAU_DESSIN: Texte = t("+ Nouveau dessin", "+ New drawing");
+/// Le plan d'exemple (section 25.1, point 58).
+pub const PLAN_D_EXEMPLE: Texte = t("Plan d'exemple", "Example plan");
+pub const NOM_DU_PLAN_D_EXEMPLE: Texte = t("Exemple : maison complète", "Example: complete house");
 pub const OUVRIR_UN_FICHIER: Texte = t("Ouvrir un fichier…", "Open a file…");
 pub const ENREGISTRER_LE_FICHIER: Texte = t("Enregistrer le fichier", "Save as a file");
 pub const DESSIN_OUVERT: Texte = t("ouvert", "open");

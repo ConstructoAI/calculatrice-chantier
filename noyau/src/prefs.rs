@@ -90,6 +90,9 @@ pub struct Preferences {
     /// Mode chantier (section 16.7) : contraste élevé, et les touches du bas
     /// plus grosses, jusqu'au bas de l'écran. Il passe avant le thème.
     pub mode_chantier: bool,
+    /// Vrai quand le plan d'exemple s'est déjà ouvert de lui-même (section
+    /// 25.1, point 58) : il ne s'ajoute plus aux dessins.
+    pub exemple_ouvert: bool,
     /// Le projet écrit sur les rapports de calcul (section 22.18); vide : aucun.
     pub projet: String,
     /// Les angles du niveau sur sa surface de référence (section 22.22) :
@@ -125,6 +128,7 @@ impl Default for Preferences {
             plein_ecran: false,
             theme: Theme::Automatique,
             mode_chantier: false,
+            exemple_ouvert: false,
             projet: String::new(),
             etalon_niveau: [0.0; 2],
             resolution: 16,
